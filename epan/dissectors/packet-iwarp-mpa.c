@@ -16,6 +16,7 @@
 
 #include <epan/packet.h>
 #include <epan/unit_strings.h>
+#include <epan/tfs.h>
 #include <epan/expert.h>
 #include <epan/crc32-tvb.h>
 #include <wsutil/crc32.h>
@@ -60,12 +61,21 @@ void proto_reg_handoff_mpa(void);
 #define	MPA_MARKER_FLAG 0x80
 #define MPA_CRC_FLAG 0x40
 #define MPA_REJECT_FLAG 0x20
-#define MPA_RESERVED_FLAG 0x1F
+#define MPA_ENHANCED_RDMA 0x10
+#define MPA_RESERVED_FLAG 0x0F
+
+#define MPA_ENHANCED_CONTROL_A 0x80
+#define MPA_ENHANCED_CONTROL_B 0x40
+#define MPA_ENHANCED_IRD_MASK 0x3FFF
+#define MPA_ENHANCED_CONTROL_C 0x80
+#define MPA_ENHANCED_CONTROL_D 0x40
+#define MPA_ENHANCED_ORD_MASK 0x3FFF
 
 /* GLOBALS */
 
 /* initialize the protocol and registered fields */
 static int proto_iwarp_mpa;
+static dissector_handle_t iwarp_mpa_handle;
 
 static int hf_mpa_req;
 static int hf_mpa_rep;
@@ -77,10 +87,23 @@ static int hf_mpa_key_rep;
 static int hf_mpa_flag_m;
 static int hf_mpa_flag_c;
 static int hf_mpa_flag_r;
+static int hf_mpa_flag_s;
 static int hf_mpa_flag_res;
 static int hf_mpa_rev;
 static int hf_mpa_pd_length;
 static int hf_mpa_private_data;
+static int hf_mpa_enhanced;
+static int hf_mpa_enhanced_a;
+static int hf_mpa_enhanced_b;
+static int hf_mpa_enhanced_ird;
+static int hf_mpa_enhanced_c;
+static int hf_mpa_enhanced_d;
+static int hf_mpa_enhanced_ord;
+
+static int hf_mpa_legacy;
+static int hf_mpa_legacy_broken;
+static int hf_mpa_legacy_ird;
+static int hf_mpa_legacy_ord;
 
 static int hf_mpa_ulpdu_length;
 static int hf_mpa_pad;
@@ -97,6 +120,8 @@ static int ett_mpa_req;
 static int ett_mpa_rep;
 static int ett_mpa_fpdu;
 static int ett_mpa_marker;
+static int ett_mpa_enhanced;
+static int ett_mpa_legacy;
 
 static expert_field ei_mpa_res_field_not_set0;
 static expert_field ei_mpa_rev_field_not_set1;
@@ -111,6 +136,26 @@ static const value_string mpa_messages[] = {
 		{ MPA_REPLY_FRAME, "MPA Reply Frame" },
 		{ MPA_FPDU, "MPA FPDU" },
 		{ 0, NULL }
+};
+
+static const true_false_string tfs_mpa_enhanced_a = {
+	"Peer-To-Peer Connection Model",
+	"Client-To-Server Connection Model",
+};
+
+static const true_false_string tfs_mpa_enhanced_b = {
+	"Zero-Length FULPDU (Send) RTR Indication",
+	"No Zero-Length FULPDU (Send) RTR Indication",
+};
+
+static const true_false_string tfs_mpa_enhanced_c = {
+	"Zero-Length RDMA Write RTR Indication",
+	"No Zero-Length RDMA Write RTR Indication",
+};
+
+static const true_false_string tfs_mpa_enhanced_d = {
+	"Zero-Length RDMA Read RTR Indication",
+	"No Zero-Length RDMA Read RTR Indication",
 };
 
 /*
@@ -158,7 +203,7 @@ typedef struct minfo minfo_t;
  * The two MPA endpoints are called Initiator, the sender of the MPA Request,
  * and Responder, the sender of the MPA Reply.
  *
- * @full_operation: true if is this state is valid and FLASE otherwise.
+ * @full_operation: true if is this state is valid and FALSE otherwise.
  * @req_frame_num: Frame number of the MPA Request to distinguish this frame
  * 		   from later FPDUs.
  * @rep_frame_num: Frame number of the MPA Reply to distinguish this frame
@@ -172,7 +217,7 @@ typedef struct minfo minfo_t;
  * 		   a FPDU.
  * 		   minfo[0] is used for the Initiator endpoint
  * 		   minfo[1] is used for the Responder endpoint
- * @crc:	   true if CRC is used by both endpoints and FLASE otherwise.
+ * @crc:	   true if CRC is used by both endpoints and FALSE otherwise.
  * @revision:	   Stores the MPA protocol revision number.
  */
 struct mpa_state {
@@ -317,7 +362,7 @@ remove_markers(tvbuff_t *tvb, packet_info *pinfo, uint32_t marker_offset,
 	return mfree_tvb;
 }
 
-/* returns true if this TCP segment carries a MPA REQUEST and FLASE otherwise */
+/* returns true if this TCP segment carries a MPA REQUEST and FALSE otherwise */
 static bool
 is_mpa_req(tvbuff_t *tvb, packet_info *pinfo)
 {
@@ -438,7 +483,7 @@ mpa_packetlist(packet_info *pinfo, int message_type)
 
 	col_add_fstr(pinfo->cinfo, COL_INFO,
 				"%d > %d %s", pinfo->srcport, pinfo->destport,
-				val_to_str(message_type, mpa_messages,
+				val_to_str(pinfo->pool, message_type, mpa_messages,
 						"Unknown %d"));
 }
 
@@ -453,6 +498,7 @@ dissect_mpa_req_rep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	proto_item *mpa_item = NULL;
 	proto_item *mpa_header_item = NULL;
 
+	uint8_t flags = 0;
 	uint16_t pd_length;
 	uint32_t offset = 0;
 
@@ -467,7 +513,7 @@ dissect_mpa_req_rep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			mpa_header_item = proto_tree_add_item(mpa_tree,
 					hf_mpa_req, tvb, offset, -1, ENC_NA);
 			mpa_header_tree = proto_item_add_subtree(
-					mpa_header_item, ett_mpa);
+					mpa_header_item, ett_mpa_req);
 			proto_tree_add_item(mpa_header_tree, hf_mpa_key_req,
 					tvb, offset, MPA_REQ_REP_KEY_LEN, ENC_NA);
 		}
@@ -476,17 +522,20 @@ dissect_mpa_req_rep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			mpa_header_item = proto_tree_add_item(mpa_tree,
 					hf_mpa_rep, tvb, offset, -1, ENC_NA);
 			mpa_header_tree = proto_item_add_subtree(
-					mpa_header_item, ett_mpa);
+					mpa_header_item, ett_mpa_rep);
 			proto_tree_add_item(mpa_header_tree, hf_mpa_key_rep,
 					tvb, offset, MPA_REQ_REP_KEY_LEN, ENC_NA);
 		}
 		offset += MPA_REQ_REP_KEY_LEN;
 
+		flags = tvb_get_uint8(tvb, offset);
 		proto_tree_add_item(mpa_header_tree, hf_mpa_flag_m, tvb,
 				offset, MPA_REQ_REP_FLAG_LEN, ENC_BIG_ENDIAN);
 		proto_tree_add_item(mpa_header_tree, hf_mpa_flag_c, tvb,
 				offset, MPA_REQ_REP_FLAG_LEN, ENC_BIG_ENDIAN);
 		proto_tree_add_item(mpa_header_tree, hf_mpa_flag_r, tvb,
+				offset, MPA_REQ_REP_FLAG_LEN, ENC_BIG_ENDIAN);
+		proto_tree_add_item(mpa_header_tree, hf_mpa_flag_s, tvb,
 				offset, MPA_REQ_REP_FLAG_LEN, ENC_BIG_ENDIAN);
 		proto_tree_add_item(mpa_header_tree, hf_mpa_flag_res, tvb,
 				offset, MPA_REQ_REP_FLAG_LEN, ENC_BIG_ENDIAN);
@@ -504,15 +553,96 @@ dissect_mpa_req_rep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			return false;
 		}
 
+		if (pd_length >= 4 && flags & MPA_ENHANCED_RDMA) {
+			pd_length -= 4;
+		} else {
+			flags &= ~MPA_ENHANCED_RDMA;
+		}
+
 		proto_tree_add_uint(mpa_header_tree,
 				hf_mpa_pd_length, tvb, offset,
 				MPA_REQ_REP_PDLENGTH_LEN, pd_length);
 		offset += MPA_REQ_REP_PDLENGTH_LEN;
 
+		if (flags & MPA_ENHANCED_RDMA) {
+			proto_item *enhanced_item = NULL;
+			proto_tree *enhanced_tree = NULL;
+
+			enhanced_item = proto_tree_add_item(mpa_header_tree,
+							    hf_mpa_enhanced,
+							    tvb,
+							    offset, 4,
+							    ENC_NA);
+			enhanced_tree = proto_item_add_subtree(
+					enhanced_item, ett_mpa_enhanced);
+
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_a,
+					    tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_b,
+					    tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_ird,
+					    tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset += 2;
+
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_c,
+					    tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_d,
+					    tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item(enhanced_tree, hf_mpa_enhanced_ord,
+					    tvb, offset, 2, ENC_BIG_ENDIAN);
+			offset += 2;
+		}
+
 		if (pd_length) {
 			proto_tree_add_item(mpa_header_tree,
 					hf_mpa_private_data, tvb, offset,
 					pd_length, ENC_NA);
+		}
+
+		/*
+		 * Display the legacy IRD/ORD negotiation from
+		 * [MS-SMBD] 6 Appendix A: RDMA Provider IRD/ORD Negotiation
+		 */
+		if (pd_length == 8 &&
+		    tvb_get_ntohl(tvb, offset+0) <= 0x3FFF &&
+		    tvb_get_ntohl(tvb, offset+4) <= 0x3FFF)
+		{
+			proto_item *legacy_item = NULL;
+			proto_tree *legacy_tree = NULL;
+
+			legacy_item = proto_tree_add_item(mpa_header_tree,
+							  hf_mpa_legacy,
+							  tvb,
+							  offset, 8,
+							  ENC_NA);
+			legacy_tree = proto_item_add_subtree(legacy_item,
+							     ett_mpa_legacy);
+			proto_tree_add_item(legacy_tree, hf_mpa_legacy_ird,
+					    tvb, offset+0, 4, ENC_BIG_ENDIAN);
+			proto_tree_add_item(legacy_tree, hf_mpa_legacy_ord,
+					    tvb, offset+4, 4, ENC_BIG_ENDIAN);
+		}
+		/*
+		 * Broken version using little endian
+		 */
+		if (pd_length == 8 &&
+		    tvb_get_letohl(tvb, offset+0) <= 0x3FFF &&
+		    tvb_get_letohl(tvb, offset+4) <= 0x3FFF)
+		{
+			proto_item *legacy_item = NULL;
+			proto_tree *legacy_tree = NULL;
+
+			legacy_item = proto_tree_add_item(mpa_header_tree,
+							  hf_mpa_legacy_broken,
+							  tvb,
+							  offset, 8,
+							  ENC_NA);
+			legacy_tree = proto_item_add_subtree(legacy_item,
+							     ett_mpa_legacy);
+			proto_tree_add_item(legacy_tree, hf_mpa_legacy_ird,
+					    tvb, offset+0, 4, ENC_LITTLE_ENDIAN);
+			proto_tree_add_item(legacy_tree, hf_mpa_legacy_ord,
+					    tvb, offset+4, 4, ENC_LITTLE_ENDIAN);
 		}
 	}
 	return true;
@@ -596,7 +726,7 @@ dissect_fpdu_markers(tvbuff_t *tvb, proto_tree *tree, mpa_state_t *state,
 
 	mpa_marker_item = proto_tree_add_item(tree, hf_mpa_marker, tvb,
 			0, -1, ENC_NA);
-	mpa_marker_tree = proto_item_add_subtree(mpa_marker_item, ett_mpa);
+	mpa_marker_tree = proto_item_add_subtree(mpa_marker_item, ett_mpa_marker);
 
 	offset = get_first_marker_offset(state, tcpinfo, endpoint);
 
@@ -707,7 +837,7 @@ dissect_mpa_fpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		mpa_header_item = proto_tree_add_item(mpa_tree, hf_mpa_fpdu,
 				tvb, offset, -1, ENC_NA);
 		mpa_header_tree = proto_item_add_subtree(mpa_header_item,
-				ett_mpa);
+				ett_mpa_fpdu);
 
 		/* ULPDU Length header field */
 		proto_tree_add_uint(mpa_header_tree,
@@ -927,15 +1057,80 @@ dissect_iwarp_mpa_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
 	return len;
 }
 
+static int
+dissect_iwarp_mpa_decode(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+	conversation_t *conversation = NULL;
+	struct tcpinfo *tcpinfo = NULL;
+	mpa_state_t *state = NULL;
+	bool is_mpa_req_rep = false;
+	port_type saved_ptype = pinfo->ptype;
+
+	if (data == NULL)
+		return 0;
+	tcpinfo = (struct tcpinfo *)data;
+
+	/* Set the port type for this packet to be iWarp MPA */
+	pinfo->ptype = PT_IWARP_MPA;
+
+	/* MPA REQUEST or MPA REPLY */
+	if (tvb_captured_length(tvb) >= MPA_REQ_REP_FRAME_HEADER_LEN) {
+		if (is_mpa_req(tvb, pinfo)) {
+			is_mpa_req_rep = true;
+		} else if (is_mpa_rep(tvb, pinfo)) {
+			is_mpa_req_rep = true;
+		}
+	}
+
+	if (is_mpa_req_rep) {
+		/*
+		 * The MPA REQ and REP are in the
+		 * capture so just decode it.
+		 */
+		goto decode;
+	}
+
+	conversation = find_or_create_conversation(pinfo);
+	state = get_mpa_state(conversation);
+	if (state) {
+		/*
+		 * The MPA REQ and REP are in the
+		 * capture or we were below before...
+		 */
+		goto decode;
+	}
+
+	/*
+	 * The start of the iwarp tcp connection
+	 * is not captured, so we have to fake
+	 * the state for a connection without
+	 * the marker bits negotiated
+	 */
+	state = init_mpa_state();
+	state->minfo[MPA_INITIATOR].port = pinfo->srcport;
+	state->minfo[MPA_RESPONDER].port = pinfo->destport;
+	state->full_operation = true;
+
+	conversation_add_proto_data(conversation, proto_iwarp_mpa, state);
+
+decode:
+	tcp_dissect_pdus(tvb, pinfo, tree,
+			 true, /* proto_desegment*/
+			 MPA_SMALLEST_FPDU_LEN,
+			 iwrap_mpa_pdu_length,
+			 dissect_iwarp_mpa_pdu,
+			 tcpinfo);
+	pinfo->ptype = saved_ptype;
+	return tvb_captured_length(tvb);
+}
+
 static bool
 dissect_iwarp_mpa_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-	struct tcpinfo *tcpinfo = NULL;
 	bool is_mpa_pdu = false;
 
 	if (data == NULL)
 		return false;
-	tcpinfo = (struct tcpinfo *)data;
 
 	/* MPA REQUEST or MPA REPLY */
 	if (tvb_captured_length(tvb) >= MPA_REQ_REP_FRAME_HEADER_LEN) {
@@ -953,16 +1148,7 @@ dissect_iwarp_mpa_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 		return false;
 	}
 
-	/* Set the port type for this packet to be iWarp MPA */
-	pinfo->ptype = PT_IWARP_MPA;
-
-	tcp_dissect_pdus(tvb, pinfo, tree,
-			 true, /* proto_desegment*/
-			 MPA_SMALLEST_FPDU_LEN,
-			 iwrap_mpa_pdu_length,
-			 dissect_iwarp_mpa_pdu,
-			 tcpinfo);
-	return true;
+	return dissect_iwarp_mpa_decode(tvb, pinfo, tree, data) > 0;
 }
 
 /* registers this protocol with Wireshark */
@@ -1006,6 +1192,10 @@ void proto_register_mpa(void)
 					"Connection rejected flag",
 					"iwarp_mpa.rej_flag", FT_BOOLEAN, 8, NULL, MPA_REJECT_FLAG,
 					NULL, HFILL } },
+			{ &hf_mpa_flag_s, {
+					"Enhanced RDMA Connection",
+					"iwarp_mpa.enhanced_flag", FT_BOOLEAN, 8, NULL, MPA_ENHANCED_RDMA,
+					NULL, HFILL } },
 			{ &hf_mpa_flag_res, {
 					"Reserved", "iwarp_mpa.res",
 					FT_UINT8, BASE_HEX, NULL, MPA_RESERVED_FLAG,
@@ -1013,6 +1203,54 @@ void proto_register_mpa(void)
 			{ &hf_mpa_rev, {
 					"Revision", "iwarp_mpa.rev",
 					FT_UINT8, BASE_DEC, NULL, 0x0,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced, {
+					"Enhanced Negotiation", "iwarp_mpa.enhanced",
+					FT_NONE, BASE_NONE, NULL, 0x0,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_a, {
+					"Control Flag A",
+					"iwarp_mpa.enhanced.a", FT_BOOLEAN, 8,
+					TFS(&tfs_mpa_enhanced_a), MPA_ENHANCED_CONTROL_A,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_b, {
+					"Control Flag B",
+					"iwarp_mpa.enhanced.b", FT_BOOLEAN, 8,
+					TFS(&tfs_mpa_enhanced_b), MPA_ENHANCED_CONTROL_B,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_ird, {
+					"Inbound RDMA Read Queue Depth", "iwarp_mpa.enhanced.ird",
+					FT_UINT16, BASE_DEC, NULL, MPA_ENHANCED_IRD_MASK,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_c, {
+					"Control Flag C",
+					"iwarp_mpa.enhanced.c", FT_BOOLEAN, 8,
+					TFS(&tfs_mpa_enhanced_c), MPA_ENHANCED_CONTROL_C,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_d, {
+					"Control Flag D",
+					"iwarp_mpa.enhanced.D", FT_BOOLEAN, 8,
+					TFS(&tfs_mpa_enhanced_d), MPA_ENHANCED_CONTROL_D,
+					NULL, HFILL } },
+			{ &hf_mpa_enhanced_ord, {
+					"Outbound RDMA Read Queue Depth", "iwarp_mpa.enhanced.ord",
+					FT_UINT16, BASE_DEC, NULL, MPA_ENHANCED_ORD_MASK,
+					NULL, HFILL } },
+			{ &hf_mpa_legacy, {
+					"Legacy IRD/ORD Negotiation", "iwarp_mpa.legacy",
+					FT_NONE, BASE_NONE, NULL, 0x0,
+					NULL, HFILL } },
+			{ &hf_mpa_legacy_broken, {
+					"Broken Little-Endian Legacy IRD/ORD Negotiation", "iwarp_mpa.broken_le_legacy",
+					FT_NONE, BASE_NONE, NULL, 0x0,
+					NULL, HFILL } },
+			{ &hf_mpa_legacy_ird, {
+					"Legacy Inbound RDMA Read Queue Depth", "iwarp_mpa.legacy.ird",
+					FT_UINT32, BASE_DEC, NULL, 0,
+					NULL, HFILL } },
+			{ &hf_mpa_legacy_ord, {
+					"Legacy Outbound RDMA Read Queue Depth", "iwarp_mpa.legacy.ord",
+					FT_UINT32, BASE_DEC, NULL, 0,
 					NULL, HFILL } },
 			{ &hf_mpa_pd_length, {
 					"Private data length", "iwarp_mpa.pdlength",
@@ -1054,7 +1292,9 @@ void proto_register_mpa(void)
 			&ett_mpa_req,
 			&ett_mpa_rep,
 			&ett_mpa_fpdu,
-			&ett_mpa_marker
+			&ett_mpa_marker,
+			&ett_mpa_enhanced,
+			&ett_mpa_legacy,
 	};
 
 	static ei_register_info ei[] = {
@@ -1068,6 +1308,8 @@ void proto_register_mpa(void)
 
 	/* register the protocol name and description */
 	proto_iwarp_mpa = proto_register_protocol("iWARP Marker Protocol data unit Aligned framing", "IWARP_MPA", "iwarp_mpa");
+
+	iwarp_mpa_handle = register_dissector("iwarp_mpa", dissect_iwarp_mpa_decode, proto_iwarp_mpa);
 
 	/* required function calls to register the header fields and subtrees */
 	proto_register_field_array(proto_iwarp_mpa, hf, array_length(hf));
@@ -1084,6 +1326,7 @@ proto_reg_handoff_mpa(void)
 	 * port, try this dissector whenever there is TCP traffic.
 	 */
 	heur_dissector_add("tcp", dissect_iwarp_mpa_heur, "IWARP_MPA over TCP", "iwarp_mpa_tcp", proto_iwarp_mpa, HEURISTIC_ENABLE);
+	dissector_add_for_decode_as("tcp.port", iwarp_mpa_handle);
 	ddp_rdmap_handle = find_dissector_add_dependency("iwarp_ddp_rdmap", proto_iwarp_mpa);
 }
 

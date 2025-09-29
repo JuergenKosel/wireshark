@@ -93,6 +93,19 @@ version].
 include::capinfos-h.txt[]
 ----
 
+=== __captype__: Prints the types of capture files
+
+`captype` can print capture file type information about capture files.
+For more information on `captype` consult your local manual page (`man
+captype`) or link:{wireshark-man-page-url}captype.html[the online
+version].
+
+[#AppToolscaptypeEx]
+.Help information available from `captype`
+----
+include::captype-h.txt[]
+----
+
 [#AppToolsrawshark]
 
 === __rawshark__: Dump and analyze network traffic.
@@ -296,6 +309,21 @@ link:{wireshark-man-page-url}reordercap.html[the online version].
 .Help information available from reordercap
 ----
 include::reordercap-h.txt[]
+----
+
+[#AppToolsmmdbresolve]
+
+=== __mmdbresolve__: Resolve IP geolocation information
+
+`mmdbresolve` reads IPv4 and IPv6 addresses on stdin and prints their IP geolocation
+information on stdout. For more information on `mmdbresolve` consult your local
+manual page (`man mmdbresolve`) or
+link:{wireshark-man-page-url}mmdbresolve.html[the online version].
+
+[#AppToolsmmdbresolveEx]
+.Help information available from mmdbresolve
+----
+include::mmdbresolve-h.txt[]
 ----
 
 // End of WSUG Appendix Tools

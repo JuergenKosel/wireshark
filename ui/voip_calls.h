@@ -197,8 +197,6 @@ typedef struct _voip_calls_tapinfo {
     uint8_t               mtp3_ni;
     uint32_t              mtp3_frame_num;
     struct _h245_labels  *h245_labels; /**< H.245 labels */
-    char                 *q931_calling_number;
-    char                 *q931_called_number;
     uint8_t               q931_cause_value;
     int32_t               q931_crv;
     uint32_t              q931_frame_num;
@@ -247,6 +245,9 @@ void voip_calls_remove_all_tap_listeners(voip_calls_tapinfo_t *tap_id_base);
  * Cleans up memory of voip calls tap.
  */
 void voip_calls_reset_all_taps(voip_calls_tapinfo_t *tapinfo);
+
+void
+voip_calls_set_apply_display_filter(voip_calls_tapinfo_t *tapinfo, bool apply);
 
 /**
  * Frees one callsinfo

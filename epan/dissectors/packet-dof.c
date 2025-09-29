@@ -813,8 +813,8 @@ static int dissect_2008_16_security_13(tvbuff_t *tvb, packet_info *pinfo, proto_
 static int dissect_2009_11_type_4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
 static int dissect_2009_11_type_5(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree);
 
-static const char* dof_oid_create_standard_string(uint32_t bufferSize, const uint8_t *pOIDBuffer, packet_info *pinfo);
-static const char* dof_iid_create_standard_string(uint32_t bufferSize, const uint8_t *pIIDBuffer);
+static const char* dof_oid_create_standard_string(wmem_allocator_t* allocator, uint32_t bufferSize, const uint8_t *pOIDBuffer, packet_info *pinfo);
+static const char* dof_iid_create_standard_string(wmem_allocator_t* allocator, uint32_t bufferSize, const uint8_t *pIIDBuffer);
 static uint8_t dof_oid_create_internal(const char *oid, uint32_t *size, uint8_t *buffer);
 static void dof_oid_new_standard_string(const char *data, uint32_t *rsize, uint8_t **oid);
 static int read_c4(tvbuff_t *tvb, int offset, uint32_t *v, int *len);
@@ -1377,11 +1377,11 @@ static int oap_1_tree_add_alias(dof_api_data *api_data, oap_1_packet_data *oap_p
             options_tree = proto_item_add_subtree(ti, ett_oap_1_alias);
 
             /* Decode the Interface */
-            ti = proto_tree_add_bytes_format_value(tree, hf_oap_1_interfaceid, tvb, 0, 0, binding->iid, "%s", dof_iid_create_standard_string(binding->iid_length, binding->iid));
+            ti = proto_tree_add_bytes_format_value(tree, hf_oap_1_interfaceid, tvb, 0, 0, binding->iid, "%s", dof_iid_create_standard_string(pinfo->pool, binding->iid_length, binding->iid));
             proto_item_set_generated(ti);
 
             /* Decode the Object ID */
-            ti = proto_tree_add_bytes_format_value(tree, hf_oap_1_objectid, tvb, 0, 0, binding->oid, "%s", dof_oid_create_standard_string(binding->oid_length, binding->oid, pinfo));
+            ti = proto_tree_add_bytes_format_value(tree, hf_oap_1_objectid, tvb, 0, 0, binding->oid, "%s", dof_oid_create_standard_string(pinfo->pool, binding->oid_length, binding->oid, pinfo));
             proto_item_set_generated(ti);
 
             proto_tree_add_uint_format(options_tree, hf_oap_1_alias_frame,
@@ -2432,7 +2432,7 @@ static int dissect_2008_1_dsp_1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
     proto_tree_add_item(tree, hf_2008_1_dsp_value_length, tvb, 3, 1, ENC_NA);
 
     /* Append description to the parent. */
-    proto_item_append_text(parent, " (Code=%s/Data=0x%04x)", val_to_str(attribute_code, strings_2008_1_dsp_attribute_codes, "%u"), attribute_data);
+    proto_item_append_text(parent, " (Code=%s/Data=0x%04x)", val_to_str(pinfo->pool, attribute_code, strings_2008_1_dsp_attribute_codes, "%u"), attribute_data);
 
     if (option_length)
     {
@@ -3076,7 +3076,7 @@ static int dissect_2009_11_type_4(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     if (tree)
     {
         ti = proto_tree_get_parent(tree);
-        proto_item_set_text(ti, "Object ID: %s", dof_oid_create_standard_string(tvb_reported_length(tvb), tvb_get_ptr(tvb, 0, tvb_reported_length(tvb)), pinfo));
+        proto_item_set_text(ti, "Object ID: %s", dof_oid_create_standard_string(pinfo->pool, tvb_reported_length(tvb), tvb_get_ptr(tvb, 0, tvb_reported_length(tvb)), pinfo));
     }
 
     offset = read_c4(tvb, offset, &oid_class, &oid_class_len);
@@ -3549,9 +3549,8 @@ static unsigned addr_port_key_hash_fn(const void *key)
     {
         unsigned hash = 5381;
         const uint8_t *str = (const uint8_t *)addr_key->addr.data;
-        uint8_t i;
 
-        for (i = 0; i < addr_key->addr.len; i++)
+        for (int i = 0; i < addr_key->addr.len; i++)
             hash = ((hash << 5) + hash) + str[i]; /* hash * 33 + c */
 
         result += hash;
@@ -3596,11 +3595,11 @@ static void init_addr_port_tables(void)
 
 static unsigned next_addr_port_id = 1;
 
-#define EP_COPY_ADDRESS(to, from) { \
+#define EP_COPY_ADDRESS(alloc, to, from) { \
     uint8_t *EP_COPY_ADDRESS_data; \
     (to)->type = (from)->type; \
     (to)->len = (from)->len; \
-    EP_COPY_ADDRESS_data = (uint8_t*) wmem_alloc(wmem_packet_scope(),(from)->len); \
+    EP_COPY_ADDRESS_data = (uint8_t*) wmem_alloc(alloc,(from)->len); \
     memcpy(EP_COPY_ADDRESS_data, (from)->data, (from)->len); \
     (to)->priv = EP_COPY_ADDRESS_data; \
     (to)->data = (to)->priv; \
@@ -3608,7 +3607,7 @@ static unsigned next_addr_port_id = 1;
 
 /* Return the transport ID, a unique number for each transport sender.
  */
-static unsigned assign_addr_port_id(address *addr, uint16_t port)
+static unsigned assign_addr_port_id(wmem_allocator_t* allocator, address *addr, uint16_t port)
 {
     addr_port_key lookup_key;
     addr_port_key *key;
@@ -3620,7 +3619,7 @@ static unsigned assign_addr_port_id(address *addr, uint16_t port)
 
     /* Build a (non-allocated) key to do the lookup. */
 
-    EP_COPY_ADDRESS(&lookup_key.addr, addr);
+    EP_COPY_ADDRESS(allocator, &lookup_key.addr, addr);
     lookup_key.port = port;
 
     value = GPOINTER_TO_UINT(g_hash_table_lookup(addr_port_to_id, &lookup_key));
@@ -3999,7 +3998,7 @@ static void DOFObjectID_InitStruct(DOFObjectID newObjID, uint32_t dataLen)
     newObjID->len = dataLen;
 }
 
-static DOFObjectID DOFObjectID_Create_Unmarshal(uint32_t *length, const uint8_t *buffer)
+static DOFObjectID DOFObjectID_Create_Unmarshal(wmem_allocator_t* allocator, uint32_t *length, const uint8_t *buffer)
 {
     uint32_t len = *length;
 
@@ -4046,7 +4045,7 @@ static DOFObjectID DOFObjectID_Create_Unmarshal(uint32_t *length, const uint8_t 
                     /* Legal OID described at buffer must have enough buffer bytes, final check. */
                     if (len >= computedSize)
                     {
-                        DOFObjectID newObjID = (DOFObjectID)wmem_alloc0(wmem_packet_scope(), sizeof(DOFObjectID_t) + (sizeof(uint8_t) * (computedSize + 1)));
+                        DOFObjectID newObjID = (DOFObjectID)wmem_alloc0(allocator, sizeof(DOFObjectID_t) + (sizeof(uint8_t) * (computedSize + 1)));
                         /* Adds space for null-terminator, just in case. */
 
                         *length = computedSize;
@@ -4073,10 +4072,10 @@ allocErrorOut :
     return NULL;
 }
 
-static DOFObjectID DOFObjectID_Create_Bytes(uint32_t bufferSize, const uint8_t *pOIDBuffer)
+static DOFObjectID DOFObjectID_Create_Bytes(wmem_allocator_t* allocator, uint32_t bufferSize, const uint8_t *pOIDBuffer)
 {
     uint32_t     len = bufferSize;
-    DOFObjectID rval = DOFObjectID_Create_Unmarshal(&len, pOIDBuffer);
+    DOFObjectID rval = DOFObjectID_Create_Unmarshal(allocator, &len, pOIDBuffer);
 
     if (rval)
     {
@@ -4123,7 +4122,7 @@ static uint32_t ObjectID_ToStringLength(const DOFObjectID oid, packet_info *pinf
                 len++;
             len += 5;  /* {xx}: */
             /* Handle embedded Object IDs. */
-            embedOID = DOFObjectID_Create_Bytes(DOFObjectIDAttribute_GetValueSize(avpDescriptor),
+            embedOID = DOFObjectID_Create_Bytes(pinfo->pool, DOFObjectIDAttribute_GetValueSize(avpDescriptor),
                                                 DOFObjectIDAttribute_GetValue(avpDescriptor));
             if (embedOID)
             {
@@ -4230,7 +4229,7 @@ static uint32_t ObjectID_ToString(const DOFObjectID oid, char *pBuf, packet_info
             pBuf[len++] = ':';
 
             /* Handle embedded Object IDs. */
-            embedOID = DOFObjectID_Create_Bytes(DOFObjectIDAttribute_GetValueSize(avpDescriptor),
+            embedOID = DOFObjectID_Create_Bytes(pinfo->pool, DOFObjectIDAttribute_GetValueSize(avpDescriptor),
                                                 DOFObjectIDAttribute_GetValue(avpDescriptor));
             if (embedOID)
             {
@@ -4253,12 +4252,12 @@ static uint32_t ObjectID_ToString(const DOFObjectID oid, char *pBuf, packet_info
     return len;
 }
 
-static const char* dof_iid_create_standard_string(uint32_t bufferSize, const uint8_t *pIIDBuffer)
+static const char* dof_iid_create_standard_string(wmem_allocator_t* allocator, uint32_t bufferSize, const uint8_t *pIIDBuffer)
 {
     char *pRetval;
     unsigned len = 9 + (bufferSize - 1) * 2;   /* Alias is always [{AA}:{01234567}] */
 
-    pRetval = (char *)wmem_alloc(wmem_packet_scope(), len + 1);
+    pRetval = (char *)wmem_alloc(allocator, len + 1);
     if (pRetval)
     {
         InterfaceID_ToString(pIIDBuffer, pRetval);
@@ -4268,19 +4267,19 @@ static const char* dof_iid_create_standard_string(uint32_t bufferSize, const uin
     return pRetval;
 }
 
-static const char* dof_oid_create_standard_string(uint32_t bufferSize, const uint8_t *pOIDBuffer, packet_info *pinfo)
+static const char* dof_oid_create_standard_string(wmem_allocator_t* allocator, uint32_t bufferSize, const uint8_t *pOIDBuffer, packet_info *pinfo)
 {
     DOFObjectID oid;
     char *pRetval;
     uint32_t len = bufferSize;
 
-    oid = DOFObjectID_Create_Unmarshal(&len, pOIDBuffer);
+    oid = DOFObjectID_Create_Unmarshal(allocator, &len, pOIDBuffer);
     if (!oid)
         return "Illegal OID";
 
     len = ObjectID_ToStringLength(oid, pinfo);
     /* Use PCRMem_Alloc() and not DOFMem_Alloc() because app caller will be freeing memory with PCRMem_Destroy(). */
-    pRetval = (char *)wmem_alloc(wmem_packet_scope(), len + 1);
+    pRetval = (char *)wmem_alloc(allocator, len + 1);
     if (pRetval)
     {
         ObjectID_ToString(oid, pRetval, pinfo);
@@ -5186,7 +5185,6 @@ static void learn_operation_sid(dof_2009_1_pdu_20_opid *opid, uint8_t length, co
 static void generateMac(gcry_cipher_hd_t cipher_state, uint8_t *nonce, const uint8_t *epp, int a_len, uint8_t *data, int len, uint8_t *mac, int mac_len)
 {
     uint16_t i;
-    uint16_t cnt;
 
     /* a_len = 1, t = mac_len, q = 4: (t-2)/2 : (q-1) -> 4B */
     mac[0] = 0x43 | (((mac_len - 2) / 2) << 3);
@@ -5201,7 +5199,7 @@ static void generateMac(gcry_cipher_hd_t cipher_state, uint8_t *nonce, const uin
     mac[1] ^= (a_len);
     i = 2;
 
-    for (cnt = 0; cnt < a_len; cnt++, i++)
+    for (int cnt = 0; cnt < a_len; cnt++, i++)
     {
         if (i % 16 == 0)
             gcry_cipher_encrypt(cipher_state, mac, 16, NULL, 0);
@@ -5210,7 +5208,7 @@ static void generateMac(gcry_cipher_hd_t cipher_state, uint8_t *nonce, const uin
     }
 
     i = 0;
-    for (cnt = 0; cnt < len; cnt++, i++)
+    for (int cnt = 0; cnt < len; cnt++, i++)
     {
         if (i % 16 == 0)
             gcry_cipher_encrypt(cipher_state, mac, 16, NULL, 0);
@@ -5223,8 +5221,7 @@ static void generateMac(gcry_cipher_hd_t cipher_state, uint8_t *nonce, const uin
 
 static int decrypt(ccm_session_data *session, ccm_packet_data *pdata, uint8_t *nonce, const uint8_t *epp, int a_len, uint8_t *data, int len)
 {
-    unsigned short i;
-
+    int i;
     unsigned char ctr[16];
     unsigned char encrypted_ctr[16];
     unsigned char mac[16];
@@ -5775,8 +5772,8 @@ static int dissect_dof_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         if (addresses_equal(&transport_session->server.addr, &pinfo->src) && (transport_session->server.port == pinfo->srcport))
             transport_packet->is_sent_by_client = false;
 
-        transport_packet->sender_id = assign_addr_port_id(&pinfo->src, pinfo->srcport);
-        transport_packet->receiver_id = assign_addr_port_id(&pinfo->dst, pinfo->destport);
+        transport_packet->sender_id = assign_addr_port_id(pinfo->pool, &pinfo->src, pinfo->srcport);
+        transport_packet->receiver_id = assign_addr_port_id(pinfo->pool, &pinfo->dst, pinfo->destport);
 
         api_data->transport_session = &transport_session->common;
         api_data->transport_packet = transport_packet;
@@ -6013,8 +6010,8 @@ static int dissect_dof_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
                 {
                     ref_is_new = true;
                     ref = wmem_new0(wmem_file_scope(), tcp_dof_packet_ref);
-                    ref->transport_packet.sender_id = assign_addr_port_id(&pinfo->src, pinfo->srcport);
-                    ref->transport_packet.receiver_id = assign_addr_port_id(&pinfo->dst, pinfo->destport);
+                    ref->transport_packet.sender_id = assign_addr_port_id(pinfo->pool, &pinfo->src, pinfo->srcport);
+                    ref->transport_packet.receiver_id = assign_addr_port_id(pinfo->pool, &pinfo->dst, pinfo->destport);
                     packet->dof_packets = ref;
                     ref->start_offset = raw_offset;
                 }
@@ -6218,8 +6215,8 @@ static int dissect_tunnel_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
                 {
                     ref_is_new = true;
                     ref = wmem_new0(wmem_file_scope(), tcp_dof_packet_ref);
-                    ref->transport_packet.sender_id = assign_addr_port_id(&pinfo->src, pinfo->srcport);
-                    ref->transport_packet.receiver_id = assign_addr_port_id(&pinfo->dst, pinfo->destport);
+                    ref->transport_packet.sender_id = assign_addr_port_id(pinfo->pool, &pinfo->src, pinfo->srcport);
+                    ref->transport_packet.receiver_id = assign_addr_port_id(pinfo->pool, &pinfo->dst, pinfo->destport);
                     packet->dof_packets = ref;
                     ref->start_offset = raw_offset;
                 }
@@ -6662,10 +6659,10 @@ static int dissect_dpp_v2_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     if (!packet_data->is_command)
         opcode |= OP_2009_12_RESPONSE_FLAG;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(opcode, strings_2009_12_dpp_common_opcodes, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, opcode, strings_2009_12_dpp_common_opcodes, "Unknown Opcode (%d)"));
 
     /* Opcode */
-    proto_tree_add_uint_format(dpps_tree, hf_2009_12_dpp_2_14_opcode, tvb, offset, 1, opcode & 0x3F, "Opcode: %s (%u)", val_to_str(opcode, strings_2009_12_dpp_common_opcodes, "Unknown Opcode (%d)"), opcode & 0x3F);
+    proto_tree_add_uint_format(dpps_tree, hf_2009_12_dpp_2_14_opcode, tvb, offset, 1, opcode & 0x3F, "Opcode: %s (%u)", val_to_str(pinfo->pool, opcode, strings_2009_12_dpp_common_opcodes, "Unknown Opcode (%d)"), opcode & 0x3F);
     offset += 1;
 
     switch (opcode)
@@ -6784,7 +6781,7 @@ static int dissect_dpp_2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
             if (packet_data->sender_sid)
             {
-                const char *SID = dof_oid_create_standard_string(packet_data->sender_sid[0], packet_data->sender_sid + 1, pinfo);
+                const char *SID = dof_oid_create_standard_string(pinfo->pool, packet_data->sender_sid[0], packet_data->sender_sid + 1, pinfo);
                 ti = proto_tree_add_bytes_format_value(tree, hf_2008_1_dpp_sid_str, tvb, 0, 0, packet_data->sender_sid, "%s", SID);
                 proto_item_set_generated(ti);
             }
@@ -6795,7 +6792,7 @@ static int dissect_dpp_2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
             if (packet_data->receiver_sid)
             {
-                const char *SID = dof_oid_create_standard_string(packet_data->receiver_sid[0], packet_data->receiver_sid + 1, pinfo);
+                const char *SID = dof_oid_create_standard_string(pinfo->pool, packet_data->receiver_sid[0], packet_data->receiver_sid + 1, pinfo);
                 ti = proto_tree_add_bytes_format_value(tree, hf_2008_1_dpp_rid_str, tvb, 0, 0, packet_data->receiver_sid, "%s", SID);
                 proto_item_set_generated(ti);
             }
@@ -7350,9 +7347,9 @@ static int dissect_dsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     if (!packet_data->is_command)
         opcode |= OP_2008_1_RSP;
 
-    proto_tree_add_uint_format(dsp_tree, hf_2008_1_dsp_12_opcode, tvb, offset, 1, opcode, "Opcode: %s (%u)", val_to_str(opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"), opcode & 0x7F);
+    proto_tree_add_uint_format(dsp_tree, hf_2008_1_dsp_12_opcode, tvb, offset, 1, opcode, "Opcode: %s (%u)", val_to_str(pinfo->pool, opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"), opcode & 0x7F);
     offset += 1;
-    col_append_sep_str(pinfo->cinfo, COL_INFO, "/", val_to_str(opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"));
+    col_append_sep_str(pinfo->cinfo, COL_INFO, "/", val_to_str(pinfo->pool, opcode, strings_2008_1_dsp_opcodes, "Unknown Opcode (%d)"));
 
     switch (opcode)
     {
@@ -7952,7 +7949,7 @@ static int dissect_ccm_app(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     /* Retrieve the opcode. */
     opcode = tvb_get_uint8(tvb, offset);
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(opcode, ccm_opcode_strings, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, opcode, ccm_opcode_strings, "Unknown Opcode (%d)"));
 
     if (tree)
     {
@@ -8179,7 +8176,7 @@ static int dissect_oap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
     flags = tvb_get_uint8(tvb, offset) & 0xE0;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(opcode, oap_opcode_strings, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, opcode, oap_opcode_strings, "Unknown Opcode (%d)"));
 
 
     /* Opcode */
@@ -8207,7 +8204,7 @@ static int dissect_oap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             mask = mask >> 1;
         }
 
-        proto_tree_add_uint_format(oap_tree, hf_oap_1_opcode, tvb, offset, 1, opcode & 0x1F, "%s = Opcode: %s (%u)", str, val_to_str(opcode, oap_opcode_strings, "Unknown Opcode (%d)"), opcode & 0x1F);
+        proto_tree_add_uint_format(oap_tree, hf_oap_1_opcode, tvb, offset, 1, opcode & 0x1F, "%s = Opcode: %s (%u)", str, val_to_str(pinfo->pool, opcode, oap_opcode_strings, "Unknown Opcode (%d)"), opcode & 0x1F);
     }
 
 
@@ -8660,7 +8657,7 @@ static int dissect_sgmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     if (!packet_data->is_command)
         opcode |= SGMP_RESPONSE;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(opcode, sgmp_opcode_strings, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, opcode, sgmp_opcode_strings, "Unknown Opcode (%d)"));
 
     /* Opcode */
     proto_tree_add_item(sgmp_tree, hf_opcode, tvb, offset, 1, ENC_NA);
@@ -8804,7 +8801,7 @@ static int dissect_sgmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
             if (!packet_data->processed)
             {
                 domain_length = offset - start_offset;
-                domain_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), domain_length);
+                domain_buf = (uint8_t *)wmem_alloc0(pinfo->pool, domain_length);
                 tvb_memcpy(tvb, domain_buf, start_offset, domain_length);
             }
         }
@@ -9266,9 +9263,9 @@ static int dissect_tep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     if (!packet->is_command)
         operation |= TEP_OPCODE_RSP;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(operation, tep_opcode_strings, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, operation, tep_opcode_strings, "Unknown Opcode (%d)"));
 
-    ti = proto_tree_add_uint_format(tep_tree, hf_tep_operation, tvb, offset, 1, operation, "Operation: %s (%u)", val_to_str(operation, tep_opcode_strings, "Unknown Opcode (%d)"), operation);
+    ti = proto_tree_add_uint_format(tep_tree, hf_tep_operation, tvb, offset, 1, operation, "Operation: %s (%u)", val_to_str(pinfo->pool, operation, tep_opcode_strings, "Unknown Opcode (%d)"), operation);
 
     operation_tree = proto_item_add_subtree(ti, ett_tep_operation);
     ti = proto_tree_add_boolean(operation_tree, hf_tep_operation_type, tvb, offset, 0, operation);
@@ -9771,10 +9768,10 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     if (!packet_data->is_command)
         opcode |= TRP_RESPONSE;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(opcode, trp_opcode_strings, "Unknown Opcode (%d)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, opcode, trp_opcode_strings, "Unknown Opcode (%d)"));
 
     /* Opcode */
-    ti = proto_tree_add_uint_format(trp_tree, hf_trp_opcode, tvb, offset, 1, opcode & 0x7F, "Opcode: %s (%u)", val_to_str(opcode, trp_opcode_strings, "Unknown Opcode (%d)"), opcode & 0x7F);
+    ti = proto_tree_add_uint_format(trp_tree, hf_trp_opcode, tvb, offset, 1, opcode & 0x7F, "Opcode: %s (%u)", val_to_str(pinfo->pool, opcode, trp_opcode_strings, "Unknown Opcode (%d)"), opcode & 0x7F);
     offset += 1;
 
     switch (opcode)
@@ -9822,7 +9819,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             {
                 tvbuff_t *identity = response.identity;
                 uint8_t identity_length = tvb_reported_length(identity);
-                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), identity_length);
+                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(pinfo->pool, identity_length);
                 int i;
 
                 /* Get the buffer. */
@@ -9948,7 +9945,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                 if (!packet_data->processed)
                 {
                     mode_length = offset - mode_start;
-                    mode = (uint8_t *)wmem_alloc0(wmem_packet_scope(), mode_length);
+                    mode = (uint8_t *)wmem_alloc0(pinfo->pool, mode_length);
                     tvb_memcpy(tvb, mode, mode_start, mode_length);
                 }
             }
@@ -9977,7 +9974,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                                               offset, hf_initiator_validation, ett_initiator_validation, NULL);
 
             block_A_length = offset - start_offset;
-            block_A = (uint8_t *)wmem_alloc0(wmem_packet_scope(), block_A_length);
+            block_A = (uint8_t *)wmem_alloc0(pinfo->pool, block_A_length);
             tvb_memcpy(tvb, block_A, start_offset, block_A_length);
         }
 
@@ -10116,7 +10113,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         if (!packet_data->processed)
         {
             domain_length = offset - start_offset;
-            domain_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), domain_length);
+            domain_buf = (uint8_t *)wmem_alloc0(pinfo->pool, domain_length);
             tvb_memcpy(tvb, domain_buf, start_offset, domain_length);
         }
 
@@ -10134,7 +10131,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             {
                 tvbuff_t *identity = response.identity;
                 uint8_t identity_length = tvb_reported_length(identity);
-                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), identity_length);
+                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(pinfo->pool, identity_length);
                 int i;
 
                 /* Get the buffer. */
@@ -10205,7 +10202,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         if (!packet_data->processed)
         {
             domain_length = offset - start_offset;
-            domain_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), domain_length);
+            domain_buf = (uint8_t *)wmem_alloc0(pinfo->pool, domain_length);
             tvb_memcpy(tvb, domain_buf, start_offset, domain_length);
         }
 
@@ -10227,7 +10224,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             {
                 tvbuff_t *identity = response.identity;
                 uint8_t identity_length = tvb_reported_length(identity);
-                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), identity_length);
+                uint8_t *identity_buf = (uint8_t *)wmem_alloc0(pinfo->pool, identity_length);
                 int i;
 
                 /* Get the buffer. */
@@ -10316,7 +10313,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                                               offset, hf_initiator_validation, ett_initiator_validation, NULL);
 
             block_A_length = offset - start_offset;
-            block_A = (uint8_t *)wmem_alloc0(wmem_packet_scope(), block_A_length);
+            block_A = (uint8_t *)wmem_alloc0(pinfo->pool, block_A_length);
             tvb_memcpy(tvb, block_A, start_offset, block_A_length);
         }
     }
@@ -10335,7 +10332,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         if (!packet_data->processed)
         {
             domain_length = offset - start_offset;
-            domain_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), domain_length);
+            domain_buf = (uint8_t *)wmem_alloc0(pinfo->pool, domain_length);
             tvb_memcpy(tvb, domain_buf, start_offset, domain_length);
         }
 
@@ -10371,7 +10368,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         if (!packet_data->processed)
         {
             domain_length = offset - start_offset;
-            domain_buf = (uint8_t *)wmem_alloc0(wmem_packet_scope(), domain_length);
+            domain_buf = (uint8_t *)wmem_alloc0(pinfo->pool, domain_length);
             tvb_memcpy(tvb, domain_buf, start_offset, domain_length);
         }
 
@@ -10409,7 +10406,7 @@ static int dissect_trp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                                               offset, hf_authentication_block, ett_authentication_block, NULL);
 
             block_A_length = offset - start_offset;
-            block_A = (uint8_t *)wmem_alloc0(wmem_packet_scope(), block_A_length);
+            block_A = (uint8_t *)wmem_alloc0(pinfo->pool, block_A_length);
             tvb_memcpy(tvb, block_A, start_offset, block_A_length);
         }
     }
@@ -12405,9 +12402,9 @@ static int p_compare(const void *a, const void *b)
 }
 
 #if 0 /* TODO not used yet */
-static void dof_session_add_proto_data(dof_session_data *session, int proto, void *proto_data)
+static void dof_session_add_proto_data(wmem_allocator_t* allocator, dof_session_data *session, int proto, void *proto_data)
 {
-    dof_proto_data *p1 = wmem_new0(wmem_packet_scope(), dof_proto_data);
+    dof_proto_data *p1 = wmem_new0(allocator, dof_proto_data);
 
     p1->proto = proto;
     p1->proto_data = proto_data;

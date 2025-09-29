@@ -71,6 +71,111 @@ class TestSharkd:
             {"jsonrpc":"2.0","id":1,"result":{"status":"Less data was read than was expected","err":-12}},
         ))
 
+    def test_sharkd_req_load_with_no_limits(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng')}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+        ))
+
+    def test_sharkd_req_load_with_zero_limits_is_error(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_packets":0, "max_bytes":0}
+             },
+        ), (
+           {"jsonrpc":"2.0", "id":1, "error": {"code": -32600, "message": "The value for max_packets must be a positive integer"}},
+        ))
+
+    def test_sharkd_req_load_with_packet_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_packets":10}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+        ))
+
+    def test_sharkd_req_load_with_byte_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_bytes":8000}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+        ))
+
+    def test_sharkd_req_load_with_byte_and_packet_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_packets":10, "max_bytes":8000}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+        ))
+
+    def test_sharkd_req_load_and_analyse_with_no_limits(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng')}
+             },
+             {"jsonrpc":"2.0", "id":2, "method":"analyse"},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"frames": 562, "protocols": ["frame", "eth", "ethertype", "ip", "udp",
+                                        "sip", "sdp", "rtp"], "first":1105725482.965944, "last": 1105725515.56937}},
+        ))
+
+    def test_sharkd_req_load_and_analyse_with_packet_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_packets":10}
+             },
+             {"jsonrpc":"2.0", "id":2, "method":"analyse"},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"frames": 10, "protocols": ["frame", "eth", "ethertype", "ip", "udp",
+                                        "sip", "sdp", "rtp"], "first":1105725482.965944, "last": 1105725491.490081}},
+        ))
+
+    def test_sharkd_req_load_with_byte_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_bytes":8000}
+             },
+             {"jsonrpc":"2.0", "id":2, "method":"analyse"},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"frames": 23, "protocols": ["frame", "eth", "ethertype", "ip", "udp",
+                                        "sip", "sdp", "rtp"], "first":1105725482.965944, "last": 1105725492.747414}},
+        ))
+
+    def test_sharkd_req_load_and_analyse_with_byte_and_packet_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_packets":10, "max_bytes":8000}
+             },
+             {"jsonrpc":"2.0", "id":2, "method":"analyse"},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"frames": 10, "protocols": ["frame", "eth", "ethertype", "ip", "udp",
+                                        "sip", "sdp", "rtp"], "first":1105725482.965944, "last": 1105725491.490081}},
+        ))
+
+    def test_sharkd_req_load_and_analyse_with_single_byte_limit(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id": 1, "method":"load",
+             "params":{"file":capture_file('sip-rtp.pcapng'), "max_bytes":5}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"analyse"},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"frames": 1, "protocols": ["frame", "eth", "ethertype", "ip", "udp",
+                                        "sip","sdp"], "first":1105725482.965944, "last": 1105725482.965944}},
+        ))
+
     def test_sharkd_req_status_no_pcap(self, check_sharkd_session):
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"status"},
@@ -231,7 +336,7 @@ class TestSharkd:
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"result":
                 [
-                    {"c":["0.000000000","0.000000000","0.000000000"],"num":1,"bg":"feffd0","fg":"12272e"},
+                    {"c":["0.000000000","",""],"num":1,"bg":"feffd0","fg":"12272e"},
                     {"c":["191.872111000","0.193716000","191.872111000"],"num":800,"bg":"feffd0","fg":"12272e"},
                 ],
             },
@@ -1095,33 +1200,45 @@ class TestSharkd:
 
     def test_sharkd_req_tap_eo_http(self, check_sharkd_session, capture_file):
         check_sharkd_session((
-            {"jsonrpc":"2.0", "id":1, "method":"load",
+            {"jsonrpc":"2.0", "id":1, "method":"setconf",
+            "params":{"name": "tcp.reassemble_out_of_order", "value": "true"}
+            },
+            {"jsonrpc":"2.0", "id":2, "method":"load",
              "params":{"file": capture_file('http-ooo.pcap')}
              },
-            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "eo:http"}},
+            {"jsonrpc":"2.0", "id":3, "method":"tap", "params":{"tap0": "eo:http"}},
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":2,"result":{
+            {"jsonrpc":"2.0","id":2,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":3,"result":{
                 "taps":[{
                     "tap":"eo:http",
                     "type":"eo",
                     "proto":"HTTP",
                     "objects":[{
+                        "pkt":4,
+                        "filename":"1",
+                        "_download":"eo:http_0",
+                        "len":4,
+                        "sha1":"83f5a5c359f3dc8317519240e32f1f51f68bc051"
+                    },{
+                        "pkt":10,
+                        "filename":"3",
+                        "_download":"eo:http_1",
+                        "len":6,
+                        "sha1":"a214ad86e2def05fcb0f4c878dfebe5a6041fb7e"
+                    },{
                         "pkt":11,
                         "filename":"4",
-                        "_download":"eo:http_0",
+                        "_download":"eo:http_2",
                         "len":5,
                         "sha1":"4a4121ecd766ed16943a0c7b54c18f743e90c3f6"
                     },{
-                        "pkt":13,
-                        "_download":"eo:http_1",
-                        "len":5,
-                        "sha1":"29a51e7382d06ff40467272f02e413ca7b51636e"
-                    },{
-                        "pkt":14,
-                        "_download":"eo:http_2",
-                        "len":5,
-                        "sha1":"f6d0c643351580307b2eaa6a7560e76965496bc7"}]
+                        "pkt":15,
+                        "filename":"5",
+                        "_download":"eo:http_3",
+                        "len":4,
+                        "sha1":"580393f5a94fb469585f5dd2a6859a4aab899f37"}]
                 }]
             }}
         ))
@@ -1195,6 +1312,8 @@ class TestSharkd:
         # just skip for now.
         if not features.have_nghttp2:
             pytest.skip('Requires nghttp2.')
+        if not features.have_brotli:
+            pytest.skip('Requires brotli.')
 
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"load",
@@ -1340,11 +1459,11 @@ class TestSharkd:
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"result":{
-                "fol": [["HTTP2", "tcp.stream eq 0 and http2.streamid eq 1"],["TCP","tcp.stream eq 0"],["TLS","tcp.stream eq 0"]],
+                "fol": [["HTTP2", "tcp.stream eq 0 and http2.streamid eq 1"],["TCP","tcp.stream eq 0"],["TLS","tls.stream eq 0"]],
                 "followers": [
                     {"protocol": "HTTP2","filter": "tcp.stream eq 0 and http2.streamid eq 1","stream": 0, "sub_stream": 1},
                     {"protocol": "TCP","filter": "tcp.stream eq 0","stream": 0},
-                    {"protocol": "TLS","filter": "tcp.stream eq 0","stream": 0},
+                    {"protocol": "TLS","filter": "tls.stream eq 0","stream": 0},
                 ]
             }},
         ))
@@ -1495,10 +1614,71 @@ class TestSharkd:
 
     def test_sharkd_req_download_eo_http_with_prior_tap_eo_http(self, check_sharkd_session, capture_file):
         check_sharkd_session((
-            {"jsonrpc":"2.0", "id":1, "method":"load",
+            {"jsonrpc":"2.0", "id":1, "method":"setconf",
+            "params":{"name": "tcp.reassemble_out_of_order", "value": "true"}
+            },
+            {"jsonrpc":"2.0", "id":2, "method":"load",
              "params":{"file": capture_file('http-ooo.pcap')}
              },
-            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "eo:http"}},
+            {"jsonrpc":"2.0", "id":3, "method":"tap", "params":{"tap0": "eo:http"}},
+            {"jsonrpc":"2.0", "id":4, "method":"download",
+             "params":{"token": "eo:http_0"}},
+            {"jsonrpc":"2.0", "id":5, "method":"download",
+             "params":{"token": "eo:http_1"}},
+            {"jsonrpc":"2.0", "id":6, "method":"download",
+             "params":{"token": "eo:http_2"}},
+            {"jsonrpc":"2.0", "id":7, "method":"download",
+             "params":{"token": "eo:http_999"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":3,"result":{
+                "taps":[{
+                    "tap":"eo:http",
+                    "type":"eo",
+                    "proto":"HTTP",
+                    "objects":[{
+                        "pkt":4,
+                        "filename":"1",
+                        "_download":"eo:http_0",
+                        "len":4,
+                        "sha1":"83f5a5c359f3dc8317519240e32f1f51f68bc051"
+                    },{
+                        "pkt":10,
+                        "filename":"3",
+                        "_download":"eo:http_1",
+                        "len":6,
+                        "sha1":"a214ad86e2def05fcb0f4c878dfebe5a6041fb7e"
+                    },{
+                        "pkt":11,
+                        "filename":"4",
+                        "_download":"eo:http_2",
+                        "len":5,
+                        "sha1":"4a4121ecd766ed16943a0c7b54c18f743e90c3f6"
+                    },{
+                        "pkt":15,
+                        "filename":"5",
+                        "_download":"eo:http_3",
+                        "len":4,
+                        "sha1":"580393f5a94fb469585f5dd2a6859a4aab899f37"}]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":4,"result":{
+                "file":"1","mime":"application/octet-stream","data":"MQoyCg=="}},
+            {"jsonrpc":"2.0","id":5,"result":{
+                "file":"3","mime":"application/octet-stream","data":"YWZ0ZXIK"}},
+            {"jsonrpc":"2.0","id":6,"result":{
+                "file":"4","mime":"application/octet-stream","data":"Zm91cgo="}},
+            {"jsonrpc":"2.0","id":7,"result":{}},
+        ))
+    def test_sharkd_req_download_eo_http_without_prior_tap_eo_http(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"setconf",
+            "params":{"name": "tcp.reassemble_out_of_order", "value": "true"}
+            },
+            {"jsonrpc":"2.0", "id":2, "method":"load",
+             "params":{"file": capture_file('http-ooo.pcap')}
+             },
             {"jsonrpc":"2.0", "id":3, "method":"download",
              "params":{"token": "eo:http_0"}},
             {"jsonrpc":"2.0", "id":4, "method":"download",
@@ -1509,59 +1689,14 @@ class TestSharkd:
              "params":{"token": "eo:http_999"}},
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":2,"result":{
-                "taps":[{
-                    "tap":"eo:http",
-                    "type":"eo",
-                    "proto":"HTTP",
-                    "objects":[{
-                        "pkt":11,
-                        "filename":"4",
-                        "_download":"eo:http_0",
-                        "len":5,
-                        "sha1":"4a4121ecd766ed16943a0c7b54c18f743e90c3f6"
-                    },{
-                        "pkt":13,
-                        "_download":"eo:http_1",
-                        "len":5,
-                        "sha1":"29a51e7382d06ff40467272f02e413ca7b51636e"
-                    },{
-                        "pkt":14,
-                        "_download":"eo:http_2",
-                        "len":5,
-                        "sha1":"f6d0c643351580307b2eaa6a7560e76965496bc7"}]
-                }]
-            }},
+            {"jsonrpc":"2.0","id":2,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":3,"result":{
-                "file":"4","mime":"application/octet-stream","data":"Zm91cgo="}},
+                "file":"1","mime":"application/octet-stream","data":"MQoyCg=="}},
             {"jsonrpc":"2.0","id":4,"result":{
-                "file":"eo:http_1","mime":"application/octet-stream","data":"QVRBDQo="}},
+                "file":"3","mime":"application/octet-stream","data":"YWZ0ZXIK"}},
             {"jsonrpc":"2.0","id":5,"result":{
-                "file":"eo:http_2","mime":"application/octet-stream","data":"MA0KDQo="}},
-            {"jsonrpc":"2.0","id":6,"result":{}},
-        ))
-    def test_sharkd_req_download_eo_http_without_prior_tap_eo_http(self, check_sharkd_session, capture_file):
-        check_sharkd_session((
-            {"jsonrpc":"2.0", "id":1, "method":"load",
-             "params":{"file": capture_file('http-ooo.pcap')}
-             },
-            {"jsonrpc":"2.0", "id":2, "method":"download",
-             "params":{"token": "eo:http_0"}},
-            {"jsonrpc":"2.0", "id":3, "method":"download",
-             "params":{"token": "eo:http_1"}},
-            {"jsonrpc":"2.0", "id":4, "method":"download",
-             "params":{"token": "eo:http_2"}},
-            {"jsonrpc":"2.0", "id":5, "method":"download",
-             "params":{"token": "eo:http_999"}},
-        ), (
-            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":2,"result":{
                 "file":"4","mime":"application/octet-stream","data":"Zm91cgo="}},
-            {"jsonrpc":"2.0","id":3,"result":{
-                "file":"eo:http_1","mime":"application/octet-stream","data":"QVRBDQo="}},
-            {"jsonrpc":"2.0","id":4,"result":{
-                "file":"eo:http_2","mime":"application/octet-stream","data":"MA0KDQo="}},
-            {"jsonrpc":"2.0","id":5,"result":{}},
+            {"jsonrpc":"2.0","id":6,"result":{}},
         ))
     def test_sharkd_req_bye(self, check_sharkd_session):
         check_sharkd_session((

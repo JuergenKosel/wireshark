@@ -21,7 +21,7 @@
  * ED-137A and later standards share some extensions (e. g. SQI is defined in ED-137A and repeated without change in ED-137B and C). Naming convention use first standard release where extension was introduced (ED-137A in SQI case).
  *
  * Each ED-137 header extension consists of fixed part and variable part (called "extension for additional features" in standard). The code decodes fixed part and some variable part headers. The code decode only additional headers we seen (we have samples) even standard defines more of it.
- * To allow other developers and vendors to introduce custom decoders, there are dissector tables rtp.hdr_ext.ed137 and rtp.hdr_ext.ed137a which registers dissector for each "additional feature" header by type/length key. It allows anyone extending decoding capabilites just by adding plugin and register dissector in the table - without modifying this source.
+ * To allow other developers and vendors to introduce custom decoders, there are dissector tables rtp.hdr_ext.ed137 and rtp.hdr_ext.ed137a which registers dissector for each "additional feature" header by type/length key. It allows anyone extending decoding capabilities just by adding plugin and register dissector in the table - without modifying this source.
  * rtp.hdr_ext.ed137 table is used for ED-137 standard release. rtp.hdr_ext.ed137a table is used for ED-137A and later standard releases.
  */
 
@@ -653,7 +653,7 @@ dissect_rtp_hdr_ext_ed137(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
                             break;
                         }
                         default:
-                            proto_tree_add_item( rtp_hext_tree3, hf_rtp_hdr_ed137_ft_value, tvb, hdrext_offset, 4, ENC_NA);
+                            proto_tree_add_item( rtp_hext_tree3, hf_rtp_hdr_ed137_ft_value, tvb, hdrext_offset, 4, ENC_BIG_ENDIAN);
                             break;
                     }
                 }

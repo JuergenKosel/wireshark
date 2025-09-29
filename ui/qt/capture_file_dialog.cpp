@@ -754,6 +754,7 @@ QStringList CaptureFileDialog::buildFileSaveAsTypeList(bool must_support_all_com
                https://bugreports.qt.io/browse/QTBUG-127924
                One simple approach is to just add both to the hash.
              */
+            type_suffixes_[filter] = type_suffixes_[type_name];
             type_hash_[filter] = ft;
             type_hash_[type_name] = ft;
             filters << filter;
@@ -886,8 +887,9 @@ void CaptureFileDialog::preview(const QString & path)
         // the last one with a time stamp, this may be inaccurate).
         //
         elapsed_time = (unsigned int)(stats.stop_time-stats.start_time);
-        if (elapsed_time/86400) {
-            first_elapsed += QStringLiteral("%1 days ").arg(elapsed_time/86400, 2, 10, QChar('0'));
+        unsigned int days = elapsed_time / 86400;
+        if (days) {
+            first_elapsed += tr("%Ln day(s)", "", days) + " ";
             elapsed_time = elapsed_time % 86400;
         }
         first_elapsed += QStringLiteral("%2:%3:%4")

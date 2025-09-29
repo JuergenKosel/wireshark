@@ -36,7 +36,7 @@ Build-Depends: asciidoctor,
                libsnappy-dev,
                libspandsp-dev,
                libspeexdsp-dev,
-               libssh-gcrypt-dev,
+               libssh-dev (>= 0.11.1-1) | libssh-gcrypt-dev,
                libsystemd-dev,
                libxkbcommon-dev,
                libxml2-dev,
@@ -88,9 +88,11 @@ Depends: ${shlibs:Depends},
          libqt6svg6,
          qt6-qpa-plugins
 Recommends: libqt6multimedia6
-Breaks: wireshark-qt,
+Breaks: libwireshark-data (<< 4.4.3-2~),
+        wireshark-qt,
         wireshark-gtk (<< 3.0.0~)
-Replaces: wireshark-qt,
+Replaces: libwireshark-data (<< 4.4.3-2~),
+          wireshark-qt,
           wireshark-gtk (<< 3.0.0~)
 Description: network traffic analyzer - graphical interface
  Wireshark is a network "sniffer" - a tool that captures and analyzes
@@ -108,9 +110,12 @@ Depends: ${shlibs:Depends},
          libqt6svg6,
          qt6-qpa-plugins
 # Recommends: libqt6multimedia6
-Description: system call and log analyzer - graphical interface
+Description: system call and log analyzer - graphical and console interfaces
  Stratoshark is a system call and log analyzer. It can capture and analyze
  system calls on Linux and capture and analyze log data from other sources.
+ .
+ The package provides stratoshark as the graphical interface and strato
+ as the console interface.
 
 Package: tshark
 Architecture: any

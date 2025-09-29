@@ -48,6 +48,7 @@ new_phs_t(phs_t *parent, const char *filter)
 }
 
 void
+// NOLINTNEXTLINE(misc-no-recursion)
 free_phs(phs_t *rs)
 {
 	if (!rs) {
@@ -59,11 +60,13 @@ free_phs(phs_t *rs)
 	}
 	if (rs->sibling)
 	{
+		// We recurse here, but we're limited by our tree depth checks in proto.c
 		free_phs(rs->sibling);
 		rs->sibling = NULL;
 	}
 	if (rs->child)
 	{
+		// We recurse here, but we're limited by our tree depth checks in proto.c
 		free_phs(rs->child);
 		rs->child = NULL;
 	}
@@ -161,6 +164,7 @@ protohierstat_packet(void *prs, packet_info *pinfo, epan_dissect_t *edt, const v
 }
 
 static void
+// NOLINTNEXTLINE(misc-no-recursion)
 phs_draw(phs_t *rs, int indentation)
 {
 	int i, stroff;
@@ -181,6 +185,7 @@ phs_draw(phs_t *rs, int indentation)
 		}
 		snprintf(str+stroff, MAXPHSLINE-stroff, "%s", rs->proto_name);
 		printf("%-40s frames:%u bytes:%" PRIu64 "\n", str, rs->frames, rs->bytes);
+		// We recurse here, but we're limited by our tree depth checks in proto.c
 		phs_draw(rs->child, indentation+1);
 	}
 }
@@ -199,7 +204,7 @@ protohierstat_draw(void *prs)
 }
 
 
-static void
+static bool
 protohierstat_init(const char *opt_arg, void *userdata _U_)
 {
 	phs_t *rs;
@@ -215,7 +220,7 @@ protohierstat_init(const char *opt_arg, void *userdata _U_)
 		}
 	} else {
 		cmdarg_err("invalid \"-z io,phs[,<filter>]\" argument");
-		exit(1);
+		return false;
 	}
 
 	pc_proto_id = proto_registrar_get_id_byname("pkt_comment");
@@ -234,8 +239,10 @@ protohierstat_init(const char *opt_arg, void *userdata _U_)
 		cmdarg_err("Couldn't register io,phs tap: %s",
 			error_string->str);
 		g_string_free(error_string, TRUE);
-		exit(1);
+		return false;
 	}
+
+	return true;
 }
 
 static stat_tap_ui protohierstat_ui = {

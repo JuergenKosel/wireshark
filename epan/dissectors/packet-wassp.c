@@ -4815,7 +4815,7 @@ int dissect_wassp_sub_tlv(proto_tree *wassp_tree, tvbuff_t *tvb, packet_info *pi
 				}
 			}
 
-			tlvi =   proto_tree_add_uint_format_value(tmp_tree, hf_wassp_tlv_type_sub, tvb, offset + TLV_TYPE, 2, tlv_type, "%s (%d)", label, tlv_type);
+			proto_tree_add_uint_format_value(tmp_tree, hf_wassp_tlv_type_sub, tvb, offset + TLV_TYPE, 2, tlv_type, "%s (%d)", label, tlv_type);
 			proto_tree_add_item(tmp_tree, hf_wassp_tlv_length, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
 
 			if (tlv_type == EID_PARSE_ERROR)
@@ -5627,7 +5627,7 @@ static int dissect_mu_netflow(proto_tree *tree, tvbuff_t *tvb, int offset)
 	proto_tree_add_item(mu_netflow_header_tree, hf_wassp_mu_netflow_version, tvb, MU_NETFLOW_HDR_VERSION, 2, ENC_BIG_ENDIAN);
 	proto_tree_add_item(mu_netflow_header_tree, hf_wassp_mu_netflow_length, tvb, MU_NETFLOW_HDR_LENGTH, 2, ENC_BIG_ENDIAN);
 	proto_tree_add_item(mu_netflow_header_tree, hf_wassp_mu_netflow_flags, tvb, MU_NETFLOW_HDR_FLAG, 2, ENC_BIG_ENDIAN);
-	proto_tree_add_item(mu_netflow_header_tree, hf_wassp_mu_netflow_uptime, tvb, MU_NETFLOW_HDR_UPTIME, 4, ENC_NA);
+	proto_tree_add_item(mu_netflow_header_tree, hf_wassp_mu_netflow_uptime, tvb, MU_NETFLOW_HDR_UPTIME, 4, ENC_TIME_SECS_NSECS);
 	offset += MU_NETFLOW_HEADER_TOTAL_LENGTH;
 
 	netflowLen = tvb_get_ntohs(tvb, MU_NETFLOW_HDR_LENGTH);

@@ -42,7 +42,7 @@
 #define DOT11DECRYPT_TK_LEN                           16
 
 /* Max length of capture data						*/
-#define	DOT11DECRYPT_MAX_CAPLEN			8192
+#define	DOT11DECRYPT_MAX_CAPLEN			(12 * 1024)
 
 #define	DOT11DECRYPT_WEP_IVLEN	3       /* 24bit */
 #define	DOT11DECRYPT_WEP_KIDLEN	1       /* 1 octet */
@@ -72,6 +72,8 @@
 
 #define	DOT11DECRYPT_TKIP_HEADER	DOT11DECRYPT_RSNA_HEADER
 #define	DOT11DECRYPT_TKIP_TRAILER	DOT11DECRYPT_TKIP_MICLEN + DOT11DECRYPT_WEP_ICV
+
+#define DOT11DECRYPT_RSNA_MIN_TRAILER 8
 
 #define	DOT11DECRYPT_CRC_LEN	4
 
@@ -115,7 +117,8 @@ typedef struct _DOT11DECRYPT_SEC_ASSOCIATION {
 		int cipher;
 		int tmp_group_cipher; /* Keep between HS msg 2 and 3 */
 		unsigned char ptk[DOT11DECRYPT_WPA_PTK_MAX_LEN]; /* session key used in decryption algorithm */
-	    int ptk_len;
+		int ptk_len;
+		int dh_group;
 	} wpa;
 
 
@@ -167,6 +170,7 @@ typedef struct _DOT11DECRYPT_EAPOL_PARSED {
 	uint16_t mic_len;
 	uint8_t *gtk;
 	uint16_t gtk_len;
+	uint16_t dh_group;
 
 	/* For fast bss transition akms */
 	uint8_t *mdid;

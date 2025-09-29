@@ -72,16 +72,17 @@ col_format_to_string(const int fmt) {
     "%L",                                       /* 34) COL_PACKET_LENGTH */
     "%p",                                       /* 35) COL_PROTOCOL */
     "%Rt",                                      /* 36) COL_REL_TIME */
-    "%s",                                       /* 37) COL_DEF_SRC */
-    "%S",                                       /* 38) COL_DEF_SRC_PORT */
-    "%rs",                                      /* 39) COL_RES_SRC */
-    "%us",                                      /* 40) COL_UNRES_SRC */
-    "%rS",                                      /* 41) COL_RES_SRC_PORT */
-    "%uS",                                      /* 42) COL_UNRES_SRC_PORT */
-    "%Yut",                                     /* 43) COL_UTC_YMD_TIME */
-    "%YDOYut",                                  /* 44) COL_UTC_YDOY_TIME */
-    "%Aut",                                     /* 45) COL_UTC_TIME */
-    "%t",                                       /* 46) COL_CLS_TIME */
+    "%Rct",                                     /* 37) COL_REL_CAP_TIME */
+    "%s",                                       /* 38) COL_DEF_SRC */
+    "%S",                                       /* 39) COL_DEF_SRC_PORT */
+    "%rs",                                      /* 40) COL_RES_SRC */
+    "%us",                                      /* 41) COL_UNRES_SRC */
+    "%rS",                                      /* 42) COL_RES_SRC_PORT */
+    "%uS",                                      /* 43) COL_UNRES_SRC_PORT */
+    "%Yut",                                     /* 44) COL_UTC_YMD_TIME */
+    "%YDOYut",                                  /* 45) COL_UTC_YDOY_TIME */
+    "%Aut",                                     /* 46) COL_UTC_TIME */
+    "%t",                                       /* 47) COL_CLS_TIME */
   };
 
  /* Note the formats in migrated_columns[] below have been used in deprecated
@@ -142,6 +143,7 @@ col_format_desc(const int fmt_num) {
     { COL_PACKET_LENGTH, "Packet length (bytes)" },
     { COL_PROTOCOL, "Protocol" },
     { COL_REL_TIME, "Relative time" },
+    { COL_REL_CAP_TIME, "Relative to capture start time" },
     { COL_DEF_SRC, "Source address" },
     { COL_DEF_SRC_PORT, "Source port" },
     { COL_RES_SRC, "Src addr (resolved)" },
@@ -545,6 +547,19 @@ static const char *ts_ymd[NUM_WS_TSPREC_VALS] = {
     "0000-00-00 00:00:00.000000000",
 };
 
+static const char *ts_ymd_utc[NUM_WS_TSPREC_VALS] = {
+    "0000-00-00 00:00:00Z",
+    "0000-00-00 00:00:00.0Z",
+    "0000-00-00 00:00:00.00Z",
+    "0000-00-00 00:00:00.000Z",
+    "0000-00-00 00:00:00.0000Z",
+    "0000-00-00 00:00:00.00000Z",
+    "0000-00-00 00:00:00.000000Z",
+    "0000-00-00 00:00:00.0000000Z",
+    "0000-00-00 00:00:00.00000000Z",
+    "0000-00-00 00:00:00.000000000Z",
+};
+
 /*
  * Strings for YYYY/DOY HH:MM:SS.SSSS dates and times.
  * (Yes, we know, this also has a Y10K problem.)
@@ -562,6 +577,19 @@ static const char *ts_ydoy[NUM_WS_TSPREC_VALS] = {
     "0000/000 00:00:00.000000000",
 };
 
+static const char *ts_ydoy_utc[NUM_WS_TSPREC_VALS] = {
+    "0000/000 00:00:00Z",
+    "0000/000 00:00:00.0Z",
+    "0000/000 00:00:00.00Z",
+    "0000/000 00:00:00.000Z",
+    "0000/000 00:00:00.0000Z",
+    "0000/000 00:00:00.00000Z",
+    "0000/000 00:00:00.000000Z",
+    "0000/000 00:00:00.0000000Z",
+    "0000/000 00:00:00.00000000Z",
+    "0000/000 00:00:00.000000000Z",
+};
+
 /*
  * Strings for HH:MM:SS.SSSS absolute times without dates.
  */
@@ -576,6 +604,19 @@ static const char *ts_abstime[NUM_WS_TSPREC_VALS] = {
     "00:00:00.0000000",
     "00:00:00.00000000",
     "00:00:00.000000000",
+};
+
+static const char *ts_abstime_utc[NUM_WS_TSPREC_VALS] = {
+    "00:00:00Z",
+    "00:00:00.0Z",
+    "00:00:00.00Z",
+    "00:00:00.000Z",
+    "00:00:00.0000Z",
+    "00:00:00.00000Z",
+    "00:00:00.000000Z",
+    "00:00:00.0000000Z",
+    "00:00:00.00000000Z",
+    "00:00:00.000000000Z",
 };
 
 /*
@@ -619,7 +660,6 @@ get_timestamp_column_longest_string(const int type, const int precision)
 
     switch(type) {
     case(TS_ABSOLUTE_WITH_YMD):
-    case(TS_UTC_WITH_YMD):
         if(precision == TS_PREC_AUTO) {
             /*
              * Return the string for the maximum precision, so that
@@ -631,8 +671,19 @@ get_timestamp_column_longest_string(const int type, const int precision)
         else
             ws_assert_not_reached();
         break;
+    case(TS_UTC_WITH_YMD):
+        if(precision == TS_PREC_AUTO) {
+            /*
+             * Return the string for the maximum precision, so that
+             * our caller leaves room for that string.
+             */
+            return ts_ymd_utc[WS_TSPREC_MAX];
+        } else if(precision >= 0 && precision < NUM_WS_TSPREC_VALS)
+            return ts_ymd_utc[precision];
+        else
+            ws_assert_not_reached();
+        break;
     case(TS_ABSOLUTE_WITH_YDOY):
-    case(TS_UTC_WITH_YDOY):
         if(precision == TS_PREC_AUTO) {
             /*
              * Return the string for the maximum precision, so that
@@ -644,8 +695,19 @@ get_timestamp_column_longest_string(const int type, const int precision)
         else
             ws_assert_not_reached();
         break;
+    case(TS_UTC_WITH_YDOY):
+        if(precision == TS_PREC_AUTO) {
+            /*
+             * Return the string for the maximum precision, so that
+             * our caller leaves room for that string.
+             */
+            return ts_ydoy_utc[WS_TSPREC_MAX];
+        } else if(precision >= 0 && precision < NUM_WS_TSPREC_VALS)
+            return ts_ydoy_utc[precision];
+        else
+            ws_assert_not_reached();
+        break;
     case(TS_ABSOLUTE):
-    case(TS_UTC):
         if(precision == TS_PREC_AUTO) {
             /*
              * Return the string for the maximum precision, so that
@@ -657,7 +719,20 @@ get_timestamp_column_longest_string(const int type, const int precision)
         else
             ws_assert_not_reached();
         break;
-    case(TS_RELATIVE):  /* fallthrough */
+    case(TS_UTC):
+        if(precision == TS_PREC_AUTO) {
+            /*
+             * Return the string for the maximum precision, so that
+             * our caller leaves room for that string.
+             */
+            return ts_abstime_utc[WS_TSPREC_MAX];
+        } else if(precision >= 0 && precision < NUM_WS_TSPREC_VALS)
+            return ts_abstime_utc[precision];
+        else
+            ws_assert_not_reached();
+        break;
+    case(TS_RELATIVE):      /* fallthrough */
+    case(TS_RELATIVE_CAP):
     case(TS_DELTA):
     case(TS_DELTA_DIS):
         if(precision == TS_PREC_AUTO) {
@@ -730,6 +805,8 @@ get_column_longest_string(const int format)
       return get_timestamp_column_longest_string(TS_UTC, timestamp_get_precision());
     case COL_REL_TIME:
       return get_timestamp_column_longest_string(TS_RELATIVE, timestamp_get_precision());
+    case COL_REL_CAP_TIME:
+      return get_timestamp_column_longest_string(TS_RELATIVE_CAP, timestamp_get_precision());
     case COL_DELTA_TIME:
       return get_timestamp_column_longest_string(TS_DELTA, timestamp_get_precision());
     case COL_DELTA_TIME_DIS:
@@ -1214,7 +1291,7 @@ column_register_fields(void)
       if (col_format_abbrev(cfmt->fmt) && !used_fmts[cfmt->fmt]) {
         used_fmts[cfmt->fmt] = true;
         hf_id = g_new(int, 1);
-        *hf_id = -1;
+        *hf_id = 0;
         new_hf.p_id = hf_id;
         new_hf.hfinfo.name = g_strdup(col_format_desc(cfmt->fmt));
         new_hf.hfinfo.abbrev = g_strdup(col_format_abbrev(cfmt->fmt));

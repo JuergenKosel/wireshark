@@ -738,11 +738,11 @@ LteRlcStatisticsDialog::LteRlcStatisticsDialog(QWidget &parent, CaptureFile &cf,
     filter_controls_grid->setColumnStretch(5, 1);
 
     // Add individual controls into the grid
-    launchULGraph_ = new QPushButton(QStringLiteral("Launch UL Graph"));
+    launchULGraph_ = new QPushButton(tr("Launch UL Graph"));
     launchULGraph_->setEnabled(false);
     filter_controls_grid->addWidget(launchULGraph_);
     connect(launchULGraph_, SIGNAL(clicked()), this, SLOT(launchULGraphButtonClicked()));
-    launchDLGraph_ = new QPushButton(QStringLiteral("Launch DL Graph"));
+    launchDLGraph_ = new QPushButton(tr("Launch DL Graph"));
     launchDLGraph_->setEnabled(false);
     filter_controls_grid->addWidget(launchDLGraph_);
     connect(launchDLGraph_, SIGNAL(clicked()), this, SLOT(launchDLGraphButtonClicked()));
@@ -910,7 +910,7 @@ void LteRlcStatisticsDialog::tapDraw(void *ws_dlg_ptr)
     }
 
     // Update title
-    ws_dlg->setWindowSubtitle(QStringLiteral("LTE RLC Statistics (%1 UEs, %2 frames)").
+    ws_dlg->setWindowSubtitle(tr("LTE RLC Statistics (%1 UEs, %2 frames)").
                                   arg(ws_dlg->statsTreeWidget()->topLevelItemCount()).arg(ws_dlg->getFrameCount()));
 }
 
@@ -1070,7 +1070,7 @@ QList<QVariant> LteRlcStatisticsDialog::treeItemData(QTreeWidgetItem *item) cons
 
 // Stat command + args
 
-static void
+static bool
 lte_rlc_statistics_init(const char *args, void*)
 {
     QStringList args_l = QString(args).split(',');
@@ -1079,6 +1079,7 @@ lte_rlc_statistics_init(const char *args, void*)
         filter = QStringList(args_l.mid(2)).join(",").toUtf8();
     }
     mainApp->emitStatCommandSignal("LteRlcStatistics", filter.constData(), NULL);
+    return true;
 }
 
 static stat_tap_ui lte_rlc_statistics_ui = {

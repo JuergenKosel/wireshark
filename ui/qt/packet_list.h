@@ -10,7 +10,7 @@
 #ifndef PACKET_LIST_H
 #define PACKET_LIST_H
 
-#include "byte_view_tab.h"
+#include "data_source_tab.h"
 #include <ui/qt/models/packet_list_model.h>
 #include "proto_tree.h"
 #include "protocol_preferences_menu.h"
@@ -85,6 +85,7 @@ public:
     void setVerticalAutoScroll(bool enabled = true);
     void setCaptureInProgress(bool in_progress = false, bool auto_scroll = true) { capture_in_progress_ = in_progress; tail_at_end_ = in_progress && auto_scroll; }
     void captureFileReadFinished();
+    void setColumnDelegate();
     void resetColumns();
     bool haveNextHistory(bool update_cur = false);
     bool havePreviousHistory(bool update_cur = false);
@@ -112,6 +113,7 @@ public:
     QString createClosingTagForHtml();
 
     void resizeAllColumns(bool onlyTimeFormatted = false);
+    bool selectRow(const frame_data*, bool = true);
 
 protected:
 
@@ -166,7 +168,6 @@ private:
 
     void setFrameReftime(bool set, frame_data *fdata);
     void setColumnVisibility();
-    int sizeHintForColumn(int column) const override;
     void setRecentColumnWidth(int column);
     void drawCurrentPacket();
     void applyRecentColumnWidths();

@@ -74,6 +74,7 @@ StandardLength2B
 RoadSectionId
 PathId
 IssuerIdentifier
+$ETSI-ITS-CDD$VehicleHeight
 
 #.NO_EMIT
 Code-Units WITHOUT_VALS
@@ -101,6 +102,8 @@ EfcDsrcApplication					dsrc_app
 IVI							ivi
 GDD							gdd
 DSRC						dsrc
+ETSI-ITS-DSRC						dsrc
+ETSI-ITS-DSRC-AddGrpC               AddGrpC
 RTCMEM-PDU-Descriptions                         rtcmem
 ETSI-ITS-CDDv1                                  itsv1
 ETSI-ITS-CDD                                    its
@@ -835,6 +838,20 @@ CauseCodeType
     data_offset = call_data_dissector(next_tvb, actx->pinfo, tree);
   }
   offset += data_offset;
+
+#.FN_BODY WrappedCpmContainers
+
+
+
+  if(wrappedcontainers_as_extended == true){
+    offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
+                                                    ett_cpm_WrappedCpmContainers, cpm_WrappedCpmContainers_sequence_of,
+                                                    1, 8, true);
+  } else {
+%(DEFAULT_BODY)s
+  }
+
+
 #.END
 
 #.ASSIGN_VALUE_TO_TYPE  # ISO_TS_19091_DSRC ASN.1 does not have constants assigned to types

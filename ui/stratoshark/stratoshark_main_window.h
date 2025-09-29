@@ -52,7 +52,6 @@
 
 #include <QMainWindow>
 #include <QPointer>
-#include <QTextCodec>
 
 #ifdef _WIN32
 # include <QTimer>
@@ -60,7 +59,6 @@
 # include <QSocketNotifier>
 #endif
 
-#include "capture_file.h"
 #include "capture_file_dialog.h"
 #include "capture_file_properties_dialog.h"
 #include <ui/qt/utils/field_information.h>
@@ -68,7 +66,7 @@
 #include "main_window.h"
 
 class AccordionFrame;
-class ByteViewTab;
+class DataSourceTab;
 class CaptureOptionsDialog;
 class PrintDialog;
 class FileSetDialog;
@@ -145,9 +143,7 @@ private:
     };
 
     Ui::StratosharkMainWindow *main_ui_;
-    CaptureFile capture_file_;
     QFont mono_font_;
-    QMap<QString, QTextCodec *> text_codec_map_;
     QWidget *previous_focus_;
     FileSetDialog *file_set_dialog_;
     QActionGroup *show_hide_actions_;
@@ -166,7 +162,6 @@ private:
 
     bool capture_stopping_;
     bool capture_filter_valid_;
-    bool use_capturing_title_;
 #ifdef HAVE_LIBPCAP
     capture_session cap_session_;
     CaptureOptionsDialog *capture_options_dialog_;
@@ -198,8 +193,6 @@ private:
 #endif // Q_OS_WIN
     bool testCaptureFileClose(QString before_what, FileCloseContext context = Default);
     void captureStop();
-
-    void findTextCodecs();
 
     void initMainToolbarIcons();
     void initShowHideMainWidgets();
@@ -437,6 +430,8 @@ private slots:
     void openStatisticsTreeDialog(const char *abbr);
     void statCommandIOGraph(const char *, void *);
     void showIOGraphDialog(io_graph_item_unit_t, QString);
+
+    void showPlotDialog(const QString& y_field = QString(), bool filtered = false);
 
     void externalMenuItemTriggered();
 

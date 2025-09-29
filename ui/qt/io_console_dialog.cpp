@@ -16,7 +16,7 @@
 #include "main_application.h"
 
 extern "C" {
-static void print_function(const char *str, void *ptr);
+    static void print_function(const char *str, void *ptr);
 }
 
 static void print_function(const char *str, void *print_data)
@@ -26,11 +26,11 @@ static void print_function(const char *str, void *print_data)
 }
 
 IOConsoleDialog::IOConsoleDialog(QWidget &parent,
-                                QString title,
-                                funnel_console_eval_cb_t eval_cb,
-                                funnel_console_open_cb_t open_cb,
-                                funnel_console_close_cb_t close_cb,
-                                void *callback_data = nullptr) :
+                                 QString title,
+                                 funnel_console_eval_cb_t eval_cb,
+                                 funnel_console_open_cb_t open_cb,
+                                 funnel_console_close_cb_t close_cb,
+                                 void *callback_data = nullptr) :
     GeometryStateDialog(&parent),
     ui(new Ui::IOConsoleDialog),
     eval_cb_(eval_cb),
@@ -41,7 +41,7 @@ IOConsoleDialog::IOConsoleDialog(QWidget &parent,
     ui->setupUi(this);
 
     if (title.isEmpty())
-        title = QStringLiteral("Console");
+        title = tr("Console");
 
     loadGeometry(0, 0, title);
     loadSplitterState(ui->splitter);
@@ -57,12 +57,16 @@ IOConsoleDialog::IOConsoleDialog(QWidget &parent,
 
     ui->inputTextEdit->setFont(mainApp->monospaceFont());
     ui->inputTextEdit->setPlaceholderText(tr("Use %1 to evaluate.")
-            .arg(eval_button->shortcut().toString(QKeySequence::NativeText)));
+                                          .arg(eval_button->shortcut().toString(QKeySequence::NativeText)));
+    ui->inputTextEdit->setAcceptRichText(false);
 
     ui->outputTextEdit->setFont(mainApp->monospaceFont());
     ui->outputTextEdit->setReadOnly(true);
 
-    ui->hintLabel->clear();
+    // Shrink down to a small but nonzero size.
+    int one_em = fontMetrics().height();
+    ui->hintLabel->setMinimumSize(one_em, one_em);
+    clearHintText();
 
     // Install print
     open_cb_(print_function, this, callback_data_);
@@ -88,7 +92,7 @@ void IOConsoleDialog::clearHintText()
 void IOConsoleDialog::clearSuccessHint()
 {
     // Text changed so we no longer have a success.
-    ui->hintLabel->clear();
+    clearHintText();
     // Disconnect this slot until the next success.
     disconnect(ui->inputTextEdit, &QTextEdit::textChanged, this, &IOConsoleDialog::clearSuccessHint);
 }
@@ -109,19 +113,16 @@ void IOConsoleDialog::acceptInput()
             QString hint(error_hint);
             setHintText(hint.at(0).toUpper() + hint.mid(1));
             g_free(error_hint);
-        }
-        else if (result < 0) {
+        } else if (result < 0) {
             setHintText("Error loading string");
-        }
-        else {
+        } else {
             setHintText("Error running chunk");
         }
         if (error_str) {
             appendOutputText(QString(error_str));
             g_free(error_str);
         }
-    }
-    else {
+    } else {
         setHintText("Code evaluated successfully");
         connect(ui->inputTextEdit, &QTextEdit::textChanged, this, &IOConsoleDialog::clearSuccessHint);
     }
@@ -134,7 +135,6 @@ void IOConsoleDialog::appendOutputText(const QString &text)
 
 void IOConsoleDialog::on_clearActivated()
 {
-    ui->inputTextEdit->clear();
     ui->outputTextEdit->clear();
-    ui->hintLabel->clear();
+    clearHintText();
 }

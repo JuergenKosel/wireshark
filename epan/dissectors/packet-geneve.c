@@ -1,6 +1,6 @@
 /* packet-geneve.c
  * Routines for Geneve - Generic Network Virtualization Encapsulation
- * https://tools.ietf.org/html/draft-ietf-nvo3-geneve
+ * https://tools.ietf.org/html/rfc8926
  *
  * Copyright (c) 2024 cPacket Networks, Inc. All Rights Reserved.
  * Author: Martin Greenberg <mgreenberg@cpacket.com>
@@ -23,7 +23,6 @@
 #include <epan/packet.h>
 #include <epan/etypes.h>
 #include <epan/expert.h>
-#include <epan/value_string.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
 
@@ -38,6 +37,8 @@
 #define OPT_TYPE_CRITICAL (1 << 7)
 #define OPT_FLAGS_SHIFT 5
 #define OPT_LEN_MASK 0x1F
+
+/* https://www.iana.org/assignments/nvo3/nvo3.xhtml#geneve-option-class last update 2024-12-20 */
 
 static const range_string class_id_names[] = {
     { 0, 0xFF, "Standard" },
@@ -56,9 +57,22 @@ static const range_string class_id_names[] = {
     { 0x0130, 0x0131, "Cisco Systems, Inc." },
     { 0x0132, 0x0135, "Google LLC" },
     { 0x0136, 0x0136, "InfoQuick Global Connection Tech Ltd." },
-    { 0x0137, 0x0163, "Unssigned" },
+    { 0x0137, 0x0140, "Alibaba, inc" },
+    { 0x0141, 0x0144, "Palo Alto Networks" },
+    { 0x0145, 0x0149, "Huawei Technologies Co., Ltd" },
+    { 0x014A, 0x014A, "EMnify GmbH" },
+    { 0x014B, 0x014B, "Cilium" },
+    { 0x014C, 0x014C, "Corelight, Inc." },
+    { 0x014D, 0x014D, "1NCE GmbH" },
+    { 0x014E, 0x0157, "Cloud of China Telecom (CTYUN)" },
+    { 0x0158, 0x0161, "Volcengine, inc" },
+    { 0x0162, 0x0162, "nat64.net" },
+    { 0x0163, 0x0163, "Multi Segment SD-WAN" },
     { 0x0164, 0x0164, "cPacket Networks, Inc." },
-    { 0x0165, 0xFEFF, "Unassigned" },
+    { 0x0165, 0x0167, "Tencent" },
+    { 0x0168, 0x0168, "ExtraHop Networks, Inc." },
+    { 0x0169, 0x0169, "Soosan INT Co., Ltd." },
+    { 0x016A, 0xFEFF, "Unassigned" },
     { 0xFFF0, 0xFFFF, "Experimental" },
     { 0, 0, NULL }
 };
@@ -66,12 +80,14 @@ static const range_string class_id_names[] = {
 #define GENEVE_GCP_VNID     0x013201
 #define GENEVE_GCP_ENDPOINT 0x013202
 #define GENEVE_GCP_PROFILE  0x013203
+#define GENEVE_CILIUM_SERVICE   0x014B81
 #define GENEVE_CPACKET_METADATA  0x016400
 
 static const val64_string option_names[] = {
   { GENEVE_GCP_VNID,     "GCP Virtual Network ID" },
   { GENEVE_GCP_ENDPOINT, "GCP Endpoint ID" },
   { GENEVE_GCP_PROFILE,  "GCP Profile ID" },
+  { GENEVE_CILIUM_SERVICE,    "Cilium Service IP" },
   { GENEVE_CPACKET_METADATA,  "cPacket Meta-data" },
   { 0, NULL }
 };
@@ -104,6 +120,10 @@ static int hf_geneve_opt_gcp_reserved;
 static int hf_geneve_opt_gcp_direction;
 static int hf_geneve_opt_gcp_endpoint;
 static int hf_geneve_opt_gcp_profile;
+static int hf_geneve_opt_cilium_service_ipv4;
+static int hf_geneve_opt_cilium_service_ipv6;
+static int hf_geneve_opt_cilium_service_port;
+static int hf_geneve_opt_cilium_service_pad;
 static int hf_geneve_opt_cpkt_seqnum;
 static int hf_geneve_opt_cpkt_origlen;
 static int hf_geneve_opt_cpkt_reserved;
@@ -199,9 +219,9 @@ dissect_option(wmem_allocator_t *scope, tvbuff_t *tvb, proto_tree *opts_tree, in
             proto_tree_add_bits_item(opt_tree, hf_geneve_opt_gcp_vnid, tvb, offset * 8,
                                      28, ENC_BIG_ENDIAN);
             proto_tree_add_item(opt_tree, hf_geneve_opt_gcp_direction, tvb, offset,
-                                4, ENC_NA);
+                                4, ENC_BIG_ENDIAN);
             proto_tree_add_item(opt_tree, hf_geneve_opt_gcp_reserved, tvb, offset,
-                                4, ENC_NA);
+                                4, ENC_BIG_ENDIAN);
             break;
         case GENEVE_GCP_ENDPOINT:
             proto_tree_add_item(opt_tree, hf_geneve_opt_gcp_endpoint, tvb, offset,
@@ -210,6 +230,36 @@ dissect_option(wmem_allocator_t *scope, tvbuff_t *tvb, proto_tree *opts_tree, in
         case GENEVE_GCP_PROFILE:
             proto_tree_add_item(opt_tree, hf_geneve_opt_gcp_profile, tvb, offset,
                                 len - 4, ENC_BIG_ENDIAN);
+            break;
+        case GENEVE_CILIUM_SERVICE:
+            switch (len) {
+                case 12: {
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_ipv4, tvb, offset,
+                                        4, ENC_BIG_ENDIAN);
+                    offset += 4;
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_port, tvb, offset,
+                                        2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_pad, tvb, offset,
+                                        2, ENC_NA);
+                }
+                break;
+                case 24: {
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_ipv6, tvb, offset,
+                                        16, ENC_NA);
+                    offset += 16;
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_port, tvb, offset,
+                                        2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_cilium_service_pad, tvb, offset,
+                                        2, ENC_NA);
+                }
+                break;
+                default:
+                    proto_tree_add_item(opt_tree, hf_geneve_opt_unknown_data, tvb, offset,
+                                        len - 4, ENC_NA);
+                break;
+            }
             break;
         case GENEVE_CPACKET_METADATA:
             proto_tree_add_item(opt_tree, hf_geneve_opt_cpkt_seqnum, tvb, offset,
@@ -227,7 +277,7 @@ dissect_option(wmem_allocator_t *scope, tvbuff_t *tvb, proto_tree *opts_tree, in
             // PTPv2 timestamp has more resolution than NStime supports/displays,
             // but parse appropriate subsection of into NStime for user convenience
             proto_tree_add_time_item(opt_tree, hf_geneve_opt_cpkt_timestamp, tvb, offset+2, 8,
-                                     ENC_TIME_SECS_NSECS, NULL, NULL, NULL);
+                                     ENC_TIME_SECS_NSECS|ENC_BIG_ENDIAN, NULL, NULL, NULL);
             proto_tree_add_item(opt_tree, hf_geneve_opt_cpkt_ts_sec, tvb, offset,
                                 6, ENC_BIG_ENDIAN);
             offset += 6;
@@ -342,7 +392,7 @@ dissect_geneve(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 
     proto_type = tvb_get_ntohs(tvb, offset);
     col_add_fstr(pinfo->cinfo, COL_INFO, "Encapsulated %s",
-                 val_to_str(proto_type, etype_vals, "0x%04x (unknown)"));
+                 val_to_str(pinfo->pool, proto_type, etype_vals, "0x%04x (unknown)"));
 
     offset += 2;
 
@@ -484,6 +534,26 @@ proto_register_geneve(void)
         { &hf_geneve_opt_gcp_profile,
           { "GCP Profile ID", "geneve.option.gcp.profile",
             FT_UINT64, BASE_DEC, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_geneve_opt_cilium_service_ipv4,
+          { "Cilium Service IPv4", "geneve.option.cilium.service.ipv4",
+            FT_IPv4, BASE_NONE, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_geneve_opt_cilium_service_ipv6,
+          { "Cilium Service IPv6", "geneve.option.cilium.service.ipv6",
+            FT_IPv6, BASE_NONE, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_geneve_opt_cilium_service_port,
+          { "Cilium Service Port", "geneve.option.cilium.service.port",
+            FT_UINT16, BASE_DEC, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_geneve_opt_cilium_service_pad,
+          { "Pad", "geneve.option.cilium.service.pad",
+            FT_BYTES, BASE_NONE, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_geneve_opt_cpkt_seqnum,

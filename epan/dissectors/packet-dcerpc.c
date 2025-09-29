@@ -26,8 +26,9 @@
 
 #include "config.h"
 
-#include <guid-utils.h>
 #include <stdio.h>      /* for sscanf() */
+
+#include <epan/guid-utils.h>
 #include <epan/packet.h>
 #include <epan/exceptions.h>
 #include <epan/prefs.h>
@@ -42,6 +43,8 @@
 #include <epan/tfs.h>
 
 #include <wsutil/str_util.h>
+#include <wsutil/ws_roundup.h>
+
 #include "packet-tcp.h"
 #include "packet-dcerpc.h"
 #include "packet-dcerpc-nt.h"
@@ -1270,7 +1273,7 @@ static void dissect_auth_verf(packet_info *pinfo,
                                      &ei_dcerpc_invalid_pdu_authentication_attempt,
                                      auth_info->auth_tvb, 0, 0,
                                      "Don't know how to dissect authentication data for %s pdu type",
-                                     val_to_str(hdr->ptype, pckt_vals, "Unknown (%u)"));
+                                     val_to_str(pinfo->pool, hdr->ptype, pckt_vals, "Unknown (%u)"));
         return;
     }
 
@@ -1281,13 +1284,13 @@ static void dissect_auth_verf(packet_info *pinfo,
                                      &ei_dcerpc_verifier_unavailable,
                                      auth_info->auth_tvb, 0, hdr->auth_len,
                                      "%s Verifier unavailable",
-                                     val_to_str(auth_info->auth_type,
+                                     val_to_str(pinfo->pool, auth_info->auth_type,
                                                 authn_protocol_vals,
                                                 "Unknown (%u)"));
 }
 
 static proto_item*
-proto_tree_add_dcerpc_drep(proto_tree *tree, tvbuff_t *tvb, int offset, uint8_t drep[], int drep_len)
+proto_tree_add_dcerpc_drep(proto_tree *tree, packet_info* pinfo, tvbuff_t *tvb, int offset, uint8_t drep[], int drep_len)
 {
     const uint8_t byteorder = drep[0] >> 4;
     const uint8_t character = drep[0] & 0x0f;
@@ -1300,9 +1303,9 @@ proto_tree_add_dcerpc_drep(proto_tree *tree, tvbuff_t *tvb, int offset, uint8_t 
     proto_tree_add_uint(tr, hf_dcerpc_drep_fp, tvb, offset+1, 1, fp);
 
     proto_item_append_text(ti, " (Order: %s, Char: %s, Float: %s)",
-                           val_to_str(byteorder, drep_byteorder_vals, "Unknown (%u)"),
-                           val_to_str(character, drep_character_vals, "Unknown (%u)"),
-                           val_to_str(fp, drep_fp_vals, "Unknown (%u)"));
+                           val_to_str(pinfo->pool, byteorder, drep_byteorder_vals, "Unknown (%u)"),
+                           val_to_str(pinfo->pool, character, drep_character_vals, "Unknown (%u)"),
+                           val_to_str(pinfo->pool, fp, drep_fp_vals, "Unknown (%u)"));
     return ti;
 }
 
@@ -1676,9 +1679,6 @@ dissect_dcerpc_guid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
 static void
 dcerpc_init_finalize(dissector_handle_t guid_handle, guid_key *key, dcerpc_uuid_value *value)
 {
-    module_t          *samr_module;
-    const char        *filter_name = proto_get_protocol_filter_name(value->proto_id);
-
     g_hash_table_insert(dcerpc_uuids, key, value);
 
     /* Register the GUID with the dissector table */
@@ -1686,13 +1686,6 @@ dcerpc_init_finalize(dissector_handle_t guid_handle, guid_key *key, dcerpc_uuid_
 
     /* add this GUID to the global name resolving */
     guids_add_uuid(&key->guid, proto_get_protocol_short_name(value->proto));
-
-    /* Register the samr.nt_password preference as obsolete */
-    /* This should be in packet-dcerpc-samr.c */
-    if (strcmp(filter_name, "samr") == 0) {
-        samr_module = prefs_register_protocol_obsolete(value->proto_id);
-        prefs_register_obsolete_preference(samr_module, "nt_password");
-    }
 }
 
 void
@@ -3604,7 +3597,7 @@ dissect_sec_vt_header(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb)
     offset += 2;
 
     tvb_memcpy(tvb, drep, offset, 4);
-    proto_tree_add_dcerpc_drep(tr, tvb, offset, drep, 4);
+    proto_tree_add_dcerpc_drep(tr, pinfo, tvb, offset, drep, 4);
     offset += 4;
 
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tr, drep,
@@ -3700,7 +3693,7 @@ dissect_verification_trailer_impl(packet_info *pinfo, tvbuff_t *tvb, int stub_of
         tr = proto_tree_add_subtree_format(tree, tvb, offset, 4 + len,
                                            ett_dcerpc_sec_vt_pcontext,
                                            &ti, "Command: %s",
-                                             val_to_str(cmd, sec_vt_command_cmd_vals,
+                                             val_to_str(pinfo->pool, cmd, sec_vt_command_cmd_vals,
                                                         "Unknown (0x%04x)"));
 
         if (cmd_must) {
@@ -3987,10 +3980,10 @@ dissect_dcerpc_cn_auth(tvbuff_t *tvb, int stub_offset, packet_info *pinfo,
 
                 proto_item_append_text(auth_info->auth_item,
                                        ": %s, %s, AuthContextId(%d)",
-                                       val_to_str(auth_info->auth_type,
+                                       val_to_str(pinfo->pool, auth_info->auth_type,
                                                   authn_protocol_vals,
                                                   "AuthType(%u)"),
-                                       val_to_str(auth_info->auth_level,
+                                       val_to_str(pinfo->pool, auth_info->auth_level,
                                                   authn_level_vals,
                                                   "AuthLevel(%u)"),
                                        auth_info->auth_context_id);
@@ -4311,9 +4304,7 @@ dissect_dcerpc_cn_bind_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
         offset += sec_addr_len;
     }
 
-    if (offset % 4) {
-        offset += 4 - offset % 4;
-    }
+    offset = WS_ROUNDUP_4(offset);
 
     offset = dissect_dcerpc_uint8(tvb, offset, pinfo, dcerpc_tree, hdr->drep,
                                   hf_dcerpc_cn_num_results, &num_results);
@@ -4356,7 +4347,7 @@ dissect_dcerpc_cn_bind_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
             offset += 2;
         }
 
-        result_str = val_to_str(result, p_cont_result_vals, "Unknown result (%u)");
+        result_str = val_to_str(pinfo->pool, result, p_cont_result_vals, "Unknown result (%u)");
 
         if (ctx_tree) {
             dcerpc_tvb_get_uuid(tvb, offset, hdr->drep, &trans_id);
@@ -4400,7 +4391,7 @@ dissect_dcerpc_cn_bind_nak(tvbuff_t *tvb, int offset, packet_info *pinfo,
                                    &reason);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " reason: %s",
-                    val_to_str(reason, reject_reason_vals, "Unknown (%u)"));
+                    val_to_str(pinfo->pool, reason, reject_reason_vals, "Unknown (%u)"));
 
     if (reason == PROTOCOL_VERSION_NOT_SUPPORTED) {
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, dcerpc_tree, hdr->drep,
@@ -4995,14 +4986,14 @@ dissect_dcerpc_cn_fault(tvbuff_t *tvb, int offset, packet_info *pinfo,
     pi = proto_tree_add_item(dcerpc_tree, hf_dcerpc_cn_status, tvb, offset, 4, DREP_ENC_INTEGER(hdr->drep));
     offset+=4;
 
-    expert_add_info_format(pinfo, pi, &ei_dcerpc_cn_status, "Fault: %s", val_to_str(status, reject_status_vals, "Unknown (0x%08x)"));
+    expert_add_info_format(pinfo, pi, &ei_dcerpc_cn_status, "Fault: %s", val_to_str(pinfo->pool, status, reject_status_vals, "Unknown (0x%08x)"));
 
     /* save context ID for use with dcerpc_add_conv_to_bind_table() */
     decode_data->dcectxid = ctx_id;
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     ", Ctx: %u, status: %s", ctx_id,
-                    val_to_str(status, reject_status_vals,
+                    val_to_str(pinfo->pool, status, reject_status_vals,
                                "Unknown (0x%08x)"));
 
     /* padding */
@@ -5679,14 +5670,14 @@ dissect_dcerpc_cn(tvbuff_t *tvb, int offset, packet_info *pinfo,
 #if 0  /* XXX - too much "output noise", removed for now  */
        if (hdr.ptype == PDU_BIND || hdr.ptype == PDU_ALTER ||
        hdr.ptype == PDU_BIND_ACK || hdr.ptype == PDU_ALTER_ACK)
-       expert_add_info_format(pinfo, tf, &ei_dcerpc_context_change, "Context change: %s", val_to_str(hdr.ptype, pckt_vals, "(0x%x)"));
+       expert_add_info_format(pinfo, tf, &ei_dcerpc_context_change, "Context change: %s", val_to_str(pinfo->pool, hdr.ptype, pckt_vals, "(0x%x)"));
 #endif
     if (hdr.ptype == PDU_BIND_NAK)
         expert_add_info(pinfo, tf, &ei_dcerpc_bind_not_acknowledged);
 
     if (tree) {
         proto_item_append_text(ti, " %s, Fragment: %s",
-                               val_to_str(hdr.ptype, pckt_vals, "Unknown (0x%02x)"),
+                               val_to_str(pinfo->pool, hdr.ptype, pckt_vals, "Unknown (0x%02x)"),
                                fragment_type(hdr.flags));
     }
 
@@ -5696,7 +5687,7 @@ dissect_dcerpc_cn(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ", Fragment: %s", fragment_type(hdr.flags));
 
-    proto_tree_add_dcerpc_drep(dcerpc_tree, tvb, offset, hdr.drep, (int)sizeof (hdr.drep));
+    proto_tree_add_dcerpc_drep(dcerpc_tree, pinfo, tvb, offset, hdr.drep, (int)sizeof (hdr.drep));
     offset += (int)sizeof (hdr.drep);
 
     proto_tree_add_uint(dcerpc_tree, hf_dcerpc_cn_frag_len, tvb, offset, 2, hdr.frag_len);
@@ -6193,7 +6184,7 @@ dissect_dcerpc_dg_reject_fault(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
     col_append_fstr (pinfo->cinfo, COL_INFO,
                      ": status: %s",
-                     val_to_str(status, reject_status_vals, "Unknown (0x%08x)"));
+                     val_to_str(pinfo->pool, status, reject_status_vals, "Unknown (0x%08x)"));
 }
 
 static void
@@ -6584,7 +6575,7 @@ dissect_dcerpc_dg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         if (ti) {
             dcerpc_tree = proto_item_add_subtree(ti, ett_dcerpc);
             proto_item_append_text(ti, " %s, Seq: %u, Serial: %u, Frag: %u, FragLen: %u",
-                                   val_to_str(hdr.ptype, pckt_vals, "Unknown (0x%02x)"),
+                                   val_to_str(pinfo->pool, hdr.ptype, pckt_vals, "Unknown (0x%02x)"),
                                    hdr.seqnum, hdr.serial_hi*256+hdr.serial_lo,
                                    hdr.frag_num, hdr.frag_len);
         }
@@ -6606,7 +6597,7 @@ dissect_dcerpc_dg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     offset++;
 
     if (tree) {
-        proto_tree_add_dcerpc_drep(dcerpc_tree, tvb, offset, hdr.drep, (int)sizeof (hdr.drep));
+        proto_tree_add_dcerpc_drep(dcerpc_tree, pinfo, tvb, offset, hdr.drep, (int)sizeof (hdr.drep));
     }
     offset += (int)sizeof (hdr.drep);
 

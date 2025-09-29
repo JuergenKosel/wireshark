@@ -18,6 +18,7 @@
 #include <inttypes.h>
 
 #include "packet-bpv7.h"
+#include "packet-cbor.h"
 #include "epan/wscbor.h"
 #include <epan/proto.h>
 #include <epan/packet.h>
@@ -29,7 +30,6 @@
 #include <epan/proto_data.h>
 #include <epan/conversation_table.h>
 #include <epan/conversation_filter.h>
-#include <epan/exceptions.h>
 #include <epan/ftypes/ftypes.h>
 #include <epan/unit_strings.h>
 #include <epan/tfs.h>
@@ -510,6 +510,7 @@ static expert_field ei_eid_ipn_num_invalid;
 static expert_field ei_block_type_dupe;
 static expert_field ei_sub_type_unknown;
 static expert_field ei_sub_partial_decode;
+static expert_field ei_primary_crc_type;
 static expert_field ei_crc_type_unknown;
 static expert_field ei_frag_fields_missing;
 static expert_field ei_crc_value_missing;
@@ -532,6 +533,7 @@ static ei_register_info expertitems[] = {
     {&ei_block_type_dupe, {"bpv7.block_type_dupe", PI_PROTOCOL, PI_WARN, "Too many blocks of this type", EXPFILL}},
     {&ei_sub_type_unknown, {"bpv7.sub_type_unknown", PI_UNDECODED, PI_WARN, "Unknown type code", EXPFILL}},
     {&ei_sub_partial_decode, {"bpv7.sub_partial_decode", PI_UNDECODED, PI_WARN, "Data not fully dissected", EXPFILL}},
+    {&ei_primary_crc_type, {"bpv7.primary_crc_type", PI_PROTOCOL, PI_WARN, "Primary block does not have a CRC", EXPFILL}},
     {&ei_crc_type_unknown, {"bpv7.crc_type_unknown", PI_UNDECODED, PI_WARN, "Unknown CRC Type code", EXPFILL}},
     {&ei_frag_fields_missing, {"bpv7.frag_fields_missing", PI_MALFORMED, PI_ERROR, "Missing Fragmentation Fields", EXPFILL}},
     {&ei_crc_value_missing, {"bpv7.crc_value_missing", PI_MALFORMED, PI_ERROR, "Missing CRC Value", EXPFILL}},
@@ -607,8 +609,8 @@ void bp_block_primary_free(wmem_allocator_t *alloc, bp_block_primary_t *obj) {
     bp_eid_free(obj->rep_nodeid);
     wmem_free(alloc, obj->frag_offset);
     wmem_free(alloc, obj->total_len);
-    wmem_free(alloc, obj->sec.data_i);
-    wmem_free(alloc, obj->sec.data_c);
+    wmem_map_destroy(obj->sec.data_i, true, true);
+    wmem_map_destroy(obj->sec.data_c, true, true);
     wmem_free(alloc, obj);
 }
 
@@ -1200,7 +1202,7 @@ static int dissect_block_primary(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     field_ix++;
     block->crc_type = (crc_type ? *crc_type : BP_CRC_NONE);
     if (crc_type) {
-        proto_item_append_text(item_block, ", CRC Type: %s", val64_to_str(*crc_type, crc_vals, "%" PRIu64));
+        proto_item_append_text(item_block, ", CRC Type: %s", val64_to_str_wmem(pinfo->pool, *crc_type, crc_vals, "%" PRIu64));
     }
 
     proto_tree_add_cbor_eid(tree_block, hf_primary_dst_eid, hf_primary_dst_uri, pinfo, tvb, &offset, block->dst_eid);
@@ -1269,6 +1271,7 @@ static int dissect_block_primary(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     switch (block->crc_type) {
         case BP_CRC_NONE:
+            expert_add_info(pinfo, item_crc_type, &ei_primary_crc_type);
             break;
         case BP_CRC_16:
         case BP_CRC_32: {
@@ -1379,7 +1382,7 @@ static int dissect_block_canonical(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     field_ix++;
     block->crc_type = (crc_type ? *crc_type : BP_CRC_NONE);
     if (crc_type) {
-        proto_item_append_text(item_block, ", CRC Type: %s", val64_to_str(*crc_type, crc_vals, "%" PRIu64));
+        proto_item_append_text(item_block, ", CRC Type: %s", val64_to_str_wmem(pinfo->pool, *crc_type, crc_vals, "%" PRIu64));
     }
 
     chunk = wscbor_chunk_read(pinfo->pool, tvb, &offset);
@@ -2072,7 +2075,7 @@ static int dissect_status_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
                             status_buf);
     }
     if (reason_code) {
-        proto_item_append_text(item_admin, ", Reason: %s", val64_to_str(*reason_code, status_report_reason_vals, "%" PRIu64));
+        proto_item_append_text(item_admin, ", Reason: %s", val64_to_str_wmem(pinfo->pool, *reason_code, status_report_reason_vals, "%" PRIu64));
     }
 
     proto_item_set_len(item_status, offset - chunk_status->start);
@@ -2248,37 +2251,6 @@ static int dissect_block_hop_count(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     proto_tree_add_cbor_uint64(tree, hf_hop_count_current, pinfo, tvb, chunk, current);
 
     return offset;
-}
-
-static bool btsd_heur_cbor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_) {
-    int offset = 0;
-    volatile int count = 0;
-
-    while ((unsigned)offset < tvb_reported_length(tvb)) {
-        volatile bool valid = false;
-        TRY {
-            valid = wscbor_skip_next_item(pinfo->pool, tvb, &offset);
-        }
-        CATCH_BOUNDS_AND_DISSECTOR_ERRORS {}
-        ENDTRY;
-        if (!valid) {
-            break;
-        }
-        ++count;
-    }
-
-    // Anything went wrong with any part of the data
-    if ((count == 0) || ((unsigned)offset != tvb_reported_length(tvb))) {
-        return false;
-    }
-
-    if (count == 1) {
-        call_dissector(handle_cbor, tvb, pinfo, tree);
-    }
-    else {
-        call_dissector(handle_cborseq, tvb, pinfo, tree);
-    }
-    return true;
 }
 
 /// Clear state when new file scope is entered
@@ -2562,7 +2534,7 @@ void proto_register_bpv7(void) {
 
 void proto_reg_handoff_bpv7(void) {
     const int proto_cbor = proto_get_id_by_filter_name("cbor");
-    heur_dissector_add("bpv7.btsd", btsd_heur_cbor, "CBOR in Bundle BTSD", "cbor_bpv7", proto_cbor, HEURISTIC_ENABLE);
+    heur_dissector_add("bpv7.btsd", cbor_heuristic, "CBOR in Bundle BTSD", "cbor_bpv7", proto_cbor, HEURISTIC_ENABLE);
 
     handle_cbor = find_dissector("cbor");
     handle_cborseq = find_dissector("cborseq");

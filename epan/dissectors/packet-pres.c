@@ -94,7 +94,7 @@ static int hf_pres_protocol_options;              /* Protocol_options */
 static int hf_pres_initiators_nominated_context;  /* Presentation_context_identifier */
 static int hf_pres_extensions;                    /* T_extensions */
 static int hf_pres_user_data;                     /* User_data */
-static int hf_pres_cPR_PPDU_x400_mode_parameters;  /* RTOACapdu */
+static int hf_pres_cPR_PPDU_x410_mode_parameters;  /* RTOACapdu */
 static int hf_pres_cPU_PPDU_normal_mode_parameters;  /* T_CPA_PPDU_normal_mode_parameters */
 static int hf_pres_responding_presentation_selector;  /* Responding_presentation_selector */
 static int hf_pres_presentation_context_definition_result_list;  /* Presentation_context_definition_result_list */
@@ -864,7 +864,7 @@ dissect_pres_T_CPA_PPDU_normal_mode_parameters(bool implicit_tag _U_, tvbuff_t *
 
 static const ber_sequence_t CPA_PPDU_set[] = {
   { &hf_pres_mode_selector  , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_pres_Mode_selector },
-  { &hf_pres_cPR_PPDU_x400_mode_parameters, BER_CLASS_CON, 1, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_rtse_RTOACapdu },
+  { &hf_pres_cPR_PPDU_x410_mode_parameters, BER_CLASS_CON, 1, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_rtse_RTOACapdu },
   { &hf_pres_cPU_PPDU_normal_mode_parameters, BER_CLASS_CON, 2, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_pres_T_CPA_PPDU_normal_mode_parameters },
   { NULL, 0, 0, 0, NULL }
 };
@@ -1035,7 +1035,7 @@ dissect_pres_Abort_reason(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
                                                 &reason);
 
 
-  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%s)", val_to_str(reason, pres_Abort_reason_vals, "unknown: %d"));
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%s)", val_to_str(actx->pinfo->pool, reason, pres_Abort_reason_vals, "unknown: %d"));
 
 
   return offset;
@@ -1329,7 +1329,7 @@ dissect_ppdu(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, st
 
 	/*  set up type of PPDU */
 	col_add_str(pinfo->cinfo, COL_INFO,
-		    val_to_str_ext(session->spdu_type, &ses_vals_ext, "Unknown PPDU type (0x%02x)"));
+		    val_to_str_ext(pinfo->pool, session->spdu_type, &ses_vals_ext, "Unknown PPDU type (0x%02x)"));
 
 	asn1_ctx.private_data = session;
 
@@ -1383,7 +1383,7 @@ dissect_pres(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	if (!tvb_bytes_exist(tvb, 0, 4)) {
 		if (session && session->spdu_type != SES_MAJOR_SYNC_POINT) {
 			proto_tree_add_item(parent_tree, hf_pres_user_data, tvb, offset,
-					    tvb_reported_length_remaining(tvb,offset), ENC_NA);
+					tvb_reported_length_remaining(tvb,offset), ENC_BIG_ENDIAN);
 			return 0;  /* no, it isn't a presentation PDU */
 		}
 	}
@@ -1424,7 +1424,7 @@ dissect_pres(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 			call_ber_oid_callback (oid, tvb, offset, pinfo, parent_tree, session);
 		} else {
 			proto_tree_add_item(parent_tree, hf_pres_user_data, tvb, offset,
-					    tvb_reported_length_remaining(tvb,offset), ENC_NA);
+			                    tvb_reported_length_remaining(tvb,offset), ENC_BIG_ENDIAN);
 		}
 		return tvb_captured_length(tvb);
 	}
@@ -1528,8 +1528,8 @@ void proto_register_pres(void) {
       { "user-data", "pres.user_data",
         FT_UINT32, BASE_DEC, VALS(pres_User_data_vals), 0,
         NULL, HFILL }},
-    { &hf_pres_cPR_PPDU_x400_mode_parameters,
-      { "x410-mode-parameters", "pres.cPR_PPDU_x400_mode_parameters_element",
+    { &hf_pres_cPR_PPDU_x410_mode_parameters,
+      { "x410-mode-parameters", "pres.cPR_PPDU_x410_mode_parameters_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "RTOACapdu", HFILL }},
     { &hf_pres_cPU_PPDU_normal_mode_parameters,

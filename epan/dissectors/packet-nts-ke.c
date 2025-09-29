@@ -177,7 +177,7 @@ static const range_string nts_ke_aead_rvals[] = {
  *
  * All crypto functions will need GCRYPT >= 1.10.0 because
  * GCRY_CIPHER_MODE_SIV is a mandatory algorithm. If'ing out SIV algos
- * to compile sucessfully without GCRYPT support.
+ * to compile successfully without GCRYPT support.
  */
 static const nts_aead nts_ke_aead_gcry_map[] = {
 #if GCRYPT_VERSION_NUMBER >= 0x010a00
@@ -432,9 +432,10 @@ nts_find_cookie_by_uid(tvbuff_t *tvb_uid)
         return NULL;
 
     /* Hash UID */
-    tvb_uid_bytes = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb_uid, 0, uid_len);
+    tvb_uid_bytes = (uint8_t *)tvb_memdup(NULL, tvb_uid, 0, uid_len);
     lookup.uid_hash = wmem_strong_hash(tvb_uid_bytes, uid_len);
     lookup.cookie = NULL;
+    wmem_free(NULL, tvb_uid_bytes);
 
     /* Find cookie by UID hash */
     wmem_map_foreach(nts_cookies, nts_uid_lookup_callback, &lookup);

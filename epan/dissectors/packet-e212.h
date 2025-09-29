@@ -12,7 +12,7 @@
 #ifndef __PACKET_E212_H__
 #define __PACKET_E212_H__
 
-#include <epan/value_string.h>
+#include <wsutil/value_string.h>
 #include "ws_symbol_export.h"
 
 extern value_string_ext E212_codes_ext;
@@ -37,6 +37,7 @@ typedef enum {
 } e212_number_type_t;
 
 char* dissect_e212_mcc_mnc_wmem_packet_str(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, e212_number_type_t number_type, bool little_endian);
+void add_assoc_imsi_item(tvbuff_t *tvb _U_, proto_tree *tree, const char* imsi_str);
 
 WS_DLL_PUBLIC
 int dissect_e212_mcc_mnc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, e212_number_type_t number_type, bool little_endian);

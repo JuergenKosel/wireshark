@@ -471,6 +471,10 @@ shows only the packet details and bytes of that packet, and will
 continue to do so even if another packet is selected in the main window.
 See <<ChWorkPacketSepView>> for details.
 
+|menu:Redissect Packets[]                           |                   |This menu item redissects the current packets. This can be useful if name resolution or decryption information has changed.
+
+|menu:Reload as File Format/Capture[]               |kbd:[Shift+Ctrl+F] |This menu item allows you to switch between viewing the list of frames contained in the current capture file (normal mode) and viewing its internal structure, if supported for the current file type.
+
 |menu:Reload[]                                      |kbd:[Ctrl+R]       |This menu item allows you to reload the current capture file.
 |===
 
@@ -506,11 +510,11 @@ image::images/ws-go-menu.png[{screenshot-attrs}]
 |menu:Go to Corresponding Packet[]      |                   |Go to the corresponding packet of the currently selected protocol field (e.g., the reply
 corresponding to a request packet, or vice versa). If the selected field doesn’t correspond to a packet, this item is greyed out.
 |menu:Previous Packet[]                 |kbd:[Ctrl+↑]|Move to the previous packet in the list.  This can be used to move to the previous packet even if the packet list doesn’t have keyboard focus.
-|menu:Next Packet[]                     |kbd:[Ctrl+↓]|Move to the next packet in the list.  This can be used to move to the previous packet even if the packet list doesn’t have keyboard focus.
+|menu:Next Packet[]                     |kbd:[Ctrl+↓]|Move to the next packet in the list.  This can be used to move to the next packet even if the packet list doesn’t have keyboard focus.
 |menu:First Packet[]                    |kbd:[Ctrl+Home]    |Jump to the first packet of the capture file.
 |menu:Last Packet[]                     |kbd:[Ctrl+End]     |Jump to the last packet of the capture file.
 |menu:Previous Packet In Conversation[] |kbd:[Ctrl+&#44;]  |Move to the previous packet in the current conversation.  This can be used to move to the previous packet even if the packet list doesn’t have keyboard focus.
-|menu:Next Packet In Conversation[]     |kbd:[Ctrl+.]       |Move to the next packet in the current conversation.  This can be used to move to the previous packet even if the packet list doesn’t have keyboard focus.
+|menu:Next Packet In Conversation[]     |kbd:[Ctrl+.]       |Move to the next packet in the current conversation.  This can be used to move to the next packet even if the packet list doesn’t have keyboard focus.
 |menu:Auto Scroll in Live Capture[] |                   |This item allows you to specify that Wireshark should scroll the packet list pane as new packets come in, so you are always looking at the last packet.  If you do not specify this, Wireshark simply adds new packets onto the end of the list, but does not scroll the packet list pane.
 |===
 
@@ -663,6 +667,7 @@ Each menu item brings up a new window showing specific statistics.
 |menu:Endpoints[]|| Display a list of endpoints (traffic to/from an address), see <<ChStatEndpointsWindow>>.
 |menu:Packet Lengths[]||See <<ChStatPacketLengths>>
 |menu:I/O Graphs[]|| Display user specified graphs (e.g., the number of packets in the course of time), see <<ChStatIOGraphs>>.
+|menu:Plots[]|| Plot display filter field values over time, see <<ChStatPlots>>.
 |menu:Service Response Time[]|| Display the time between a request and the corresponding response, see <<ChStatSRT>>.
 |menu:DHCP (BOOTP)[]||See <<ChStatDHCPBOOTP>>
 |menu:NetPerfMeter[]||See <<ChStatNetPerfMeter>>
@@ -719,6 +724,9 @@ Each menu item shows specific telephony related statistics.
 |menu:SCTP[]||See <<ChTelSCTP>>
 |menu:SMPP Operations[]||See <<ChTelSMPPOperations>>
 |menu:UCP Messages[]||See <<ChTelUCPMessages>>
+|menu:F1AP Messages[]||See <<ChTelF1APMessages>>
+|menu:NGAP Messages[]||See <<ChTelNGAPMessages>>
+|menu:E2AP Messages[]||See <<ChTelE2APMessages>>
 |menu:H.225[]||See <<ChTelH225>>
 |menu:SIP Flows[]||See <<ChTelSIPFlows>>
 |menu:SIP Statistics[]||See <<ChTelSIPStatistics>>
@@ -857,9 +865,10 @@ image::images/ws-main-toolbar.png[{screenshot-attrs}]
 |image:images/toolbar/go-jump.png[{toolbar-icon-attrs}]     |btn:[Go to Packet...]|menu:Go[Go to Packet...]| Go to a specific packet.
 |image:images/toolbar/go-first.png[{toolbar-icon-attrs}]    |btn:[Go To First Packet]|menu:Go[First Packet]| Jump to the first packet of the capture file.
 |image:images/toolbar/go-last.png[{toolbar-icon-attrs}]     |btn:[Go To Last Packet]|menu:Go[Last Packet]| Jump to the last packet of the capture file.
-|image:images/toolbar/x-stay-last.png[{toolbar-icon-attrs}] |btn:[Auto Scroll in Live Capture]|menu:View[Auto Scroll in Live Capture]| Auto scroll packet list while doing a live capture (or not).
+|image:images/toolbar/x-stay-last.png[{toolbar-icon-attrs}] |btn:[Auto Scroll in Live Capture]|menu:Go[Auto Scroll in Live Capture]| Auto scroll packet list while doing a live capture (or not).
+|image:images/toolbar/aggregation.png[{toolbar-icon-attrs}] |btn:[Aggregation View]|menu:Go[Aggregation View]| Use as Aggregation view to see all the frames without duplication. The essential purpose of this mode is to filter packets by fields values to show you the last received ones, the aggregation fields added by user in capture preferences see (<<ChCustPreferencesSection>>).
 // --
-|image:images/toolbar/x-colorize-packets.png[{toolbar-icon-attrs}] |btn:[Colorize]|menu:View[Colorize]| Colorize the packet list (or not).
+|image:images/toolbar/x-colorize-packets.png[{toolbar-icon-attrs}] |btn:[Colorize]|menu:View[Colorize Packet List]| Colorize the packet list (or not).
 // --
 |image:images/toolbar/zoom-in.png[{toolbar-icon-attrs}]          |btn:[Zoom In]|menu:View[Zoom In]| Zoom into the packet data (increase the font size).
 |image:images/toolbar/zoom-out.png[{toolbar-icon-attrs}]         |btn:[Zoom Out]|menu:View[Zoom Out]| Zoom out of the packet data (decrease the font size).

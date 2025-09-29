@@ -77,7 +77,7 @@ class SharkdShell:
             line = origline.lstrip()
             skipped = len(origline) - len(line)
             startpos = readline.get_begidx() - skipped
-            curpos = readline.get_endidx() - skipped
+            #curpos = readline.get_endidx() - skipped
             # _logger.debug('Completing: head=%r cur=%r tail=%r',
             #              line[:startpos], line[startpos:curpos], line[curpos:])
             completions = []
@@ -141,7 +141,7 @@ class SharkdShell:
         except json.JSONDecodeError as e:
             _logger.error('Invalid command: %s', e)
             return
-        if type(c) != dict or not 'req' in c:
+        if c is not dict or 'req' not in c:
             _logger.error('Missing req key in request')
             return
         return c

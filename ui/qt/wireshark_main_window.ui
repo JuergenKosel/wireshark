@@ -272,6 +272,7 @@
     <addaction name="actionGoPreviousHistoryPacket"/>
     <addaction name="separator"/>
     <addaction name="actionGoAutoScroll"/>
+    <addaction name="actionAggregationView"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -298,6 +299,7 @@
      <addaction name="actionViewTimeDisplayFormatDateYDOYandTimeOfDay"/>
      <addaction name="actionViewTimeDisplayFormatTimeOfDay"/>
      <addaction name="actionViewTimeDisplayFormatSecondsSinceEpoch"/>
+     <addaction name="actionViewTimeDisplayFormatSecondsSinceCaptureStart"/>
      <addaction name="actionViewTimeDisplayFormatSecondsSinceFirstCapturedPacket"/>
      <addaction name="actionViewTimeDisplayFormatSecondsSincePreviousCapturedPacket"/>
      <addaction name="actionViewTimeDisplayFormatSecondsSincePreviousDisplayedPacket"/>
@@ -394,6 +396,7 @@
     <addaction name="menuInternals"/>
     <addaction name="separator"/>
     <addaction name="actionViewShowPacketInNewWindow"/>
+    <addaction name="actionViewRedissect"/>
     <addaction name="actionViewReload_as_File_Format_or_Capture"/>
     <addaction name="actionViewReload"/>
    </widget>
@@ -557,6 +560,7 @@
     <addaction name="actionStatisticsEndpoints"/>
     <addaction name="actionStatisticsPacketLengths"/>
     <addaction name="actionStatisticsIOGraph"/>
+    <addaction name="actionStatisticsPlot"/>
     <addaction name="menuServiceResponseTime"/>
     <addaction name="separator"/>
     <addaction name="actionStatistics_REGISTER_STAT_GROUP_UNSORTED"/>
@@ -776,6 +780,7 @@
    <addaction name="actionFileSave"/>
    <addaction name="actionFileClose"/>
    <addaction name="actionViewReload"/>
+   <!-- XXX - Need an icon <addaction name="actionViewRedissect"/> -->
    <addaction name="separator"/>
    <addaction name="actionEditFindPacket"/>
    <addaction name="actionGoPreviousPacket"/>
@@ -784,6 +789,7 @@
    <addaction name="actionGoFirstPacket"/>
    <addaction name="actionGoLastPacket"/>
    <addaction name="actionGoAutoScroll"/>
+   <addaction name="actionAggregationView"/>
    <addaction name="separator"/>
    <addaction name="actionViewColorizePacketList"/>
    <addaction name="separator"/>
@@ -1268,6 +1274,11 @@
   <action name="actionFileSetPreviousFile">
    <property name="text">
     <string>Previous File</string>
+   </property>
+  </action>
+  <action name="actionViewRedissect">
+   <property name="text">
+    <string>Redissect Packets</string>
    </property>
   </action>
   <action name="actionViewReload">
@@ -2141,6 +2152,14 @@
     <string>Create graphs based on display filter fields</string>
    </property>
   </action>
+  <action name="actionStatisticsPlot">
+   <property name="text">
+    <string>Plots</string>
+   </property>
+   <property name="toolTip">
+    <string>Plot display filter fields over time</string>
+   </property>
+  </action>
   <action name="actionViewMainToolbar">
    <property name="checkable">
     <bool>true</bool>
@@ -2304,6 +2323,17 @@
     <string notr="true">Ctrl+Alt+3</string>
    </property>
   </action>
+  <action name="actionViewTimeDisplayFormatSecondsSinceCaptureStart">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Seconds Since Capture Start</string>
+   </property>
+   <property name="toolTip">
+    <string>Show packet times as seconds since the start of the capture file.</string>
+   </property>
+  </action>
   <action name="actionViewTimeDisplayFormatSecondsSinceFirstCapturedPacket">
    <property name="checkable">
     <bool>true</bool>
@@ -2351,7 +2381,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>UTC Date and Time of Day (1970-01-01 01:02:03.123456)</string>
+    <string>UTC Date and Time of Day (1970-01-01 01:02:03.123456Z)</string>
    </property>
    <property name="toolTip">
     <string>Show packet times as the UTC date and time of day.</string>
@@ -2365,7 +2395,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>UTC Year, Day of Year, and Time of Day (1970/001 01:02:03.123456)</string>
+    <string>UTC Year, Day of Year, and Time of Day (1970/001 01:02:03.123456Z)</string>
    </property>
    <property name="toolTip">
     <string>Show packet times as the UTC year, day of the year and time of day.</string>
@@ -2376,7 +2406,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>UTC Time of Day (01:02:03.123456)</string>
+    <string>UTC Time of Day (01:02:03.123456Z)</string>
    </property>
    <property name="toolTip">
     <string>Show packet times as the UTC time of day.</string>
@@ -2734,6 +2764,17 @@
    </property>
    <property name="toolTip">
     <string>Automatically scroll to the last packet during a live capture.</string>
+   </property>
+  </action>
+  <action name="actionAggregationView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Aggregation in Live Capture</string>
+   </property>
+   <property name="toolTip">
+    <string>Aggregation View.</string>
    </property>
   </action>
   <action name="actionAnalyzeExpertInfo">

@@ -26,6 +26,7 @@
 #include <wsutil/application_flavor.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/pint.h>
 
 #ifdef _WIN32
 #include <wsutil/unicode-utils.h>
@@ -112,8 +113,8 @@ static const char *sync_pipe_signame(int);
 
 static gboolean sync_pipe_input_cb(GIOChannel *pipe_io, capture_session *cap_session);
 static int sync_pipe_wait_for_child(ws_process_id fork_child, char **msgp);
-static void pipe_convert_header(const unsigned char *header, int header_len, char *indicator, int *block_len);
-static ssize_t pipe_read_block(GIOChannel *pipe_io, char *indicator, int len, char *msg,
+static void pipe_convert_header(const unsigned char *header, char *indicator, unsigned *block_len);
+static ssize_t pipe_read_block(GIOChannel *pipe_io, char *indicator, unsigned len, char *msg,
                            char **err_msg);
 
 static void (*fetch_dumpcap_pid)(ws_process_id);
@@ -680,7 +681,6 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
                 void (*update_cb)(void))
 {
 #ifdef _WIN32
-    size_t i_handles = 0;
     char control_id[ARGV_NUMBER_LEN];
 #endif
     GIOChannel *sync_pipe_read_io;
@@ -838,7 +838,6 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
             char *pipe = ws_strdup_printf("%s%" PRIuMAX, EXTCAP_PIPE_PREFIX, (uintmax_t)interface_opts->extcap_pipe_h);
             argv = sync_pipe_add_arg(argv, &argc, pipe);
             g_free(pipe);
-            i_handles++;
 #else
             argv = sync_pipe_add_arg(argv, &argc, interface_opts->extcap_fifo);
 #endif
@@ -861,6 +860,9 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
             argv = sync_pipe_add_arg(argv, &argc, "-f");
             argv = sync_pipe_add_arg(argv, &argc, interface_opts->cfilter);
         }
+        if (!interface_opts->optimize) {
+            argv = sync_pipe_add_arg(argv, &argc, "--no-optimize");
+        }
         if (interface_opts->has_snaplen) {
             char ssnap[ARGV_NUMBER_LEN];
             argv = sync_pipe_add_arg(argv, &argc, "-s");
@@ -881,7 +883,6 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
             argv = sync_pipe_add_arg(argv, &argc, "-p");
         }
 
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
         if (interface_opts->buffer_size != DEFAULT_CAPTURE_BUFFER_SIZE) {
             char buffer_size[ARGV_NUMBER_LEN];
             argv = sync_pipe_add_arg(argv, &argc, "-B");
@@ -890,13 +891,10 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
             snprintf(buffer_size, ARGV_NUMBER_LEN, "%d", interface_opts->buffer_size);
             argv = sync_pipe_add_arg(argv, &argc, buffer_size);
         }
-#endif
 
-#ifdef HAVE_PCAP_CREATE
         if (interface_opts->monitor_mode) {
             argv = sync_pipe_add_arg(argv, &argc, "-I");
         }
-#endif
 
 #ifdef HAVE_PCAP_REMOTE
         if (interface_opts->datatx_udp)
@@ -1042,10 +1040,10 @@ sync_pipe_run_command_actual(char **argv, char **data, char **primary_msg,
     ssize_t nread;
     char indicator;
     int32_t exec_errno = 0;
-    int  primary_msg_len;
-    char *primary_msg_text;
-    int  secondary_msg_len;
-    char *secondary_msg_text;
+    unsigned primary_msg_len;
+    const char *primary_msg_text;
+    unsigned secondary_msg_len;
+    const char *secondary_msg_text;
     char *combined_msg;
     GString *data_buf = NULL;
     ssize_t count;
@@ -1162,10 +1160,10 @@ sync_pipe_run_command_actual(char **argv, char **data, char **primary_msg,
              */
 
             /* convert primary message */
-            pipe_convert_header((unsigned char*)buffer, 4, &indicator, &primary_msg_len);
+            pipe_convert_header((unsigned char*)buffer, &indicator, &primary_msg_len);
             primary_msg_text = buffer+4;
             /* convert secondary message */
-            pipe_convert_header((unsigned char*)primary_msg_text + primary_msg_len, 4, &indicator,
+            pipe_convert_header((unsigned char*)primary_msg_text + primary_msg_len, &indicator,
                                 &secondary_msg_len);
             secondary_msg_text = primary_msg_text + primary_msg_len + 4;
             /* the capture child will close the sync_pipe, nothing to do */
@@ -1194,6 +1192,39 @@ sync_pipe_run_command_actual(char **argv, char **data, char **primary_msg,
             *data = NULL;
             break;
 
+        case SP_BAD_FILTER: {
+            uint32_t indx = 0;
+            const char* end;
+
+            if (ws_strtou32(buffer, &end, &indx) && end[0] == ':') {
+                primary_msg_text = end + 1;
+            } else {
+                primary_msg_text = "dumpcap process returned a SP_BAD_FILTER without an error message";
+            }
+            /*
+             * Pick up the child status.
+             */
+            ret = sync_pipe_close_command(&data_pipe_read_fd, sync_pipe_read_io,
+                                          &fork_child, &msg);
+            if (ret == -1) {
+                /*
+                 * Child process failed unexpectedly, or wait failed; msg is the
+                 * error message.
+                 */
+                *primary_msg = msg;
+                *secondary_msg = NULL;
+            } else {
+                /*
+                 * Child process failed, but returned the expected exit status.
+                 * Return the messages it gave us, and indicate failure.
+                 */
+                *primary_msg = g_strdup(primary_msg_text);
+                *secondary_msg = NULL;
+                ret = -1;
+            }
+            *data = NULL;
+            break;
+        }
         case SP_LOG_MSG:
             /*
              * Log from dumpcap; pass to our log
@@ -1329,18 +1360,73 @@ sync_interface_set_80211_chan(const char *iface, const char *freq, const char *t
     else
         opt = g_strdup(freq);
 
-    if (!opt) {
-        *primary_msg = g_strdup("Out of mem.");
-        *secondary_msg = NULL;
-        *data = NULL;
-        return -1;
-    }
-
     argv = sync_pipe_add_arg(argv, &argc, "-k");
     argv = sync_pipe_add_arg(argv, &argc, opt);
 
     ret = sync_pipe_run_command(argv, data, primary_msg, secondary_msg, update_cb);
     g_free(opt);
+    return ret;
+}
+
+/*
+ * Get the results of compiling a capture filter for an interface using dumpcap.
+ *
+ * On success, *data points to a buffer containing the dumpcap output,
+ * *primary_msg and *secondary_msg are NULL, and 0 is returned.  *data
+ * must be freed with g_free().
+ *
+ * On failure, *data is NULL, *primary_msg points to an error message,
+ * *secondary_msg either points to an additional error message or is
+ * NULL, and -1 is returned; *primary_msg, and *secondary_msg if not NULL,
+ * must be freed with g_free().
+ */
+int
+sync_if_bpf_filter_open(const char *ifname, const char* filter, int linktype,
+                        bool optimize, char **data, char **primary_msg,
+                        char **secondary_msg, void (*update_cb)(void))
+{
+    int argc;
+    char **argv;
+    int ret;
+
+    ws_debug("sync_if_bpf_filter_open");
+
+    const char* linktype_name = linktype_val_to_name(linktype);
+    if (linktype != -1) { // Allow -1 for device default
+        if (!linktype_name) {
+            *primary_msg = g_strdup_printf("Unknown link-layer type %d.", linktype);
+            *secondary_msg = NULL;
+            *data = NULL;
+            return -1;
+        }
+    }
+
+    argv = init_pipe_args(&argc);
+
+    if (!argv) {
+        *primary_msg = g_strdup("We don't know where to find dumpcap.");
+        *secondary_msg = NULL;
+        *data = NULL;
+        return -1;
+    }
+
+    /* Ask for the human-readable BPF code for the capture filter */
+    argv = sync_pipe_add_arg(argv, &argc, "-d");
+    argv = sync_pipe_add_arg(argv, &argc, "-i");
+    argv = sync_pipe_add_arg(argv, &argc, ifname);
+    if (linktype_name) {
+        argv = sync_pipe_add_arg(argv, &argc, "-y");
+        argv = sync_pipe_add_arg(argv, &argc, linktype_name);
+    }
+    if (!optimize) {
+        argv = sync_pipe_add_arg(argv, &argc, "--no-optimize");
+    }
+    if (filter && strcmp(filter, "") != 0) {
+        argv = sync_pipe_add_arg(argv, &argc, "-f");
+        argv = sync_pipe_add_arg(argv, &argc, filter);
+    }
+
+    ret = sync_pipe_run_command(argv, data, primary_msg, secondary_msg, update_cb);
     return ret;
 }
 
@@ -1494,9 +1580,9 @@ sync_interface_stats_open(int *data_read_fd, ws_process_id *fork_child, char **d
     ssize_t nread;
     char indicator;
     int32_t exec_errno = 0;
-    int  primary_msg_len;
+    unsigned primary_msg_len;
     char *primary_msg_text;
-    int  secondary_msg_len;
+    unsigned secondary_msg_len;
     /*char *secondary_msg_text;*/
     char *combined_msg;
 
@@ -1616,10 +1702,10 @@ sync_interface_stats_open(int *data_read_fd, ws_process_id *fork_child, char **d
              */
 
             /* convert primary message */
-            pipe_convert_header((unsigned char*)buffer, 4, &indicator, &primary_msg_len);
+            pipe_convert_header((unsigned char*)buffer, &indicator, &primary_msg_len);
             primary_msg_text = buffer+4;
             /* convert secondary message */
-            pipe_convert_header((unsigned char*)primary_msg_text + primary_msg_len, 4, &indicator,
+            pipe_convert_header((unsigned char*)primary_msg_text + primary_msg_len, &indicator,
                                 &secondary_msg_len);
             /*secondary_msg_text = primary_msg_text + primary_msg_len + 4;*/
             /* the capture child will close the sync_pipe, nothing to do */
@@ -1728,27 +1814,45 @@ pipe_read_bytes(GIOChannel *pipe_io, char *bytes, size_t required, char **msg)
     size_t newly;
     size_t offset = 0;
 
+    /* This should never happen, as "required" should be no greater than 2^24. */
+    if (required > SSIZE_MAX) {
+        ws_debug("read from pipe %p: bytes to read %zu > %zu", pipe_io, required, SSIZE_MAX);
+        *msg = ws_strdup_printf("Error reading from sync pipe: bytes to read %zu > %zu", required, SSIZE_MAX);
+        return -1;
+    }
     while(required) {
-        g_io_channel_read_chars(pipe_io, &bytes[offset], required, &newly, &err);
-        if (err != NULL) {
-            ws_debug("read from pipe %p: error(%u): %s", pipe_io, err->code, err->message);
-            *msg = ws_strdup_printf("Error reading from sync pipe: %s", err->message);
-            g_clear_error(&err);
+        if (g_io_channel_read_chars(pipe_io, &bytes[offset], required, &newly, &err) == G_IO_STATUS_ERROR) {
+            if (err != NULL) {
+                ws_debug("read from pipe %p: error(%u): %s", pipe_io, err->code, err->message);
+                *msg = ws_strdup_printf("Error reading from sync pipe: %s", err->message);
+                g_clear_error(&err);
+            } else {
+                ws_debug("read from pipe %p: unknown error", pipe_io);
+                *msg = ws_strdup_printf("Error reading from sync pipe: unknown error");
+            }
             return -1;
         }
         if (newly == 0) {
             /* EOF */
             ws_debug("read from pipe %p: EOF (capture closed?)", pipe_io);
-            *msg = 0;
-            return offset;
+            *msg = NULL;
+            /*
+             * offset is, at this point, known to be less than the value of
+             * required passed to us, which is guaranteed to fit in an ssize_t.
+             */
+            return (ssize_t)offset;
         }
 
         required -= newly;
         offset += newly;
     }
 
+    /*
+     * offset is, at this point, known to be equal to the value of
+     * required passed to us, which is guaranteed to fit in an ssize_t.
+     */
     *msg = NULL;
-    return offset;
+    return (ssize_t)offset;
 }
 
 /*
@@ -1788,51 +1892,54 @@ sync_pipe_gets_nonblock(int pipe_fd, char *bytes, int max) {
 
 /* convert header values (indicator and 3-byte length) */
 static void
-pipe_convert_header(const unsigned char *header, int header_len _U_, char *indicator, int *block_len) {
-
-    ws_assert(header_len == 4);
+pipe_convert_header(const unsigned char *header, char *indicator, unsigned *block_len) {
 
     /* convert header values */
-    *indicator = header[0];
-    *block_len = (header[1]&0xFF)<<16 | (header[2]&0xFF)<<8 | (header[3]&0xFF);
+    *indicator = pntohu8(&header[0]);
+    *block_len = pntohu24(&header[1]);
 }
 
 /* read a message from the sending pipe in the standard format
    (1-byte message indicator, 3-byte message length (excluding length
    and indicator field), and the rest is the message) */
 static ssize_t
-pipe_read_block(GIOChannel *pipe_io, char *indicator, int len, char *msg,
+pipe_read_block(GIOChannel *pipe_io, char *indicator, unsigned len, char *msg,
                 char **err_msg)
 {
-    int required;
+    unsigned required;
     ssize_t newly;
     char header[4];
 
     /* read header (indicator and 3-byte length) */
     newly = pipe_read_bytes(pipe_io, header, 4, err_msg);
     if(newly != 4) {
-        if (newly == 0) {
+        if(newly != -1) {
+            /*
+             * Error; *err_msg has been set.
+             */
+            ws_debug("read %p got an error reading header: %s", pipe_io, *err_msg);
+            return -1;
+        }
+        if(newly == 0) {
             /*
              * Immediate EOF; if the capture child exits normally, this
              * is an "I'm done" indication, so don't report it as an
              * error.
              */
-            ws_debug("read %p got an EOF", pipe_io);
+            ws_debug("read %p got an EOF reading header", pipe_io);
             return 0;
         }
-        ws_debug("read %p failed to read header: %lu", pipe_io, (long)newly);
-        if (newly != -1) {
-            /*
-             * Short read, but not an immediate EOF.
-             */
-            *err_msg = ws_strdup_printf("Premature EOF reading from sync pipe: got only %ld bytes",
-                                       (long)newly);
-        }
+        /*
+         * Short read, but not an immediate EOF.
+         */
+        ws_debug("read %p got premature EOF reading header: %zd", pipe_io, newly);
+        *err_msg = ws_strdup_printf("Premature EOF reading from sync pipe: got only %zd bytes",
+                                    newly);
         return -1;
     }
 
     /* convert header values */
-    pipe_convert_header((unsigned char*)header, 4, indicator, &required);
+    pipe_convert_header((unsigned char*)header, indicator, &required);
 
     /* only indicator with no value? */
     if(required == 0) {
@@ -1849,10 +1956,13 @@ pipe_read_block(GIOChannel *pipe_io, char *indicator, int len, char *msg,
               header[0], header[1], header[2], header[3]);
 
         /* we have a problem here, try to read some more bytes from the pipe to debug where the problem really is */
-        g_io_channel_read_chars(pipe_io, msg, len, &bytes_read, &err);
-        if (err != NULL) { /* error */
-            ws_debug("read from pipe %p: error(%u): %s", pipe_io, err->code, err->message);
-            g_clear_error(&err);
+        if (g_io_channel_read_chars(pipe_io, msg, len, &bytes_read, &err) == G_IO_STATUS_ERROR) {
+            if (err != NULL) { /* error */
+                ws_debug("read from pipe %p: error(%u): %s", pipe_io, err->code, err->message);
+                g_clear_error(&err);
+            } else {
+                ws_debug("read from pipe %p: unknown error", pipe_io);
+            }
         }
         *err_msg = ws_strdup_printf("Message %c from dumpcap with length %d > buffer size %d! Partial message: %s",
                                     *indicator, required, len, msg);
@@ -1862,11 +1972,22 @@ pipe_read_block(GIOChannel *pipe_io, char *indicator, int len, char *msg,
 
     /* read the actual block data */
     newly = pipe_read_bytes(pipe_io, msg, required, err_msg);
-    if(newly != required) {
-        if (newly != -1) {
-            *err_msg = ws_strdup_printf("Unknown message from dumpcap reading data, try to show it as a string: %s",
-                                       msg);
-        }
+    if(newly == -1) {
+        /*
+         * Error; *err_msg has been set.
+         */
+        ws_debug("read %p got an error reading block data: %s", pipe_io, *err_msg);
+        return -1;
+    }
+
+    /*
+     * newly is guaranteed to be >= 0 at this point, as pipe_read_bytes()
+     * either returns -1 on an error, a positive value <= required on
+     * a short read, or required on a non-short read.
+     */
+    if((size_t)newly != required) {
+        *err_msg = ws_strdup_printf("Unknown message from dumpcap reading data, try to show it as a string: %s",
+                                    msg);
         return -1;
     }
 
@@ -1997,10 +2118,10 @@ sync_pipe_input_cb(GIOChannel *pipe_io, capture_session *cap_session)
         break;
     case SP_ERROR_MSG:
         /* convert primary message */
-        pipe_convert_header((unsigned char*)buffer, 4, &indicator, &primary_len);
+        pipe_convert_header((unsigned char*)buffer, &indicator, &primary_len);
         primary_msg = buffer+4;
         /* convert secondary message */
-        pipe_convert_header((unsigned char*)primary_msg + primary_len, 4, &indicator, &secondary_len);
+        pipe_convert_header((unsigned char*)primary_msg + primary_len, &indicator, &secondary_len);
         secondary_msg = primary_msg + primary_len + 4;
         /* message output */
         cap_session->error(cap_session, primary_msg, secondary_msg);

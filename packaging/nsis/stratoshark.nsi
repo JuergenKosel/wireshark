@@ -38,7 +38,7 @@ SetCompressorDictSize 64 ; MB
 ; The file to write
 OutFile "${OUTFILE_DIR}\${PROGRAM_NAME}-${VERSION}-${WIRESHARK_TARGET_PLATFORM}.exe"
 ; Installer icon
-Icon "${TOP_SRC_DIR}\resources\icons\stratosharkinst.ico"
+Icon "${TOP_SRC_DIR}\resources\icons\stratoshark.ico"
 
 ; ============================================================================
 ; Modern UI
@@ -53,8 +53,8 @@ Icon "${TOP_SRC_DIR}\resources\icons\stratosharkinst.ico"
 !include "InstallOptions.nsh"
 ;!addplugindir ".\Plugins"
 
-!define MUI_ICON "${TOP_SRC_DIR}\resources\icons\stratosharkinst.ico"
-!define MUI_UNICON "${TOP_SRC_DIR}\resources\icons\stratosharkinst.ico"
+!define MUI_ICON "${TOP_SRC_DIR}\resources\icons\stratoshark.ico"
+!define MUI_UNICON "${TOP_SRC_DIR}\resources\icons\stratoshark.ico"
 BrandingText "Stratoshark${U+00ae} Installer"
 
 !define MUI_COMPONENTSPAGE_SMALLDESC
@@ -67,9 +67,9 @@ BrandingText "Stratoshark${U+00ae} Installer"
 ; is usually not associated with an appropriate text editor. We should use extension "txt"
 ; for a text file or "html" for an html README file.
 !define MUI_FINISHPAGE_TITLE_3LINES
-; !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\NEWS.txt"
-; !define MUI_FINISHPAGE_SHOWREADME_TEXT "Show News"
-; !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\Stratoshark Release Notes.html"
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Open the release notes"
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
 ; NSIS runs as Administrator and will run Stratoshark as Administrator
 ; if these are enabled.
 ;!define MUI_FINISHPAGE_RUN "$INSTDIR\${PROGRAM_NAME_PATH}"
@@ -85,6 +85,8 @@ BrandingText "Stratoshark${U+00ae} Installer"
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "This is not an end user license agreement (EULA). It is provided here for informational purposes only."
 !define MUI_LICENSEPAGE_BUTTON "Noted"
 !insertmacro MUI_PAGE_LICENSE "${STAGING_DIR}\COPYING.txt"
+
+Page custom DisplayDonatePage
 
 !insertmacro MUI_PAGE_COMPONENTS
 !ifdef QT_DIR
@@ -110,7 +112,7 @@ Page custom DisplayAdditionalTasksPage LeaveAdditionalTasksPage
   ; Old Modern 1 UI: https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html
   ; To do: Upgrade to the Modern 2 UI:
   ;ReserveFile "AdditionalTasksPage.ini"
-  ;ReserveFile "DonatePage.ini"
+  ReserveFile "DonatePage.ini"
   ReserveFile /plugin InstallOptions.dll
 
   ; Modern UI 2 / nsDialog pages.
@@ -413,6 +415,7 @@ done:
 
   ;Extract InstallOptions INI files
   ;!insertmacro INSTALLOPTIONS_EXTRACT "AdditionalTasksPage.ini"
+  !insertmacro INSTALLOPTIONS_EXTRACT "DonatePage.ini"
 FunctionEnd
 
 !ifdef QT_DIR
@@ -421,10 +424,10 @@ Function DisplayAdditionalTasksPage
 FunctionEnd
 !endif
 
-; Function DisplayDonatePage
-;   !insertmacro MUI_HEADER_TEXT "Your donations keep these releases coming" "Donate today"
-;   !insertmacro INSTALLOPTIONS_DISPLAY "DonatePage.ini"
-; FunctionEnd
+Function DisplayDonatePage
+  !insertmacro MUI_HEADER_TEXT "Your donations keep these releases coming" "Donate today!"
+  !insertmacro INSTALLOPTIONS_DISPLAY "DonatePage.ini"
+FunctionEnd
 
 ; ============================================================================
 ; Installation execution commands
@@ -458,6 +461,7 @@ File "${STAGING_DIR}\dumpcap.exe"
 File "${STAGING_DIR}\dumpcap.html"
 File "${STAGING_DIR}\extcap.html"
 File "${STAGING_DIR}\ipmap.html"
+File "${STAGING_DIR}\Stratoshark Release Notes.html"
 
 ; C-runtime redistributable
 ; vc_redist.x64.exe or vc_redist.x86.exe - copy and execute the redistributable installer
@@ -509,8 +513,8 @@ File "${STAGING_DIR}\diameter\AlcatelLucent.xml"
 File "${STAGING_DIR}\diameter\chargecontrol.xml"
 File "${STAGING_DIR}\diameter\Cisco.xml"
 File "${STAGING_DIR}\diameter\CiscoSystems.xml"
-File "${STAGING_DIR}\diameter\Custom.xml"
 File "${STAGING_DIR}\diameter\dictionary.dtd"
+File "${STAGING_DIR}\diameter\dictionary.ent"
 File "${STAGING_DIR}\diameter\dictionary.xml"
 File "${STAGING_DIR}\diameter\eap.xml"
 File "${STAGING_DIR}\diameter\Ericsson.xml"
@@ -904,21 +908,22 @@ SectionEnd ; "SecStratosharkQt"
 !endif
 
 
-Section "TShark" SecTShark
+Section "Strato" SecStrato
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "${STAGING_DIR}\tshark.exe"
-File "${STAGING_DIR}\tshark.html"
+File "${STAGING_DIR}\strato.exe"
+File "${STAGING_DIR}\strato.html"
 SectionEnd
 
 Section "-Plugins & Extensions"
 
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\falco-bridge.dll"
+File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\falco-events.dll"
 SetOutPath '$INSTDIR\plugins\falco'
 File "${STAGING_DIR}\plugins\falco\cloudtrail.dll"
 File "${STAGING_DIR}\plugins\falco\gcpaudit.dll"
+File "${STAGING_DIR}\plugins\falco\k8saudit.dll"
 !include "custom_plugins.txt"
 
 ;-------------------------------------------
@@ -933,6 +938,9 @@ File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\mate.dll"
 ; This should be a function or macro
 SetOutPath '$INSTDIR\profiles\CloudTrail'
 File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\colorfilters"
+File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\dfilter_buttons"
+File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\preferences"
+File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\profile_settings"
 ; File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\preferences"
 ; SetOutPath '$INSTDIR\profiles\Classic'
 ; File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\Classic\colorfilters"
@@ -1023,9 +1031,6 @@ Section "Documentation" SecDocumentation
 ;-------------------------------------------
 SetOutPath "$INSTDIR\Wireshark User's Guide"
 File /r "${DOC_DIR}\wsug_html_chunked\*.*"
-
-SetOutPath $INSTDIR
-File "${DOC_DIR}\faq.html"
 SectionEnd
 !endif
 
@@ -1103,7 +1108,7 @@ Push "rawshark"
 Push "reordercap"
 Push "sharkd"
 Push "text2pcap"
-Push "tshark"
+Push "strato"
 
 !ifdef MMDBRESOLVE_EXE
 Push "mmdbresolve"
@@ -1189,7 +1194,7 @@ Delete "$INSTDIR\browser_sslkeylog.lua"
 Delete "$INSTDIR\console.lua"
 Delete "$INSTDIR\dtd_gen.lua"
 Delete "$INSTDIR\init.lua"
-Delete "$INSTDIR\release-notes.html"
+Delete "$INSTDIR\Stratoshark Release Notes.html"
 
 RMDir "$INSTDIR\accessible"
 RMDir "$INSTDIR\audio"
@@ -1283,9 +1288,9 @@ SectionEnd
 ; ============================================================================
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
 !ifdef QT_DIR
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecStratosharkQt} "The main syscall and log analyzer application."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecStratosharkQt} "The main system call and log analyzer application."
 !endif
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecTShark} "Text based network protocol analyzer."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecStrato} "Text based system call and log analyzer."
 
   !insertmacro MUI_DESCRIPTION_TEXT ${SecExtcapGroup} "External Capture Interfaces"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecFalcodump} "Provide capture interfaces from Falco plugins."

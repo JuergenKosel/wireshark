@@ -479,12 +479,12 @@
 #define AL_OBJ_AI_FLT      0x1E05   /* 30 05 32-Bit Floating Point Input */
 #define AL_OBJ_AI_DBL      0x1E06   /* 30 06 64-Bit Floating Point Input */
 #define AL_OBJ_AIF_ALL     0x1F00   /* 31 00 Frozen Analog Input Default Variation */
-#define AL_OBJ_AIFC_32     0x1F01   /* 31 01 32-Bit Frozen Analog Input */
-#define AL_OBJ_AIFC_16     0x1F02   /* 31 02 16-Bit Frozen Analog Input */
-#define AL_OBJ_AIFC_32TOF  0x1F03   /* 31 03 32-Bit Frozen Analog Input w/ Time of Freeze */
-#define AL_OBJ_AIFC_16TOF  0x1F04   /* 31 04 16-Bit Frozen Analog Input w/ Time of Freeze */
-#define AL_OBJ_AIFC_32NF   0x1F05   /* 31 05 32-Bit Frozen Analog Input Without Flag */
-#define AL_OBJ_AIFC_16NF   0x1F06   /* 31 06 16-Bit Frozen Analog Input Without Flag */
+#define AL_OBJ_AIF_32      0x1F01   /* 31 01 32-Bit Frozen Analog Input */
+#define AL_OBJ_AIF_16      0x1F02   /* 31 02 16-Bit Frozen Analog Input */
+#define AL_OBJ_AIF_32TOF   0x1F03   /* 31 03 32-Bit Frozen Analog Input w/ Time of Freeze */
+#define AL_OBJ_AIF_16TOF   0x1F04   /* 31 04 16-Bit Frozen Analog Input w/ Time of Freeze */
+#define AL_OBJ_AIF_32NF    0x1F05   /* 31 05 32-Bit Frozen Analog Input Without Flag */
+#define AL_OBJ_AIF_16NF    0x1F06   /* 31 06 16-Bit Frozen Analog Input Without Flag */
 #define AL_OBJ_AIF_FLT     0x1F07   /* 31 07 32-Bit Frozen Floating Point Input */
 #define AL_OBJ_AIF_DBL     0x1F08   /* 31 08 64-Bit Frozen Floating Point Input */
 #define AL_OBJ_AIC_ALL     0x2000   /* 32 00 Analog Input Change Default Variation */
@@ -1155,12 +1155,12 @@ static const value_string dnp3_al_obj_vals[] = {
   { AL_OBJ_AI_16NF,        "16-Bit Analog Input Without Flag (Obj:30, Var:04)" },
   { AL_OBJ_AI_FLT,         "32-Bit Floating Point Input (Obj:30, Var:05)" },
   { AL_OBJ_AI_DBL,         "64-Bit Floating Point Input (Obj:30, Var:06)" },
-  { AL_OBJ_AIFC_32,        "32-Bit Frozen Analog Input (Obj:31, Var:01)" },
-  { AL_OBJ_AIFC_16,        "16-Bit Frozen Analog Input (Obj:31, Var:02)" },
-  { AL_OBJ_AIFC_32TOF,     "32-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:03)" },
-  { AL_OBJ_AIFC_16TOF,     "16-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:04)" },
-  { AL_OBJ_AIFC_32NF,      "32-Bit Frozen Analog Input Without Flag (Obj:31, Var:05)" },
-  { AL_OBJ_AIFC_16NF,      "16-Bit Frozen Analog Input Without Flag (Obj:31, Var:06)" },
+  { AL_OBJ_AIF_32,         "32-Bit Frozen Analog Input (Obj:31, Var:01)" },
+  { AL_OBJ_AIF_16,         "16-Bit Frozen Analog Input (Obj:31, Var:02)" },
+  { AL_OBJ_AIF_32TOF,      "32-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:03)" },
+  { AL_OBJ_AIF_16TOF,      "16-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:04)" },
+  { AL_OBJ_AIF_32NF,       "32-Bit Frozen Analog Input Without Flag (Obj:31, Var:05)" },
+  { AL_OBJ_AIF_16NF,       "16-Bit Frozen Analog Input Without Flag (Obj:31, Var:06)" },
   { AL_OBJ_AIF_FLT,        "32-Bit Frozen Floating Point Input (Obj:31, Var:07)" },
   { AL_OBJ_AIF_DBL,        "64-Bit Frozen Floating Point Input (Obj:31, Var:08)" },
   { AL_OBJ_AIC_ALL,        "Analog Input Change Default Variation (Obj:32, Var:Default)" },
@@ -1646,13 +1646,33 @@ calculateCRCtvb(tvbuff_t *tvb, unsigned offset, unsigned len) {
   return ~crc;
 }
 
-/* calculate the extended sequence number - top 16 bits of the previous sequence number,
+/* calculate the extended sequence number - top 26 bits of the previous sequence number,
  * plus our own; then correct for wrapping */
 static uint32_t
-calculate_extended_seqno(uint32_t previous_seqno, uint8_t raw_seqno)
+calculate_extended_seqno(uint32_t previous_seqno, uint8_t raw_seqno, bool fir)
 {
   uint32_t seqno = (previous_seqno & 0xffffffc0) | raw_seqno;
-  if (seqno + 0x20 < previous_seqno) {
+  /* IEEE Std 1815-2012 8.3.1.4 Rules
+   * "Rule 4: A transport segment with the FIR bit set may have any
+   * sequence number from 0 to 63 without regard to prior history.
+   * Rule 5: 2) A received transport segment having the FIR bit set shall
+   * cause the entire, in-progress transport segment-series to be discarded,
+   * and a new transport segment-series shall be started with the newly
+   * received transport segment as its first member."
+   */
+  if (fir) {
+    /* This is to handle Rule 4 by advancing a cycle on a segment with the
+     * FIR bit set. If the implementation does not avail itself of Rule 4,
+     * and the sequence number is a rolling counter that increments for each
+     * transport segment (as opposed to resetting to 0 or anything else upon
+     * a segment with the FIR bit set), then we could skip this and be able
+     * to handle reordered segments received out of order after a segment with
+     * the FIR bit set belonging to a different segment-series.
+     *
+     * We would need a preference.
+     */
+    seqno += 0x40;
+  } else if (seqno + 0x20 < previous_seqno) {
     seqno += 0x40;
   } else if (previous_seqno + 0x20 < seqno) {
     /* we got an out-of-order packet which happened to go backwards over the
@@ -2040,32 +2060,6 @@ dnp3_al_obj_quality(tvbuff_t *tvb, int offset, uint8_t al_ptflags, proto_tree *p
     proto_tree_add_item(quality_tree, hf0, tvb, offset, 1, ENC_LITTLE_ENDIAN);
   }
   proto_item_append_text(point_item, ")");
-}
-
-/**********************************************************************/
-/* Function to convert DNP3 timestamp to nstime_t value               */
-/**********************************************************************/
-/* 48-bit Time Format                                                 */
-/* MSB      FF       EE       DD       CC       BB       AA      LSB  */
-/*       ffffffff eeeeeeee dddddddd cccccccc bbbbbbbb aaaaaaaa        */
-/*       47    40 39    32 31    24 23    16 15     8 7      0        */
-/*                                                                    */
-/* Value is ms since 00:00 on 1/1/1970                                */
-/**********************************************************************/
-static void
-dnp3_al_get_timestamp(nstime_t *timestamp, tvbuff_t *tvb, int data_pos)
-{
-
-  uint32_t hi, lo;
-  uint64_t time_ms;
-
-  lo = tvb_get_letohs(tvb, data_pos);
-  hi = tvb_get_letohl(tvb, data_pos + 2);
-
-  time_ms = (uint64_t)hi * 0x10000 + lo;
-
-  timestamp->secs  = (long)(time_ms / 1000);
-  timestamp->nsecs = (int)(time_ms % 1000) * 1000000;
 }
 
 static bool
@@ -2524,7 +2518,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               al_bi_val = tvb_get_uint8(tvb, offset);
               al_2bit = ((al_bi_val >> (bitindex << 1)) & 3);
 
-              proto_item_append_text(point_item, ", State: %s", val_to_str_ext(al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"));
+              proto_item_append_text(point_item, ", State: %s", val_to_str_ext(pinfo->pool, al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"));
               switch (bitindex)
               {
               case 0:
@@ -2594,7 +2588,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               data_pos += 1;
 
               al_2bit = (al_ptflags >> 6) & 3;
-              proto_item_append_text(point_item, ", State: %s", val_to_str_ext(al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"));
+              proto_item_append_text(point_item, ", State: %s", val_to_str_ext(pinfo->pool, al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"));
               proto_item_set_len(point_item, data_pos - offset);
 
               offset = data_pos;
@@ -2616,8 +2610,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               data_pos += 1;
 
               /* Get timestamp */
-              dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
-              proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
+              proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
               data_pos += 6;
 
               al_bit = (al_ptflags & AL_OBJ_BI_FLAG7) >> 7; /* bit shift 1xxxxxxx -> xxxxxxx1 */
@@ -2636,13 +2629,12 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               data_pos += 1;
 
               /* Get timestamp */
-              dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
-              proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
+              proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
               data_pos += 6;
 
               al_2bit = (al_ptflags >> 6) & 3; /* bit shift 11xxxxxx -> 00000011 */
               proto_item_append_text(point_item, ", State: %s, Timestamp: %s",
-                                     val_to_str_ext(al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"),
+                                     val_to_str_ext(pinfo->pool, al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"),
                                      abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, FALSE));
               proto_item_set_len(point_item, data_pos - offset);
 
@@ -2680,7 +2672,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
                 case AL_OBJ_2BIC_RTIME:
                   al_2bit = (al_ptflags >> 6) & 3; /* bit shift 11xxxxxx -> 00000011 */
                   proto_item_append_text(point_item, ", State: %s, Timestamp: %s",
-                                         val_to_str_ext(al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"),
+                                         val_to_str_ext(pinfo->pool, al_2bit, &dnp3_al_dbi_vals_ext, "Unknown double bit state (0x%02x)"),
                                          abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, FALSE));
                   break;
               }
@@ -2756,7 +2748,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
             {
               /* Get the status code */
               al_ctlobj_stat = tvb_get_uint8(tvb, data_pos) & AL_OBJCTL_STATUS_MASK;
-              ctl_status_str = val_to_str_ext(al_ctlobj_stat, &dnp3_al_ctl_status_vals_ext, "Invalid Status (0x%02x)");
+              ctl_status_str = val_to_str_ext(pinfo->pool, al_ctlobj_stat, &dnp3_al_ctl_status_vals_ext, "Invalid Status (0x%02x)");
               proto_item_append_text(point_item, " [Status: %s (0x%02x)]", ctl_status_str, al_ctlobj_stat);
               proto_tree_add_item(point_tree, hf_dnp3_al_ctrlstatus, tvb, data_pos, 1, ENC_LITTLE_ENDIAN);
 
@@ -2809,9 +2801,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
                 case AL_OBJ_AOC_16EVTT:   /* 16-bit Analog Command Event with time (Obj:43, Var:04) */
                 case AL_OBJ_AOC_FLTEVTT:   /* 32-bit Floating Point Analog Command Event with time (Obj:43, Var:07) */
                 case AL_OBJ_AOC_DBLEVTT:   /* 64-bit Floating Point Analog Command Event with time (Obj:43, Var:08) */
-                  dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                  proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                   proto_item_append_text(point_item, ", Timestamp: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                  proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                   data_pos += 6;
                 break;
               }
@@ -2856,7 +2847,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
 
               /* Get control status */
               al_ctlobj_stat = tvb_get_uint8(tvb, data_pos) & AL_OBJCTL_STATUS_MASK;
-              ctl_status_str = val_to_str_ext(al_ctlobj_stat, &dnp3_al_ctl_status_vals_ext, "Invalid Status (0x%02x)");
+              ctl_status_str = val_to_str_ext(pinfo->pool, al_ctlobj_stat, &dnp3_al_ctl_status_vals_ext, "Invalid Status (0x%02x)");
               proto_item_append_text(point_item, " [Status: %s (0x%02x)]", ctl_status_str, al_ctlobj_stat);
               proto_tree_add_item(point_tree, hf_dnp3_al_ctrlstatus, tvb, data_pos, 1, ENC_LITTLE_ENDIAN);
               data_pos += 1;
@@ -2992,9 +2983,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
                 case AL_OBJ_FCTRC_16T:
                 case AL_OBJ_FDCTRC_32T:
                 case AL_OBJ_FDCTRC_16T:
-                  dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                  proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                   proto_item_append_text(point_item, ", Timestamp: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                  proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                   data_pos += 6;
                   break;
               }
@@ -3009,12 +2999,12 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
             case AL_OBJ_AI_16NF:      /* 16-Bit Analog Input Without Flag (Obj:30, Var:04) */
             case AL_OBJ_AI_FLT:       /* 32-Bit Floating Point Input (Obj:30, Var:05) */
             case AL_OBJ_AI_DBL:       /* 64-Bit Floating Point Input (Obj:30, Var:06) */
-            case AL_OBJ_AIFC_32:      /* 32-Bit Frozen Analog Input (Obj:31, Var:01) */
-            case AL_OBJ_AIFC_16:      /* 16-Bit Frozen Analog Input (Obj:31, Var:02) */
-            case AL_OBJ_AIFC_32TOF:   /* 32-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:03) */
-            case AL_OBJ_AIFC_16TOF:   /* 16-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:04) */
-            case AL_OBJ_AIFC_32NF:    /* 32-Bit Frozen Analog Input Without Flag (Obj:31, Var:05) */
-            case AL_OBJ_AIFC_16NF:    /* 16-Bit Frozen Analog Input Without Flag (Obj:31, Var:06) */
+            case AL_OBJ_AIF_32:       /* 32-Bit Frozen Analog Input (Obj:31, Var:01) */
+            case AL_OBJ_AIF_16:       /* 16-Bit Frozen Analog Input (Obj:31, Var:02) */
+            case AL_OBJ_AIF_32TOF:    /* 32-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:03) */
+            case AL_OBJ_AIF_16TOF:    /* 16-Bit Frozen Analog Input w/ Time of Freeze (Obj:31, Var:04) */
+            case AL_OBJ_AIF_32NF:     /* 32-Bit Frozen Analog Input Without Flag (Obj:31, Var:05) */
+            case AL_OBJ_AIF_16NF:     /* 16-Bit Frozen Analog Input Without Flag (Obj:31, Var:06) */
             case AL_OBJ_AIF_FLT:      /* 32-Bit Frozen Floating Point Input (Obj:31, Var:07) */
             case AL_OBJ_AIF_DBL:      /* 64-Bit Frozen Floating Point Input (Obj:31, Var:08) */
             case AL_OBJ_AIC_32NT:     /* 32-Bit Analog Change Event w/o Time (Obj:32, Var:01) */
@@ -3042,8 +3032,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               {
                 case AL_OBJ_AI_32NF:
                 case AL_OBJ_AI_16NF:
-                case AL_OBJ_AIFC_32NF:
-                case AL_OBJ_AIFC_16NF:
+                case AL_OBJ_AIF_32NF:
+                case AL_OBJ_AIF_16NF:
                 case AL_OBJ_AIDB_16:
                 case AL_OBJ_AIDB_32:
                 case AL_OBJ_AIDB_FLT:
@@ -3060,9 +3050,9 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               {
                 case AL_OBJ_AI_32:
                 case AL_OBJ_AI_32NF:
-                case AL_OBJ_AIFC_32:
-                case AL_OBJ_AIFC_32TOF:
-                case AL_OBJ_AIFC_32NF:
+                case AL_OBJ_AIF_32:
+                case AL_OBJ_AIF_32TOF:
+                case AL_OBJ_AIF_32NF:
                 case AL_OBJ_AIC_32NT:
                 case AL_OBJ_AIC_32T:
                 case AL_OBJ_AIFC_32NT:
@@ -3077,9 +3067,9 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
 
                 case AL_OBJ_AI_16:
                 case AL_OBJ_AI_16NF:
-                case AL_OBJ_AIFC_16:
-                case AL_OBJ_AIFC_16TOF:
-                case AL_OBJ_AIFC_16NF:
+                case AL_OBJ_AIF_16:
+                case AL_OBJ_AIF_16TOF:
+                case AL_OBJ_AIF_16NF:
                 case AL_OBJ_AIC_16NT:
                 case AL_OBJ_AIC_16T:
                 case AL_OBJ_AIFC_16NT:
@@ -3132,18 +3122,16 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
                 case AL_OBJ_AIFC_FLTT:
                 case AL_OBJ_AIFC_DBLT:
 
-                  dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                  proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                   proto_item_append_text(point_item, ", Timestamp: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                  proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                   data_pos += 6;
                   break;
 
-                case AL_OBJ_AIFC_32TOF:
-                case AL_OBJ_AIFC_16TOF:
+                case AL_OBJ_AIF_32TOF:
+                case AL_OBJ_AIF_16TOF:
 
-                  dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                  proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                   proto_item_append_text(point_item, ", Time of Freeze: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                  proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                   data_pos += 6;
                   break;
               }
@@ -3221,9 +3209,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
                 case AL_OBJ_AOC_16T:
                 case AL_OBJ_AOC_FLTT:
                 case AL_OBJ_AOC_DBLT:
-                  dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                  proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                   proto_item_append_text(point_item, ", Timestamp: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                  proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                   data_pos += 6;
                   break;
               }
@@ -3237,8 +3224,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
             case AL_OBJ_TDCTO:  /* Time and Date CTO (Obj:51, Var:01) */
             case AL_OBJ_UTDCTO: /* Unsynchronized Time and Date CTO (Obj:51, Var:02) */
 
-              dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
-              proto_tree_add_time(object_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
+              proto_tree_add_time_item(object_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
               data_pos += 6;
               proto_item_set_len(point_item, data_pos - offset);
 
@@ -3272,8 +3258,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
 
               /* Creation Time */
               if (al_file_ctrl_mode == AL_OBJ_FILE_MODE_WRITE) {
-                dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
-                proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
+                proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
               }
               data_pos += 6;
 
@@ -3587,8 +3572,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               data_pos += 1;
 
               /* Error Timestamp */
-              dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
-              proto_tree_add_time(object_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
+              proto_tree_add_time_item(object_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
               data_pos += 6;
 
               /* Error Text */
@@ -3684,7 +3668,7 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
             case AL_OBJ_SA_SECSTATEVTT: /* Security Statistic Event w/ Time (Obj:122, Var:02) */
 
               /* Security Statistic Description */
-              sec_stat_str = val_to_str_ext(al_ptaddr, &dnp3_al_sa_secstat_vals_ext, "Unknown statistic (%u)");
+              sec_stat_str = val_to_str_ext(pinfo->pool, al_ptaddr, &dnp3_al_sa_secstat_vals_ext, "Unknown statistic (%u)");
               proto_item_append_text(point_item, " %s", sec_stat_str);
 
               /* Quality Flags */
@@ -3705,9 +3689,8 @@ dnp3_al_process_object(tvbuff_t *tvb, packet_info *pinfo, int offset,
               data_pos += 4;
 
               if (al_obj == AL_OBJ_SA_SECSTATEVTT) {
-                dnp3_al_get_timestamp(&al_abstime, tvb, data_pos);
+                proto_tree_add_time_item(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, ENC_TIME_MSECS|ENC_LITTLE_ENDIAN, &al_abstime, NULL, NULL);
                 proto_item_append_text(point_item, ", Timestamp: %s", abs_time_to_str(pinfo->pool, &al_abstime, ABSOLUTE_TIME_UTC, false));
-                proto_tree_add_time(point_tree, hf_dnp3_al_timestamp, tvb, data_pos, 6, &al_abstime);
                 data_pos += 6;
               }
 
@@ -3770,7 +3753,7 @@ dissect_dnp3_al(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
   al_ctl = tvb_get_uint8(tvb, offset);
   al_seq = al_ctl & DNP3_AL_SEQ;
   al_func = tvb_get_uint8(tvb, (offset+1));
-  func_code_str = val_to_str_ext(al_func, &dnp3_al_func_vals_ext, "Unknown function (0x%02x)");
+  func_code_str = val_to_str_ext(pinfo->pool, al_func, &dnp3_al_func_vals_ext, "Unknown function (0x%02x)");
 
   /* Clear out lower layer info */
   col_clear(pinfo->cinfo, COL_INFO);
@@ -4058,7 +4041,7 @@ dissect_dnp3_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
   dl_func = dl_ctl & DNP3_CTL_FUNC;
   dl_prm = dl_ctl & DNP3_CTL_PRM;
-  func_code_str = val_to_str(dl_func, dl_prm ? dnp3_ctl_func_pri_vals : dnp3_ctl_func_sec_vals,
+  func_code_str = val_to_str(pinfo->pool, dl_func, dl_prm ? dnp3_ctl_func_pri_vals : dnp3_ctl_func_sec_vals,
            "Unknown function (0x%02x)");
 
   /* Make sure source and dest are always in the info column. This might not
@@ -4172,7 +4155,7 @@ dissect_dnp3_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     int         data_start = offset;
     int         tl_offset;
     bool        crc_OK = false;
-    tvbuff_t   *next_tvb;
+    tvbuff_t   *next_tvb = NULL;
     unsigned    i;
     uint32_t    ext_seq;
     static int * const transport_flags[] = {
@@ -4211,7 +4194,7 @@ dissect_dnp3_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
         prev = tr_seq;
         conv = conversation_new_full(pinfo->num, conv_key);
       }
-      ext_seq = calculate_extended_seqno(prev, tr_seq);
+      ext_seq = calculate_extended_seqno(prev, tr_seq, tr_fir);
       /* The only thing we store right now is the 32 bit extended sequence
        * number, so we don't need a conversation_data type. */
       conversation_add_proto_data(conv, proto_dnp3, GUINT_TO_POINTER(ext_seq));
@@ -4306,12 +4289,18 @@ dissect_dnp3_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
       if (frag_al)
       {
-        /* This is the fragment in which reassembly occurred iff FIN is set. */
-        if (tr_fin)
-        {
+        /* Check the FIN bit because the DNP3 dissector is only called once
+         * and so the curr_layer_num check in processed_reassembled_data
+         * does not help for multiple messages in one frame. */
+        if (tr_fin) {
           next_tvb = process_reassembled_data(al_tvb, 0, pinfo,
             "Reassembled DNP 3.0 Application Layer message", frag_al, &dnp3_frag_items,
             NULL, dnp3_tree);
+        }
+        if (next_tvb) {
+          /* next_tvb should be non-NULL if this is a FIN and we reassembled,
+           * but check for bugs caused by non-standard fragmentation methods
+           * (#20336).  */
           /* As a complete AL message will have cleared the info column,
              make sure source and dest are always in the info column */
           //col_append_fstr(pinfo->cinfo, COL_INFO, "from %u to %u", dl_src, dl_dst);
@@ -5715,7 +5704,7 @@ proto_register_dnp3(void)
      { &ei_dnp3_data_chunk_crc_incorrect, { "dnp3.data_chunk.CRC.incorrect", PI_CHECKSUM, PI_WARN, "Data Chunk Checksum incorrect", EXPFILL }},
      { &ei_dnp3_unknown_object, { "dnp3.unknown_object", PI_PROTOCOL, PI_WARN, "Unknown Object\\Variation", EXPFILL }},
      { &ei_dnp3_unknown_group0_variation, { "dnp3.unknown_group0_variation", PI_PROTOCOL, PI_WARN, "Unknown Group 0 Variation", EXPFILL }},
-     { &ei_dnp3_num_items_invalid, { "dnp3.num_items_invalid", PI_MALFORMED, PI_ERROR, "Number of items is invalid for normally empty object.  Potentially malicious packet", EXPFILL }},
+     { &ei_dnp3_num_items_invalid, { "dnp3.num_items_invalid", PI_MALFORMED, PI_ERROR, "Number of items is invalid for normally empty object. Potentially malicious packet", EXPFILL }},
       /* Generated from convert_proto_tree_add_text.pl */
 #if 0
       { &ei_dnp3_buffering_user_data_until_final_frame_is_received, { "dnp3.buffering_user_data_until_final_frame_is_received", PI_PROTOCOL, PI_WARN, "Buffering User Data Until Final Frame is Received..", EXPFILL }},

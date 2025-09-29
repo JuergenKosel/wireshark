@@ -243,7 +243,8 @@ static const char* g_ran_function_name_table[MAX_RANFUNCTIONS] =
     "ORAN-E2SM-KPM",
     "ORAN-E2SM-RC",
     "ORAN-E2SM-NI",
-    "{"               /* For now, CCC is the only JSON-based RAN Function, so just match opening */
+    "{",              /* For now, CCC is the only JSON-based RAN Function, so just match opening */
+    "ORAN-E2SM-LLC"
 };
 
 
@@ -274,6 +275,8 @@ static const char *ran_function_to_str(ran_function_t ran_function)
             return "NI";
         case CCC_RANFUNCTIONS:
             return "CCC";
+        case LLC_RANFUNCTIONS:
+            return "LLC";
 
         default:
             return "Unknown";
@@ -753,14 +756,14 @@ e2ap_stats_tree_init(stats_tree *st)
 }
 
 static tap_packet_status
-e2ap_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_,
+e2ap_stats_tree_packet(stats_tree* st, packet_info* pinfo,
                        epan_dissect_t* edt _U_ , const void* p, tap_flags_t flags _U_)
 {
     const struct e2ap_tap_t *pi = (const struct e2ap_tap_t *)p;
 
     tick_stat_node(st, st_str_packets, 0, false);
     stats_tree_tick_pivot(st, st_node_packet_types,
-                          val_to_str(pi->e2ap_mtype, mtype_names,
+                          val_to_str(pinfo->pool, pi->e2ap_mtype, mtype_names,
                                      "Unknown packet type (%d)"));
     return TAP_PACKET_REDRAW;
 }
@@ -846,7 +849,6 @@ proto_reg_handoff_e2ap(void)
   oid_add_from_string("NI v5",         "1.3.6.1.4.1.53148.1.5.2.1");
   oid_add_from_string("NI v6",         "1.3.6.1.4.1.53148.1.6.2.1");
 
-
   /* CCC */
   oid_add_from_string("CCC v1",         "1.3.6.1.4.1.53148.1.1.2.4");
   oid_add_from_string("CCC v2",         "1.3.6.1.4.1.53148.1.2.2.4");
@@ -854,6 +856,9 @@ proto_reg_handoff_e2ap(void)
   oid_add_from_string("CCC v4",         "1.3.6.1.4.1.53148.1.4.2.4");
   oid_add_from_string("CCC v5",         "1.3.6.1.4.1.53148.1.5.2.4");
   oid_add_from_string("CCC v6",         "1.3.6.1.4.1.53148.1.6.2.4");
+
+  /* LLC */
+  oid_add_from_string("LLC v1",         "1.3.6.1.4.1.53148.1.1.2.5");
 
 
   /*********************************************************/
@@ -1020,7 +1025,7 @@ proto_reg_handoff_e2ap(void)
 
   /* Register available dissectors.
    * Registering one version of each RAN Function here - others will need to be
-   * registered in sepparate dissectors (e.g. kpm_v2) */
+   * registered in separate dissectors (e.g. kpm_v2) */
   register_e2ap_ran_function_dissector(KPM_RANFUNCTIONS, &kpm_v3);
   register_e2ap_ran_function_dissector(RC_RANFUNCTIONS,  &rc_v1);
   register_e2ap_ran_function_dissector(NI_RANFUNCTIONS,  &ni_v1);

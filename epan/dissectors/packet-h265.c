@@ -789,7 +789,7 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 {
 	proto_item *ti;
 
-	int      leading_zero_bits, bit_offset, start_offset;
+	int      leading_zero_bits, bit_offset, start_offset, length;
 	uint32_t codenum, mask, value, tmp;
 	int32_t  se_value = 0;
 	int      b;
@@ -850,89 +850,6 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 		bit_offset++;
 	}
 
-	/* XXX: This could be handled in the general case and reduce code
-	 * duplication.  */
-	if (leading_zero_bits == 0) {
-		codenum = 0;
-		*start_bit_offset = bit_offset;
-		for (; bit % 8; bit++) {
-			if (bit && (!(bit % 4))) {
-				(void) g_strlcat(str, " ", 256);
-			}
-			(void) g_strlcat(str, ".", 256);
-		}
-		if (hf_field) {
-			(void) g_strlcat(str, " = ", 256);
-			(void) g_strlcat(str, hf_field->name, 256);
-			switch (descriptor) {
-			case H265_SE_V:
-				/* if the syntax element is coded as se(v),
-				* the value of the syntax element is derived by invoking the
-				* mapping process for signed Exp-Golomb codes as specified in
-				* subclause 9.1.1 with codeNum as the input.
-				*/
-				if (hf_field->type == FT_INT32) {
-					if (hf_field->strings) {
-						proto_tree_add_int_format(tree, hf_index, tvb, start_offset, 1, codenum,
-							"%s: %s (%d)",
-							str,
-							val_to_str_const(codenum, cVALS(hf_field->strings), "Unknown "),
-							codenum);
-					}
-					else {
-						switch (hf_field->display) {
-						case BASE_DEC:
-							proto_tree_add_int_format(tree, hf_index, tvb, start_offset, 1, codenum,
-								"%s: %d",
-								str,
-								codenum);
-							break;
-						default:
-							DISSECTOR_ASSERT_NOT_REACHED();
-							break;
-						}
-					}
-				}
-				return codenum;
-			default:
-				break;
-			}
-			if (hf_field->type == FT_UINT32) {
-				if (hf_field->strings) {
-					proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
-						"%s: %s (%u)",
-						str,
-						val_to_str_const(codenum, cVALS(hf_field->strings), "Unknown "),
-						codenum);
-				}
-				else {
-					switch (hf_field->display) {
-					case BASE_DEC:
-						proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
-							"%s: %u",
-							str,
-							codenum);
-						break;
-					case BASE_HEX:
-						proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
-							"%s: 0x%x",
-							str,
-							codenum);
-						break;
-					default:
-						DISSECTOR_ASSERT_NOT_REACHED();
-						break;
-					}
-				}
-			}
-			else {
-				/* Only allow uint32_t */
-				DISSECTOR_ASSERT_NOT_REACHED();
-			}
-		}
-		return codenum;
-	}
-
 	/*
 	Syntax elements coded as ue(v), me(v), or se(v) are Exp-Golomb-coded. Syntax elements coded as te(v) are truncated
 	Exp-Golomb-coded. The parsing process for these syntax elements begins with reading the bits starting at the current
@@ -979,6 +896,11 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 			}
 		}
 		mask = 1U << 31;
+        } else if (leading_zero_bits == 0) {
+                codenum = 0;
+		if (descriptor == H265_SE_V) {
+                    se_value = 0;
+                }
 	} else { /* Non-overflow general case */
 		if (leading_zero_bits > 16)
 			value = tvb_get_bits32(tvb, bit_offset, leading_zero_bits, ENC_BIG_ENDIAN);
@@ -1009,16 +931,17 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 	}
 
 	bit_offset = bit_offset + leading_zero_bits;
+        length = ((bit_offset + 7) >> 3) - start_offset;
 
 	if (overflow) {
 		*start_bit_offset = bit_offset;
 		/* We will probably get a BoundsError later in the packet. */
 		if (descriptor == H265_SE_V) {
-			ti = proto_tree_add_int_format_value(tree, hf_index, tvb, start_offset, (bit_offset >> 3) - start_offset + 1, codenum, "Invalid value (%d leading zero bits), clamped to %" PRId32, leading_zero_bits, se_value);
+			ti = proto_tree_add_int_format_value(tree, hf_index, tvb, start_offset, length, codenum, "Invalid value (%d leading zero bits), clamped to %" PRId32, leading_zero_bits, se_value);
 			expert_add_info(NULL, ti, &ei_h265_oversized_exp_golomb_code);
 			return se_value;
 		} else {
-			ti = proto_tree_add_uint_format_value(tree, hf_index, tvb, start_offset, (bit_offset >> 3) - start_offset + 1, codenum, "Invalid value (%d leading zero bits), clamped to %" PRIu32, leading_zero_bits, codenum);
+			ti = proto_tree_add_uint_format_value(tree, hf_index, tvb, start_offset, length, codenum, "Invalid value (%d leading zero bits), clamped to %" PRIu32, leading_zero_bits, codenum);
 			expert_add_info(NULL, ti, &ei_h265_oversized_exp_golomb_code);
 			return codenum;
 		}
@@ -1066,7 +989,7 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 		}
 		if (hf_field->type == FT_UINT32) {
 			if (hf_field->strings) {
-				proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
+				proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, length, codenum,
 					"%s: %s (%u)",
 					str,
 					val_to_str_const(codenum, cVALS(hf_field->strings), "Unknown "),
@@ -1075,13 +998,13 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 			else {
 				switch (hf_field->display) {
 				case BASE_DEC:
-					proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
+					proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, length, codenum,
 						"%s: %u",
 						str,
 						codenum);
 					break;
 				case BASE_HEX:
-					proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, 1, codenum,
+					proto_tree_add_uint_format(tree, hf_index, tvb, start_offset, length, codenum,
 						"%s: 0x%x",
 						str,
 						codenum);
@@ -1094,7 +1017,7 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 		}
 		else if (hf_field->type == FT_INT32) {
 			if (hf_field->strings) {
-				proto_tree_add_int_format(tree, hf_index, tvb, start_offset, 1, codenum,
+				proto_tree_add_int_format(tree, hf_index, tvb, start_offset, length, codenum,
 					"%s: %s (%d)",
 					str,
 					val_to_str_const(codenum, cVALS(hf_field->strings), "Unknown "),
@@ -1103,7 +1026,7 @@ dissect_h265_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, pack
 			else {
 				switch (hf_field->display) {
 				case BASE_DEC:
-					proto_tree_add_int_format(tree, hf_index, tvb, start_offset, 1, codenum,
+					proto_tree_add_int_format(tree, hf_index, tvb, start_offset, length, codenum,
 						"%s: %d",
 						str,
 						se_value);
@@ -1288,7 +1211,7 @@ static void
 dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
 {
 	int         bit_offset;
-	uint8_t		i, sps_max_sub_layers_minus1, sps_extension_4bits = 0;
+	uint8_t		sps_max_sub_layers_minus1, sps_extension_4bits = 0;
 	uint32_t		num_short_term_ref_pic_sets, num_long_term_ref_pics_sps, log2_max_pic_order_cnt_lsb_minus4, bit_depth_luma_minus8, bit_depth_chroma_minus8;
 	bool	sps_sub_layer_ordering_info_present_flag = 0, scaling_list_enabled_flag = 0, sps_scaling_list_data_present_flag = 0,
 		pcm_enabled_flag = 0, long_term_ref_pics_present_flag = 0, vui_parameters_present_flag = 0, sps_extension_present_flag = 0,
@@ -1334,7 +1257,7 @@ dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
 	proto_tree_add_bits_item(tree, hf_h265_sps_sub_layer_ordering_info_present_flag, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
 	bit_offset++;
 
-	for (i = (sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1);
+	for (unsigned i = (sps_sub_layer_ordering_info_present_flag ? 0 : sps_max_sub_layers_minus1);
 		i <= sps_max_sub_layers_minus1; i++) {
 		dissect_h265_exp_golomb_code(tree, hf_h265_sps_max_dec_pic_buffering_minus1, tvb, pinfo, &bit_offset, H265_UE_V);
 		dissect_h265_exp_golomb_code(tree, hf_h265_sps_max_num_reorder_pics, tvb, pinfo, &bit_offset, H265_UE_V);
@@ -1394,7 +1317,7 @@ dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
 		proto_tree_add_expert(tree, pinfo, &ei_h265_value_to_large, tvb, bit_offset>>3, 1);
 		return;
 	}
-	for (i = 0; i < num_short_term_ref_pic_sets; i++)
+	for (int i = 0; i < (int)num_short_term_ref_pic_sets; i++)
 		bit_offset = dissect_h265_st_ref_pic_set(tree, tvb, pinfo, bit_offset, i, num_short_term_ref_pic_sets, NumDeltaPocs);
 
 	long_term_ref_pics_present_flag = tvb_get_bits8(tvb, bit_offset, 1);
@@ -1404,7 +1327,7 @@ dissect_h265_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
 	if (long_term_ref_pics_present_flag) {
 
 		num_long_term_ref_pics_sps = dissect_h265_exp_golomb_code(tree, hf_h265_num_long_term_ref_pics_sps, tvb, pinfo, &bit_offset, H265_UE_V);
-		for (i = 0; i < num_long_term_ref_pics_sps; i++) {
+		for (int i = 0; i < (int)num_long_term_ref_pics_sps; i++) {
 
 			proto_tree_add_bits_item(tree, hf_h265_lt_ref_pic_poc_lsb_sps, tvb, bit_offset, log2_max_pic_order_cnt_lsb_minus4 + 4, ENC_BIG_ENDIAN);
 			bit_offset = bit_offset + log2_max_pic_order_cnt_lsb_minus4 + 4;
@@ -2954,7 +2877,7 @@ dissect_h265(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	type = h265_nalu_hextet >> 9 & 0x3F;
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
-		val_to_str(type, h265_type_summary_values, "Unknown Type (%u)"));
+		val_to_str(pinfo->pool, type, h265_type_summary_values, "Unknown Type (%u)"));
 
 	/* if (tree) */ {
 		item = proto_tree_add_item(tree, proto_h265, tvb, 0, -1, ENC_NA);
@@ -2996,7 +2919,7 @@ dissect_h265(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 			if ((tvb_get_uint8(tvb, offset) & 0x80) == 0x80) {
 				type = tvb_get_uint8(tvb, offset) & 0x1f;
 				col_append_fstr(pinfo->cinfo, COL_INFO, " Start:%s",
-					val_to_str(type, h265_type_summary_values, "Unknown Type (%u)"));
+					val_to_str(pinfo->pool, type, h265_type_summary_values, "Unknown Type (%u)"));
 				offset++;
 			}
 			else
@@ -3150,7 +3073,7 @@ proto_register_h265(void)
 		NULL, HFILL }
 		},
 		{ &hf_h265_type,
-		{ "Type", "h265.nal_unit_type",
+        { "Type", "h265.type",
 		FT_UINT16, BASE_DEC, VALS(h265_type_values), 0x7E00,
 		NULL, HFILL }
 		},

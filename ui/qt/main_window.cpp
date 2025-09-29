@@ -24,6 +24,7 @@
 #include <ui/commandline.h>
 
 #include <QClipboard>
+#include <QTextCodec>
 
 #include "funnel_statistics.h"
 #include "main_application.h"
@@ -42,19 +43,69 @@ MainWindow::MainWindow(QWidget *parent) :
     cur_layout_(QVector<unsigned>()),
     packet_list_(nullptr),
     proto_tree_(nullptr),
-    byte_view_tab_(nullptr),
+    data_source_tab_(nullptr),
     packet_diagram_(nullptr),
     df_combo_box_(nullptr),
     main_status_bar_(nullptr),
-    profile_switcher_(new ProfileSwitcher()),
+    profile_switcher_(new ProfileSwitcher(this)),
     use_capturing_title_(false)
 {
-
+    findTextCodecs();
 }
 
 MainWindow::~MainWindow()
 {
     clearAddedPacketMenus();
+}
+
+void MainWindow::findTextCodecs() {
+    const QList<int> mibs = QTextCodec::availableMibs();
+    QRegularExpression ibmRegExp("^IBM([0-9]+).*$");
+    QRegularExpression iso8859RegExp("^ISO-8859-([0-9]+).*$");
+    QRegularExpression windowsRegExp("^WINDOWS-([0-9]+).*$");
+    QRegularExpressionMatch match;
+    for (int mib : mibs) {
+        QTextCodec *codec = QTextCodec::codecForMib(mib);
+        // QTextCodec::availableMibs() returns a list of hard-coded MIB
+        // numbers, it doesn't check if they are really available. ICU data may
+        // not have been compiled with support for all encodings.
+        if (!codec) {
+            continue;
+        }
+
+        QString key = codec->name().toUpper();
+        char rank;
+
+        if (key.localeAwareCompare("IBM") < 0) {
+            rank = 1;
+        } else if ((match = ibmRegExp.match(key)).hasMatch()) {
+            rank = match.captured(1).size(); // Up to 5
+        } else if (key.localeAwareCompare("ISO-8859-") < 0) {
+            rank = 6;
+        } else if ((match = iso8859RegExp.match(key)).hasMatch()) {
+            rank = 6 + match.captured(1).size(); // Up to 6 + 2
+        } else if (key.localeAwareCompare("WINDOWS-") < 0) {
+            rank = 9;
+        } else if ((match = windowsRegExp.match(key)).hasMatch()) {
+            rank = 9 + match.captured(1).size(); // Up to 9 + 4
+        } else {
+            rank = 14;
+        }
+        // This doesn't perfectly well order the IBM codecs because it's
+        // annoying to properly place IBM00858 and IBM00924 in the middle of
+        // code page numbers not zero padded to 5 digits.
+        // We could manipulate the key further to have more commonly used
+        // charsets earlier. IANA MIB ordering would be unexpected:
+        // https://www.iana.org/assignments/character-sets/character-sets.xml
+        // For data about use in HTTP (other protocols can be quite different):
+        // https://w3techs.com/technologies/overview/character_encoding
+
+        key.prepend(char('0' + rank));
+        // We use a map here because, due to backwards compatibility,
+        // the same QTextCodec may be returned for multiple MIBs, which
+        // happens for GBK/GB2312, EUC-KR/windows-949/UHC, and others.
+        text_codec_map_.insert(key, codec);
+    }
 }
 
 bool MainWindow::hasSelection()
@@ -242,7 +293,7 @@ void MainWindow::addDisplayFilterTranslationActions(QMenu *copy_menu) {
         if (idx == 0) {
             action_text = tr("Display filter as %1").arg(translator);
         } else {
-            action_text = tr(UTF8_HORIZONTAL_ELLIPSIS "as %1").arg(translator);
+            action_text = tr("…as %1").arg(translator);
         }
         QAction *xlate_action = copy_menu->addAction(action_text);
         xlate_action->setProperty(translator_, QVariant::fromValue(translator));
@@ -289,9 +340,10 @@ QString MainWindow::replaceWindowTitleVariables(QString title)
     title.replace("%V", get_ws_vcs_version_info());
 
 #ifdef HAVE_LIBPCAP
-    if (global_commandline_info.capture_comments) {
+    char* capture_comment = commandline_get_first_capture_comment();
+    if (capture_comment) {
         // Use the first capture comment from command line.
-        title.replace("%C", (char *)g_ptr_array_index(global_commandline_info.capture_comments, 0));
+        title.replace("%C", capture_comment);
     } else {
         // No capture comment.
         title.remove("%C");

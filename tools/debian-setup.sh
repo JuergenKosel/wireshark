@@ -39,7 +39,7 @@ function add_package() {
 	elif [ -n "$versionreq" ]; then
 		# Require minimum version or fail.
 		# shellcheck disable=SC2086
-		dpkg --compare-versions $version $versionreq || return 1
+		dpkg --compare-versions $version ge $versionreq || return 1
 	fi
 
 	# package is found, append it to list
@@ -106,6 +106,8 @@ BASIC_LIST="
 	libpcap-dev
 	libpcre2-dev
 	libspeexdsp-dev
+	libxml2-dev
+	libxml2-utils
 	make
 	python3
 	"
@@ -189,12 +191,11 @@ ADDITIONAL_LIST="
 	libopus-dev
 	libparse-yapp-perl
 	libsbc-dev
-	libssh-gcrypt-dev
 	libsmi2-dev
 	libsnappy-dev
 	libspandsp-dev
 	libsystemd-dev
-	libxml2-dev
+	libxxhash-dev
 	libzstd-dev
 	ninja-build
 	perl
@@ -215,7 +216,6 @@ DEBDEPS_LIST="
 	dh-python
 	docbook-xml
 	docbook-xsl
-	libxml2-utils
 	lintian
 	lsb-release
 	po-debconf
@@ -233,6 +233,12 @@ TESTDEPS_LIST="
 # apt-get update must be called before calling add_package
 # otherwise available packages appear as unavailable
 apt-get update || exit 2
+
+# libssh-gcrypt-dev: Debian < trixie, Ubuntu < 25.04
+# libssh-dev: All releases, but trixie and 25.04 has relicensed OpenSSH
+# See: https://bugs.debian.org/1074337
+add_package ADDITIONAL_LIST libssh-dev 0.11.1-1 ||
+ADDITIONAL_LIST="$ADDITIONAL_LIST libssh-gcrypt-dev"
 
 # Lua 5.4: Debian >= bullseye, Ubuntu >= 22.04 (jammy)
 # Lua 5.3: Debian >= buster, Ubuntu >= 20.04 (focal)

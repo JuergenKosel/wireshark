@@ -3,7 +3,8 @@
  * CIP Home: www.odva.org
  *
  * This dissector includes items from:
- *    CIP Volume 1: Common Industrial Protocol, Edition 3.34
+ *    CIP Volume 1: Common Industrial Protocol, Edition 3.37
+ *    CIP Volume 4: ControlNet Adaptation of CIP, Edition 1.9
  *    CIP Volume 5: CIP Safety, Edition 2.25
  *    CIP Volume 7A: Integration of Modbus Devices into the CIP Architecture, Edition 1.9
  *    CIP Volume 8: CIP Security, Edition 1.11
@@ -64,6 +65,7 @@
 
 void proto_register_cip(void);
 void proto_reg_handoff_cip(void);
+static int dissect_cip_stringi(packet_info* pinfo, proto_tree* tree, proto_item* item, tvbuff_t* tvb, int offset);
 
 typedef struct mr_mult_req_info {
    uint8_t service;
@@ -89,6 +91,7 @@ static int proto_cip_class_cm;
 static int proto_cip_class_pccc;
 static int proto_cip_class_mb;
 static int proto_cip_class_cco;
+static int proto_cip_safety;
 static int proto_enip;
 static int proto_modbus;
 
@@ -233,6 +236,7 @@ static int hf_cip_cco_to_rtf;
 static int hf_cip_cco_sc;
 static int hf_cip_cco_format_number;
 static int hf_cip_cco_edit_signature;
+static int hf_cip_cco_scanner_mode;
 static int hf_cip_cco_con_flags;
 static int hf_cip_cco_tdi_vendor;
 static int hf_cip_cco_tdi_devtype;
@@ -292,6 +296,7 @@ static int hf_cip_port;
 static int hf_cip_port_extended;
 static int hf_cip_link_address_size;
 static int hf_cip_link_address_byte;
+static int hf_cip_slot;
 static int hf_cip_link_address_string;
 static int hf_cip_logical_seg_type;
 static int hf_cip_logical_seg_format;
@@ -299,7 +304,7 @@ static int hf_cip_class8;
 static int hf_cip_class16;
 static int hf_cip_class32;
 static int hf_cip_instance8;
-static int hf_cip_instance16;
+int hf_cip_instance16;
 static int hf_cip_instance32;
 static int hf_cip_member8;
 static int hf_cip_member16;
@@ -410,6 +415,8 @@ static int hf_id_product_name;
 static int hf_id_state;
 static int hf_id_config_value;
 static int hf_id_heartbeat;
+static int hf_id_catalog_number;
+static int hf_id_manufacture_date;
 static int hf_id_status_owned;
 static int hf_id_status_conf;
 static int hf_id_status_extended1;
@@ -442,7 +449,34 @@ static int hf_stringi_language_char;
 static int hf_stringi_char_string_struct;
 static int hf_stringi_char_set;
 static int hf_stringi_international_string;
+
+static int hf_file_data;
+static int hf_file_encoding;
+static int hf_file_file_access_rule;
+static int hf_file_file_format_version;
+static int hf_file_file_save_parametersd;
+static int hf_file_file_size;
 static int hf_file_filename;
+static int hf_file_incremental_burn_time;
+static int hf_file_incremental_burn;
+static int hf_file_instance_name;
+static int hf_file_invocation_method;
+static int hf_file_major_rev;
+static int hf_file_maximum_transfer_size;
+static int hf_file_minor_rev;
+static int hf_file_state;
+static int hf_file_transfer_checksum;
+static int hf_file_transfer_number;
+static int hf_file_transfer_packet_type;
+static int hf_file_transfer_size;
+
+static int hf_energy_energy_resource_type;
+static int hf_energy_base_energy_object_capabilities;
+static int hf_energy_energy_accuracy;
+static int hf_energy_data_status;
+static int hf_energy_energy_transfer_rate;
+static int hf_energy_extended_data_status;
+
 static int hf_time_sync_ptp_enable;
 static int hf_time_sync_is_synchronized;
 static int hf_time_sync_sys_time_micro;
@@ -526,6 +560,7 @@ static int hf_time_sync_port_proto_addr_info_network_proto;
 static int hf_time_sync_port_proto_addr_info_addr_size;
 static int hf_time_sync_port_proto_addr_info_port_proto_addr;
 static int hf_time_sync_steps_removed;
+static int hf_time_sync_defaultleapseconds;
 static int hf_time_sync_sys_time_and_offset_time;
 static int hf_time_sync_sys_time_and_offset_offset;
 static int hf_port_entry_port;
@@ -534,6 +569,7 @@ static int hf_port_number;
 static int hf_port_min_node_num;
 static int hf_port_max_node_num;
 static int hf_port_name;
+static int hf_port_port_routing_capabilities;
 static int hf_port_num_comm_object_entries;
 static int hf_path_len_usint;
 static int hf_path_len_uint;
@@ -944,6 +980,21 @@ static const value_string cip_cco_change_type_vals[] = {
    { 1,        "Incremental"    },
 
    { 0,        NULL             }
+};
+
+static const value_string cip_file_encoding_vals[] = {
+   { 0, "Binary" },
+   { 1, "Compressed file" },
+   { 2, "PEM Encoded Certificate" },
+   { 3, "PKCS#7 Encoded Certificate" },
+   { 4, "PEM Encoded CRL" },
+   { 5, "PKCS#7 Encoded CRL" },
+   { 11, "ASCII text" },
+   { 12, "Word" },
+   { 13, "Excel" },
+   { 14, "PDF" },
+
+   { 0, NULL }
 };
 
 static const value_string cip_time_sync_clock_class_vals[] = {
@@ -3585,11 +3636,11 @@ static void add_cip_class_to_info_column(packet_info *pinfo, uint32_t class_id, 
 
    if (display_type == DISPLAY_CONNECTION_PATH)
    {
-       col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", val_to_str(class_id, cip_class_names_vals, "Class (0x%02x)"));
+       col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", val_to_str(pinfo->pool, class_id, cip_class_names_vals, "Class (0x%02x)"));
    }
    else if (display_type == DISPLAY_REQUEST_PATH)
    {
-       col_append_fstr(pinfo->cinfo, COL_INFO, "%s - ", val_to_str(class_id, cip_class_names_vals, "Class (0x%02x)"));
+       col_append_fstr(pinfo->cinfo, COL_INFO, "%s - ", val_to_str(pinfo->pool, class_id, cip_class_names_vals, "Class (0x%02x)"));
    }
 }
 
@@ -3613,14 +3664,14 @@ static void add_cip_symbol_to_info_column(packet_info *pinfo, char *symbol_name,
 void add_cip_service_to_info_column(packet_info *pinfo, uint8_t service, const value_string* service_vals)
 {
    col_append_str( pinfo->cinfo, COL_INFO,
-      val_to_str(service & CIP_SC_MASK, service_vals, "Service (0x%02x)"));
+      val_to_str(pinfo->pool, service & CIP_SC_MASK, service_vals, "Service (0x%02x)"));
    col_set_fence(pinfo->cinfo, COL_INFO);
 }
 
 static void add_cip_pccc_function_to_info_column(packet_info *pinfo, uint8_t fnc, const value_string* fnc_vals)
 {
    col_append_fstr( pinfo->cinfo, COL_INFO,
-      " - %s", val_to_str(fnc, fnc_vals, "Function (0x%02x)"));
+      " - %s", val_to_str(pinfo->pool, fnc, fnc_vals, "Function (0x%02x)"));
    col_set_fence(pinfo->cinfo, COL_INFO);
 }
 
@@ -3638,7 +3689,7 @@ static int dissect_id_revision(packet_info *pinfo, proto_tree *tree, proto_item 
    return 2;
 }
 
-static int dissect_id_status(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
+int dissect_cip_id_status(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
    int offset, int total_len)
 {
    static int * const status[] = {
@@ -4322,6 +4373,168 @@ static int dissect_port_node_range(packet_info *pinfo _U_, proto_tree *tree, pro
    return 4;
 }
 
+static int dissect_base_energy_create(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, bool request)
+{
+   if (request)
+   {
+      proto_tree_add_item(tree, hf_energy_energy_resource_type, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_energy_base_energy_object_capabilities, tvb, offset + 2, 2, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_energy_energy_accuracy, tvb, offset + 4, 2, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_cip_class16, tvb, offset + 6, 2, ENC_LITTLE_ENDIAN);
+
+      return 8;
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_cip_instance16, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+      return 2;
+   }
+}
+
+/// File Object - Attributes
+static int dissect_file_directory(packet_info *pinfo, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb,
+   int offset, int total_len _U_)
+{
+   int parsed_len = 0;
+   int instance_num = 1;
+   while (tvb_reported_length_remaining(tvb, offset + parsed_len) > 0)
+   {
+      proto_item *instance_item;
+      proto_tree *instance_tree = proto_tree_add_subtree_format(tree, tvb, offset, 0, ett_cmd_data, &instance_item, "Instance #%d", instance_num);
+
+      proto_tree_add_item(instance_tree, hf_cip_instance16, tvb, offset + parsed_len, 2, ENC_LITTLE_ENDIAN);
+      parsed_len += 2;
+
+      parsed_len += dissect_cip_stringi(pinfo, instance_tree, instance_item, tvb, offset + parsed_len);
+      parsed_len += dissect_cip_stringi(pinfo, instance_tree, instance_item, tvb, offset + parsed_len);
+
+      instance_num++;
+   }
+
+   return parsed_len;
+}
+
+static int dissect_file_revision(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb,
+   int offset, int total_len _U_)
+{
+   proto_tree_add_item(tree, hf_file_major_rev, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+   proto_tree_add_item(tree, hf_file_minor_rev, tvb, offset + 1, 1, ENC_LITTLE_ENDIAN);
+   return 2;
+}
+
+/// File - Services
+static int dissect_file_create(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb, int offset, bool request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      parsed_len = dissect_cip_stringi(pinfo, tree, item, tvb, offset);
+
+      // This parameter is optional.
+      if (tvb_reported_length_remaining(tvb, offset + parsed_len) > 0)
+      {
+         proto_tree_add_item(tree, hf_file_encoding, tvb, offset + parsed_len, 1, ENC_LITTLE_ENDIAN);
+         parsed_len++;
+      }
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_cip_instance16, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_invocation_method, tvb, offset + 2, 1, ENC_LITTLE_ENDIAN);
+      parsed_len = 3;
+   }
+
+   return parsed_len;
+}
+
+static int dissect_file_initiate_download(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb, int offset, bool request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      proto_tree_add_item(tree, hf_file_file_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_file_format_version, tvb, offset + 4, 2, ENC_LITTLE_ENDIAN);
+      dissect_file_revision(pinfo, tree, item, tvb, offset + 6, tvb_reported_length_remaining(tvb, offset + 6));
+      int string_len = dissect_cip_stringi(pinfo, tree, item, tvb, offset + 8);
+
+      parsed_len = 8 + string_len;
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_file_incremental_burn, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_incremental_burn_time, tvb, offset + 4, 2, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_transfer_size, tvb, offset + 6, 1, ENC_LITTLE_ENDIAN);
+
+      parsed_len = 7;
+   }
+
+   return parsed_len;
+}
+
+static int dissect_file_initiate_upload(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, bool request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      proto_tree_add_item(tree, hf_file_maximum_transfer_size, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+      parsed_len = 1;
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_file_file_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_transfer_size, tvb, offset + 4, 1, ENC_LITTLE_ENDIAN);
+
+      parsed_len = 5;
+   }
+
+   return parsed_len;
+}
+
+static int dissect_file_download_transfer(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, bool request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      proto_tree_add_item(tree, hf_file_transfer_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_transfer_packet_type, tvb, offset + 1, 1, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_data, tvb, offset + 2, tvb_reported_length_remaining(tvb, offset + 2), ENC_NA);
+
+      parsed_len = tvb_reported_length_remaining(tvb, offset);
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_file_transfer_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+
+      parsed_len = 1;
+   }
+
+   return parsed_len;
+}
+
+static int dissect_file_upload_transfer(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, bool request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      proto_tree_add_item(tree, hf_file_transfer_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+      parsed_len = 1;
+   }
+   else
+   {
+      proto_tree_add_item(tree, hf_file_transfer_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_transfer_packet_type, tvb, offset + 1, 1, ENC_LITTLE_ENDIAN);
+      proto_tree_add_item(tree, hf_file_data, tvb, offset + 2, tvb_reported_length_remaining(tvb, offset + 2), ENC_NA);
+
+      parsed_len = tvb_reported_length_remaining(tvb, offset);
+   }
+
+   return parsed_len;
+}
 
 /// Identity - Services
 static int dissect_identity_reset(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, bool request)
@@ -4359,12 +4572,14 @@ static const attribute_info_t cip_attribute_vals[] = {
    {0x01, false, 2, 1, "Device Type", cip_uint, &hf_id_device_type, NULL},
    {0x01, false, 3, 2, "Product Code", cip_uint, &hf_id_product_code, NULL},
    {0x01, false, 4, 3, "Revision", cip_dissector_func, NULL, dissect_id_revision},
-   {0x01, false, 5, 4, "Status", cip_dissector_func, NULL, dissect_id_status},
+   {0x01, false, 5, 4, "Status", cip_dissector_func, NULL, dissect_cip_id_status},
    {0x01, false, 6, 5, "Serial Number", cip_udint, &hf_id_serial_number, NULL},
    {0x01, false, 7, 6, "Product Name", cip_short_string, &hf_id_product_name, NULL},
    {0x01, false, 8, 7, "State", cip_usint, &hf_id_state, NULL},
    {0x01, false, 9, 8, "Configuration Consistency Value", cip_uint, &hf_id_config_value, NULL},
    {0x01, false, 10, 9, "Heartbeat Interval", cip_usint, &hf_id_heartbeat, NULL},
+   {0x01, false, 21, -1, "Catalog Number", cip_short_string, &hf_id_catalog_number, NULL},
+   {0x01, false, 22, -1, "Manufacture Date", cip_date, &hf_id_manufacture_date, NULL},
 
     /* Message Router Object (class attributes) */
    {0x02, true, 1, 0, CLASS_ATTRIBUTE_1_NAME, cip_uint, &hf_attr_class_revision, NULL },
@@ -4405,7 +4620,15 @@ static const attribute_info_t cip_attribute_vals[] = {
    {0x06, false, 13, 11, "Buff Size Remaining", cip_udint, &hf_conn_mgr_buff_size_remaining, NULL },
 
     /* File Object (instance attributes) */
-   {0x37, false, 4, -1, "File Name", cip_stringi, &hf_file_filename, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 1, -1, "State", cip_usint, &hf_file_state, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 2, -1, "Instance Name", cip_stringi, &hf_file_instance_name, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 4, -1, "File Name", cip_stringi, &hf_file_filename, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 5, -1, "File Revision", cip_dissector_func, NULL, dissect_file_revision },
+   {0x37, CIP_ATTR_INSTANCE, 6, -1, "File Size", cip_udint, &hf_file_file_size, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 9, -1, "File Save Parameters", cip_byte, &hf_file_file_save_parametersd, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 10, -1, "File Access Rule", cip_usint, &hf_file_file_access_rule, NULL },
+   {0x37, CIP_ATTR_INSTANCE, 11, -1, "File Encoding Format", cip_usint, &hf_file_encoding, NULL },
+   {0x37, CIP_ATTR_CLASS, 32, -1, "Directory", cip_dissector_func, NULL, dissect_file_directory },
 
     /* Time Sync Object (class attributes) */
    {0x43, true, 1, 0, CLASS_ATTRIBUTE_1_NAME, cip_uint, &hf_attr_class_revision, NULL },
@@ -4445,7 +4668,15 @@ static const attribute_info_t cip_attribute_vals[] = {
    {0x43, false, 26, -1, "Port Protocol Address Info", cip_dissector_func, NULL, dissect_time_sync_port_proto_addr_info},
    {0x43, false, 27, -1, "Steps Removed", cip_uint, &hf_time_sync_steps_removed, NULL},
    {0x43, false, 28, -1, "System Time and Offset", cip_dissector_func, NULL, dissect_time_sync_sys_time_and_offset},
+   {0x43, false, 30, -1, "DefaultLeapSeconds", cip_uint, &hf_time_sync_defaultleapseconds, NULL },
 
+   // Base Energy
+   { 0x4E, CIP_ATTR_INSTANCE, 1, -1, "Energy/Resource Type", cip_uint, &hf_energy_energy_resource_type, NULL },
+   { 0x4E, CIP_ATTR_INSTANCE, 2, -1, "Base Energy Object Capabilities", cip_uint, &hf_energy_base_energy_object_capabilities, NULL },
+   { 0x4E, CIP_ATTR_INSTANCE, 3, -1, "Energy Accuracy", cip_uint, &hf_energy_energy_accuracy, NULL },
+   { 0x4E, CIP_ATTR_INSTANCE, 6, -1, "Data Status", cip_uint, &hf_energy_data_status, NULL },
+   { 0x4E, CIP_ATTR_INSTANCE, 10, -1, "Energy Transfer Rate", cip_real, &hf_energy_energy_transfer_rate, NULL },
+   { 0x4E, CIP_ATTR_INSTANCE, 18, -1, "Extended Data Status", cip_uint, &hf_energy_extended_data_status, NULL },
 
    /* Connection Configuration Object (class attributes) */
    /* Data sizes are different than common class attributes for some items. */
@@ -4458,6 +4689,10 @@ static const attribute_info_t cip_attribute_vals[] = {
    { 0xF3, true, 7, -1, CLASS_ATTRIBUTE_7_NAME, cip_uint, &hf_attr_class_num_inst_attr, NULL },
    { 0xF3, true, 8, 3, "Format Number", cip_uint, &hf_cip_cco_format_number, NULL },
    { 0xF3, true, 9, 4, "Edit Signature", cip_udint, &hf_cip_cco_edit_signature, NULL },
+   { 0xF3, true, 33, -1, "Scanner Mode", cip_bool, &hf_cip_cco_scanner_mode, NULL },
+
+   /* Connection Configuration Object (instance attributes) */
+   { 0xF3, false, 8, -1, "Connection Name", cip_string2, &hf_cip_cco_connection_name, NULL },
 
    /* Port Object (class attributes) */
    { 0xF4, true, 1, 0, CLASS_ATTRIBUTE_1_NAME, cip_uint, &hf_attr_class_revision, NULL },
@@ -4478,12 +4713,43 @@ static const attribute_info_t cip_attribute_vals[] = {
    { 0xF4, false, 7, 4, "Port Number and Node Address", cip_dissector_func, NULL, dissect_single_segment_padded_attr },
    { 0xF4, false, 8, -1, "Port Node Range", cip_dissector_func, NULL, dissect_port_node_range },
    { 0xF4, false, 9, -1, "Chassis Identity", cip_dissector_func, NULL, dissect_single_segment_packed_attr },
+   { 0xF4, false, 10, -1, "Port Routing Capabilities", cip_dword, &hf_port_port_routing_capabilities, NULL },
    { 0xF4, false, 11, -1, "Associated Communication Objects", cip_dissector_func, NULL, dissect_port_associated_comm_objects },
 };
 
 // Table of CIP services defined by this dissector.
 static cip_service_info_t cip_obj_spec_service_table[] = {
     { 0x1, SC_RESET, "Reset", dissect_identity_reset },
+
+    { 0x37, SC_CREATE, "Create", dissect_file_create },
+    { 0x37, 0x4B, "Initiate_Upload", dissect_file_initiate_upload },
+    { 0x37, 0x4C, "Initiate_Download", dissect_file_initiate_download },
+    { 0x37, 0x4F, "Upload_Transfer", dissect_file_upload_transfer },
+    { 0x37, 0x50, "Download_Transfer", dissect_file_download_transfer },
+    { 0x37, 0x51, "Clear_File", NULL },
+
+    { 0x4E, SC_CREATE, "Create", dissect_base_energy_create },
+
+    // ControlNet Keeper
+    { 0xF1, 0x4B, "Obtain_Network_Resource", NULL },
+    { 0xF1, 0x4C, "Hold_Network_Resource", NULL },
+    { 0xF1, 0x4D, "Release_Network_Resource", NULL },
+    { 0xF1, 0x4E, "Change_Start", NULL },
+    { 0xF1, 0x4F, "Change_Complete", NULL },
+    { 0xF1, 0x50, "Change_Abort", NULL },
+    { 0xF1, 0x51, "Get_Signature", NULL },
+    { 0xF1, 0x52, "Get_Attribute_Fragment", NULL },
+    { 0xF1, 0x53, "Set_Attribute_Fragment", NULL },
+
+    // ControlNet Scheduling
+    { 0xF2, 0x4B, "Kick_Timer", NULL },
+    { 0xF2, 0x4C, "Read", NULL },
+    { 0xF2, 0x4D, "Conditional_Write", NULL },
+    { 0xF2, 0x4E, "Forced_Write", NULL },
+    { 0xF2, 0x4F, "Change_Start", NULL },
+    { 0xF2, 0x50, "Break_Connections", NULL },
+    { 0xF2, 0x51, "Change_Complete", NULL },
+    { 0xF2, 0x52, "Restart_Connections", NULL },
 };
 
 // Look up a given CIP service from this dissector.
@@ -4684,7 +4950,7 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
       }
       else
       {
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%02X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str(pinfo->pool,  temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%02X" ) ) );
       }
 
       if (value != NULL)
@@ -4743,7 +5009,7 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
          strbuf = wmem_strbuf_new(pinfo->pool, segment_name);
          wmem_strbuf_append(strbuf, ": 0x%04X");
 
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%04X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str(pinfo->pool,  temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%04X" ) ) );
       }
 
       if (value != NULL)
@@ -4789,7 +5055,7 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
          strbuf = wmem_strbuf_new(pinfo->pool, segment_name);
          wmem_strbuf_append(strbuf, ": 0x%08X");
 
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%08X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str(pinfo->pool,  temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%08X" ) ) );
       }
 
       if (value != NULL)
@@ -4997,7 +5263,7 @@ static int dissect_segment_network_production_inhibit_us(tvbuff_t *tvb, int offs
    return (data_words * 2) + 2;
 }
 
-static int dissect_segment_symbolic(tvbuff_t *tvb, proto_tree *path_seg_tree,
+static int dissect_segment_symbolic(tvbuff_t *tvb, packet_info* pinfo, proto_tree *path_seg_tree,
    proto_item *path_seg_item, proto_item *epath_item,
    int offset, bool generate)
 {
@@ -5019,7 +5285,7 @@ static int dissect_segment_symbolic(tvbuff_t *tvb, proto_tree *path_seg_tree,
    if (symbol_size != 0)
    {
       char *symbol_name;
-      symbol_name = tvb_format_text(wmem_packet_scope(), tvb, offset + 1, symbol_size);
+      symbol_name = tvb_format_text(pinfo->pool, tvb, offset + 1, symbol_size);
 
       proto_item_append_text(path_seg_item, " (Symbolic Segment)");
 
@@ -5178,7 +5444,7 @@ static int dissect_segment_symbolic(tvbuff_t *tvb, proto_tree *path_seg_tree,
    return seg_size;
 }
 
-static int dissect_segment_port(tvbuff_t* tvb, int offset, bool generate,
+static int dissect_segment_port(tvbuff_t* tvb, packet_info* pinfo, int offset, bool generate,
    proto_tree* path_seg_tree, proto_item* path_seg_item, proto_item* epath_item)
 {
    int segment_len = 0;
@@ -5236,7 +5502,7 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, bool generate,
          proto_item* it = proto_tree_add_uint(path_seg_tree, hf_cip_link_address_size, tvb, 0, 0, opt_link_size);
          proto_item_set_generated(it);
          /* Add extended link address */
-         it = proto_tree_add_string(path_seg_tree, hf_cip_link_address_string, tvb, 0, 0, tvb_format_text(wmem_packet_scope(), tvb, offset + offset_link_address, opt_link_size));
+         it = proto_tree_add_string(path_seg_tree, hf_cip_link_address_string, tvb, 0, 0, tvb_format_text(pinfo->pool, tvb, offset + offset_link_address, opt_link_size));
          proto_item_set_generated(it);
       }
       else
@@ -5245,7 +5511,7 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, bool generate,
          proto_tree_add_item(path_seg_tree, hf_cip_link_address_string, tvb, offset + offset_link_address, opt_link_size, ENC_ASCII | ENC_NA);
       }
 
-      proto_item_append_text(epath_item, ", Address: %s", tvb_format_text(wmem_packet_scope(), tvb, offset + offset_link_address, opt_link_size));
+      proto_item_append_text(epath_item, ", Address: %s", tvb_format_text(pinfo->pool, tvb, offset + offset_link_address, opt_link_size));
 
       /* Pad byte */
       if (opt_link_size % 2)
@@ -5276,10 +5542,16 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, bool generate,
          uint8_t link_address_byte = tvb_get_uint8(tvb, offset + offset_link_address);
          proto_item* it = proto_tree_add_uint(path_seg_tree, hf_cip_link_address_byte, tvb, 0, 0, link_address_byte);
          proto_item_set_generated(it);
+
+         proto_item* slot_it = proto_tree_add_uint(path_seg_tree, hf_cip_slot, tvb, 0, 0, link_address_byte);
+         proto_item_set_hidden(slot_it);
       }
       else
       {
          proto_tree_add_item(path_seg_tree, hf_cip_link_address_byte, tvb, offset + offset_link_address, 1, ENC_LITTLE_ENDIAN);
+
+         proto_item* slot_it = proto_tree_add_item(path_seg_tree, hf_cip_slot, tvb, offset + offset_link_address, 1, ENC_LITTLE_ENDIAN);
+         proto_item_set_hidden(slot_it);
       }
 
       proto_item_append_text(epath_item, ", Address: %d", tvb_get_uint8(tvb, offset + offset_link_address));
@@ -5310,6 +5582,12 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, bool generate,
 static int dissect_segment_safety(packet_info* pinfo, tvbuff_t* tvb, int offset, bool generate,
    proto_tree* net_tree, cip_safety_epath_info_t* safety, cip_simple_request_info_t* req_data)
 {
+   // Allow 'cipsafety' to match all parts of the safety protocol. This will:
+   // 1. Match the I/O format from packet-cipsafety
+   // 2. Match the FwdOpen,FwdClose here
+   proto_item* pi = proto_tree_add_item(net_tree, proto_cip_safety, tvb, 0, 0, ENC_NA);
+   proto_item_set_hidden(pi);
+
    uint16_t seg_size = tvb_get_uint8(tvb, offset + 1) * 2;
    int segment_len = seg_size + 2;
 
@@ -5844,7 +6122,7 @@ int dissect_cip_segment_single(packet_info *pinfo, tvbuff_t *tvb, int offset, pr
       {
          case CI_PORT_SEGMENT:
          {
-            segment_len = dissect_segment_port(tvb, offset, generate, path_seg_tree, path_seg_item, epath_item);
+            segment_len = dissect_segment_port(tvb, pinfo, offset, generate, path_seg_tree, path_seg_item, epath_item);
             break;
          }
 
@@ -5907,7 +6185,7 @@ int dissect_cip_segment_single(packet_info *pinfo, tvbuff_t *tvb, int offset, pr
 
                      if (msp_item != NULL)
                      {
-                        proto_item_append_text(msp_item, "%s - ", val_to_str(req_data->iClass, cip_class_names_vals, "Class (0x%02x)"));
+                        proto_item_append_text(msp_item, "%s - ", val_to_str(pinfo->pool, req_data->iClass, cip_class_names_vals, "Class (0x%02x)"));
                      }
                   }
 
@@ -6062,7 +6340,7 @@ int dissect_cip_segment_single(packet_info *pinfo, tvbuff_t *tvb, int offset, pr
 
          case CI_SYMBOLIC_SEGMENT:
          {
-             segment_len = dissect_segment_symbolic(tvb, path_seg_tree,
+             segment_len = dissect_segment_symbolic(tvb, pinfo, path_seg_tree,
                  path_seg_item, epath_item,
                  offset, generate);
 
@@ -6788,7 +7066,7 @@ int dissect_cip_multiple_service_packet(tvbuff_t *tvb, packet_info *pinfo, proto
       if (mult_serv_item != NULL)
       {
          uint8_t service = tvb_get_uint8(next_tvb, 0);
-         proto_item_append_text(mult_serv_item, "%s", val_to_str(service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
+         proto_item_append_text(mult_serv_item, "%s", val_to_str(pinfo->pool, service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
       }
 
       if (i != num_services - 1)
@@ -6819,7 +7097,7 @@ dissect_cip_generic_service_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
    /* Create service tree */
    cmd_data_tree = proto_tree_add_subtree(tree, tvb, offset, 0, ett_cmd_data, &cmd_data_item,
-                        val_to_str(service, cip_sc_vals , "Unknown Service (0x%02x)"));
+                        val_to_str(pinfo->pool, service, cip_sc_vals , "Unknown Service (0x%02x)"));
    proto_item_append_text(cmd_data_item, " (Request)");
 
    int parsed_len = 0;
@@ -7196,7 +7474,7 @@ dissect_cip_generic_service_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
    add_cip_service_to_info_column(pinfo, service, cip_sc_vals);
 
    cmd_data_tree = proto_tree_add_subtree(tree, tvb, offset, 0,
-       ett_cmd_data, &cmd_data_item, val_to_str(service, cip_sc_vals, "Unknown Service (0x%02x)"));
+       ett_cmd_data, &cmd_data_item, val_to_str(pinfo->pool, service, cip_sc_vals, "Unknown Service (0x%02x)"));
    proto_item_append_text(cmd_data_item, " (Response)");
 
    load_cip_request_data(pinfo, &req_data);
@@ -7572,6 +7850,11 @@ static int dissect_cip_cc_hop(packet_info* pinfo, tvbuff_t* tvb, int offset, pro
         case 0: // Link addresses
         {
             proto_tree_add_item(hop_tree, hf_ext_net_seg_link_address, tvb, offset + parsed, 1, ENC_LITTLE_ENDIAN);
+
+            uint8_t slot_number = tvb_get_uint8(tvb, offset + parsed);
+            proto_item* slot_it = proto_tree_add_uint(hop_tree, hf_cip_slot, tvb, 0, 0, slot_number);
+            proto_item_set_hidden(slot_it);
+
             parsed++;
             break;
         }
@@ -8370,7 +8653,7 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
 
    /* watch for service collisions */
    proto_item_append_text( rrsc_item, "%s (%s)",
-               val_to_str( ( service & CIP_SC_MASK ),
+               val_to_str(pinfo->pool, ( service & CIP_SC_MASK ),
                   cip_sc_vals_cm , "Unknown Service (0x%02x)"),
                val_to_str_const( ( service & CIP_SC_RESPONSE_MASK )>>7,
                   cip_sc_rr, "") );
@@ -8392,7 +8675,7 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
 
          /* Add general status */
          proto_tree_add_item(status_tree, hf_cip_cm_genstat, tvb, offset+2, 1, ENC_LITTLE_ENDIAN );
-         proto_item_append_text( status_item, "%s", val_to_str_ext( gen_status,
+         proto_item_append_text( status_item, "%s", val_to_str_ext(pinfo->pool, gen_status,
                         &cip_gs_vals_ext , "Unknown Response (%x)")   );
 
          /* Add additional status size */
@@ -8402,7 +8685,7 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
          {
             add_status = tvb_get_letohs( tvb, offset + 4 );
             proto_tree_add_item(status_tree, hf_cip_cm_ext_status, tvb, offset+4, 2, ENC_LITTLE_ENDIAN );
-            proto_item_append_text(status_item, ", Extended: %s", val_to_str_ext(add_status, &cip_cm_ext_st_vals_ext, "Reserved (0x%04x)"));
+            proto_item_append_text(status_item, ", Extended: %s", val_to_str_ext(pinfo->pool, add_status, &cip_cm_ext_st_vals_ext, "Reserved (0x%04x)"));
 
             switch(add_status)
             {
@@ -8650,7 +8933,7 @@ dissect_cip_pccc_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int ite
 
    /* watch for service collisions */
    proto_item_append_text( rrsc_item, "%s (%s)",
-               val_to_str( ( service & CIP_SC_MASK ),
+               val_to_str(pinfo->pool,  ( service & CIP_SC_MASK ),
                   cip_sc_vals_pccc , "Unknown Service (0x%02x)"),
                val_to_str_const( ( service & CIP_SC_RESPONSE_MASK )>>7,
                   cip_sc_rr, "") );
@@ -8864,7 +9147,7 @@ dissect_cip_mb_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
    proto_tree_add_item( rrsc_tree, hf_cip_reqrsp, tvb, offset, 1, ENC_LITTLE_ENDIAN );
 
    proto_item_append_text( rrsc_item, "%s (%s)",
-               val_to_str( ( service & CIP_SC_MASK ),
+               val_to_str(pinfo->pool,  ( service & CIP_SC_MASK ),
                   cip_sc_vals_mb , "Unknown Service (0x%02x)"),
                val_to_str_const( ( service & CIP_SC_RESPONSE_MASK )>>7,
                   cip_sc_rr, "") );
@@ -9231,7 +9514,7 @@ dissect_cip_cco_data( proto_tree *item_tree, proto_item *ti, tvbuff_t *tvb, int 
    proto_tree_add_item( rrsc_tree, hf_cip_reqrsp, tvb, offset, 1, ENC_LITTLE_ENDIAN );
 
    proto_item_append_text( rrsc_item, "%s (%s)",
-               val_to_str( ( service & CIP_SC_MASK ),
+               val_to_str(pinfo->pool,  ( service & CIP_SC_MASK ),
                   cip_sc_vals_cco , "Unknown Service (0x%02x)"),
                val_to_str_const( ( service & CIP_SC_RESPONSE_MASK )>>7,
                   cip_sc_rr, "") );
@@ -9464,7 +9747,7 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
    /* Add Service code & Request/Response tree */
    rrsc_item = proto_tree_add_uint_format_value(cip_tree, hf_cip_service,
                                tvb, offset, 1, service, "%s (%s)",
-                               val_to_str( ( service & CIP_SC_MASK ), cip_sc_vals , "Unknown Service (0x%02x)"),
+                               val_to_str(pinfo->pool,  ( service & CIP_SC_MASK ), cip_sc_vals , "Unknown Service (0x%02x)"),
                                val_to_str_const( ( service & CIP_SC_RESPONSE_MASK )>>7, cip_sc_rr, ""));
 
    rrsc_tree = proto_item_add_subtree( rrsc_item, ett_rrsc );
@@ -9481,19 +9764,19 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       /* Add general status */
       gen_status = tvb_get_uint8( tvb, offset+2 );
       proto_tree_add_item(status_tree, hf_cip_genstat, tvb, offset+2, 1, ENC_LITTLE_ENDIAN );
-      proto_item_append_text( status_item, "%s: ", val_to_str_ext( gen_status,
+      proto_item_append_text( status_item, "%s: ", val_to_str_ext(pinfo->pool, gen_status,
                      &cip_gs_vals_ext , "Unknown Response (%x)")   );
 
       if (is_msp_item == false)
       {
           /* Add reply status to info column */
           col_append_fstr(pinfo->cinfo, COL_INFO, "%s: ",
-              val_to_str_ext(gen_status, &cip_gs_vals_ext, "Unknown Response (%x)"));
+              val_to_str_ext(pinfo->pool, gen_status, &cip_gs_vals_ext, "Unknown Response (%x)"));
       }
       else
       {
           proto_item_append_text(msp_item, "%s: ",
-              val_to_str_ext(gen_status, &cip_gs_vals_ext, "Unknown Response (%x)"));
+              val_to_str_ext(pinfo->pool, gen_status, &cip_gs_vals_ext, "Unknown Response (%x)"));
       }
 
       /* Add additional status size */
@@ -9711,7 +9994,7 @@ dissect_cip_implicit(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
    proto_tree_add_item(cip_tree, hf_cip_data, tvb, 0, length, ENC_NA);
 
    col_append_fstr(pinfo->cinfo, COL_INFO, "Implicit Data - %s",
-        val_to_str(ClassID, cip_class_names_vals, "Class (0x%02x)"));
+        val_to_str(pinfo->pool, ClassID, cip_class_names_vals, "Class (0x%02x)"));
 
    return tvb_reported_length(tvb);
 }
@@ -9750,6 +10033,7 @@ proto_register_cip(void)
       { &hf_cip_port, { "Port", "cip.port", FT_UINT8, BASE_DEC, VALS(cip_port_number_vals), CI_PORT_SEG_PORT_ID_MASK, "Port Identifier", HFILL } },
       { &hf_cip_port_extended,{ "Port Extended", "cip.port", FT_UINT16, BASE_HEX, NULL, 0, "Port Identifier Extended", HFILL } },
       { &hf_cip_link_address_byte, { "Link Address", "cip.linkaddress.byte", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_cip_slot, { "Slot", "cip.slot", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_cip_link_address_size, { "Link Address Size", "cip.linkaddress_size", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_link_address_string, { "Link Address", "cip.linkaddress.string", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
       { &hf_cip_logical_seg_type, { "Logical Segment Type", "cip.logical_segment.type", FT_UINT8, BASE_DEC, VALS(cip_logical_segment_type_vals), CI_LOGICAL_SEG_TYPE_MASK, NULL, HFILL }},
@@ -9869,6 +10153,8 @@ proto_register_cip(void)
       { &hf_id_state, { "State", "cip.id.state", FT_UINT8, BASE_HEX, VALS(cip_id_state_vals), 0, NULL, HFILL } },
       { &hf_id_config_value, { "Configuration Consistency Value", "cip.id.config_value", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL } },
       { &hf_id_heartbeat, { "Heartbeat Interval", "cip.id.heartbeat", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL } },
+      { &hf_id_catalog_number, { "Catalog Number", "cip.id.catalog_number", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
+      { &hf_id_manufacture_date, { "Manufacture Date", "cip.id.manufacture_date", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_id_status_owned, { "Owned", "cip.id.owned", FT_UINT16, BASE_DEC, NULL, 0x0001, NULL, HFILL } },
       { &hf_id_status_conf, { "Configured", "cip.id.conf", FT_UINT16, BASE_DEC, NULL, 0x0004, NULL, HFILL } },
       { &hf_id_status_extended1, { "Extended Device Status", "cip.id.ext", FT_UINT16, BASE_HEX, NULL, 0x00F0, NULL, HFILL } },
@@ -9905,7 +10191,32 @@ proto_register_cip(void)
       { &hf_stringi_char_set, { "Char Set", "cip.stringi.char_set", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_stringi_international_string, { "International String", "cip.stringi.int_string", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
 
+      { &hf_file_data, { "Data", "cip.file.data", FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
+      { &hf_file_encoding, { "Encoding", "cip.file.encoding", FT_UINT8, BASE_DEC, VALS(cip_file_encoding_vals), 0, NULL, HFILL } },
+      { &hf_file_file_access_rule, { "File Access Rule", "cip.file.file_access_rule", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_file_format_version, { "File Format Version", "cip.file.file_format_version", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_file_save_parametersd, { "File Save Parameters", "cip.file.file_save_parameters", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL } },
+      { &hf_file_file_size, { "File Size", "cip.file.file_size", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0, NULL, HFILL } },
       { &hf_file_filename, { "File Name", "cip.file.file_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
+      { &hf_file_incremental_burn_time, { "Incremental Burn Time", "cip.file.incremental_burn_time", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_incremental_burn, { "Incremental Burn", "cip.file.incremental_burn", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0, NULL, HFILL } },
+      { &hf_file_instance_name, { "Instance Name", "cip.file.instance_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
+      { &hf_file_invocation_method, { "Invocation Method", "cip.file.invocation_method", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_major_rev, { "Major Revision", "cip.file.major_rev", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_file_maximum_transfer_size, { "Maximum Transfer Size", "cip.file.maximum_transfer_size", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0, NULL, HFILL } },
+      { &hf_file_minor_rev, { "Minor Revision", "cip.file.minor_rev", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_file_state, { "State", "cip.file.state", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_transfer_checksum, { "Transfer Checksum", "cip.file.transfer_checksum", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL } },
+      { &hf_file_transfer_number, { "Transfer Number", "cip.file.transfer_number", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_transfer_packet_type, { "Transfer Packet Type", "cip.file.transfer_packet_type", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_file_transfer_size, { "Transfer Size", "cip.file.transfer_size", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0, NULL, HFILL } },
+
+      { &hf_energy_energy_resource_type, { "Energy Resource Type", "cip.energy.energy_resource_type", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_energy_base_energy_object_capabilities, { "Base Energy Object Capabilities", "cip.energy.base_energy_object_capabilities", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_energy_energy_accuracy, { "Energy Accuracy", "cip.energy.energy_accuracy", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_energy_data_status, { "Data Status", "cip.energy.data_status", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
+      { &hf_energy_energy_transfer_rate, { "Energy Transfer Rate", "cip.energy.energy_transfer_rate", FT_FLOAT, BASE_NONE, NULL, 0, NULL, HFILL } },
+      { &hf_energy_extended_data_status, { "Extended Data Status", "cip.energy.extended_data_status", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
 
       { &hf_time_sync_ptp_enable, { "PTP Enable", "cip.time_sync.ptp_enable", FT_BOOLEAN, BASE_NONE, TFS(&tfs_enabled_disabled), 0, NULL, HFILL }},
       { &hf_time_sync_is_synchronized, { "Is Synchronized", "cip.time_sync.is_synchronized", FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }},
@@ -9990,6 +10301,7 @@ proto_register_cip(void)
       { &hf_time_sync_port_proto_addr_info_addr_size, { "Size of Address", "cip.time_sync.port_proto_addr_info.addr_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_port_proto_addr_info_port_proto_addr, { "Port Protocol Address", "cip.time_sync.port_profile_id_info.port_proto_addr", FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_steps_removed, { "Steps Removed", "cip.time_sync.steps_removed", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_time_sync_defaultleapseconds, { "DefaultLeapSeconds", "cip.time_sync.defaultleapseconds", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_time_sync_sys_time_and_offset_time, { "System Time (Microseconds)", "cip.time_sync.sys_time_and_offset.time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_sys_time_and_offset_offset, { "System Offset (Microseconds)", "cip.time_sync.sys_time_and_offset.offset", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_port_entry_port, { "Entry Port", "cip.port.entry_port", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
@@ -9998,6 +10310,7 @@ proto_register_cip(void)
       { &hf_port_min_node_num, { "Minimum Node Number", "cip.port.min_node", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_port_max_node_num, { "Maximum Node Number", "cip.port.max_node", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_port_name, { "Port Name", "cip.port.name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
+      { &hf_port_port_routing_capabilities, { "Port Routing Capabilities", "cip.port.port_routing_capabilities", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL } },
       { &hf_port_num_comm_object_entries, { "Number of entries", "cip.port.num_comm_object_entries", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_path_len_usint, { "Path Length", "cip.path_len", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_word_words), 0, NULL, HFILL } },
       { &hf_path_len_uint, { "Path Length", "cip.path_len", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_word_words), 0, NULL, HFILL } },
@@ -10139,6 +10452,7 @@ proto_register_cip(void)
       { &hf_cip_cco_sc, { "Service", "cip.cco.sc", FT_UINT8, BASE_HEX, VALS(cip_sc_vals_cco), CIP_SC_MASK, NULL, HFILL }},
       { &hf_cip_cco_format_number, { "Format Number", "cip.cco.format_number", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_edit_signature, { "Edit Signature", "cip.cco.edit_signature", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
+      { &hf_cip_cco_scanner_mode, { "Scanner Mode", "cip.cco.scanner_mode", FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL } },
       { &hf_cip_cco_con_flags, { "Connection Flags", "cip.cco.connflags", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_con_type, { "Connection O_T", "cip.cco.con", FT_UINT16, BASE_DEC, VALS(cip_con_vals), 0x0001, NULL, HFILL }},
       { &hf_cip_cco_ot_rtf, { "O->T real time transfer format", "cip.cco.otrtf", FT_UINT16, BASE_DEC, VALS(cip_con_rtf_vals), 0x000E, NULL, HFILL }},
@@ -10442,6 +10756,7 @@ proto_reg_handoff_cip(void)
 
    proto_enip = proto_get_id_by_filter_name( "enip" );
    proto_modbus = proto_get_id_by_filter_name( "modbus" );
+   proto_cip_safety = proto_get_id_by_filter_name("cipsafety");
 
 } /* end of proto_reg_handoff_cip() */
 

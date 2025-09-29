@@ -58,8 +58,8 @@
 #define PCAP_RECORD_HEADER_LENGTH              16
 
 #ifdef ANDROIDDUMP_USE_LIBPCAP
-    #include <pcap.h>
-    #include <pcap-bpf.h>
+    #include <pcap/pcap.h>
+    #include <pcap/bpf.h>
     #include <pcap/bluetooth.h>
 
     #ifndef DLT_BLUETOOTH_H4_WITH_PHDR
@@ -353,6 +353,27 @@ static const char* interface_to_logbuf(char* interface)
     return logbuf;
 }
 
+/* "Error codes set by Windows Sockets are not made available through the errno
+  * variable."
+  * https://learn.microsoft.com/en-us/windows/win32/winsock/error-codes-errno-h-errno-and-wsagetlasterror-2
+  */
+#ifdef _WIN32
+#define CONTINUE_ON_TIMEOUT(length) \
+    if (length == SOCKET_ERROR) { \
+        int err = WSAGetLastError(); \
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) \
+            continue; \
+    }
+#elif EWOULDBLOCK != EAGAIN
+#define CONTINUE_ON_TIMEOUT(length) \
+    if (errno == EAGAIN || errno == EWOULDBLOCK) \
+        continue;
+#else
+#define CONTINUE_ON_TIMEOUT(length) \
+    if (errno == EAGAIN) \
+        continue;
+#endif /* _WIN32 */
+
 static void useSndTimeout(socket_handle_t  sock) {
     int res;
 #ifdef _WIN32
@@ -373,10 +394,20 @@ static void useSndTimeout(socket_handle_t  sock) {
 
 static void useNonBlockingConnectTimeout(socket_handle_t  sock) {
 #ifdef _WIN32
+    int res_snd;
+    int res_rcv;
+    const DWORD socket_timeout = SOCKET_RW_TIMEOUT_MS;
     unsigned long non_blocking = 1;
 
+    /* set timeout when non-blocking to 2s on Windows */
+    res_snd = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&socket_timeout, sizeof(socket_timeout));
+    res_rcv = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&socket_timeout, sizeof(socket_timeout));
     /* set socket to non-blocking */
     ioctlsocket(sock, FIONBIO, &non_blocking);
+    if (res_snd != 0)
+        ws_debug("Can't set socket timeout, using default");
+    if (res_rcv != 0)
+        ws_debug("Can't set socket timeout, using default");
 #else
     int flags = fcntl(sock, F_GETFL);
     fcntl(sock, F_SETFL, flags | O_NONBLOCK);
@@ -474,15 +505,12 @@ static bool extcap_dumper_dump(struct extcap_dumper extcap_dumper,
     char               *err_info;
     wtap_rec            rec;
 
-    rec.rec_type = REC_TYPE_PACKET;
-    rec.presence_flags = WTAP_HAS_TS;
-    rec.rec_header.packet_header.caplen = (uint32_t) captured_length;
-    rec.rec_header.packet_header.len = (uint32_t) reported_length;
+    wtap_rec_init(&rec, captured_length);
+    wtap_setup_packet_rec(&rec, extcap_dumper.encap);
 
+    rec.presence_flags = WTAP_HAS_TS;
     rec.ts.secs = seconds;
     rec.ts.nsecs = (int) nanoseconds;
-
-    rec.block = NULL;
 
 /*  NOTE: Try to handle pseudoheaders manually */
     if (extcap_dumper.encap == EXTCAP_ENCAP_BLUETOOTH_H4_WITH_PHDR) {
@@ -492,24 +520,30 @@ static bool extcap_dumper_dump(struct extcap_dumper extcap_dumper,
 
         rec.rec_header.packet_header.pseudo_header.bthci.sent = GINT32_FROM_BE(*direction) ? 0 : 1;
 
-        rec.rec_header.packet_header.len -= (uint32_t)sizeof(own_pcap_bluetooth_h4_header);
-        rec.rec_header.packet_header.caplen -= (uint32_t)sizeof(own_pcap_bluetooth_h4_header);
-
         buffer += sizeof(own_pcap_bluetooth_h4_header);
+        captured_length -= sizeof(own_pcap_bluetooth_h4_header);
     }
-    rec.rec_header.packet_header.pkt_encap = extcap_dumper.encap;
 
-    if (!wtap_dump(extcap_dumper.dumper.wtap, &rec, (const uint8_t *) buffer, &err, &err_info)) {
+    rec.rec_header.packet_header.caplen = (uint32_t) captured_length;
+    rec.rec_header.packet_header.len = (uint32_t) reported_length;
+
+    ws_buffer_append(&rec.data, buffer, captured_length);
+
+    if (!wtap_dump(extcap_dumper.dumper.wtap, &rec, &err, &err_info)) {
         cfile_write_failure_message(NULL, fifo, err, err_info, 0,
                                     wtap_dump_file_type_subtype(extcap_dumper.dumper.wtap));
+        wtap_rec_cleanup(&rec);
         return false;
     }
 
     if (!wtap_dump_flush(extcap_dumper.dumper.wtap, &err)) {
         cfile_write_failure_message(NULL, fifo, err, NULL, 0,
                                     wtap_dump_file_type_subtype(extcap_dumper.dumper.wtap));
+        wtap_rec_cleanup(&rec);
         return false;
     }
+
+    wtap_rec_cleanup(&rec);
 #endif
 
     return true;
@@ -1363,13 +1397,7 @@ static int capture_android_bluetooth_hcidump(char *interface, char *fifo,
 
         errno = 0;
         length = recv(sock, data + used_buffer_length, (int)(PACKET_LENGTH - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -1428,13 +1456,7 @@ static int capture_android_bluetooth_hcidump(char *interface, char *fifo,
 
             errno = 0;
             length = recv(sock, data + used_buffer_length, (int)(PACKET_LENGTH - used_buffer_length), 0);
-            if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-                || errno == EWOULDBLOCK
-#endif
-                ) {
-                continue;
-            }
+            CONTINUE_ON_TIMEOUT(length)
             else if (errno != 0) {
                 ws_warning("ERROR capture: %s", strerror(errno));
                 closesocket(sock);
@@ -1470,13 +1492,7 @@ static int capture_android_bluetooth_hcidump(char *interface, char *fifo,
     while (endless_loop) {
         errno = 0;
         length = recv(sock, data + used_buffer_length,  (int)(PACKET_LENGTH - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -1757,13 +1773,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
     while (endless_loop) {
         errno = 0;
         length = recv(sock, buffer + used_buffer_length,  (int)(PACKET_LENGTH - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -1946,13 +1956,7 @@ static int capture_android_bluetooth_btsnoop_net(char *interface, char *fifo,
         errno = 0;
         length = recv(sock, packet + used_buffer_length + sizeof(own_pcap_bluetooth_h4_header),
                 (int)(PACKET_LENGTH - sizeof(own_pcap_bluetooth_h4_header) - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -2093,13 +2097,7 @@ static int capture_android_logcat_text(char *interface, char *fifo,
     while (endless_loop) {
         errno = 0;
         length = recv(sock, packet + exported_pdu_headers_size + used_buffer_length,  (int)(PACKET_LENGTH - exported_pdu_headers_size - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -2235,13 +2233,7 @@ static int capture_android_logcat(char *interface, char *fifo,
     while (endless_loop) {
         errno = 0;
         length = recv(sock, packet + exported_pdu_headers_size + used_buffer_length, (int)(PACKET_LENGTH - exported_pdu_headers_size - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -2374,13 +2366,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
     while (used_buffer_length < PCAP_GLOBAL_HEADER_LENGTH) {
         errno = 0;
         length = recv(sock, data + used_buffer_length, (int)(PCAP_GLOBAL_HEADER_LENGTH - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);
@@ -2431,13 +2417,7 @@ static int capture_android_tcpdump(char *interface, char *fifo,
 
         errno = 0;
         length = recv(sock, data + used_buffer_length, (int)(PACKET_LENGTH - used_buffer_length), 0);
-        if (errno == EAGAIN
-#if EWOULDBLOCK != EAGAIN
-            || errno == EWOULDBLOCK
-#endif
-            ) {
-            continue;
-        }
+        CONTINUE_ON_TIMEOUT(length)
         else if (errno != 0) {
             ws_warning("ERROR capture: %s", strerror(errno));
             closesocket(sock);

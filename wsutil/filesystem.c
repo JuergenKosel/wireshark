@@ -27,9 +27,6 @@
 #ifdef ENABLE_APPLICATION_BUNDLE
 #include <mach-o/dyld.h>
 #endif
-#ifdef __linux__
-#include <sys/utsname.h>
-#endif
 #ifdef __FreeBSD__
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -335,7 +332,7 @@ static char *configuration_environment_variable(const char *suffix) {
  * So, on platforms where we know of a mechanism to get that path
  * (where getting that path doesn't involve argv[0], which is not
  * guaranteed to reflect the path to the binary), this routine
- * attempsts to use that platform's mechanism.  On other platforms,
+ * attempts to use that platform's mechanism.  On other platforms,
  * it just returns NULL.
  *
  * This is not guaranteed to return an absolute path; if it doesn't,
@@ -385,24 +382,11 @@ get_current_executable_path(void)
      * of the dynamic linker, and this will get a better answer on
      * those versions.
      *
-     * It only works on Linux 2.2 or later, so we just give up on
-     * earlier versions.
-     *
      * XXX - are there OS versions that support "exe" but not "self"?
      */
-    struct utsname name;
     static char executable_path[PATH_MAX + 1];
     ssize_t r;
 
-    if (uname(&name) == -1)
-        return NULL;
-    if (strncmp(name.release, "1.", 2) == 0)
-        return NULL; /* Linux 1.x */
-    if (strcmp(name.release, "2.0") == 0 ||
-        strncmp(name.release, "2.0.", 4) == 0 ||
-        strcmp(name.release, "2.1") == 0 ||
-        strncmp(name.release, "2.1.", 4) == 0)
-        return NULL; /* Linux 2.0.x or 2.1.x */
     if ((r = readlink("/proc/self/exe", executable_path, PATH_MAX)) == -1)
         return NULL;
     executable_path[r] = '\0';
@@ -1375,10 +1359,10 @@ init_extcap_dir(void)
     }
     else {
         if (g_path_is_absolute(EXTCAP_DIR)) {
-            extcap_dir = g_strdup(get_application_flavor() == APPLICATION_FLAVOR_WIRESHARK ? EXTCAP_DIR : LOG_EXTCAP_DIR);
+            extcap_dir = g_strdup(get_application_flavor() == APPLICATION_FLAVOR_WIRESHARK ? EXTCAP_DIR : STRATOSHARK_EXTCAP_DIR);
         } else {
             extcap_dir = g_build_filename(install_prefix,
-                get_application_flavor() == APPLICATION_FLAVOR_WIRESHARK ? EXTCAP_DIR : LOG_EXTCAP_DIR, (char *)NULL);
+                get_application_flavor() == APPLICATION_FLAVOR_WIRESHARK ? EXTCAP_DIR : STRATOSHARK_EXTCAP_DIR, (char *)NULL);
         }
     }
 #endif // HAVE_MSYSTEM / _WIN32
@@ -2435,9 +2419,22 @@ files_identical(const char *fname1, const char *fname2)
      * Compare VolumeSerialNumber and FileId.
      */
 
+    /*
+     * "You must set [FILE_FLAG_BACKUP_SEMANTICS] to obtain a handle to a
+     * directory." - Otherwise, CreateFile returns an invalid value.
+     *
+     * "The system ensures that the calling process overrides file security
+     * checks when the process has SE_BACKUP_NAME and SE_RESTORE_NAME
+     * privileges." - That shouldn't have any effect, because we open the
+     * file with neither GENERIC_READ nor GENERIC_WRITE access, only get file
+     * information and then close the handle.
+     *
+     * https://learn.microsoft.com/en-us/windows/win32/fileio/obtaining-a-handle-to-a-directory
+     * https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea
+     */
     HANDLE h1 = CreateFile(utf_8to16(fname1), 0,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        NULL, OPEN_EXISTING, 0, NULL);
+        NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 
     if (h1 == INVALID_HANDLE_VALUE) {
         return false;
@@ -2451,7 +2448,7 @@ files_identical(const char *fname1, const char *fname2)
 
     HANDLE h2 = CreateFile(utf_8to16(fname2), 0,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        NULL, OPEN_EXISTING, 0, NULL);
+        NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 
     if (h2 == INVALID_HANDLE_VALUE) {
         return false;

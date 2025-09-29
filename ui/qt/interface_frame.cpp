@@ -33,6 +33,7 @@
 #include "ui/capture_opts.h"
 #include "ui/capture_globals.h"
 #include <ui/iface_lists.h>
+#include <wsutil/application_flavor.h>
 #include <wsutil/utf8_entities.h>
 #ifdef Q_OS_UNIX
 #include <unistd.h> /* for access() and X_OK */
@@ -312,22 +313,34 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
 
 #ifdef HAVE_LIBPCAP
 #ifdef Q_OS_WIN
-    if (!has_wpcap) {
-        ui->warningLabel->setText(tr(
-            "<p>"
-            "Local interfaces are unavailable because no packet capture driver is installed."
-            "</p><p>"
-            "You can fix this by installing <a href=\"https://npcap.com/\">Npcap</a>."
-            "</p>"));
-    } else if (!npf_sys_is_running()) {
-        ui->warningLabel->setText(tr(
-            "<p>"
-            "Local interfaces are unavailable because the packet capture driver isn't loaded."
-            "</p><p>"
-            "You can fix this by running <pre>net start npcap</pre> if you have Npcap installed"
-            " or <pre>net start npf</pre> if you have WinPcap installed."
-            " Both commands must be run as Administrator."
-            "</p>"));
+    if (application_flavor_is_wireshark()) {
+        if (caplibs_have_winpcap()) {
+            // We have gotten reports of the WinPcap uninstaller not correctly
+            // removing all its DLLs and this causing conflicts:
+            // https://gitlab.com/wireshark/wireshark/-/issues/14160
+            // https://gitlab.com/wireshark/wireshark/-/issues/14543
+            ui->warningLabel->setText(tr(
+                "<p>"
+                "Local interfaces are unavailable because WinPcap is installed but is no longer supported."
+                "</p><p>"
+                "You can fix this by uninstalling WinPcap and installing <a href=\"https://npcap.com/\">Npcap</a>."
+                "</p>"));
+        } else if (!has_npcap) {
+            ui->warningLabel->setText(tr(
+                "<p>"
+                "Local interfaces are unavailable because no packet capture driver is installed."
+                "</p><p>"
+                "You can fix this by installing <a href=\"https://npcap.com/\">Npcap</a>."
+                "</p>"));
+        } else if (!npf_sys_is_running()) {
+            ui->warningLabel->setText(tr(
+                "<p>"
+                "Local interfaces are unavailable because the packet capture driver isn't loaded."
+                "</p><p>"
+                "You can fix this by running <pre>net start npcap</pre> if you have Npcap installed."
+                " The command must be run as Administrator."
+                "</p>"));
+        }
     }
 #endif
 
@@ -397,8 +410,12 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
 bool InterfaceFrame::haveLocalCapturePermissions() const
 {
 #ifdef Q_OS_MAC
-    QFileInfo bpf0_fi = QFileInfo("/dev/bpf0");
-    return bpf0_fi.isReadable() && bpf0_fi.isWritable();
+    if (application_flavor_is_wireshark()) {
+        QFileInfo bpf0_fi = QFileInfo("/dev/bpf0");
+        return bpf0_fi.isReadable() && bpf0_fi.isWritable();
+    } else {
+        return true;
+    }
 #elif defined(Q_OS_UNIX)
     char *dumpcap_bin = get_executable_path("dumpcap");
     bool executable = access(dumpcap_bin, X_OK) == 0;

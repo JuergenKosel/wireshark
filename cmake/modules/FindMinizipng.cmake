@@ -1,5 +1,6 @@
 #
-# - Find minizip-ng libraries
+# - Find minizip-ng library, only if it has the compatibility layer with
+#   the original minizip
 #
 #  MINIZIPNG_INCLUDE_DIRS - where to find minizip-ng headers.
 #  MINIZIPNG_LIBRARIES    - List of libraries when using minizip-ng.
@@ -16,15 +17,15 @@ endif()
 
 find_path(MINIZIPNG_INCLUDE_DIR
   NAMES
-    mz_compat.h
-    minizip-ng/mz_compat.h
+    unzip.h
+    minizip-ng/unzip.h
   HINTS
     ${MINIZIPNG_INCLUDE_DIRS}
     "${MINIZIPNG_HINTS}/include"
 )
 
 get_filename_component(MINIZIPNG_PARENT_DIR ${MINIZIPNG_INCLUDE_DIR} DIRECTORY)
-if(EXISTS "${MINIZIPNG_PARENT_DIR}/minizip-ng/mz_compat.h")
+if(EXISTS "${MINIZIPNG_PARENT_DIR}/minizip-ng/unzip.h")
   set(MINIZIPNG_INCLUDE_DIR "${MINIZIPNG_PARENT_DIR}")
 endif()
 
@@ -103,7 +104,13 @@ if(MINIZIPNG_FOUND)
       CACHE PATH "Path to Minizip DLL"
     )
 
-    AddWSWinDLLS(MINIZIPNG MINIZIPNG_HINTS "bz2*" "zstd*")
+    # minizip-ng from vcpkg provides bz2, zstd, zlib (*not* zlib-ng),
+    # and liblzma DLLs. liblzma used to be provided in the vcpkg-export
+    # (glib, libxml2, and zlib) bundle, but since vcpkg tag 2025.04.09
+    # isn't since libxml2 no longer depends on it by default.
+    # XXX - This can causes this zstd.dll to be used instead of the one
+    # from the separately packaged zstd
+    AddWSWinDLLS(MINIZIPNG MINIZIPNG_HINTS "bz2*" "liblzma*" "zstd*")
 
     mark_as_advanced(MINIZIPNG_DLL_DIR MINIZIPNG_DLLS MINIZIPNG_PDBS)
   endif()

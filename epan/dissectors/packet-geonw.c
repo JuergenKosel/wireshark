@@ -2300,7 +2300,7 @@ dissect_geonw_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         // HT
         proto_tree_add_item_ret_uint(geonw_ch_tree, hf_geonw_ch_header_type, tvb, offset, 1, ENC_BIG_ENDIAN, &header_type);
         geonwh->gnw_htype = header_type;
-        col_add_str(pinfo->cinfo, COL_INFO, val_to_str(header_type, ch_header_type_names, "Unknown (%u)"));
+        col_add_str(pinfo->cinfo, COL_INFO, val_to_str(pinfo->pool, header_type, ch_header_type_names, "Unknown (%u)"));
         offset += 1;
 
         if (!skip_bh) {
@@ -2964,6 +2964,12 @@ display_heading( char *result, uint32_t hexver )
 }
 
 static void
+display_cbr( char *result, uint8_t hexver )
+{
+    snprintf( result, ITEM_LABEL_LENGTH, "%.2f %% (%u)", hexver * 100.0 / 255.0, hexver);
+}
+
+static void
 display_elevation( char *result, int32_t hexver )
 {
     //  0x0000 to 0xEFFF: positive numbers with a range from 0 to +6 143,9 meters. All numbers above +6 143,9 are
@@ -3231,12 +3237,12 @@ proto_register_geonw(void)
 
         { &hf_geonw_dccmco_cbr_l_0_hop,
           { "Local channel busy ratio", "geonw.cbr_l0hop",
-            FT_UINT8, BASE_DEC, NULL, 0x80,
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(display_cbr), 0x00,
             NULL, HFILL }},
 
         { &hf_geonw_dccmco_cbr_l_1_hop,
           { "Max neighbouring CBR", "geonw.cbr_l1hop",
-            FT_UINT8, BASE_DEC, NULL, 0x80,
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(display_cbr), 0x00,
             NULL, HFILL }},
 
         { &hf_geonw_dccmco_output_power,

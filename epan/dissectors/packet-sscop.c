@@ -134,7 +134,7 @@ static value_string_ext sscop_type_vals_ext = VALUE_STRING_EXT_INIT(sscop_type_v
 /*
  * Begin PDU, Begin Acknowledge PDU (no N(SQ) in it), Resynchronization
  * PDU, Resynchronization Acknowledge PDU (no N(SQ) in it in Q.SAAL),
- * Error Recovery PDU, Error Recovery Acknoledge PDU (no N(SQ) in it).
+ * Error Recovery PDU, Error Recovery Acknowledge PDU (no N(SQ) in it).
  */
 #define SSCOP_N_SQ      (reported_length - 5)   /* One byte */
 #define SSCOP_N_MR      (reported_length - 4)   /* lower 3 bytes thereof */
@@ -181,7 +181,7 @@ dissect_sscop_and_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, d
   sscop_info.type = sscop_pdu_type & SSCOP_TYPE_MASK;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSCOP");
-  col_add_str(pinfo->cinfo, COL_INFO, val_to_str_ext(sscop_info.type, &sscop_type_vals_ext,
+  col_add_str(pinfo->cinfo, COL_INFO, val_to_str_ext(pinfo->pool, sscop_info.type, &sscop_type_vals_ext,
                                                  "Unknown PDU type (0x%02x)"));
 
   /*

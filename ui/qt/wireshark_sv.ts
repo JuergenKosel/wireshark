@@ -81,15 +81,15 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <translation type="unfinished"></translation>
+        <translation>Om Stratoshark</translation>
     </message>
     <message>
         <source>Stratoshark</source>
-        <translation type="unfinished"></translation>
+        <translation>Stratoshark</translation>
     </message>
     <message>
         <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;h3&gt;Analysator för systemanrop och händelselogg&lt;/h3&gt;</translation>
     </message>
     <message>
         <source>The directory does not exist</source>
@@ -725,48 +725,6 @@
     </message>
 </context>
 <context>
-    <name>ByteViewTab</name>
-    <message>
-        <source>Packet bytes</source>
-        <translation>Paketbyte</translation>
-    </message>
-</context>
-<context>
-    <name>ByteViewText</name>
-    <message>
-        <source>Allow hover highlighting</source>
-        <translation>Tillåt markering vid hovring</translation>
-    </message>
-    <message>
-        <source>Show bytes as hexadecimal</source>
-        <translation>Visa byte hexadecimalt</translation>
-    </message>
-    <message>
-        <source>…as decimal</source>
-        <translation>… decimalt</translation>
-    </message>
-    <message>
-        <source>…as octal</source>
-        <translation>… oktalt</translation>
-    </message>
-    <message>
-        <source>…as bits</source>
-        <translation>… som bitar</translation>
-    </message>
-    <message>
-        <source>Show text based on packet</source>
-        <translation>Visa text baserat på paket</translation>
-    </message>
-    <message>
-        <source>…as ASCII</source>
-        <translation>… som ASCII</translation>
-    </message>
-    <message>
-        <source>…as EBCDIC</source>
-        <translation>… som EBCDIC</translation>
-    </message>
-</context>
-<context>
     <name>CaptureCommentDialog</name>
     <message>
         <source>Edit Capture Comments</source>
@@ -840,6 +798,13 @@
     <message>
         <source>Start / elapsed:</source>
         <translation>Start / passerat:</translation>
+    </message>
+    <message numerus="yes">
+        <source>%Ln day(s)</source>
+        <translation>
+            <numerusform>%Ln dag</numerusform>
+            <numerusform>%Ln dagar</numerusform>
+        </translation>
     </message>
     <message>
         <source>Automatically detect file type</source>
@@ -1053,6 +1018,13 @@
         <source>Elapsed</source>
         <translation>Förflutet</translation>
     </message>
+    <message numerus="yes">
+        <source>%Ln day(s)</source>
+        <translation>
+            <numerusform>%Ln dag</numerusform>
+            <numerusform>%Ln dagar</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Section %1</source>
         <translation>Avsnitt %1</translation>
@@ -1213,7 +1185,9 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <translation type="unfinished"></translation>
+        <translation>Skapad av Stratoshark %1
+
+</translation>
     </message>
 </context>
 <context>
@@ -1261,6 +1235,17 @@
     <message>
         <source>Manage Capture Filters</source>
         <translation>Hantera fångstfilter</translation>
+    </message>
+</context>
+<context>
+    <name>CaptureFilterSyntaxWorker</name>
+    <message>
+        <source>Unable to check capture filter</source>
+        <translation>Kan inte kontrollera fångstfiltret</translation>
+    </message>
+    <message>
+        <source>Unable to check capture filter (BPF extensions require a live handle)</source>
+        <translation>Kan inte kontrollera fångstfiltret (BPF-utökningar kräver ett aktivt handtag)</translation>
     </message>
 </context>
 <context>
@@ -1380,6 +1365,10 @@
         <translation>pcap</translation>
     </message>
     <message>
+        <source>Compression:</source>
+        <translation>Kompression:</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Instead of using a single capture file, multiple files will be created.&lt;/p&gt;&lt;p&gt;The generated file names will contain an incrementing number and the start time of the capture.&lt;/p&gt;&lt;p&gt;NOTE: If enabled, at least one of the new-file criteria MUST be selected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Istället för att använda en enda fångstfil kommer flera filer skapas.&lt;/p&gt;&lt;p&gt;De genererade filnamnen kommer innehålla ett ökande nummer och starttidpunkten för fångsten.&lt;/p&gt;&lt;p&gt;OBS: om aktiverat MÅSTE åtminstone ett av kriterierna för ny fil väljas.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -1442,6 +1431,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid hel timma.</translation>
     </message>
     <message>
+        <source>Optimize</source>
+        <translation>Optimera</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Usually a wireless network card will only capture the traffic sent to and from its own network address, and only captures &lt;em&gt;user data&lt;/em&gt; traffic with &amp;quot;fake&amp;quot; Ethernet headers. If you want to capture all traffic that wireless network cards can &amp;quot;see&amp;quot;, or are interested in 802.11 management or control packets, or radio-layer information, mark this option. Monitor mode availability depends on the wireless card and driver. See the Wiki for some more details of capturing packets on WLAN networks.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Vanligen kommer ett trådlöst nätverkskort bara fånga trafiken som skickas till och från dess egen nätverksadress, och fångar endast &lt;em&gt;användardata&lt;/em&gt;trafik med &amp;quot;falska&amp;quot; Ethernethuvuden. Om du vill fånga all trafik som trådlösa nätverkskort kan &amp;quot;se&amp;quot;, eller är intresserad av 802.11:s hanterings- eller styrpaket, eller radionivåinformation, markera detta alternativ. Övervakningslägets tillgänglighet beror på det trådlösa kortet och drivrutinen. Se Wiki:n för några fler detaljer om att fånga paket på WLAN-nätverk.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -1450,16 +1443,16 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Aktivera övervakningsläge på alla 802.11-gränssnitt</translation>
     </message>
     <message>
-        <source>compression</source>
-        <translation>komprimering</translation>
-    </message>
-    <message>
         <source>None</source>
         <translation>Ingen</translation>
     </message>
     <message>
         <source>gzip</source>
         <translation>gzip</translation>
+    </message>
+    <message>
+        <source>LZ4</source>
+        <translation>LZ4</translation>
     </message>
     <message>
         <source>File infix pattern</source>
@@ -1618,6 +1611,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Ange temporärkatalog</translation>
     </message>
     <message>
+        <source>Extcap interface settings</source>
+        <translation>Extcap-gränssnittsinställningar</translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
@@ -1703,6 +1700,26 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval between new packet updates. Affects how often the GUI updates and the granularity of timers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Intervallet mellan nya paketuppdateringar. Påverkar hur ofta GUI:t uppdaterar sig och noggrannheten hos tidtagare.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Enable Aggregation View for real-time capturing</source>
+        <translation>Aktivera samlingsvyn för realtidsfångst</translation>
+    </message>
+    <message>
+        <source>This option can only be changed when Aggregation Mode is not active.</source>
+        <translation>Denna flagga kan bara ändras när samlingsläget inte är aktivt.</translation>
+    </message>
+    <message>
+        <source>Aggregation fields</source>
+        <translation>Samlingsfält</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fiedls used for aggregation.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fält som används för samlande.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Edit..</source>
+        <translation>Redigera.</translation>
     </message>
     <message>
         <source>Don&apos;t load interfaces on startup</source>
@@ -1858,23 +1875,23 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Display as:</source>
-        <translation type="unfinished"></translation>
+        <translation>Visa som:</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Values will show the raw values for fields.&lt;p&gt;Strings will show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings and custom columns which can be resolved to strings.&lt;p&gt;Details will show the values using the same format as in Packet Details. Only applicable to custom columns.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Values visar de obearbetade värdena för fälten.&lt;p&gt;Strings visar läsbara strängar i stället för obearbetade värden för fälten. Gäller endast anpassade kolumner med fält som har värdesträngar och anpassade kolumner som kan lösas upp till strängar&lt;p&gt;.Details visar värdena med samma format som i Packet Details. Gäller endast anpassade kolumner.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Values</source>
-        <translation type="unfinished"></translation>
+        <translation>Värden</translation>
     </message>
     <message>
         <source>Strings</source>
-        <translation type="unfinished"></translation>
+        <translation>Strängar</translation>
     </message>
     <message>
         <source>Details</source>
-        <translation type="unfinished">Detaljer</translation>
+        <translation>Detaljer</translation>
     </message>
     <message>
         <source>Missing fields.</source>
@@ -1909,11 +1926,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Display Format</source>
-        <translation type="unfinished"></translation>
+        <translation>Visningsformat</translation>
     </message>
     <message>
         <source>&lt;html&gt;Values will show the raw values for fields.&lt;p&gt;Strings will show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings and custom columns which can be resolved to strings.&lt;p&gt;Details will show the values using the same format as in Packet Details. Only applicable to custom columns.&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;Values visar de obearbetade värdena för fälten.&lt;p&gt;Strings visar läsbara strängar i stället för obearbetade värden för fälten. Gäller endast anpassade kolumner med fält som har värdesträngar och anpassade kolumner som kan lösas upp till strängar.&lt;p&gt;Details visar värdena med samma format som i Packet Details. Gäller endast anpassade kolumner.&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Width</source>
@@ -1921,7 +1938,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Custom Expression</source>
-        <translation type="unfinished"></translation>
+        <translation>Anpassat uttryck</translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -1968,6 +1985,26 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Copy filter text to the clipboard.</source>
         <translation>Kopiera filtertext till urklipp.</translation>
+    </message>
+    <message>
+        <source>No capture filter</source>
+        <translation>Inget fångstfilter</translation>
+    </message>
+    <message>
+        <source>Multiple filters</source>
+        <translation>Flera filter</translation>
+    </message>
+    <message>
+        <source>Capture filters cannot be compiled for standard input.</source>
+        <translation>Fångstfilter kan inte kompileras för standard in.</translation>
+    </message>
+    <message>
+        <source>Capture filters cannot be compiled for pipes.</source>
+        <translation>Fångstfilter kan inte kompileras för rör.</translation>
+    </message>
+    <message>
+        <source>Capture filter: %1</source>
+        <translation>Fångstfilter: %1</translation>
     </message>
 </context>
 <context>
@@ -2085,6 +2122,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Graph a TCP conversation.</source>
         <translation>Visa en graf över en TCP-konversation.</translation>
+    </message>
+    <message>
+        <source>I/O Graphs</source>
+        <translation>I/O-diagram</translation>
+    </message>
+    <message>
+        <source>I/OGraph TCP conversations.</source>
+        <translation>I/OGraph TCP-konversationer.</translation>
     </message>
 </context>
 <context>
@@ -2239,6 +2284,17 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
 </context>
 <context>
+    <name>DataSourceTab</name>
+    <message>
+        <source>Packet bytes</source>
+        <translation>Paketbyte</translation>
+    </message>
+    <message>
+        <source>Event data</source>
+        <translation>Händelsedata</translation>
+    </message>
+</context>
+<context>
     <name>DecodeAsDialog</name>
     <message>
         <source>Change the dissection behavior for a protocol.</source>
@@ -2379,7 +2435,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Enter a custom column expression %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Ange ett eget kolumnuttryck %1</translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -2402,8 +2458,9 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Hantera visningsfilter</translation>
     </message>
     <message>
-        <source>Filter Button Preferences...</source>
-        <translation>Filterknappinställningar …</translation>
+        <source>Filter Button Preferences…</source>
+        <oldsource>Filter Button Preferences...</oldsource>
+        <translation>Inställningar för filterknapp...</translation>
     </message>
 </context>
 <context>
@@ -2735,11 +2792,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Hide aggregated</source>
-        <translation type="unfinished"></translation>
+        <translation>Dölj aggregerade</translation>
     </message>
     <message>
         <source>Hide IPv4 aggregated endpoints (see subnets file &amp; IPv4 preferences)</source>
-        <translation type="unfinished"></translation>
+        <translation>Dölj IPv4-aggregerade ändpunkter (se filen Subnät &amp; IPv4-inställningar)</translation>
     </message>
     <message>
         <source>Failed to save map file %1.</source>
@@ -3042,6 +3099,17 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
 </context>
 <context>
+    <name>ExtArgTable</name>
+    <message>
+        <source>Add custom data</source>
+        <translation>Lägg till anpassad data</translation>
+    </message>
+    <message>
+        <source>Custom:</source>
+        <translation>Anpassad:</translation>
+    </message>
+</context>
+<context>
     <name>ExtcapArgumentFileSelection</name>
     <message>
         <source>Clear</source>
@@ -3053,13 +3121,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>%1 Open File</source>
-        <oldsource>Open File</oldsource>
-        <translation type="unfinished">Öppna fil</translation>
+        <translation>%1 Öppna fil</translation>
     </message>
     <message>
         <source>%1 Select File</source>
-        <oldsource>Select File</oldsource>
-        <translation type="unfinished">Välj fil</translation>
+        <translation>%1 Välj fil</translation>
     </message>
 </context>
 <context>
@@ -3072,6 +3138,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Start</source>
         <translation>Starta</translation>
+    </message>
+    <message>
+        <source>Interface Sub-options</source>
+        <translation>Gränssnittets underalternativ</translation>
+    </message>
+    <message>
+        <source>Ok</source>
+        <translation>Ok</translation>
     </message>
     <message>
         <source>Default</source>
@@ -3090,7 +3164,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Hjälpen för extcap-gränssnittet %1 kan inte hittas.  Angiven fil: %2</translation>
     </message>
     <message>
-        <source>Save parameter(s) on capture start</source>
+        <source>Save parameters on capture start</source>
         <translation>Spara parametrarna vid fångststart</translation>
     </message>
 </context>
@@ -3098,7 +3172,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>FieldFilterEdit</name>
     <message>
         <source>Field entry</source>
-        <translation type="unfinished"></translation>
+        <translation>Fältinmatning</translation>
     </message>
     <message>
         <source>Enter a field %1</source>
@@ -3106,7 +3180,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Invalid field: </source>
-        <translation type="unfinished"></translation>
+        <translation>Ogiltigt fält:</translation>
     </message>
 </context>
 <context>
@@ -3287,7 +3361,8 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 <context>
     <name>FilterExpressionToolBar</name>
     <message>
-        <source>Filter Button Preferences...</source>
+        <source>Filter Button Preferences…</source>
+        <oldsource>Filter Button Preferences...</oldsource>
         <translation>Filterknappinställningar …</translation>
     </message>
     <message>
@@ -3386,6 +3461,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>MAC destination address.</source>
         <translation>MAC-destinationsadress.</translation>
+    </message>
+    <message>
+        <source>Save %1 rules as…</source>
+        <translation>Spara %1-regler som…</translation>
     </message>
     <message>
         <source>Text file (*.txt);;All Files (</source>
@@ -3842,15 +3921,15 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Color Scheme:</source>
-        <translation type="unfinished"></translation>
+        <translation>Färgschema:</translation>
     </message>
     <message>
         <source>Light Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Ljust läge</translation>
     </message>
     <message>
         <source>Dark Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Mörkt läge</translation>
     </message>
     <message>
         <source>Font</source>
@@ -3991,6 +4070,45 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
 </context>
 <context>
+    <name>HexDataSourceView</name>
+    <message>
+        <source>Allow hover highlighting</source>
+        <translation>Tillåt markering vid hovring</translation>
+    </message>
+    <message>
+        <source>Show bytes as hexadecimal</source>
+        <translation>Visa byte som hexadecimal</translation>
+    </message>
+    <message>
+        <source>…as decimal</source>
+        <translation>…som decimal</translation>
+    </message>
+    <message>
+        <source>…as octal</source>
+        <translation>…som oktal</translation>
+    </message>
+    <message>
+        <source>…as bits</source>
+        <translation>…som bitar</translation>
+    </message>
+    <message>
+        <source>Show text as frame encoding</source>
+        <translation>Visa text som dataramskodning</translation>
+    </message>
+    <message>
+        <source>Show text based on event</source>
+        <translation>Visa text baserat på händelse</translation>
+    </message>
+    <message>
+        <source>…as ASCII</source>
+        <translation>…som ASCII</translation>
+    </message>
+    <message>
+        <source>…as EBCDIC</source>
+        <translation>…som EBCDIC</translation>
+    </message>
+</context>
+<context>
     <name>IOConsoleDialog</name>
     <message>
         <source>Dialog</source>
@@ -3999,6 +4117,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Enter code</source>
         <translation>Ange kod</translation>
+    </message>
+    <message>
+        <source>Console</source>
+        <translation>Konsol</translation>
     </message>
     <message>
         <source>Evaluate</source>
@@ -4116,19 +4238,19 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Nollställ alla grafer.</translation>
     </message>
     <message>
-        <source>Remove the selected graph(s).</source>
-        <translation>Ta bort de valda graferna</translation>
+        <source>Remove the selected graphs.</source>
+        <translation>Ta bort de valda graferna.</translation>
     </message>
     <message>
-        <source>Duplicate the selected graph(s).</source>
+        <source>Duplicate the selected graphs.</source>
         <translation>Dubblera de valda graferna.</translation>
     </message>
     <message>
-        <source>Move the selected graph(s) upwards.</source>
+        <source>Move the selected graphs upwards.</source>
         <translation>Flytta de valda graferna uppåt.</translation>
     </message>
     <message>
-        <source>Move the selected graph(s) downwards.</source>
+        <source>Move the selected graphs downwards.</source>
         <translation>Flytta de valda graferna nedåt.</translation>
     </message>
     <message>
@@ -4302,11 +4424,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Toggle X-axis between relative time and time of day</source>
-        <translation type="unfinished"></translation>
+        <translation>Växla X-axeln mellan relativ tid och tid på dygnet</translation>
     </message>
     <message>
         <source>Toggle Y-axis between logarithmic and linear scale</source>
-        <translation type="unfinished"></translation>
+        <translation>Växla Y-axeln mellan logaritmisk och linjär skala</translation>
     </message>
     <message>
         <source>Crosshairs</source>
@@ -4322,11 +4444,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Legend</source>
-        <translation type="unfinished"></translation>
+        <translation>Förklaring</translation>
     </message>
     <message>
         <source>Toggle legend</source>
-        <translation type="unfinished"></translation>
+        <translation>Växla förklaring</translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -4956,10 +5078,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Paketformat reguljärt uttryck</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perl compatible regular expression capturing a single packet in the file with named groups identifieing data to import. Anchors ^ and $ also match before/after newlines &lt;/p&gt;&lt;p&gt;Required is only a data group, also supported are time, dir and seqno.&lt;/p&gt;&lt;p&gt;Regex flags: DUPNAMES, MULTILINE and NOEMPTY&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perl-kompatibelt reguljärt uttryck för att fånga ett enskilt paket i filen med namngivna grupper som identifierar data att importera. Ankaren ^ och $ matchar även före/efter nyrader&lt;/p&gt;&lt;p&gt;Datagruppen är det enda nödvändiga, stödjer även tid, katalog och sekvensnummer.&lt;/p&gt;&lt;p&gt;Flaggor för reguljäruttryck: DUPNAMES, MULTILINE och NOEMPTY&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <source>This is regexHintLabel, it will be set to default_regex_hint</source>
         <translation>Detta är regexHintLabel, det kommer sättas till default_regex_hint</translation>
     </message>
@@ -5038,6 +5156,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>None</source>
         <translation>Ingen</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Whether to treat multiple byte groups as being in little-endian byte order, instead of the default, network (big-endian) order.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Om flera bytegrupper ska behandlas som bytegrupper i little-endian-ordning, istället för standardordningen i nätverket (big-endian).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Little-endian:</source>
+        <translation>Little-endian:</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perl compatible regular expression capturing a single packet in the file with named groups identifying data to import. Anchors ^ and $ also match before/after newlines &lt;/p&gt;&lt;p&gt;The only required group is data, but time, dir and seqno are also supported.&lt;/p&gt;&lt;p&gt;Regex flags: DUPNAMES, MULTILINE and NOEMPTY&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perl-kompatibelt reguljärt uttryck som fångar ett enskilt paket i filen med namngivna grupper som identifierar data som ska importeras. Ankare ^ och $ matchar även före/efter nya rader &lt;/p&gt;&lt;p&gt;Den enda grupp som krävs är data, men även time, dir och seqno stöds.&lt;/p&gt;&lt;p&gt;Regex-flaggor: DUPNAMES, MULTILINE och NOEMPTY&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;recommended regex:&lt;/small&gt;&lt;/i&gt;</source>
@@ -5208,8 +5338,9 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Fält som stödjs är data, dir, time, seqno</translation>
     </message>
     <message>
-        <source>Missing capturing group data (use (?</source>
-        <translation>Data för fångstgrupp saknas (använd (?</translation>
+        <source>Missing capturing group data (use (?&lt;data&gt;(…)) )</source>
+        <oldsource>Missing capturing group data (use (?&lt;data&gt;(...)) )</oldsource>
+        <translation>Data om fångstgrupp saknas (använd (?&lt;data&gt;(…)))</translation>
     </message>
     <message>
         <source>Import From Hex Dump</source>
@@ -5283,12 +5414,16 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Externa fångstgränssnitt avaktiverade.</translation>
     </message>
     <message>
+        <source>&lt;p&gt;Local interfaces are unavailable because WinPcap is installed but is no longer supported.&lt;/p&gt;&lt;p&gt;You can fix this by uninstalling WinPcap and installing &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</source>
+        <translation>&lt;p&gt;Lokala gränssnitt är inte tillgängliga eftersom WinPcap är installerat men stöds inte längre.&lt;/p&gt;&lt;p&gt;Du kan åtgärda detta genom att avinstallera WinPcap och installera &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</translation>
+    </message>
+    <message>
         <source>&lt;p&gt;Local interfaces are unavailable because no packet capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</source>
         <translation>&lt;p&gt;Lokala gränssnitt är inte tillgängliga för att ingen paketfångstdrivrutin är installerad&lt;/p&gt;&lt;p&gt;Man kan lösa detta genom att installera &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</translation>
     </message>
     <message>
-        <source>&lt;p&gt;Local interfaces are unavailable because the packet capture driver isn&apos;t loaded.&lt;/p&gt;&lt;p&gt;You can fix this by running &lt;pre&gt;net start npcap&lt;/pre&gt; if you have Npcap installed or &lt;pre&gt;net start npf&lt;/pre&gt; if you have WinPcap installed. Both commands must be run as Administrator.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Lokala gränssnitt är otillgängliga för att paketfångstdrivrutinen inte är inläst.&lt;/p&gt;&lt;p&gt;Du kan fixa detta genom att köra &lt;pre&gt;net start npcap&lt;/pre&gt; om du har Npcap installerat eller &lt;pre&gt;net start npf&lt;/pre&gt; om du har WinPcap installerat. Båda kommandona måste köras som administratör.&lt;/p&gt;</translation>
+        <source>&lt;p&gt;Local interfaces are unavailable because the packet capture driver isn&apos;t loaded.&lt;/p&gt;&lt;p&gt;You can fix this by running &lt;pre&gt;net start npcap&lt;/pre&gt; if you have Npcap installed. The command must be run as Administrator.&lt;/p&gt;</source>
+        <translation>&lt;p&gt;Lokala gränssnitt är inte tillgängliga eftersom drivrutinen för paketinsamling inte är inläst.&lt;/p&gt;&lt;p&gt;Du kan åtgärda detta genom att köra &lt;pre&gt;net start npcap&lt;/pre&gt; om du har Npcap installerat. Kommandot måste köras som administratör.&lt;/p&gt;</translation>
     </message>
     <message>
         <source>&lt;p&gt;You don&apos;t have permission to capture on local interfaces.&lt;/p&gt;&lt;p&gt;You can fix this by &lt;a href=&quot;file://%1&quot;&gt;installing ChmodBPF&lt;/a&gt;.&lt;/p&gt;</source>
@@ -5428,6 +5563,13 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Capture filter</source>
         <translation>Fångstfilter</translation>
+    </message>
+</context>
+<context>
+    <name>JsonDataSourceView</name>
+    <message>
+        <source>Event JSON</source>
+        <translation>Händelse-JSON</translation>
     </message>
 </context>
 <context>
@@ -6340,6 +6482,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Inkludera RACH-ramar i filter</translation>
     </message>
     <message>
+        <source>3GPP Mac Statistics (%1 UEs, %2 frames)</source>
+        <translation>3GPP Mac-statistik (%1 UE:er, %2 ramar)</translation>
+    </message>
+    <message>
         <source>MAC Statistics</source>
         <translation>MAC-statistik</translation>
     </message>
@@ -6696,6 +6842,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>3GPP RLC-statistik</translation>
     </message>
     <message>
+        <source>Launch UL Graph</source>
+        <translation>Starta UL-graf</translation>
+    </message>
+    <message>
+        <source>Launch DL Graph</source>
+        <translation>Starta DL-graf</translation>
+    </message>
+    <message>
         <source>Include SR frames in filter</source>
         <translation>Inkludera SR-ramar i filter</translation>
     </message>
@@ -6754,6 +6908,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>DL Missing</source>
         <translation>DL saknade</translation>
+    </message>
+    <message>
+        <source>LTE RLC Statistics (%1 UEs, %2 frames)</source>
+        <translation>LDE RLC-statistik (%1 UE:er, %2 ramar)</translation>
     </message>
     <message>
         <source>RLC Statistics</source>
@@ -6905,20 +7063,24 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Inga händelser</translation>
     </message>
     <message>
-        <source>From Zip File...</source>
-        <translation>Från en zip-fil …</translation>
+        <source>From Zip File…</source>
+        <oldsource>From Zip File...</oldsource>
+        <translation>Från zip-fil...</translation>
     </message>
     <message>
-        <source>From Directory...</source>
-        <translation>Från en katalog …</translation>
+        <source>From Directory…</source>
+        <oldsource>From Directory...</oldsource>
+        <translation>Från katalog...</translation>
     </message>
     <message>
-        <source>Selected Personal Profile...</source>
-        <translation>Vald personlig profil …</translation>
+        <source>Selected Personal Profile…</source>
+        <oldsource>Selected Personal Profile...</oldsource>
+        <translation>Vald personlig profil...</translation>
     </message>
     <message>
-        <source>All Personal Profiles...</source>
-        <translation>Alla personliga profiler …</translation>
+        <source>All Personal Profiles…</source>
+        <oldsource>All Personal Profiles...</oldsource>
+        <translation>Alla personliga profiler...</translation>
     </message>
     <message>
         <source>Packets: %1</source>
@@ -6943,16 +7105,20 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Visningsfilter som %1</translation>
     </message>
     <message>
+        <source>…as %1</source>
+        <translation>... som %1</translation>
+    </message>
+    <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation type="unfinished">Nätverksanalysatorn Wireshark</translation>
+        <translation>Nätverksanalysatorn Wireshark</translation>
     </message>
     <message>
         <source>The Stratoshark System Call and Log Analyzer</source>
-        <translation type="unfinished"></translation>
+        <translation>Stratoshark systemanrops- och logganalysator</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation type="unfinished">Fångst från %1</translation>
+        <translation>Fångar från %1</translation>
     </message>
 </context>
 <context>
@@ -7190,6 +7356,29 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Vendor Name</source>
         <translation>Leverantörsnamn</translation>
+    </message>
+</context>
+<context>
+    <name>MarkerDialog</name>
+    <message>
+        <source>Choose marker:</source>
+        <translation>Välj markör:</translation>
+    </message>
+    <message>
+        <source>Enter new position:</source>
+        <translation>Ange ny position:</translation>
+    </message>
+    <message>
+        <source>Move marker</source>
+        <translation>Flytta markör</translation>
+    </message>
+    <message>
+        <source>Delete marker</source>
+        <translation>Ta bort markör</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>Ok</translation>
     </message>
 </context>
 <context>
@@ -7507,10 +7696,52 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
 </context>
 <context>
-    <name>PacketFormatGroupBox</name>
+    <name>PacketFormatBlankGroupBox</name>
+    <message>
+        <source>The selected format has no options</source>
+        <translation>Det valda formatet har inga alternativ</translation>
+    </message>
+</context>
+<context>
+    <name>PacketFormatJSONGroupBox</name>
     <message>
         <source>GroupBox</source>
-        <translation>GroupBox</translation>
+        <translation>Gruppbox</translation>
+    </message>
+    <message>
+        <source>Packet Format</source>
+        <translation>Paketformat</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Avoid duplicate keys in the JSON by using a list for sibling fields with the same key&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Undvik dubbla nycklar i JSON genom att använda en lista för syskonfält med samma nyckel&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>No duplicate keys</source>
+        <translation>Inga dubbletta nycklar</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export a name/value pair for each field with the field value&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera ett namn/värde-par för varje fält med fältvärdet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Values</source>
+        <translation>Värden</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export a name/value pair for each field with the hex bytes of its packet data&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera ett namn/värde-par för varje fält med hexbyte för dess paketdata&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Raw Bytes</source>
+        <translation>Rå byte</translation>
+    </message>
+</context>
+<context>
+    <name>PacketFormatTextGroupBox</name>
+    <message>
+        <source>GroupBox</source>
+        <translation>Gruppbox</translation>
     </message>
     <message>
         <source>Packet Format</source>
@@ -7518,11 +7749,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Packet summary lines similar to the packet list&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Paketsammanfattningsrader liknande dem i paketlistan&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Paketsammanfattningsrader som liknar paketlistan&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Summary line</source>
-        <translation>Sammanfattningsrad</translation>
+        <translation>Sammandragslinje</translation>
     </message>
     <message>
         <source>Include column headings</source>
@@ -7530,7 +7761,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Packet details similar to the protocol tree&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Paketdetaljer liknande dem i protokollträdet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Paketdetaljer som liknar protokollträdet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Details:</source>
@@ -7538,31 +7769,31 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export only top-level packet detail items&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera endast poster med detaljer på toppnivåpaket&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera endast paketdetaljer på högsta nivån&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>All co&amp;llapsed</source>
-        <translation>Allt ih&amp;opfällt</translation>
+        <translation>Alla &amp;infällda</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Expand and collapse packet details as they are currently displayed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Expandera och fäll ihop paketdetaljer så som de för närvarande visas.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Expandera och fäll in paketdetaljer som de visas för närvarande.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>As displa&amp;yed</source>
-        <translation>Som &amp;visat</translation>
+        <translation>Som visa&amp;t</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export all packet detail items&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera alla paketdetaljposter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera alla detaljer i paketet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>All e&amp;xpanded</source>
-        <translation>Alla e&amp;xpanderade</translation>
+        <translation>Alla &amp;expanderade</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export a hexdump of the packet data similar to the packet bytes view&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera en hexdump av paketdatan liknande paketbytevyn&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exportera en hexdump av paketdata på samma sätt som i vyn Paketbyte&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Bytes</source>
@@ -7574,7 +7805,15 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generera hexdumpar för sekundära datakällor såsom återsammansatta eller dekrypterade buffertar utöver ramen&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generera hexdumpar för sekundära datakällor som ommonterade eller dekrypterade buffertar utöver ramen&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Include timestamp preamble</source>
+        <translation>Inkludera tidsstämpel preamble</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include each frame timestamp immediately before its hex dump, using the current time display format.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Inkludera varje bildrutas tidsstämpel omedelbart före dess hexdump, med hjälp av det aktuella tidsvisningsformatet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -7593,7 +7832,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>…as HTML</source>
-        <translation type="unfinished"></translation>
+        <translation>…som HTML</translation>
     </message>
     <message>
         <source>Decode As…</source>
@@ -7636,19 +7875,19 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;Values will show the raw values for fields.&lt;p&gt;Strings will show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings and custom columns which can be resolved to strings.&lt;p&gt;Details will show the values using the same format as in Packet Details. Only applicable to custom columns.&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;Values visar de obearbetade värdena för fälten.&lt;p&gt;Strings visar läsbara strängar i stället för obearbetade värden för fälten. Gäller endast anpassade kolumner med fält som har värdesträngar och anpassade kolumner som kan lösas upp till strängar.&lt;p&gt;Details visar värdena med samma format som i Packet Details. Gäller endast anpassade kolumner.&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Display as Values</source>
-        <translation type="unfinished"></translation>
+        <translation>Visa som värden</translation>
     </message>
     <message>
         <source>Display as Strings</source>
-        <translation type="unfinished"></translation>
+        <translation>Visa som strängar</translation>
     </message>
     <message>
         <source>Display as packet Details</source>
-        <translation type="unfinished"></translation>
+        <translation>Visa som paketdetaljer</translation>
     </message>
     <message>
         <source>Column Preferences…</source>
@@ -7764,6 +8003,489 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
 </context>
 <context>
+    <name>Plot</name>
+    <message>
+        <source>Field cannot be empty!</source>
+        <translation>Fältet får inte vara tomt!</translation>
+    </message>
+</context>
+<context>
+    <name>PlotAction</name>
+    <message>
+        <source>Plot %1 with current filter</source>
+        <translation>Plotta %1 med aktuellt filter</translation>
+    </message>
+    <message>
+        <source>Plot %1</source>
+        <translation>Plotta %1</translation>
+    </message>
+</context>
+<context>
+    <name>PlotDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation>Dialog</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;
+
+&lt;h3&gt;Valuable and amazing time-saving keyboard shortcuts&lt;/h3&gt;
+&lt;table&gt;&lt;tbody&gt;
+
+&lt;tr&gt;&lt;th&gt;+&lt;/th&gt;&lt;td&gt;Zoom in&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;-&lt;/th&gt;&lt;td&gt;Zoom out&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;x&lt;/th&gt;&lt;td&gt;Zoom in X axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;X&lt;/th&gt;&lt;td&gt;Zoom out X axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;y&lt;/th&gt;&lt;td&gt;Zoom in Y axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;Y&lt;/th&gt;&lt;td&gt;Zoom out Y axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;0&lt;/th&gt;&lt;td&gt;Reset plot to its initial state&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;→&lt;/th&gt;&lt;td&gt;Move right 10 pixels&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;←&lt;/th&gt;&lt;td&gt;Move left 10 pixels&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;↑&lt;/th&gt;&lt;td&gt;Move up 10 pixels&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;↓&lt;/th&gt;&lt;td&gt;Move down 10 pixels&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;→&lt;/th&gt;&lt;td&gt;Move right 1 pixel&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;←&lt;/th&gt;&lt;td&gt;Move left 1 pixel&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;↑&lt;/th&gt;&lt;td&gt;Move up 1 pixel&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;↓&lt;/th&gt;&lt;td&gt;Move down 1 pixel&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;g&lt;/th&gt;&lt;td&gt;Go to packet under cursor&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;t&lt;/th&gt;&lt;td&gt;Toggle time origin&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;Space&lt;/th&gt;&lt;td&gt;Toggle crosshairs&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;a&lt;/th&gt;&lt;td&gt;Toggle top axis&lt;/td&gt;&lt;/th&gt;
+
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;head/&gt;&lt;body&gt;
+
+&lt;h3&gt;Värdefulla och fantastiska tidsbesparande tangenbordsgenvägar&lt;/h3&gt;
+&lt;tbody&gt;
+
+&lt;tr&gt;&lt;th&gt;+&lt;/th&gt;&lt;td&gt;Zooma in&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;-&lt;/th&gt;&lt;td&gt;Zooma ut&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;x&lt;/th&gt;&lt;td&gt;Zooma in X-axeln&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;X&lt;/th&gt;&lt;td&gt;Zooma ut X-axeln&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;y&lt;/th&gt;&lt;td&gt;Zooma in Y-axeln&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;Y&lt;/th&gt;&lt;td&gt;Zooma ut Y-axeln&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;0&lt;/th&gt;&lt;td&gt;Återställ grafen till sitt ursprungliga läge&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;→&lt;/th&gt;&lt;td&gt;Flytta åt höger 10 bildpunkter&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;←&lt;/th&gt;&lt;td&gt;Flytta åt vänster 10 bildpunkter&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;↑&lt;/th&gt;&lt;td&gt;Flytta uppåt 10 bildpunkter&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;↓&lt;/th&gt;&lt;td&gt;Flytta nedåt 10 bildpunkter&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Skift+&lt;/i&gt;→&lt;/th&gt;&lt;td&gt;Flytta åt höger 1 bildpunkt&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Skift+&lt;/i&gt;←&lt;/th&gt;&lt;td&gt;Flytta åt vänster 1 bildpunkt&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Skift+&lt;/i&gt;↑&lt;/th&gt;&lt;td&gt;Flytta uppåt 1 bildpunkt&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;&lt;i&gt;Skift+&lt;/i&gt;↓&lt;/th&gt;&lt;td&gt;Flytta nedåt 1 bildpunkt&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;g&lt;/th&gt;&lt;td&gt;Gå till paketet under markören&lt;/td&gt;&lt;/th&gt;
+
+&lt;tr&gt;&lt;th&gt;t&lt;/th&gt;&lt;td&gt;But tidsstart&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;Blanksteg&lt;/th&gt;&lt;td&gt;Byt hårkors&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;a&lt;/th&gt;&lt;td&gt;Byt toppaxel&lt;/td&gt;&lt;/th&gt;
+
+&lt;/tbody&gt;&lt;table&gt;
+&lt;/body&gt;&lt;html&gt;</translation>
+    </message>
+    <message>
+        <source>Add a new plot.</source>
+        <translation>Lägg till en ny plottning</translation>
+    </message>
+    <message>
+        <source>Remove the selected plots.</source>
+        <translation>Ta bort de valda plottningarna.</translation>
+    </message>
+    <message>
+        <source>Duplicate the selected plots.</source>
+        <translation>Dubblera de valda plottningarna</translation>
+    </message>
+    <message>
+        <source>Move the selected plots upwards.</source>
+        <translation>Flytta de valda plottningarna uppåt.</translation>
+    </message>
+    <message>
+        <source>Move the selected plots downwards.</source>
+        <translation>Flytta de valda plottningarna nedåt.</translation>
+    </message>
+    <message>
+        <source>Clear all plots.</source>
+        <translation>Nollställ alla plottningar.</translation>
+    </message>
+    <message>
+        <source>Automatic update</source>
+        <translation>Automatisk uppdatering</translation>
+    </message>
+    <message>
+        <source>Reset Plot</source>
+        <translation>Återställ plottningen</translation>
+    </message>
+    <message>
+        <source>Reset the plot to its initial state.</source>
+        <translation>Återställ plottningen till sitt ursprungstillstånd.</translation>
+    </message>
+    <message>
+        <source>0</source>
+        <translation>0</translation>
+    </message>
+    <message>
+        <source>Zoom In</source>
+        <translation>Zooma in</translation>
+    </message>
+    <message>
+        <source>+</source>
+        <translation>+</translation>
+    </message>
+    <message>
+        <source>Zoom Out</source>
+        <translation>Zooma ut</translation>
+    </message>
+    <message>
+        <source>-</source>
+        <translation>-</translation>
+    </message>
+    <message>
+        <source>Move Up 10 Pixels</source>
+        <translation>Flytta upp 10 bildpunkter</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>Upp</translation>
+    </message>
+    <message>
+        <source>Move Left 10 Pixels</source>
+        <translation>Flytta vänster 10 bildpunkter</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Vänster</translation>
+    </message>
+    <message>
+        <source>Move Right 10 Pixels</source>
+        <translation>Flytta höger 10 bildpunkter</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Höger</translation>
+    </message>
+    <message>
+        <source>Move Down 10 Pixels</source>
+        <translation>Flytta ner 10 bildpunkter</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>Ner</translation>
+    </message>
+    <message>
+        <source>Move Up 1 Pixel</source>
+        <translation>Flytta upp 1 bildpunkt</translation>
+    </message>
+    <message>
+        <source>Shift+Up</source>
+        <translation>Skift+upp</translation>
+    </message>
+    <message>
+        <source>Move Left 1 Pixel</source>
+        <translation>Flytta vänster 1 bildpunkt</translation>
+    </message>
+    <message>
+        <source>Shift+Left</source>
+        <translation>Skift+vänster</translation>
+    </message>
+    <message>
+        <source>Move Right 1 Pixel</source>
+        <translation>Flytta höger 1 bildpunkt</translation>
+    </message>
+    <message>
+        <source>Shift+Right</source>
+        <translation>Skift+höger</translation>
+    </message>
+    <message>
+        <source>Move Down 1 Pixel</source>
+        <translation>Flytta ner 1 bildpunkt</translation>
+    </message>
+    <message>
+        <source>Move down 1 Pixel</source>
+        <translation>Flytta ner 1 bildpunkt</translation>
+    </message>
+    <message>
+        <source>Shift+Down</source>
+        <translation>Skift+ner</translation>
+    </message>
+    <message>
+        <source>Go To Packet Under Cursor</source>
+        <translation>Gå till paketet under markören</translation>
+    </message>
+    <message>
+        <source>Go to packet currently under the cursor</source>
+        <translation>Gå till det paket som är under markören</translation>
+    </message>
+    <message>
+        <source>G</source>
+        <translation>G</translation>
+    </message>
+    <message>
+        <source>Time origin</source>
+        <translation>Starttid</translation>
+    </message>
+    <message>
+        <source>Toggle between time relative to first data point and time relative to capture start</source>
+        <translation>Växla mellan tid relativt den första datapunkten och tid relativt början på fångsten</translation>
+    </message>
+    <message>
+        <source>T</source>
+        <translation>T</translation>
+    </message>
+    <message>
+        <source>Log scale</source>
+        <translation>Log skala</translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation>Växla Y-axeln mellan logaritmisk och linjär skala</translation>
+    </message>
+    <message>
+        <source>Crosshairs</source>
+        <translation>Hårkors</translation>
+    </message>
+    <message>
+        <source>Toggle crosshairs</source>
+        <translation>Växla hårkors</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Mellanslag</translation>
+    </message>
+    <message>
+        <source>Top axis</source>
+        <translation>Övre axel</translation>
+    </message>
+    <message>
+        <source>Toggle top axis on and off</source>
+        <translation>Slå av och på övre axel</translation>
+    </message>
+    <message>
+        <source>A</source>
+        <translation>A</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation>Förklaring</translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation>Växla förklaring</translation>
+    </message>
+    <message>
+        <source>Zoom In X Axis</source>
+        <translation>Zooma in X-axel</translation>
+    </message>
+    <message>
+        <source>X</source>
+        <translation>X</translation>
+    </message>
+    <message>
+        <source>Zoom Out X Axis</source>
+        <translation>Zooma ut X-axel</translation>
+    </message>
+    <message>
+        <source>Shift+X</source>
+        <translation>Skift+X</translation>
+    </message>
+    <message>
+        <source>Zoom In Y Axis</source>
+        <translation>Zooma in Y-axeln</translation>
+    </message>
+    <message>
+        <source>Y</source>
+        <translation>Y</translation>
+    </message>
+    <message>
+        <source>Zoom Out Y Axis</source>
+        <translation>Zooma ut Y-axeln</translation>
+    </message>
+    <message>
+        <source>Shift+Y</source>
+        <translation>Skift+Y</translation>
+    </message>
+    <message>
+        <source>Add Marker</source>
+        <translation>Lägg till markör</translation>
+    </message>
+    <message>
+        <source>Move Marker</source>
+        <translation>Flytta markör</translation>
+    </message>
+    <message>
+        <source>Show Pos Marker</source>
+        <translation>Visa positionsmarkör</translation>
+    </message>
+    <message>
+        <source>Show Markers Difference</source>
+        <translation>Visa markörskillnad</translation>
+    </message>
+    <message>
+        <source>Delete Marker</source>
+        <translation>Ta bort markör</translation>
+    </message>
+    <message>
+        <source>Delete All</source>
+        <translation>Ta bort alla</translation>
+    </message>
+    <message>
+        <source>Show Markers DataPoints</source>
+        <translation>Visa markördatapunkter</translation>
+    </message>
+    <message>
+        <source>Auto Scroll</source>
+        <translation>Skrolla automatiskt</translation>
+    </message>
+    <message>
+        <source>Plots</source>
+        <translation>Plottningar</translation>
+    </message>
+    <message>
+        <source>Save As…</source>
+        <translation>Spara som...</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Kopiera</translation>
+    </message>
+    <message>
+        <source>Copy plots from another profile.</source>
+        <translation>Kopiera plottningar från en annan profil.</translation>
+    </message>
+    <message>
+        <source>Markers</source>
+        <translation>Markörer</translation>
+    </message>
+    <message>
+        <source>Wireshark Plots: %1</source>
+        <translation>Wireshark-plottningar: %1</translation>
+    </message>
+    <message>
+        <source>Stratoshark Plots: %1</source>
+        <translation>Stratoshark-plottningar: %1</translation>
+    </message>
+    <message>
+        <source>Filtered packets</source>
+        <translation>Filtrerade paket</translation>
+    </message>
+    <message>
+        <source>Filtered events</source>
+        <translation>Filtrerade händelser</translation>
+    </message>
+    <message>
+        <source>All packets</source>
+        <translation>Alla paket</translation>
+    </message>
+    <message>
+        <source>All events</source>
+        <translation>Alla händelser</translation>
+    </message>
+    <message>
+        <source>Seq. num.</source>
+        <translation>Sek.num.</translation>
+    </message>
+    <message>
+        <source>Event latency</source>
+        <translation>Händelselatens</translation>
+    </message>
+    <message>
+        <source>Frame num.</source>
+        <translation>Ramnummer</translation>
+    </message>
+    <message>
+        <source>Release to zoom, x = %1 to %2, y = %3 to %4</source>
+        <translation>Släpp för att zooma, x = %1 till %2, y = %3 till %4</translation>
+    </message>
+    <message>
+        <source>Unable to select range.</source>
+        <translation>Kan inte välja intervallet.</translation>
+    </message>
+    <message>
+        <source>Select a plot for details.</source>
+        <translation>Välj en plottning för detaljer.</translation>
+    </message>
+    <message>
+        <source>Click to select packet</source>
+        <translation>Klicka för att välja paket</translation>
+    </message>
+    <message>
+        <source>Packet</source>
+        <translation>Paket</translation>
+    </message>
+    <message>
+        <source>Click to select event</source>
+        <translation>Klicka för att välja händelse</translation>
+    </message>
+    <message>
+        <source>Event</source>
+        <translation>Händelse</translation>
+    </message>
+    <message>
+        <source>%1 (%2s%3).</source>
+        <translation>%1 (%2s%3).</translation>
+    </message>
+    <message>
+        <source>Move to top left</source>
+        <translation>Flytta överst till vänster</translation>
+    </message>
+    <message>
+        <source>Move to top center</source>
+        <translation>Flytta överst till mitten</translation>
+    </message>
+    <message>
+        <source>Move to top right</source>
+        <translation>Flytta överst till höger</translation>
+    </message>
+    <message>
+        <source>Move to bottom left</source>
+        <translation>Flytta nederst till vänster</translation>
+    </message>
+    <message>
+        <source>Move to bottom center</source>
+        <translation>Flytta nederst till mitten</translation>
+    </message>
+    <message>
+        <source>Move to bottom right</source>
+        <translation>Flytta nederst till höger</translation>
+    </message>
+    <message>
+        <source>Time (s)</source>
+        <translation>Tid (s)</translation>
+    </message>
+    <message>
+        <source>relative to capture start</source>
+        <translation>relativt början av fångsten</translation>
+    </message>
+    <message>
+        <source>relative to first data point</source>
+        <translation>relativt första datapunkten</translation>
+    </message>
+    <message>
+        <source>Portable Document Format (*.pdf)</source>
+        <translation>Portable Document Format (*.pdf)</translation>
+    </message>
+    <message>
+        <source>Portable Network Graphics (*.png)</source>
+        <translation>Portable Network Graphics (*.png)</translation>
+    </message>
+    <message>
+        <source>Windows Bitmap (*.bmp)</source>
+        <translation>Windows Bitmap (*.bmp)</translation>
+    </message>
+    <message>
+        <source>JPEG File Interchange Format (*.jpeg *.jpg)</source>
+        <translation>JPEG File Interchange Format (*.jpeg *.jpg)</translation>
+    </message>
+    <message>
+        <source>Save Graph As…</source>
+        <translation>Spara graf som...</translation>
+    </message>
+</context>
+<context>
     <name>PluginListModel</name>
     <message>
         <source>Name</source>
@@ -7864,11 +8586,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Copy</source>
-        <translation type="unfinished">Kopiera</translation>
+        <translation>Kopiera</translation>
     </message>
     <message numerus="yes">
         <source>Copy Row(s)</source>
-        <translation type="unfinished">
+        <translation>
             <numerusform>Kopiera rad</numerusform>
             <numerusform>Kopiera rader</numerusform>
         </translation>
@@ -8013,22 +8735,26 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Export</translation>
     </message>
     <message>
-        <source>From Zip File...</source>
-        <translation>Från en zip-fil …</translation>
+        <source>From Zip File…</source>
+        <oldsource>From Zip File...</oldsource>
+        <translation>Från zip-fil...</translation>
     </message>
     <message>
-        <source>From Directory...</source>
-        <translation>Från en katalog …</translation>
+        <source>From Directory…</source>
+        <oldsource>From Directory...</oldsource>
+        <translation>Från katalog …</translation>
     </message>
     <message numerus="yes">
-        <source>%Ln Selected Personal Profile(s)...</source>
+        <source>%Ln Selected Personal Profile(s)…</source>
+        <oldsource>%Ln Selected Personal Profile(s)...</oldsource>
         <translation>
             <numerusform>%Ln vald personlig profil …</numerusform>
             <numerusform>%Ln valda personliga profiler …</numerusform>
         </translation>
     </message>
     <message>
-        <source>All Personal Profiles...</source>
+        <source>All Personal Profiles…</source>
+        <oldsource>All Personal Profiles...</oldsource>
         <translation>Alla personliga profiler …</translation>
     </message>
     <message>
@@ -8344,11 +9070,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Copied %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copied </source>
-        <translation type="vanished">Kopierade </translation>
+        <translation>Kopierade %1</translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8881,15 +9603,15 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Values</source>
-        <translation type="unfinished"></translation>
+        <translation>Värden</translation>
     </message>
     <message>
         <source>Strings</source>
-        <translation type="unfinished"></translation>
+        <translation>Strängar</translation>
     </message>
     <message>
         <source>Details</source>
-        <translation type="unfinished">Detaljer</translation>
+        <translation>Detaljer</translation>
     </message>
     <message>
         <source>UE Id</source>
@@ -8922,7 +9644,8 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
 (%2).</source>
-        <translation type="unfinished"></translation>
+        <translation>Filteruttrycket &quot;%1&quot; är inte ett giltigt visningsfilter.
+(%2).</translation>
     </message>
     <message>
         <source>Error</source>
@@ -9018,31 +9741,55 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Average Throughput</source>
-        <translation type="unfinished"></translation>
+        <translation>Genomsnittlig genomströmning</translation>
     </message>
     <message>
         <source>Round Trip Time</source>
-        <translation type="unfinished">Rundturstid</translation>
+        <translation>Tid för tur/retur</translation>
     </message>
     <message>
         <source>Segment Length</source>
-        <translation type="unfinished">Segmentlängd</translation>
+        <translation>Segmentets längd</translation>
     </message>
     <message>
         <source>Sequence Number</source>
-        <translation type="unfinished">Sekvensnummer</translation>
+        <translation>Sekvensnummer</translation>
     </message>
     <message>
         <source>Time</source>
-        <translation type="unfinished">Tid</translation>
+        <translation>Tid</translation>
     </message>
     <message>
         <source>Window Size</source>
-        <translation type="unfinished"></translation>
+        <translation>Fönsterstorlek</translation>
     </message>
     <message>
         <source>Unacked (Outstanding) Bytes</source>
-        <translation type="unfinished"></translation>
+        <translation>Oackade (utestående) byte</translation>
+    </message>
+    <message>
+        <source>Dissector</source>
+        <translation>Dissekerare</translation>
+    </message>
+    <message>
+        <source>File Type</source>
+        <translation>Filtyp</translation>
+    </message>
+    <message>
+        <source>Codec</source>
+        <translation>Kodek</translation>
+    </message>
+    <message>
+        <source>Analysis</source>
+        <translation>Analys</translation>
+    </message>
+    <message>
+        <source>Tap Listener</source>
+        <translation>Uttagslyssnare</translation>
+    </message>
+    <message>
+        <source>Display Filter</source>
+        <translation>Visningsfilter</translation>
     </message>
 </context>
 <context>
@@ -9581,10 +10328,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>A&amp;nalysera</translation>
     </message>
     <message>
-        <source>Open the analysis window for the selected stream(s)</source>
-        <translation>Öppna analysfönstret för de valda strömmarna</translation>
-    </message>
-    <message>
         <source>&amp;Set List</source>
         <translation>&amp;Sätt lista</translation>
     </message>
@@ -9599,6 +10342,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Replace existing list in RTP Analysis Dialog with new one</source>
         <translation>Ersätt den befintliga listan i RTP-analysdialogen med en ny</translation>
+    </message>
+    <message>
+        <source>Open the analysis window for the selected stream(s)</source>
+        <translation>Öppna analysfönstret för de valda strömmarna</translation>
     </message>
     <message>
         <source>Add new set to existing list in RTP Analysis Dialog</source>
@@ -9685,7 +10432,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Förbered &amp;filter</translation>
     </message>
     <message>
-        <source>Prepare a filter matching the selected stream(s).</source>
+        <source>Prepare a filter matching the selected streams.</source>
         <translation>Förbered ett filter som matchar de valda strömmarna.</translation>
     </message>
     <message>
@@ -9876,6 +10623,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Tid på dagen</translation>
     </message>
     <message>
+        <source>Visual Sample Rate:</source>
+        <translation>Visuell samplingshastighet:</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust the sampling rate used for the waveform display. Higher values display higher frequency harmonics but take additional processing time. Values between 1 kHz and 48 kHz are supported.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Justera samplingshastigheten som används till visningen av vågformen. Högre värden visar högre frekvensharmonier men tar ytterligare tid att bearbeta. Värden mellan 1 kHz och 48 kHz stödjs.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source> Hz</source>
+        <translation> Hz</translation>
+    </message>
+    <message>
         <source>&amp;Export</source>
         <translation>&amp;Exportera</translation>
     </message>
@@ -10044,7 +10803,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Förbered &amp;filter</translation>
     </message>
     <message>
-        <source>Prepare a filter matching the selected stream(s).</source>
+        <source>Prepare a filter matching the selected streams.</source>
         <translation>Förbered ett filter som matchar de valda strömmarna.</translation>
     </message>
     <message>
@@ -10172,8 +10931,9 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Inget ljud</translation>
     </message>
     <message>
-        <source>Decoding streams...</source>
-        <translation>Avkodar strömmar …</translation>
+        <source>Decoding streams…</source>
+        <oldsource>Decoding streams...</oldsource>
+        <translation>Avkodar strömmar...</translation>
     </message>
     <message>
         <source>Out of Sequence</source>
@@ -10222,6 +10982,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Automatic</source>
         <translation>Automatisk</translation>
+    </message>
+    <message>
+        <source>Resampling waveform…</source>
+        <oldsource>Resampling waveform...</oldsource>
+        <translation>Omsamplar vågform …</translation>
     </message>
     <message>
         <source>WAV (*.wav)</source>
@@ -10284,8 +11049,9 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Dubbelklicka för att ändra audioruttläggning</translation>
     </message>
     <message>
-        <source>Preparing to play...</source>
-        <translation>Förbereder för att spela …</translation>
+        <source>Preparing to play…</source>
+        <oldsource>Preparing to play...</oldsource>
+        <translation>Förbereder att spela upp …</translation>
     </message>
     <message>
         <source>Unknown</source>
@@ -10387,7 +11153,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>A&amp;nalysera</translation>
     </message>
     <message>
-        <source>Open the analysis window for the selected stream(s) and add it to it</source>
+        <source>Open the analysis window for the selected streams and add it to it</source>
         <translation>Öppna analysfönstret för de valda strömmarna och lägg till till det</translation>
     </message>
     <message>
@@ -10443,7 +11209,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Markera paket</translation>
     </message>
     <message>
-        <source>Mark the packets of the selected stream(s).</source>
+        <source>Mark the packets of the selected streams.</source>
         <translation>Markera paketen i den valda strömmen.</translation>
     </message>
     <message>
@@ -10487,8 +11253,8 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>G</translation>
     </message>
     <message>
-        <source>Prepare a filter matching the selected stream(s).</source>
-        <translation>Förbered ett filter som matchar den valda strömmen.</translation>
+        <source>Prepare a filter matching the selected streams.</source>
+        <translation>Förbered ett filter som matchar de valda strömmarna.</translation>
     </message>
     <message>
         <source>P</source>
@@ -11876,6 +12642,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 &lt;tr&gt;&lt;th&gt;z&lt;/th&gt;&lt;td&gt;Toggle mouse drag / zoom&lt;/td&gt;&lt;/th&gt;
 &lt;tr&gt;&lt;th&gt;s&lt;/th&gt;&lt;td&gt;Toggle relative / absolute sequence numbers&lt;/td&gt;&lt;/th&gt;
 &lt;tr&gt;&lt;th&gt;t&lt;/th&gt;&lt;td&gt;Toggle capture / session time origin&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;u&lt;/th&gt;&lt;td&gt;Toggle axis SI units&lt;/td&gt;&lt;/th&gt;
 &lt;tr&gt;&lt;th&gt;Space&lt;/th&gt;&lt;td&gt;Toggle crosshairs&lt;/td&gt;&lt;/th&gt;
 
 &lt;tr&gt;&lt;th&gt;1&lt;/th&gt;&lt;td&gt;Round Trip Time graph&lt;/td&gt;&lt;/th&gt;
@@ -11893,6 +12660,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 
 &lt;tr&gt;&lt;th&gt;+&lt;/th&gt;&lt;td&gt;Zoom in&lt;/td&gt;&lt;/th&gt;
 &lt;tr&gt;&lt;th&gt;-&lt;/th&gt;&lt;td&gt;Zoom out&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;x&lt;/th&gt;&lt;td&gt;Zoom in X axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;X&lt;/th&gt;&lt;td&gt;Zoom out X axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;y&lt;/th&gt;&lt;td&gt;Zoom in Y axis&lt;/td&gt;&lt;/th&gt;
+&lt;tr&gt;&lt;th&gt;Y&lt;/th&gt;&lt;td&gt;Zoom out Y axis&lt;/td&gt;&lt;/th&gt;
 &lt;tr&gt;&lt;th&gt;0&lt;/th&gt;&lt;td&gt;Reset graph to its initial state&lt;/td&gt;&lt;/th&gt;
 
 &lt;tr&gt;&lt;th&gt;→&lt;/th&gt;&lt;td&gt;Move right 10 pixels&lt;/td&gt;&lt;/th&gt;
@@ -11922,7 +12693,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 
 &lt;/tbody&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</oldsource>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;
+        <translation type="unfinished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;
 
 &lt;h3&gt;Värdefulla och fantastiska tidsbesparande tangentbordsgenvägar&lt;/h3&gt;
 &lt;table&gt;&lt;tbody&gt;
@@ -12015,6 +12786,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>zooms</source>
         <translation>zoomningar</translation>
+    </message>
+    <message>
+        <source>Sampling Method</source>
+        <translation>Samplingsmetod</translation>
+    </message>
+    <message>
+        <source>Select which packets and how the RTT sampling is done</source>
+        <translation>Välj vilka paket och hur RTT-samplingen ska göras</translation>
     </message>
     <message>
         <source>Display Round Trip Time vs Sequence Number</source>
@@ -12217,6 +12996,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Z</translation>
     </message>
     <message>
+        <source>Legend</source>
+        <translation type="unfinished">Förklaring</translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation type="unfinished">Växla förklaring</translation>
+    </message>
+    <message>
         <source>Relative / Absolute Sequence Numbers</source>
         <translation>Relativa/absoluta sekvensnummer</translation>
     </message>
@@ -12239,6 +13026,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>T</source>
         <translation>T</translation>
+    </message>
+    <message>
+        <source>Axis SI Units</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle axis SI units</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>U</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Crosshairs</source>
@@ -12313,6 +13112,38 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>4</translation>
     </message>
     <message>
+        <source>All Data Packets</source>
+        <translation>Alla datapaket</translation>
+    </message>
+    <message>
+        <source>Sampling from all data packets</source>
+        <translation>Sampling från alla datapaket</translation>
+    </message>
+    <message>
+        <source>All Data Packets w/ SACK</source>
+        <translation>Alla datapaket med SACK</translation>
+    </message>
+    <message>
+        <source>Sampling from all data packets w/ SACK</source>
+        <translation>Sampling från alla datapaket med SACK</translation>
+    </message>
+    <message>
+        <source>Data Packets matching RTT</source>
+        <translation>Datapaket som matchar RTT</translation>
+    </message>
+    <message>
+        <source>Sampling from RTT packets</source>
+        <translation>Sampling från RTT-paket</translation>
+    </message>
+    <message>
+        <source>Data Packets matching Karn RTT</source>
+        <translation>Datapaket som matchar Karn RTT</translation>
+    </message>
+    <message>
+        <source>Sampling from Karn RTT packets</source>
+        <translation>Sampling från Karn RTT-paket</translation>
+    </message>
+    <message>
         <source>Zoom In X Axis</source>
         <translation>Zooma in X-axeln</translation>
     </message>
@@ -12343,6 +13174,42 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Shift+Y</source>
         <translation>Skift+Y</translation>
+    </message>
+    <message>
+        <source>Segments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ACK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dup ACKs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SACK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Most recent SACK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SACK 2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Subsequent SACKs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Receive Window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zero Window</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Save As…</source>
@@ -12379,6 +13246,30 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source> for %1:%2 %3 %4:%5</source>
         <translation> för %1:%2 %3 %4:%5</translation>
+    </message>
+    <message>
+        <source>Move to top left</source>
+        <translation type="unfinished">Flytta överst till vänster</translation>
+    </message>
+    <message>
+        <source>Move to top center</source>
+        <translation type="unfinished">Flytta överst till mitten</translation>
+    </message>
+    <message>
+        <source>Move to top right</source>
+        <translation type="unfinished">Flytta överst till höger</translation>
+    </message>
+    <message>
+        <source>Move to bottom left</source>
+        <translation type="unfinished">Flytta nederst till vänster</translation>
+    </message>
+    <message>
+        <source>Move to bottom center</source>
+        <translation type="unfinished">Flytta nederst till mitten</translation>
+    </message>
+    <message>
+        <source>Move to bottom right</source>
+        <translation type="unfinished">Flytta nederst till höger</translation>
     </message>
     <message>
         <source>%1 %2 (%3s len %4 seq %5 ack %6 win %7)</source>
@@ -12626,6 +13517,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Namnuppslagning</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Display exact numbers instead of rounding with SI prefixes. (Exact numbers always used when sorting.)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa exakta tal istället för att avrunda med SI-prefix. (Exakta tal används alltid vid sortering.)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Display raw data</source>
+        <translation>Visa rådata</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show conversations matching the current display filter&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa endast konversationer som matchar det aktuella visningsfiltret&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -12848,7 +13747,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Flödes&amp;sekvens</translation>
     </message>
     <message>
-        <source>Show flow sequence for selected call(s).</source>
+        <source>Show flow sequence for selected calls.</source>
         <translation>Visa flödessekvens för de valda anropen.</translation>
     </message>
     <message>
@@ -12856,7 +13755,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Förbered &amp;filter</translation>
     </message>
     <message>
-        <source>Prepare a filter matching the selected calls(s).</source>
+        <source>Prepare a filter matching the selected calls.</source>
         <translation>Förbered ett filter som matchar de valda anropen.</translation>
     </message>
     <message>
@@ -13174,11 +14073,11 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <translation type="unfinished"></translation>
+        <translation>Du sniffar på limmet som håller ihop ditt system med hjälp av Stratoshark</translation>
     </message>
     <message>
         <source>You are running Stratoshark </source>
-        <translation type="unfinished"></translation>
+        <translation>Du kör Stratoshark </translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
@@ -13214,6 +14113,14 @@ a:hover {
     <message>
         <source>Interface</source>
         <translation>Gränssnitt</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the 802.11 band.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ange 802.11-band.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Band</source>
+        <translation>Band</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the 802.11 channel.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -13711,7 +14618,7 @@ a:hover {
     <message>
         <source>&amp;Tools</source>
         <oldsource>Tools</oldsource>
-        <translation>&amp;Verktyg</translation>
+        <translation>Verkt&amp;yg</translation>
     </message>
     <message>
         <source>Wireless Toolbar</source>
@@ -14491,23 +15398,27 @@ a:hover {
     </message>
     <message>
         <source>Display Filter Reference</source>
-        <translation type="unfinished"></translation>
+        <translation>Referens för visningsfilter</translation>
     </message>
     <message>
         <source>First Packet in Conversation</source>
-        <translation type="unfinished"></translation>
+        <translation>Första paketet i konversationen</translation>
     </message>
     <message>
         <source>Go to the first packet in this conversation</source>
-        <translation type="unfinished"></translation>
+        <translation>Gå till det första paketet i denna konversation</translation>
     </message>
     <message>
         <source>Last Packet in Conversation</source>
-        <translation type="unfinished"></translation>
+        <translation>Sista paketet i konversationen</translation>
     </message>
     <message>
         <source>Go to the last packet in this conversation</source>
-        <translation type="unfinished"></translation>
+        <translation>Gå till det sista paketet i denna konversation</translation>
+    </message>
+    <message>
+        <source>Redissect Packets</source>
+        <translation>Dissekera om paket</translation>
     </message>
     <message>
         <source>Capture &amp;Filters…</source>
@@ -14531,7 +15442,7 @@ a:hover {
     </message>
     <message>
         <source>As &amp;HTML</source>
-        <translation type="unfinished"></translation>
+        <translation>Som &amp;HTML</translation>
     </message>
     <message>
         <source>All Visible Items</source>
@@ -14650,6 +15561,14 @@ a:hover {
         <translation>Skapa grafer baserat på visningsfilterfält</translation>
     </message>
     <message>
+        <source>Plots</source>
+        <translation>Plottningar</translation>
+    </message>
+    <message>
+        <source>Plot display filter fields over time</source>
+        <translation>Plotta visningsfiltrets fält över tid</translation>
+    </message>
+    <message>
         <source>&amp;Main Toolbar</source>
         <translation>&amp;Huvudverktygsrad</translation>
     </message>
@@ -14738,6 +15657,14 @@ a:hover {
         <translation>Visa pakettider som antal sekunder sedan UNIX-/POSIX-epoken (1970-01-01).</translation>
     </message>
     <message>
+        <source>Seconds Since Capture Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show packet times as seconds since the start of the capture file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Seconds Since Previous Captured Packet</source>
         <translation>Sekunder sedan föregående fångade paket</translation>
     </message>
@@ -14754,24 +15681,12 @@ a:hover {
         <translation>Visa pakettider som antalet sekunder sedan föregående visade paket.</translation>
     </message>
     <message>
-        <source>UTC Date and Time of Day (1970-01-01 01:02:03.123456)</source>
-        <translation>UTC-datum och tid på dagen (1970-01-01 01:02:03.123456)</translation>
-    </message>
-    <message>
         <source>Show packet times as the UTC date and time of day.</source>
         <translation>Visa pakettider som UTC-datumet och tiden på dagen.</translation>
     </message>
     <message>
-        <source>UTC Year, Day of Year, and Time of Day (1970/001 01:02:03.123456)</source>
-        <translation>UTC-år, dag på året, och tid på dagen (1970/001 01:02:03.123456)</translation>
-    </message>
-    <message>
         <source>Show packet times as the UTC year, day of the year and time of day.</source>
         <translation>Visa pakettider som UTC-år, dag på året och tid på dagen.</translation>
-    </message>
-    <message>
-        <source>UTC Time of Day (01:02:03.123456)</source>
-        <translation>UTC-tid på dagen (01:02:03.123456)</translation>
     </message>
     <message>
         <source>Show packet times as the UTC time of day.</source>
@@ -14914,6 +15829,14 @@ a:hover {
         <translation>Visa länkade paket i ett nytt fönster</translation>
     </message>
     <message>
+        <source>Aggregation in Live Capture</source>
+        <translation>Samla i live-fångst</translation>
+    </message>
+    <message>
+        <source>Aggregation View.</source>
+        <translation>Samlingsvy.</translation>
+    </message>
+    <message>
         <source>New Coloring Rule…</source>
         <oldsource>New Conversation Rule…</oldsource>
         <translation>Ny färgläggningsregel …</translation>
@@ -15022,6 +15945,18 @@ a:hover {
     <message>
         <source>&amp;Unmark All Displayed</source>
         <translation>&amp;Avmarkera alla visade</translation>
+    </message>
+    <message>
+        <source>UTC Date and Time of Day (1970-01-01 01:02:03.123456Z)</source>
+        <translation>UTC-datum och tid på dagen (1970-01-01 01:02:03.123456Z)</translation>
+    </message>
+    <message>
+        <source>UTC Year, Day of Year, and Time of Day (1970/001 01:02:03.123456Z)</source>
+        <translation>UTC-år, dag i året och tid på dagen (1970/001 01:02:03.123456Z)</translation>
+    </message>
+    <message>
+        <source>UTC Time of Day (01:02:03.123456Z)</source>
+        <translation>UTC-tid på dagen (01:02:03.123456Z)</translation>
     </message>
     <message>
         <source>All VoIP Calls</source>
@@ -15240,7 +16175,8 @@ a:hover {
     <message>
         <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
 (%2).</source>
-        <translation type="unfinished"></translation>
+        <translation>Filteruttrycket &quot;%1&quot; är inte ett giltigt läsfiltrer.
+(%2).</translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15253,6 +16189,10 @@ a:hover {
     <message>
         <source>Unknown file type returned by export dialog.</source>
         <translation>Okänd filtyp returnerad av exportdialogen.</translation>
+    </message>
+    <message>
+        <source>Unsaved packets…</source>
+        <translation>Osparade paket...</translation>
     </message>
     <message>
         <source>Do you want to stop the capture and save the captured packets%1?</source>
@@ -15309,14 +16249,6 @@ a:hover {
         <source>Stop and Continue &amp;without Saving</source>
         <oldsource>Stop and Continue without Saving</oldsource>
         <translation>Stoppa och fortsätt &amp;utan att spara</translation>
-    </message>
-    <message>
-        <source>The Wireshark Network Analyzer</source>
-        <translation type="vanished">Nätverksanalysatorn Wireshark</translation>
-    </message>
-    <message>
-        <source>Capturing from %1</source>
-        <translation type="vanished">Fångst från %1</translation>
     </message>
     <message>
         <source> before opening another file</source>
@@ -15422,10 +16354,10 @@ a:hover {
         <translation>Ta bort paketkommentarer</translation>
     </message>
     <message numerus="yes">
-        <source>Delete comments from %n packet(s)</source>
+        <source>Delete comments from %Ln packet(s)</source>
         <translation>
-            <numerusform>Ta bort kommentarer från %n paket</numerusform>
-            <numerusform>Ta bort kommentarer från %n paket</numerusform>
+            <numerusform>Ta bort kommentarer från %Ln paket</numerusform>
+            <numerusform>Ta bort kommentarer från %Ln paket</numerusform>
         </translation>
     </message>
     <message>

@@ -63,14 +63,13 @@ typedef struct {
 } usbdump_info_t;
 
 
-static bool usbdump_read(wtap *wth, wtap_rec *rec, Buffer *buf,
+static bool usbdump_read(wtap *wth, wtap_rec *rec,
                              int *err, char **err_info,
                              int64_t *data_offset);
 static bool usbdump_seek_read(wtap *wth, int64_t seek_off,
-                                  wtap_rec *rec, Buffer *buf,
+                                  wtap_rec *rec,
                                   int *err, char **err_info);
-static bool usbdump_read_packet(wtap *wth, FILE_T fh,
-                                    wtap_rec *rec, Buffer *buf,
+static bool usbdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
                                     int *err, char **err_info);
 
 static int usbdump_file_type_subtype;
@@ -160,7 +159,7 @@ usbdump_open(wtap *wth, int *err, char **err_info)
  * support subsequent random access read.
  */
 static bool
-usbdump_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err, char **err_info,
+usbdump_read(wtap *wth, wtap_rec *rec, int *err, char **err_info,
              int64_t *data_offset)
 {
     usbdump_info_t *usbdump_info = (usbdump_info_t *)wth->priv;
@@ -169,7 +168,7 @@ usbdump_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err, char **err_info,
     *data_offset = file_tell(wth->fh);
 
     /* Try to read a packet worth of data */
-    if (!usbdump_read_packet(wth, wth->fh, rec, buf, err, err_info))
+    if (!usbdump_read_packet(wth, wth->fh, rec, err, err_info))
         return false;
 
     /* Check if we overrun the multiframe during the last read */
@@ -202,14 +201,14 @@ usbdump_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err, char **err_info,
  */
 static bool
 usbdump_seek_read(wtap *wth, int64_t seek_off, wtap_rec *rec,
-                  Buffer *buf, int *err, char **err_info)
+                  int *err, char **err_info)
 {
     /* Seek to the desired file position at the start of the frame */
     if (file_seek(wth->random_fh, seek_off, SEEK_SET, err) == -1)
         return false;
 
     /* Try to read a packet worth of data */
-    if (!usbdump_read_packet(wth, wth->random_fh, rec, buf, err, err_info)) {
+    if (!usbdump_read_packet(wth, wth->random_fh, rec, err, err_info)) {
         if (*err == 0)
             *err = WTAP_ERR_SHORT_READ;
         return false;
@@ -228,7 +227,7 @@ usbdump_seek_read(wtap *wth, int64_t seek_off, wtap_rec *rec,
  * so that we can find the next multiframe size field.
  */
 static bool
-usbdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
+usbdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
                     int *err, char **err_info)
 {
     usbdump_info_t *usbdump_info = (usbdump_info_t *)wth->priv;
@@ -260,7 +259,7 @@ usbdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
     }
 
     /* Setup the per packet structure and fill it with info from this frame */
-    rec->rec_type = REC_TYPE_PACKET;
+    wtap_setup_packet_rec(rec, wth->file_encap);
     rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
     rec->presence_flags = WTAP_HAS_TS | WTAP_HAS_CAP_LEN;
     rec->ts.secs = (uint32_t)bpf_hdr[3] << 24 | (uint32_t)bpf_hdr[2] << 16 |
@@ -273,7 +272,7 @@ usbdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
                 (uint32_t)bpf_hdr[13] << 8 | (uint32_t)bpf_hdr[12];
 
     /* Read the packet data */
-    if (!wtap_read_packet_bytes(fh, buf, rec->rec_header.packet_header.caplen, err, err_info))
+    if (!wtap_read_bytes_buffer(fh, &rec->data, rec->rec_header.packet_header.caplen, err, err_info))
         return false;
 
     /* Keep track of multiframe_size and detect overrun */

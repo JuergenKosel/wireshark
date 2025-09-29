@@ -105,6 +105,11 @@ bool extcap_base_register_graceful_shutdown_cb(extcap_parameters * extcap _U_, v
     extcap_end_application = false;
     extcap_graceful_shutdown_cb = callback;
 #ifdef _WIN32
+    /* This signal can be triggered if extcap is ran manually from a command prompt,
+     * but cannot be triggered by wireshark. On Windows, wireshark will therefore terminate
+     * the program when the user clicks "stop". Use postkill_cb to try and cleanup afterwards
+     * if needed.
+     */
     if (!SetConsoleCtrlHandler(extcap_exit_from_loop, true)) {
             ws_warning("Can't set console handler");
             return false;
@@ -125,6 +130,12 @@ bool extcap_base_register_graceful_shutdown_cb(extcap_parameters * extcap _U_, v
     }
 #endif /* _WIN32 */
 
+    return true;
+}
+
+bool extcap_base_register_cleanup_postkill_cb(extcap_parameters* extcap _U_, void (*callback)(void))
+{
+    extcap->cleanup_postkill_cb = callback;
     return true;
 }
 
@@ -192,6 +203,9 @@ uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char *
         case EXTCAP_OPT_LIST_INTERFACES:
             extcap->do_list_interfaces = 1;
             break;
+        case EXTCAP_OPT_CLEANUP_POSTKILL:
+            extcap->do_cleanup_postkill = 1;
+            break;
         case EXTCAP_OPT_VERSION:
             extcap->ws_version = g_strdup(optargument);
             extcap->do_version = 1;
@@ -204,6 +218,14 @@ uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char *
             break;
         case EXTCAP_OPT_CONFIG:
             extcap->show_config = 1;
+            break;
+        case EXTCAP_OPT_CONFIG_OPTION_NAME:
+            extcap->show_config_option = 1;
+            extcap->config_option_name = g_strdup(optargument);
+            break;
+        case EXTCAP_OPT_CONFIG_OPTION_VALUE:
+            extcap->show_config_option = 1;
+            extcap->config_option_value = g_strdup(optargument);
             break;
         case EXTCAP_OPT_CAPTURE:
             extcap->capture = 1;
@@ -282,7 +304,11 @@ uint8_t extcap_base_handle_interface(extcap_parameters * extcap)
         return 0;
     }
 
-    if (extcap->do_list_interfaces) {
+    if (extcap->do_cleanup_postkill) {
+        if (extcap->cleanup_postkill_cb != NULL)
+            extcap->cleanup_postkill_cb();
+        return 1;
+    } else if (extcap->do_list_interfaces) {
         return extcap_iface_listall(extcap, 1);
     } else if (extcap->do_version || extcap->do_list_dlts) {
         return extcap_iface_listall(extcap, 0);
@@ -315,6 +341,7 @@ void extcap_base_cleanup(extcap_parameters ** extcap)
     g_free((*extcap)->exename);
     g_free((*extcap)->fifo);
     g_free((*extcap)->interface);
+    g_free((*extcap)->capture_filter);
     g_free((*extcap)->version);
     g_free((*extcap)->compiled_with);
     g_free((*extcap)->running_with);
@@ -374,6 +401,10 @@ void extcap_help_add_header(extcap_parameters * extcap, char * help_header)
     extcap_help_add_option(extcap, "--extcap-version", "print tool version");
     extcap_help_add_option(extcap, "--log-level", "Set the log level");
     extcap_help_add_option(extcap, "--log-file", "Set a log file to log messages in addition to the console");
+    if (extcap->cleanup_postkill_cb != NULL)
+    {
+        extcap_help_add_option(extcap, "--extcap-cleanup-postkill", "Perform a post-mortem cleanup if the process was killed.");
+    }
 }
 
 static void extcap_init_log_file(const char* filename)

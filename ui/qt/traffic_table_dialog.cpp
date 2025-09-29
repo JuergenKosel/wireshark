@@ -52,11 +52,14 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const Q
 
     if (cf.displayFilter().length() > 0) {
         ui->displayFilterCheckBox->setChecked(true);
-        ui->trafficTab->setFilter(cf.displayFilter());
+        ui->trafficTab->limitToDisplayFilter(true);
     }
 
+    connect(ui->machineReadableCheckBox, &QCheckBox::toggled, ui->trafficTab, &TrafficTab::setMachineReadable);
+    ui->machineReadableCheckBox->setChecked(prefs.conv_machine_readable);
+
     ui->trafficTab->setFocus();
-    ui->trafficTab->useNanosecondTimestamps(cf.timestampPrecision() == WTAP_TSPREC_NSEC);
+    ui->trafficTab->useNanosecondTimestamps(cf.timestampPrecision() == WTAP_TSPREC_NSEC || cf.timestampPrecision() == WTAP_TSPREC_PER_PACKET);
     connect(ui->displayFilterCheckBox, &QCheckBox::toggled, this, &TrafficTableDialog::displayFilterCheckBoxToggled);
     connect(ui->trafficList, &TrafficTypesList::protocolsChanged, ui->trafficTab, &TrafficTab::setOpenTabs);
     connect(ui->trafficTab, &TrafficTab::tabsChanged, ui->trafficList, &TrafficTypesList::selectProtocols);
@@ -70,8 +73,6 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const Q
 
     connect(ui->trafficListSearch, &QLineEdit::textChanged, ui->trafficList, &TrafficTypesList::filterList);
     connect(ui->trafficList, &TrafficTypesList::clearFilterList, ui->trafficListSearch, &QLineEdit::clear);
-
-    connect(mainApp->mainWindow(), SIGNAL(displayFilterSuccess(bool)), this, SLOT(displayFilterSuccess(bool)));
 
     QPushButton *close_bt = ui->buttonBox->button(QDialogButtonBox::Close);
     if (close_bt)
@@ -138,7 +139,20 @@ void TrafficTableDialog::aggregationSummaryOnlyCheckBoxToggled(bool checked)
         return;
     }
 
-    ATapDataModel * atdm = trafficTab()->dataModelForTabIndex(1);
+    // Defaults to 0 but we can't reach this place if IPv4 is not selected anyway
+    int protoTabIndex = 0;
+
+    // Identify which tab number corresponds to IPv4
+    QList<int> _enabledProtocols = trafficList()->protocols(true);
+    for (int i=0; i< _enabledProtocols.size(); i++) {
+        QString protoname = proto_get_protocol_short_name(find_protocol_by_id(_enabledProtocols.at(i))) ;
+        if("IPv4" == protoname) {
+            protoTabIndex = i;
+            break;
+        }
+    }
+
+    ATapDataModel * atdm = trafficTab()->dataModelForTabIndex(protoTabIndex);
     if(atdm) {
         atdm->updateFlags(checked);
     }
@@ -151,30 +165,14 @@ void TrafficTableDialog::on_nameResolutionCheckBox_toggled(bool checked)
     ui->trafficTab->setNameResolution(checked);
 }
 
-void TrafficTableDialog::displayFilterCheckBoxToggled(bool checked)
-{
-    displayFilterUpdate(checked);
-}
-
-void TrafficTableDialog::displayFilterUpdate(bool set_filter)
+void TrafficTableDialog::displayFilterCheckBoxToggled(bool set_filter)
 {
     if (!cap_file_.isValid()) {
         return;
     }
 
-    if (set_filter)
-        trafficTab()->setFilter(cap_file_.displayFilter());
-    else
-        trafficTab()->setFilter(QString());
-
+    ui->trafficTab->limitToDisplayFilter(set_filter);
     cap_file_.retapPackets();
-}
-
-void TrafficTableDialog::displayFilterSuccess(bool success)
-{
-    if (success && ui->displayFilterCheckBox->isEnabled() && ui->displayFilterCheckBox->isChecked()) {
-       displayFilterUpdate(true);
-    }
 }
 
 void TrafficTableDialog::captureEvent(CaptureEvent e)

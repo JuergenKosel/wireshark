@@ -25,7 +25,7 @@ class RtpStreamDialog;
 }
 
 // Singleton by https://refactoring.guru/design-patterns/singleton/cpp/example#example-1
-class RtpStreamDialog : public WiresharkDialog
+class RtpStreamDialog : public RtpBaseDialog
 {
     Q_OBJECT
 
@@ -61,7 +61,6 @@ signals:
     void rtpAnalysisDialogRemoveRtpStreams(QVector<rtpstream_id_t *> stream_infos);
 
 public slots:
-    void displayFilterSuccess(bool success);
     void rtpPlayerReplace();
     void rtpPlayerAdd();
     void rtpPlayerRemove();

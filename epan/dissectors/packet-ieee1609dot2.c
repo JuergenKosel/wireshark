@@ -43,6 +43,12 @@ void proto_reg_handoff_ieee1609dot2(void);
 /* Initialize the protocol and registered fields */
 int proto_ieee1609dot2;
 dissector_handle_t proto_ieee1609dot2_handle;
+
+/* WSMP PSID range to be passed to IEEE 1609.2 dissector */
+static range_t *global_wsmp_psid_range;
+/* This is used for WSMP PSID range */
+#define DEFAULT_WSMP_PSID_RANGE "32,39,128,129,130,131,132,133,135,142,143,144,145,2113685,2113686,2113687,2113689"
+#define MAX_WSMP_PSID           4294967295
 static int hf_ieee1609dot2_SecuredCrl_PDU;        /* SecuredCrl */
 static int hf_ieee1609dot2_Ieee1609Dot2Data_PDU;  /* Ieee1609Dot2Data */
 static int hf_ieee1609dot2_SequenceOfUint8_item;  /* Uint8 */
@@ -88,7 +94,7 @@ static int hf_ieee1609dot2_rSig;                  /* EccP256CurvePoint */
 static int hf_ieee1609dot2_sSig;                  /* OCTET_STRING_SIZE_32 */
 static int hf_ieee1609dot2_ecdsap384RSig;         /* EccP384CurvePoint */
 static int hf_ieee1609dot2_ecdsap384SSig;         /* OCTET_STRING_SIZE_48 */
-static int hf_ieee1609dot2_rSig_01;               /* OCTET_STRING_SIZE_32 */
+static int hf_ieee1609dot2_ecsigp256RSig;         /* OCTET_STRING_SIZE_32 */
 static int hf_ieee1609dot2_x_only;                /* OCTET_STRING_SIZE_32 */
 static int hf_ieee1609dot2_fill;                  /* NULL */
 static int hf_ieee1609dot2_compressed_y_0;        /* OCTET_STRING_SIZE_32 */
@@ -154,7 +160,7 @@ static int hf_ieee1609dot2_deltaLinkedCrlWithAlg;  /* ToBeSignedLinkageValueCrlW
 static int hf_ieee1609dot2_crlSerial;             /* Uint32 */
 static int hf_ieee1609dot2_entries;               /* SequenceOfHashBasedRevocationInfo */
 static int hf_ieee1609dot2_SequenceOfHashBasedRevocationInfo_item;  /* HashBasedRevocationInfo */
-static int hf_ieee1609dot2_id;                    /* HashedId10 */
+static int hf_ieee1609dot2_hashedId;              /* HashedId10 */
 static int hf_ieee1609dot2_expiry;                /* Time32 */
 static int hf_ieee1609dot2_iRev;                  /* IValue */
 static int hf_ieee1609dot2_indexWithinI;          /* Uint8 */
@@ -253,7 +259,7 @@ static int hf_ieee1609dot2_sha256AndDigest;       /* HashedId8 */
 static int hf_ieee1609dot2_iiSelf;                /* HashAlgorithm */
 static int hf_ieee1609dot2_sha384AndDigest;       /* HashedId8 */
 static int hf_ieee1609dot2_sm3AndDigest;          /* HashedId8 */
-static int hf_ieee1609dot2_id_01;                 /* CertificateId */
+static int hf_ieee1609dot2_certificateId;         /* CertificateId */
 static int hf_ieee1609dot2_validityPeriod;        /* ValidityPeriod */
 static int hf_ieee1609dot2_region;                /* GeographicRegion */
 static int hf_ieee1609dot2_assuranceLevel;        /* SubjectAssurance */
@@ -283,7 +289,7 @@ static int hf_ieee1609dot2_explicit;              /* SequenceOfPsidSspRange */
 static int hf_ieee1609dot2_verificationKey;       /* PublicVerificationKey */
 static int hf_ieee1609dot2_reconstructionValue;   /* EccP256CurvePoint */
 static int hf_ieee1609dot2_SequenceOfAppExtensions_item;  /* AppExtension */
-static int hf_ieee1609dot2_id_02;                 /* ExtId */
+static int hf_ieee1609dot2_id;                    /* ExtId */
 static int hf_ieee1609dot2_content_03;            /* T_content */
 static int hf_ieee1609dot2_SequenceOfCertIssueExtensions_item;  /* CertIssueExtension */
 static int hf_ieee1609dot2_permissions;           /* T_permissions */
@@ -1045,7 +1051,7 @@ dissect_ieee1609dot2_EcdsaP384Signature(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const oer_sequence_t EcsigP256Signature_sequence[] = {
-  { &hf_ieee1609dot2_rSig_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_OCTET_STRING_SIZE_32 },
+  { &hf_ieee1609dot2_ecsigp256RSig, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_OCTET_STRING_SIZE_32 },
   { &hf_ieee1609dot2_sSig   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_OCTET_STRING_SIZE_32 },
   { NULL, 0, 0, NULL }
 };
@@ -1329,6 +1335,10 @@ const val64_string ieee1609dot2_Psid_vals[] = {
   { psid_infrastructure_to_vehicle_information_service, "psid-infrastructure-to-vehicle-information-service" },
   { psid_traffic_light_control_requests_service, "psid-traffic-light-control-requests-service" },
   { psid_geonetworking_management_communications, "psid-geonetworking-management-communications" },
+  { psid_cooperative_automation_message, "psid-cooperative-automation-message" },
+  { psid_v2x_based_fee_collection, "psid-v2x-based-fee-collection" },
+  { psid_sensor_sharing_service, "psid-sensor-sharing-service" },
+  { psid_maneuver_coordination_service, "psid-maneuver-coordination-service" },
   { psid_certificate_revocation_list_application, "psid-certificate-revocation-list-application" },
   { psid_traffic_light_control_status_service, "psid-traffic-light-control-status-service" },
   { psid_collective_perception_service, "psid-collective-perception-service" },
@@ -1341,6 +1351,10 @@ const val64_string ieee1609dot2_Psid_vals[] = {
   { psid_sra_private_applications_0x204085, "psid-sra-private-applications-0x204085" },
   { psid_sra_private_applications_0x204086, "psid-sra-private-applications-0x204086" },
   { psid_sra_private_applications_0x204087, "psid-sra-private-applications-0x204087" },
+  { psid_traffic_signal_priority_status, "psid-traffic-signal-priority-status" },
+  { psid_traffic_signal_request, "psid-traffic-signal-request" },
+  { psid_map_distribution, "psid-map-distribution" },
+  { psid_road_weather_applications, "psid-road-weather-applications" },
   { psid_ipv6_routing, "psid-ipv6-routing" },
   { 0, NULL }
 };
@@ -1702,7 +1716,7 @@ dissect_ieee1609dot2_CrlPriorityInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const oer_sequence_t HashBasedRevocationInfo_sequence[] = {
-  { &hf_ieee1609dot2_id     , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_HashedId10 },
+  { &hf_ieee1609dot2_hashedId, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_HashedId10 },
   { &hf_ieee1609dot2_expiry , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_Time32 },
   { NULL, 0, 0, NULL }
 };
@@ -2334,7 +2348,7 @@ dissect_ieee1609dot2_T_content(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static const oer_sequence_t AppExtension_sequence[] = {
-  { &hf_ieee1609dot2_id_02  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
+  { &hf_ieee1609dot2_id     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
   { &hf_ieee1609dot2_content_03, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_T_content },
   { NULL, 0, 0, NULL }
 };
@@ -2394,7 +2408,7 @@ dissect_ieee1609dot2_T_permissions(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const oer_sequence_t CertIssueExtension_sequence[] = {
-  { &hf_ieee1609dot2_id_02  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
+  { &hf_ieee1609dot2_id     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
   { &hf_ieee1609dot2_permissions, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_T_permissions },
   { NULL, 0, 0, NULL }
 };
@@ -2454,7 +2468,7 @@ dissect_ieee1609dot2_T_permissions_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 static const oer_sequence_t CertRequestExtension_sequence[] = {
-  { &hf_ieee1609dot2_id_02  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
+  { &hf_ieee1609dot2_id     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ExtId },
   { &hf_ieee1609dot2_permissions_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_T_permissions_01 },
   { NULL, 0, 0, NULL }
 };
@@ -2483,7 +2497,7 @@ dissect_ieee1609dot2_SequenceOfCertRequestExtensions(tvbuff_t *tvb _U_, int offs
 
 
 static const oer_sequence_t ToBeSignedCertificate_sequence[] = {
-  { &hf_ieee1609dot2_id_01  , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_CertificateId },
+  { &hf_ieee1609dot2_certificateId, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_CertificateId },
   { &hf_ieee1609dot2_cracaId, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_HashedId3 },
   { &hf_ieee1609dot2_crlSeries, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_CrlSeries },
   { &hf_ieee1609dot2_validityPeriod, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ieee1609dot2_ValidityPeriod },
@@ -3133,6 +3147,8 @@ ieee1609dot2_Time64_fmt(char *s, uint64_t v)
 /*--- proto_register_ieee1609dot2 ----------------------------------------------*/
 void proto_register_ieee1609dot2(void) {
 
+  module_t *ieee1609dot2_module;
+
   /* List of fields */
   static hf_register_info hf[] = {
     { &hf_ieee1609dot2_SecuredCrl_PDU,
@@ -3315,8 +3331,8 @@ void proto_register_ieee1609dot2(void) {
       { "sSig", "ieee1609dot2.ecdsap384SSig",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING_SIZE_48", HFILL }},
-    { &hf_ieee1609dot2_rSig_01,
-      { "rSig", "ieee1609dot2.rSig",
+    { &hf_ieee1609dot2_ecsigp256RSig,
+      { "rSig", "ieee1609dot2.ecsigp256RSig",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING_SIZE_32", HFILL }},
     { &hf_ieee1609dot2_x_only,
@@ -3579,8 +3595,8 @@ void proto_register_ieee1609dot2(void) {
       { "HashBasedRevocationInfo", "ieee1609dot2.HashBasedRevocationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ieee1609dot2_id,
-      { "id", "ieee1609dot2.id",
+    { &hf_ieee1609dot2_hashedId,
+      { "id", "ieee1609dot2.hashedId",
         FT_BYTES, BASE_NONE, NULL, 0,
         "HashedId10", HFILL }},
     { &hf_ieee1609dot2_expiry,
@@ -3975,8 +3991,8 @@ void proto_register_ieee1609dot2(void) {
       { "sm3AndDigest", "ieee1609dot2.sm3AndDigest",
         FT_BYTES, BASE_NONE, NULL, 0,
         "HashedId8", HFILL }},
-    { &hf_ieee1609dot2_id_01,
-      { "id", "ieee1609dot2.id",
+    { &hf_ieee1609dot2_certificateId,
+      { "id", "ieee1609dot2.certificateId",
         FT_UINT32, BASE_DEC, VALS(ieee1609dot2_CertificateId_vals), 0,
         "CertificateId", HFILL }},
     { &hf_ieee1609dot2_validityPeriod,
@@ -4095,7 +4111,7 @@ void proto_register_ieee1609dot2(void) {
       { "AppExtension", "ieee1609dot2.AppExtension_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_ieee1609dot2_id_02,
+    { &hf_ieee1609dot2_id,
       { "id", "ieee1609dot2.id",
         FT_UINT32, BASE_DEC, VALS(ieee1609dot2_ExtId_vals), 0,
         "ExtId", HFILL }},
@@ -4270,13 +4286,43 @@ void proto_register_ieee1609dot2(void) {
         "ATS-AID/PSID based dissector for unsecured/signed data", proto_ieee1609dot2, FT_UINT32, BASE_HEX);
   ssp_subdissector_table = register_dissector_table("ieee1609dot2.ssp",
         "ATS-AID/PSID based dissector for Service Specific Permissions (SSP)", proto_ieee1609dot2, FT_UINT32, BASE_HEX);
+
+    range_convert_str(wmem_epan_scope(),
+                      &global_wsmp_psid_range,
+                      DEFAULT_WSMP_PSID_RANGE,
+                      MAX_WSMP_PSID);
+
+    /* Register configuration options */
+    ieee1609dot2_module = prefs_register_protocol(proto_ieee1609dot2,
+                                                  proto_reg_handoff_ieee1609dot2);
+
+    prefs_register_range_preference(ieee1609dot2_module,
+                                    "wsmp.psid",
+                                    "WSMP PSIDs",
+                                    "WSMP PSIDs to be decoded as IEEE 1609.2 data (default: "
+                                    DEFAULT_WSMP_PSID_RANGE ")",
+                                    &global_wsmp_psid_range, MAX_WSMP_PSID);
 }
 
 
 void proto_reg_handoff_ieee1609dot2(void) {
-    dissector_add_string("media_type", "application/x-its", proto_ieee1609dot2_handle);
-    dissector_add_string("media_type", "application/x-its-request", proto_ieee1609dot2_handle);
-    dissector_add_string("media_type", "application/x-its-response", proto_ieee1609dot2_handle);
+
+    static bool inited = false;
+    static range_t *wsmp_psid_range;
+
+    if(!inited) {
+        dissector_add_string("media_type", "application/x-its", proto_ieee1609dot2_handle);
+        dissector_add_string("media_type", "application/x-its-request", proto_ieee1609dot2_handle);
+        dissector_add_string("media_type", "application/x-its-response", proto_ieee1609dot2_handle);
+        inited = true;
+    } else {
+        dissector_delete_uint_range("wsmp.psid", wsmp_psid_range, proto_ieee1609dot2_handle);
+        wmem_free(wmem_epan_scope(), wsmp_psid_range);
+    }
+
+    /* set port for future deletes */
+    wsmp_psid_range = range_copy(wmem_epan_scope(), global_wsmp_psid_range);
+    dissector_add_uint_range("wsmp.psid", wsmp_psid_range, proto_ieee1609dot2_handle);
 
     dissector_add_uint("ieee1609dot2.psid", psid_certificate_revocation_list_application, create_dissector_handle(dissect_SecuredCrl_PDU, proto_ieee1609dot2));
     //dissector_add_uint_range_with_preference("udp.port", "56000,56001", proto_ieee1609dot2_handle);

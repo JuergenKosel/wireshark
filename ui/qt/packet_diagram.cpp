@@ -251,8 +251,12 @@ public:
         }
         paintLabel(painter, label, scaled_tr_);
 
-        if (layout_->showFields()) {
-            label = finfo_->toString();
+        if (layout_->showFields() && finfo_->headerInfo().type != FT_NONE) {
+            if (representation_.isEmpty()) {
+                label = finfo_->toString();
+            } else {
+                label = representation_;
+            }
             paintLabel(painter, label, scaled_tr_.adjusted(0, scaled_tr_.height(), 0, scaled_tr_.height()));
         }
     }
@@ -524,7 +528,7 @@ void PacketDiagram::resetScene(bool reset_root)
         delete scene();
     }
     viewport()->update();
-    QGraphicsScene *new_scene = new QGraphicsScene();
+    QGraphicsScene *new_scene = new QGraphicsScene(this);
     setScene(new_scene);
     connect(new_scene, &QGraphicsScene::selectionChanged, this, &PacketDiagram::sceneSelectionChanged);
     setRootNode(reset_root ? nullptr : root_node_);

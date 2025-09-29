@@ -152,6 +152,10 @@ class TestDfilterSyntax:
         dfilter = 'frame == tcp()'
         checkDFilterFail(dfilter, error)
 
+    def test_between_1(self, checkDFilterCount):
+        dfilter = "tcp.dstport <= '\x50' < tcp.srcport"
+        checkDFilterCount(dfilter, 1)
+
 class TestDfilterEquality:
     trace_file = "sip.pcapng"
 
@@ -505,6 +509,10 @@ class TestDfilterXor:
         dfilter = 'ip.src == 9.9.9.9 ^^ ip.dst == 9.9.9.9'
         checkDFilterCount(dfilter, 0)
 
+    def test_xor_5(self, checkDFilterCount):
+        dfilter = 'eth ^^ ip.proto in {"udp", "tcp"}'
+        checkDFilterCount(dfilter, 2)
+
 class TestDfilterTFSValueString:
     trace_file = "http.pcap"
 
@@ -534,3 +542,36 @@ class TestDfilterTFSValueString:
         error = 'expected "True" or "False", not "Unset"'
         dfilter = 'frame.ignored == "Unset"'
         checkDFilterFail(dfilter, error)
+
+class TestDfilterValueString:
+    trace_file = "tls-over-tls.pcapng.gz"
+    # This file has VLAN. vlan.priority has multiple hfinfo with the same
+    # abbrev but different value strings (for different versions).
+    # This means that value string tests cannot be optimized, and must
+    # match against the entire string.
+
+    def test_value_string(self, checkDFilterCount):
+        dfilter = 'vlan.priority == "Best Effort (default)"'
+        checkDFilterCount(dfilter, 24)
+
+    def test_value_string_layer(self, checkDFilterCount):
+        dfilter = 'vlan.priority#1 == "Best Effort (default)"'
+        checkDFilterCount(dfilter, 24)
+
+    def test_value_string_layer_2(self, checkDFilterCount):
+        dfilter = 'vlan.priority#2 == "Best Effort (default)"'
+        checkDFilterCount(dfilter, 0)
+
+    # To use "contains" with a value string we must explicitly
+    # convert with the "vals" function. Note that this never
+    # optimizes, so it's always a string comparison.
+    def test_value_string_func(self, checkDFilterCount):
+        dfilter = 'vals(tls.handshake.type) contains "Client"'
+        checkDFilterCount(dfilter, 2)
+
+    # A Client Hello appears in TLS layer 1 in one packet, and
+    # Client Key Exchange appears in TLS layer 1 in another (as
+    # the second record at that layer).
+    def test_value_string_func_layer(self, checkDFilterCount):
+        dfilter = 'vals(tls.handshake.type#1) contains "Client"'
+        checkDFilterCount(dfilter, 2)

@@ -33,7 +33,8 @@ PacketListRecord::PacketListRecord(frame_data *frameData) :
     color_ver_(0),
     colorized_(false),
     conv_index_(0),
-    read_failed_(false)
+    read_failed_(false),
+    row_(0)
 {
 }
 
@@ -111,8 +112,7 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_columns, boo
     epan_dissect_t edt;
     column_info *cinfo = NULL;
     bool create_proto_tree;
-    wtap_rec rec; /* Record metadata */
-    Buffer buf;   /* Record data */
+    wtap_rec rec; /* Record information */
 
     if (!cap_file) {
         return;
@@ -122,12 +122,11 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_columns, boo
         cinfo = &cap_file->cinfo;
     }
 
-    wtap_rec_init(&rec);
-    ws_buffer_init(&buf, 1514);
+    wtap_rec_init(&rec, 1514);
     if (read_failed_) {
-        read_failed_ = !cf_read_record_no_alert(cap_file, fdata_, &rec, &buf);
+        read_failed_ = !cf_read_record_no_alert(cap_file, fdata_, &rec);
     } else {
-        read_failed_ = !cf_read_record(cap_file, fdata_, &rec, &buf);
+        read_failed_ = !cf_read_record(cap_file, fdata_, &rec);
     }
 
     if (read_failed_) {
@@ -150,7 +149,6 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_columns, boo
             fdata_->color_filter = NULL;
             colorized_ = true;
         }
-        ws_buffer_free(&buf);
         wtap_rec_cleanup(&rec);
         return;    /* error reading the record */
     }
@@ -187,9 +185,7 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_columns, boo
      * XXX - need to catch an OutOfMemoryError exception and
      * attempt to recover from it.
      */
-    epan_dissect_run(&edt, cap_file->cd_t, &rec,
-                     ws_buffer_start_ptr(&buf),
-                     fdata_, cinfo);
+    epan_dissect_run(&edt, cap_file->cd_t, &rec, fdata_, cinfo);
 
     if (dissect_columns) {
         /* "Stringify" non frame_data vals */
@@ -207,7 +203,6 @@ void PacketListRecord::dissect(capture_file *cap_file, bool dissect_columns, boo
     conv_index_ = ! conv ? 0 : conv->conv_index;
 
     epan_dissect_cleanup(&edt);
-    ws_buffer_free(&buf);
     wtap_rec_cleanup(&rec);
 }
 

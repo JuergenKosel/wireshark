@@ -108,8 +108,6 @@ typedef struct _sctp_frag_msg {
 	 ((t) == SCTP_ASCONF_ACK_CHUNK_ID) || \
 	 ((t) == SCTP_PKTDROP_CHUNK_ID))
 
-WS_DLL_PUBLIC const value_string chunk_type_values[];
-
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

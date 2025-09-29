@@ -183,6 +183,17 @@ compatible_ftypes(ftenum_t a, ftenum_t b)
 	return false;
 }
 
+static void
+fail_if_nan_cmp(dfwork_t *dfw, stnode_t *st)
+{
+	if (stnode_type_id(st) == STTYPE_FVALUE) {
+		fvalue_t *fv = stnode_data(st);
+		if (ftype_can_is_nan(fvalue_type_ftenum(fv)) && fvalue_is_nan(fv)) {
+			FAIL(dfw, st, "NaN cannot be used in ordered comparisons");
+		}
+	}
+}
+
 void
 resolve_unparsed(dfwork_t *dfw, stnode_t *st, bool strict)
 {
@@ -548,6 +559,19 @@ mk_fvalue_from_hfinfo(const header_field_info *hfinfo, const char *s, uint64_t *
 		 * That would take changes in dfvm.c try_value_string as well.
 		 */
 	}
+	else if (hfinfo->display & BASE_UNIT_STRING) {
+		/* XXX - Not yet supported in dfvm.c try_value_string. */
+		return MK_ERROR_NO_STRINGS;
+#if 0
+		/* We could optimize by parsing out the number at the
+		 * beginning. (That's harder for floats and doubles.) */
+		if (FT_IS_INTEGER(hfinfo->type)) {
+			/* Should always be true due to type check above. */
+			return MK_OK_STRING;
+		}
+		/* XXX - FT_FLOAT and FT_DOUBLE can be BASE_UNIT_STRING. */
+#endif
+	}
 	else {
 		const value_string *vals = (const value_string *)hfinfo->strings;
 		if (hfinfo->display & BASE_EXT_STRING)
@@ -585,7 +609,7 @@ mk_fvalue_from_val_string(dfwork_t *dfw, header_field_info *hfinfo, const char *
 {
 	fvalue_t *fv = NULL;
 	enum mk_result res;
-	uint64_t val;
+	uint64_t val = 0;
 
 	/* We might have more than one hfinfo with the same abbreviation. (#19111)
 	 * We can optimize to a number (or boolean) test if all fields map the
@@ -1019,19 +1043,26 @@ check_relation_LHS_FIELD(dfwork_t *dfw, stnode_op_t st_op,
 	hfinfo1 = sttype_field_hfinfo(st_arg1);
 	ftype1 = sttype_field_ftenum(st_arg1);
 	if (!can_func(ftype1)) {
-		/* For "matches", implicitly convert to the value string, if
-		 * there is one. (FT_FRAMENUM and FT_PROTOCOL have a pointer
-		 * to something other than a value string in their ->strings
-		 * member, though we can't get here for a FT_PROTOCOL because
-		 * it supports "matches" on its bytes without conversion.)
+		/* For "matches" or "contains", implicitly convert to the value
+		 * string, if there is one. (FT_FRAMENUM and FT_PROTOCOL have a
+		 * pointer to something other than a value string in their
+		 * ->strings member, though we can't get here for a FT_PROTOCOL
+		 * because it supports comparisons on its bytes without
+		 * conversion.)
 		 */
-		if (st_op == STNODE_OP_MATCHES && hfinfo1->strings != NULL && hfinfo1->type != FT_FRAMENUM && hfinfo1->type != FT_PROTOCOL) {
-			sttype_field_set_value_string(st_arg1, true);
-		}
-		else {
+		switch (st_op) {
+		case STNODE_OP_MATCHES:
+		case STNODE_OP_CONTAINS:
+			if (hfinfo1->strings != NULL && hfinfo1->type != FT_FRAMENUM && hfinfo1->type != FT_PROTOCOL) {
+				sttype_field_set_value_string(st_arg1, true);
+				break;
+			}
+		/* FALLTHROUGH */
+		default:
 			FAIL(dfw, st_arg1, "%s (type=%s) cannot participate in %s comparison.",
 					hfinfo1->abbrev, ftype_pretty_name(ftype1),
 					stnode_todisplay(st_node));
+			break;
 		}
 	}
 
@@ -1047,6 +1078,8 @@ check_relation_LHS_FIELD(dfwork_t *dfw, stnode_op_t st_op,
 		}
 		/* Do this check even though you'd think that if
 		 * they're compatible, then can_func() would pass. */
+		/* XXX - Test this before compatible types and implicitly
+		 * convert to a value string in the STNODE_OP_CONTAINS case? */
 		if (!can_func(ftype2)) {
 			FAIL(dfw, st_arg2, "%s (type=%s) cannot participate in specified comparison.",
 					stnode_todisplay(st_arg2), ftype_pretty_name(ftype2));
@@ -1777,6 +1810,8 @@ check_test(dfwork_t *dfw, stnode_t *st_node)
 		case STNODE_OP_LT:
 		case STNODE_OP_LE:
 			check_relation(dfw, st_op, ftype_can_cmp, false, st_node, st_arg1, st_arg2);
+			fail_if_nan_cmp(dfw, st_arg1);
+			fail_if_nan_cmp(dfw, st_arg2);
 			break;
 		case STNODE_OP_CONTAINS:
 			check_relation_contains(dfw, st_node, st_arg1, st_arg2);

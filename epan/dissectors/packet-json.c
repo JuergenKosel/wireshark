@@ -104,6 +104,7 @@ static tvbparse_wanted_t* want;
 static tvbparse_wanted_t* want_ignore;
 
 static dissector_handle_t text_lines_handle;
+static dissector_handle_t falco_json_handle;
 
 typedef enum {
 	JSON_TOKEN_INVALID = -1,
@@ -527,6 +528,13 @@ join_strings(wmem_allocator_t *pool, const char* string_a, const char* string_b,
 static int
 dissect_json(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
+	if (falco_json_handle) {
+		int falco_len = call_dissector_only(falco_json_handle, tvb, pinfo, tree, NULL);
+		if (falco_len > 0) {
+			return falco_len;
+		}
+	}
+
 	proto_tree *json_tree = NULL;
 	proto_item *ti = NULL;
 
@@ -540,20 +548,13 @@ dissect_json(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 	/* Save pinfo*/
 	parser_data.pinfo = pinfo;
 	/* JSON dissector can be called in a JSON native file or when transported
-	 * by another protocol, will make entry in the Protocol column on summary display accordingly
+	 * by another protocol; for a JSON file, this dissector is called by the
+	 * frame dissector, which only sets COL_PROTOCOL and COL_INFO if the
+	 * dissector it calls fails, so this will make the entry in the Protocol
+	 * column accordingly.
 	 */
-	wmem_list_frame_t *proto = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
-	if (proto) {
-		const char *name = proto_get_protocol_filter_name(GPOINTER_TO_INT(wmem_list_frame_data(proto)));
-
-		if (strcmp(name, "frame")) {
-			col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "JSON");
-			col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "JSON");
-		} else {
-			col_set_str(pinfo->cinfo, COL_PROTOCOL, "JSON");
-			col_set_str(pinfo->cinfo, COL_INFO, "JSON");
-		}
-	}
+	col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "JSON");
+	col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "JSON");
 
 	data_name = pinfo->match_string;
 	if (! (data_name && data_name[0])) {
@@ -1505,6 +1506,7 @@ proto_reg_handoff_json(void)
 	dissector_add_uint_range_with_preference("udp.port", "", json_file_handle); /* JSON-RPC over UDP */
 
 	text_lines_handle = find_dissector_add_dependency("data-text-lines", proto_json);
+	falco_json_handle = find_dissector("falcojson");
 
 	proto_acdr = proto_get_id_by_filter_name("acdr");
 }

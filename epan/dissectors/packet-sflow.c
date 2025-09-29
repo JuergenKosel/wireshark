@@ -42,11 +42,15 @@
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/to_str.h>
+#include <epan/etypes.h>
 #include <epan/ipproto.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
 
 #include <wsutil/array.h>
+#include <wsutil/ws_roundup.h>
+#include <wsutil/ws_padding_to.h>
+
 #include "packet-sflow.h"
 
 #define SFLOW_UDP_PORTS "6343"
@@ -786,6 +790,7 @@ static int ett_sflow_lag_port_state_flags;
 static int ett_sflow_5_output_interface;
 
 static expert_field ei_sflow_invalid_address_type;
+static expert_field ei_sflow_unknown_record_format;
 
 static dissector_table_t   header_subdissector_table;
 
@@ -823,10 +828,6 @@ dissect_sflow_245_sampled_header(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_tree_add_item_ret_uint(tree, hf_sflow_245_sampled_header_length, tvb, offset, 4, ENC_BIG_ENDIAN, &header_length);
     offset += 4;
-
-    if (header_length % 4) /* XDR requires 4-byte alignment */
-        header_length += (4 - (header_length % 4));
-
 
     ti = proto_tree_add_item(tree, hf_sflow_245_header, tvb, offset, header_length, ENC_NA);
     sflow_245_header_tree = proto_item_add_subtree(ti, ett_sflow_245_sampled_header);
@@ -893,7 +894,8 @@ dissect_sflow_245_sampled_header(tvbuff_t *tvb, packet_info *pinfo,
     copy_address_shallow(&pinfo->src, &save_src);
     copy_address_shallow(&pinfo->dst, &save_dst);
 
-    offset += header_length;
+    /* XDR requires 4-byte alignment */
+    offset += WS_ROUNDUP_4(header_length);
     return offset;
 }
 
@@ -1263,11 +1265,10 @@ dissect_sflow_5_extended_user(tvbuff_t *tvb, proto_tree *tree, int offset) {
     offset += 4;
 
     /* extract source user info char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_user_source_user, tvb, offset, src_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_user_source_user, tvb, offset, src_length, ENC_ASCII);
     offset += src_length;
     /* get the correct offset by adding padding byte count */
-    if (src_length % 4)
-        offset += (4 - src_length % 4);
+    offset += WS_PADDING_TO_4(src_length);
 
     /* charset is not processed here, all chars are assumed to be ASCII */
     proto_tree_add_item(tree, hf_sflow_5_extended_user_destination_character_set, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -1278,11 +1279,10 @@ dissect_sflow_5_extended_user(tvbuff_t *tvb, proto_tree *tree, int offset) {
     offset += 4;
 
     /* extract destination user info char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_user_destination_user, tvb, offset, dest_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_user_destination_user, tvb, offset, dest_length, ENC_ASCII);
     offset += dest_length;
     /* get the correct offset by adding padding byte count */
-    if (dest_length % 4)
-        offset += (4 - dest_length % 4);
+    offset += WS_PADDING_TO_4(dest_length);
 
     return offset;
 }
@@ -1314,22 +1314,20 @@ dissect_sflow_5_extended_url(tvbuff_t *tvb, proto_tree *tree, int offset) {
     offset += 4;
 
     /* extract URL char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_url_url, tvb, offset, url_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_url_url, tvb, offset, url_length, ENC_ASCII);
     offset += url_length;
     /* get the correct offset by adding padding byte count */
-    if (url_length % 4)
-        offset += (4 - url_length % 4);
+    offset += WS_PADDING_TO_4(url_length);
 
     host_length = tvb_get_ntohl(tvb, offset);
     proto_tree_add_item(tree, hf_sflow_5_extended_url_host_length, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
     /* extract host info char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_url_host, tvb, offset, host_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_url_host, tvb, offset, host_length, ENC_ASCII);
     offset += host_length;
     /* get the correct offset by adding padding byte count */
-    if (host_length % 4)
-        offset += (4 - host_length % 4);
+    offset += WS_PADDING_TO_4(host_length);
 
     return offset;
 }
@@ -1344,11 +1342,10 @@ dissect_sflow_5_extended_mpls_tunnel(tvbuff_t *tvb, proto_tree *tree, int offset
     offset += 4;
 
     /* extract tunnel name char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_tunnel_name, tvb, offset, name_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_tunnel_name, tvb, offset, name_length, ENC_ASCII);
     offset += name_length;
     /* get the correct offset by adding padding byte count */
-    if (name_length % 4)
-        offset += (4 - name_length % 4);
+    offset += WS_PADDING_TO_4(name_length);
 
     proto_tree_add_item(tree, hf_sflow_5_extended_mpls_tunnel_id, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
@@ -1369,11 +1366,10 @@ dissect_sflow_5_extended_mpls_vc(tvbuff_t *tvb, proto_tree *tree, int offset) {
     offset += 4;
 
     /* extract source user info char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_vc_instance_name, tvb, offset, name_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_vc_instance_name, tvb, offset, name_length, ENC_ASCII);
     offset += name_length;
     /* get the correct offset by adding padding byte count */
-    if (name_length % 4)
-        offset += (4 - name_length % 4);
+    offset += WS_PADDING_TO_4(name_length);
 
     proto_tree_add_item(tree, hf_sflow_5_extended_mpls_vc_id, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
@@ -1394,11 +1390,10 @@ dissect_sflow_5_extended_mpls_fec(tvbuff_t *tvb, proto_tree *tree, int offset) {
     offset += 4;
 
     /* extract MPLS FTN description char by char */
-    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_ftn_description, tvb, offset, length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_mpls_ftn_description, tvb, offset, length, ENC_ASCII);
     offset += length;
     /* get the correct offset by adding padding byte count */
-    if (length % 4)
-        offset += (4 - length % 4);
+    offset += WS_PADDING_TO_4(length);
 
     proto_tree_add_item(tree, hf_sflow_5_extended_mpls_ftn_mask, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
@@ -1463,8 +1458,7 @@ dissect_sflow_5_extended_80211_payload(tvbuff_t *tvb, proto_tree *tree, int offs
     proto_tree_add_item(tree, hf_sflow_5_extended_80211_payload, tvb, offset, length, ENC_NA);
     offset += length;
     /* get the correct offset by adding padding byte count */
-    if (length % 4)
-        offset += (4 - length % 4);
+    offset += WS_PADDING_TO_4(length);
 
     return offset;
 }
@@ -1477,11 +1471,10 @@ dissect_sflow_5_extended_80211_rx(tvbuff_t *tvb, proto_tree *tree, int offset) {
     /* extract SSID char by char. max char count = 32 */
     ssid_length = tvb_get_ntohl(tvb, offset);
     offset += 4;
-    proto_tree_add_item(tree, hf_sflow_5_extended_80211_rx_ssid, tvb, offset, ssid_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_80211_rx_ssid, tvb, offset, ssid_length, ENC_ASCII);
     offset += ssid_length;
     /* get the correct offset by adding padding byte count */
-    if (ssid_length % 4)
-        offset += (4 - ssid_length % 4);
+    offset += WS_PADDING_TO_4(ssid_length);
 
     proto_tree_add_item(tree, hf_sflow_5_extended_80211_rx_bssid, tvb, offset, 6, ENC_NA);
     /* Padded to 4 byte offset */
@@ -1523,11 +1516,10 @@ dissect_sflow_5_extended_80211_tx(tvbuff_t *tvb, proto_tree *tree, int offset) {
     if (ssid_length > 32)
         ssid_length = 32;
     offset += 4;
-    proto_tree_add_item(tree, hf_sflow_5_extended_80211_tx_ssid, tvb, offset, ssid_length, ENC_NA|ENC_ASCII);
+    proto_tree_add_item(tree, hf_sflow_5_extended_80211_tx_ssid, tvb, offset, ssid_length, ENC_ASCII);
     offset += ssid_length;
     /* get the correct offset by adding padding byte count */
-    if (ssid_length % 4)
-        offset += (4 - ssid_length % 4);
+    offset += WS_PADDING_TO_4(ssid_length);
 
     proto_tree_add_item(tree, hf_sflow_5_extended_80211_tx_bssid, tvb, offset, 6, ENC_NA);
     /* Padded to 4 byte offset */
@@ -1677,8 +1669,8 @@ dissect_sflow_24_flow_sample(tvbuff_t *tvb, packet_info *pinfo,
 static int
 dissect_sflow_5_flow_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset) {
     proto_tree *flow_data_tree;
-    proto_item *ti;
-    uint32_t    enterprise_format, enterprise, format;
+    proto_item *ti, *expert_ti;
+    uint32_t    enterprise_format, enterprise, format, length;
 
     /* what kind of flow sample is it? */
     enterprise_format = tvb_get_ntohl(tvb, offset);
@@ -1695,7 +1687,7 @@ dissect_sflow_5_flow_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         proto_tree_add_item(flow_data_tree, hf_sflow_5_flow_record_format, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
 
-        proto_tree_add_item(flow_data_tree, hf_sflow_5_flow_data_length, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(flow_data_tree, hf_sflow_5_flow_data_length, tvb, offset, 4, ENC_BIG_ENDIAN, &length);
         offset += 4;
 
         switch (format) {
@@ -1760,12 +1752,13 @@ dissect_sflow_5_flow_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 offset = dissect_sflow_5_extended_80211_aggregation(tvb, flow_data_tree, offset);
                 break;
             default:
+                expert_ti = proto_tree_add_item(flow_data_tree, hf_sflow_enterprise_data, tvb, offset, length, ENC_NA);
+                expert_add_info(pinfo, expert_ti, &ei_sflow_unknown_record_format);
+                offset += WS_ROUNDUP_4(length);
                 break;
         }
     } else {
         /* unknown enterprise format, what to do?? */
-        uint32_t length;
-
         flow_data_tree = proto_tree_add_subtree(tree, tvb, offset, -1,
             ett_sflow_5_flow_record, &ti, "Unknown enterprise format");
         proto_tree_add_uint_format_value(flow_data_tree, hf_sflow_enterprise, tvb, offset, 4,
@@ -1778,8 +1771,7 @@ dissect_sflow_5_flow_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         proto_tree_add_item(flow_data_tree, hf_sflow_enterprise_data, tvb, offset, length, ENC_NA);
         offset += length;
         /* get the correct offset by adding padding byte count */
-        if (length % 4)
-            offset += (4 - length % 4);
+        offset += WS_PADDING_TO_4(length);
     }
     proto_item_set_end(ti, tvb, offset);
 
@@ -2095,8 +2087,8 @@ dissect_sflow_5_radio_utilization(proto_tree *counter_data_tree, tvbuff_t *tvb, 
 static int
 dissect_sflow_5_counters_record(tvbuff_t *tvb, proto_tree *tree, int offset) {
     proto_tree *counter_data_tree;
-    proto_item *ti;
-    uint32_t    enterprise_format, enterprise, format;
+    proto_item *ti, *expert_ti;
+    uint32_t    enterprise_format, enterprise, format, length;
 
     /* what kind of flow sample is it? */
     enterprise_format = tvb_get_ntohl(tvb, offset);
@@ -2113,7 +2105,7 @@ dissect_sflow_5_counters_record(tvbuff_t *tvb, proto_tree *tree, int offset) {
         proto_tree_add_item(counter_data_tree, hf_sflow_5_counters_record_format, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
 
-        proto_tree_add_item(counter_data_tree, hf_sflow_5_flow_data_length, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(counter_data_tree, hf_sflow_5_flow_data_length, tvb, offset, 4, ENC_BIG_ENDIAN, &length);
         offset += 4;
 
         switch (format) {
@@ -2145,11 +2137,12 @@ dissect_sflow_5_counters_record(tvbuff_t *tvb, proto_tree *tree, int offset) {
                 offset = dissect_sflow_5_radio_utilization(counter_data_tree, tvb, offset);
                 break;
             default:
+                expert_ti = proto_tree_add_item(counter_data_tree, hf_sflow_enterprise_data, tvb, offset, length, ENC_NA);
+                expert_add_info(NULL, expert_ti, &ei_sflow_unknown_record_format);
+                offset += WS_ROUNDUP_4(length);
                 break;
         }
     } else { /* unknown enterprise format, what to do?? */
-        uint32_t length;
-
         counter_data_tree = proto_tree_add_subtree(tree, tvb, offset, -1,
             ett_sflow_5_counters_record, &ti, "Unknown enterprise format");
         proto_tree_add_uint_format_value(counter_data_tree, hf_sflow_enterprise, tvb, offset, 4,
@@ -2162,8 +2155,7 @@ dissect_sflow_5_counters_record(tvbuff_t *tvb, proto_tree *tree, int offset) {
         proto_tree_add_item(counter_data_tree, hf_sflow_enterprise_data, tvb, offset, length, ENC_NA);
         offset += length;
         /* get the correct offset by adding padding byte count */
-        if (length % 4)
-            offset += (4 - length % 4);
+        offset += WS_PADDING_TO_4(length);
     }
     proto_item_set_end(ti, tvb, offset);
 
@@ -3294,7 +3286,7 @@ proto_register_sflow(void) {
       },
       { &hf_sflow_245_ethernet_packet_type,
         { "Ethernet Packet Type", "sflow_245.ethernet.packet_type",
-          FT_UINT32, BASE_DEC, NULL, 0x0,
+          FT_UINT32, BASE_HEX, VALS(etype_vals), 0x0,
           NULL, HFILL }
       },
       { &hf_sflow_245_length_of_ip_packet,
@@ -3934,6 +3926,7 @@ proto_register_sflow(void) {
 
     static ei_register_info ei[] = {
         { &ei_sflow_invalid_address_type, { "sflow.invalid_address_type", PI_MALFORMED, PI_ERROR, "Unknown/invalid address type", EXPFILL }},
+        { &ei_sflow_unknown_record_format, { "sflow.unknown_record_format", PI_UNDECODED, PI_NOTE, "Unknown/invalid record type", EXPFILL }},
     };
 
     expert_module_t* expert_sflow;

@@ -13,11 +13,11 @@
 #include "file.h"
 
 #include <epan/epan_dissect.h>
-#include <epan/rtp_pt.h>
 
 #include <epan/dfilter/dfilter.h>
 
 #include <epan/dissectors/packet-iax2.h>
+#include <epan/dissectors/packet-rtp_pt.h>
 
 #include "ui/help_url.h"
 #ifdef IAX2_RTP_STREAM_CHECK
@@ -254,12 +254,10 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
     // UI opens and closes at various points.
     QString tempname = QStringLiteral("%1/wireshark_iax2_f").arg(QDir::tempPath());
     fwd_tempfile_ = new QTemporaryFile(tempname, this);
-    fwd_tempfile_->open();
     tempname = QStringLiteral("%1/wireshark_iax2_r").arg(QDir::tempPath());
     rev_tempfile_ = new QTemporaryFile(tempname, this);
-    rev_tempfile_->open();
 
-    if (fwd_tempfile_->error() != QFile::NoError || rev_tempfile_->error() != QFile::NoError) {
+    if (!fwd_tempfile_->open() || fwd_tempfile_->error() != QFile::NoError || !rev_tempfile_->open() || rev_tempfile_->error() != QFile::NoError) {
         err_str_ = tr("Unable to save RTP data.");
         ui->actionSaveAudio->setEnabled(false);
         ui->actionSaveForwardAudio->setEnabled(false);
@@ -318,7 +316,6 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
     epan_dissect_init(&edt, cap_file_.capFile()->epan, true, false);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
     epan_dissect_run(&edt, cap_file_.capFile()->cd_t, &cap_file_.capFile()->rec,
-                     ws_buffer_start_ptr(&cap_file_.capFile()->buf),
                      fdata, NULL);
 
     // This shouldn't happen (the menu item should be disabled) but check anyway
@@ -899,11 +896,10 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
     bool       stop_flag = false;
     qint64     nchars;
 
-    save_file.open(QIODevice::WriteOnly);
     fwd_tempfile_->seek(0);
     rev_tempfile_->seek(0);
 
-    if (save_file.error() != QFile::NoError) {
+    if (!save_file.open(QIODevice::WriteOnly) || save_file.error() != QFile::NoError) {
         QMessageBox::warning(this, tr("Warning"), tr("Unable to save %1").arg(save_file.fileName()));
         return;
     }
@@ -913,37 +909,37 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
 
     if	(save_format == save_audio_au_) { /* au format; https://pubs.opengroup.org/external/auformat.html */
         /* First we write the .au header.  All values in the header are
-         * 4-byte big-endian values, so we use pntoh32() to copy them
+         * 4-byte big-endian values, so we use pntohu32() to copy them
          * to a 4-byte buffer, in big-endian order, and then write out
          * the buffer. */
 
         /* the magic word 0x2e736e64 == .snd */
-        phton32(pd, 0x2e736e64);
+        phtonu32(pd, 0x2e736e64);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
         /* header offset == 24 bytes */
-        phton32(pd, 24);
+        phtonu32(pd, 24);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
         /* total length; it is permitted to set this to 0xffffffff */
-        phton32(pd, 0xffffffff);
+        phtonu32(pd, 0xffffffff);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
         /* encoding format == 16-bit linear PCM */
-        phton32(pd, 3);
+        phtonu32(pd, 3);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
         /* sample rate == 8000 Hz */
-        phton32(pd, 8000);
+        phtonu32(pd, 8000);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
         /* channels == 1 */
-        phton32(pd, 1);
+        phtonu32(pd, 1);
         nchars = save_file.write((const char *)pd, 4);
         if (nchars != 4)
             goto copy_file_err;
@@ -961,10 +957,10 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
 
                 if (fwd_statinfo_.pt == PT_PCMU) {
                     sample = ulaw2linear((unsigned char)f_rawvalue);
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 } else if (fwd_statinfo_.pt == PT_PCMA) {
                     sample = alaw2linear((unsigned char)f_rawvalue);
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 } else {
                     goto copy_file_err;
                 }
@@ -988,10 +984,10 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
 
                 if (rev_statinfo_.pt == PT_PCMU) {
                     sample = ulaw2linear((unsigned char)r_rawvalue);
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 } else if (rev_statinfo_.pt == PT_PCMA) {
                     sample = alaw2linear((unsigned char)r_rawvalue);
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 } else {
                     goto copy_file_err;
                 }
@@ -1066,13 +1062,13 @@ void Iax2AnalysisDialog::saveAudio(Iax2AnalysisDialog::StreamDirection direction
                         && (rev_statinfo_.pt == PT_PCMU)) {
                     sample = (ulaw2linear((unsigned char)r_rawvalue)
                               + ulaw2linear((unsigned char)f_rawvalue)) / 2;
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 }
                 else if ((fwd_statinfo_.pt == PT_PCMA)
                          && (rev_statinfo_.pt == PT_PCMA)) {
                     sample = (alaw2linear((unsigned char)r_rawvalue)
                               + alaw2linear((unsigned char)f_rawvalue)) / 2;
-                    phton16(pd, sample);
+                    phtonu16(pd, sample);
                 } else {
                     goto copy_file_err;
                 }
@@ -1152,7 +1148,10 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
     if (file_path.isEmpty()) return;
 
     QFile save_file(file_path);
-    save_file.open(QFile::WriteOnly);
+    if (!save_file.open(QFile::WriteOnly)) {
+        // XXX - Warning dialog?
+        return;
+    }
 
     if (direction == dir_forward_ || direction == dir_both_) {
         save_file.write("Forward\n");
@@ -1199,6 +1198,7 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
             save_file.write("\n");
         }
     }
+    // XXX - Check for failure and warn?
 }
 
 bool Iax2AnalysisDialog::eventFilter(QObject *, QEvent *event)

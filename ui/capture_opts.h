@@ -21,7 +21,6 @@
 #include <sys/types.h>     /* for gid_t */
 
 #include <capture/capture_ifinfo.h>
-#include "ringbuffer.h"
 #include <wsutil/wslog.h>
 #include <wsutil/filter_files.h>
 
@@ -50,6 +49,7 @@ extern "C" {
 #define LONGOPT_COMPRESS_TYPE     LONGOPT_BASE_CAPTURE+3
 #define LONGOPT_CAPTURE_TMPDIR    LONGOPT_BASE_CAPTURE+4
 #define LONGOPT_UPDATE_INTERVAL   LONGOPT_BASE_CAPTURE+5
+#define LONGOPT_NO_OPTIMIZE       LONGOPT_BASE_CAPTURE+6
 
 /*
  * Options for capturing common to all capturing programs.
@@ -60,35 +60,27 @@ extern "C" {
 #define OPTSTRING_A
 #endif
 
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
-#define LONGOPT_BUFFER_SIZE \
-    {"buffer-size", ws_required_argument, NULL, 'B'},
 #define OPTSTRING_B "B:"
-#else
-#define LONGOPT_BUFFER_SIZE
-#define OPTSTRING_B
-#endif
 
-#ifdef HAVE_PCAP_CREATE
-#define LONGOPT_MONITOR_MODE {"monitor-mode", ws_no_argument, NULL, 'I'},
 #define OPTSTRING_I "I"
-#else
-#define LONGOPT_MONITOR_MODE
-#define OPTSTRING_I
-#endif
 
+// "interface" and "source" work for both Wireshark and Stratoshark flavors
+// but we only advertise the appropriate one in each application.
 #define LONGOPT_CAPTURE_COMMON \
     {"autostop",              ws_required_argument, NULL, 'a'}, \
     {"ring-buffer",           ws_required_argument, NULL, 'b'}, \
-    LONGOPT_BUFFER_SIZE \
+    {"buffer-size",           ws_required_argument, NULL, 'B'}, \
     {"list-interfaces",       ws_no_argument,       NULL, 'D'}, \
+    {"list-sources",          ws_no_argument,       NULL, 'D'}, \
     {"interface",             ws_required_argument, NULL, 'i'}, \
-    LONGOPT_MONITOR_MODE \
+    {"source",                ws_required_argument, NULL, 'i'}, \
+    {"monitor-mode",          ws_no_argument,       NULL, 'I'}, \
     {"list-data-link-types",  ws_no_argument,       NULL, 'L'}, \
     {"no-promiscuous-mode",   ws_no_argument,       NULL, 'p'}, \
     {"snapshot-length",       ws_required_argument, NULL, 's'}, \
     {"linktype",              ws_required_argument, NULL, 'y'}, \
     {"list-time-stamp-types", ws_no_argument,       NULL, LONGOPT_LIST_TSTAMP_TYPES}, \
+    {"no-optimize",           ws_no_argument,       NULL, LONGOPT_NO_OPTIMIZE}, \
     {"time-stamp-type",       ws_required_argument, NULL, LONGOPT_SET_TSTAMP_TYPE}, \
     {"compress-type",         ws_required_argument, NULL, LONGOPT_COMPRESS_TYPE}, \
     {"temp-dir",              ws_required_argument, NULL, LONGOPT_CAPTURE_TMPDIR},\
@@ -162,19 +154,16 @@ typedef struct interface_tag {
     char           *addresses;
     int             no_addresses;
     char           *cfilter;
+    int             optimize;             /* whether the capture filter above is optimized when compiled */
     GList          *links;
     int             active_dlt;
     bool            pmode;
     bool            has_snaplen;
     int             snaplen;
     bool            local;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     int             buffer;
-#endif
-#ifdef HAVE_PCAP_CREATE
     bool            monitor_mode_enabled;
     bool            monitor_mode_supported;
-#endif
 #ifdef HAVE_PCAP_REMOTE
     remote_options  remote_opts;
 #endif
@@ -198,8 +187,9 @@ typedef struct interface_options_tag {
     char             *descr;                /* a more user-friendly description of the interface; may be NULL if none */
     char             *hardware;             /* description of the hardware */
     char             *display_name;         /* the name displayed in the console and title bar */
-    char             *ifname;               /* if not null, name to use instead of the interface naem in IDBs */
+    char             *ifname;               /* if not null, name to use instead of the interface name in IDBs */
     char             *cfilter;
+    int               optimize;             /* whether the capture filter above is optimized when compiled */
     bool              has_snaplen;
     int               snaplen;
     int               linktype;
@@ -220,9 +210,7 @@ typedef struct interface_options_tag {
 #endif
     char             *extcap_control_in;
     char             *extcap_control_out;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     int               buffer_size;
-#endif
     bool              monitor_mode;
 #ifdef HAVE_PCAP_REMOTE
     capture_source    src_type;

@@ -74,7 +74,7 @@ BrandingText "Wireshark${U+00ae} Installer"
 ; is usually not associated with an appropriate text editor. We should use extension "txt"
 ; for a text file or "html" for an html README file.
 !define MUI_FINISHPAGE_TITLE_3LINES
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\release-notes.html"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\Wireshark Release Notes.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Open the release notes"
 !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
 ; NSIS runs as Administrator and will run Wireshark as Administrator
@@ -95,7 +95,8 @@ BrandingText "Wireshark${U+00ae} Installer"
 !define MUI_LICENSEPAGE_BUTTON "Noted"
 !insertmacro MUI_PAGE_LICENSE "${STAGING_DIR}\COPYING.txt"
 
-Page custom DisplayDonatePage
+; Page custom DisplayDonatePage
+Page custom DisplayCertificationPage
 
 !insertmacro MUI_PAGE_COMPONENTS
 !ifdef QT_DIR
@@ -138,7 +139,8 @@ Page custom DisplayUSBPcapPage
   ; Old Modern 1 UI: https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html
   ; To do: Upgrade to the Modern 2 UI:
   ;ReserveFile "AdditionalTasksPage.ini"
-  ReserveFile "DonatePage.ini"
+  ;ReserveFile "DonatePage.ini"
+  ReserveFile "CertificationPage.ini"
   ReserveFile "NpcapPage.ini"
   ReserveFile "USBPcapPage.ini"
   ReserveFile /plugin InstallOptions.dll
@@ -298,7 +300,7 @@ Function .onInit
 
   !if ${WIRESHARK_TARGET_PLATFORM} == "x64"
     ${If} ${IsNativeARM64}
-      MessageBox MB_OK "You're installing the x64 version of Wireshark on an Arm64 system.$\nThe native Arm64 installer might work better." /SD IDOK
+      MessageBox MB_OK "You're installing the x64 version of Wireshark on an Arm64 system.$\nWe recommend using the native Arm64 installer instead." /SD IDOK
     ${EndIf}
   !endif
 
@@ -485,7 +487,8 @@ done:
 
   ;Extract InstallOptions INI files
   ;!insertmacro INSTALLOPTIONS_EXTRACT "AdditionalTasksPage.ini"
-  !insertmacro INSTALLOPTIONS_EXTRACT "DonatePage.ini"
+  ;!insertmacro INSTALLOPTIONS_EXTRACT "DonatePage.ini"
+  !insertmacro INSTALLOPTIONS_EXTRACT "CertificationPage.ini"
   !insertmacro INSTALLOPTIONS_EXTRACT "NpcapPage.ini"
   !insertmacro INSTALLOPTIONS_EXTRACT "USBPcapPage.ini"
 FunctionEnd
@@ -496,9 +499,14 @@ Function DisplayAdditionalTasksPage
 FunctionEnd
 !endif
 
-Function DisplayDonatePage
-  !insertmacro MUI_HEADER_TEXT "Your donations keep these releases coming" "Donate today"
-  !insertmacro INSTALLOPTIONS_DISPLAY "DonatePage.ini"
+; Function DisplayDonatePage
+;   !insertmacro MUI_HEADER_TEXT "Your donations keep these releases coming" "Donate today!"
+;   !insertmacro INSTALLOPTIONS_DISPLAY "DonatePage.ini"
+; FunctionEnd
+
+Function DisplayCertificationPage
+  !insertmacro MUI_HEADER_TEXT "Do you use Wireshark professionally?" "Become a Wireshark Certified analyst!"
+  !insertmacro INSTALLOPTIONS_DISPLAY "CertificationPage.ini"
 FunctionEnd
 
 Function DisplayNpcapPage
@@ -547,7 +555,7 @@ File "${STAGING_DIR}\dumpcap.exe"
 File "${STAGING_DIR}\dumpcap.html"
 File "${STAGING_DIR}\extcap.html"
 File "${STAGING_DIR}\ipmap.html"
-File "${STAGING_DIR}\release-notes.html"
+File "${STAGING_DIR}\Wireshark Release Notes.html"
 
 !ifdef USE_VCREDIST
 ; C-runtime redistributable
@@ -609,8 +617,8 @@ File "${STAGING_DIR}\diameter\AlcatelLucent.xml"
 File "${STAGING_DIR}\diameter\chargecontrol.xml"
 File "${STAGING_DIR}\diameter\Cisco.xml"
 File "${STAGING_DIR}\diameter\CiscoSystems.xml"
-File "${STAGING_DIR}\diameter\Custom.xml"
 File "${STAGING_DIR}\diameter\dictionary.dtd"
+File "${STAGING_DIR}\diameter\dictionary.ent"
 File "${STAGING_DIR}\diameter\dictionary.xml"
 File "${STAGING_DIR}\diameter\eap.xml"
 File "${STAGING_DIR}\diameter\Ericsson.xml"
@@ -1231,8 +1239,6 @@ Section "-Documentation"
 SetOutPath "$INSTDIR\Wireshark User's Guide"
 File /r "${DOC_DIR}\wsug_html_chunked\*.*"
 
-SetOutPath $INSTDIR
-File "${DOC_DIR}\faq.html"
 SectionEnd
 !endif
 
@@ -1430,6 +1436,7 @@ Delete "$INSTDIR\console.lua"
 Delete "$INSTDIR\dtd_gen.lua"
 Delete "$INSTDIR\init.lua"
 Delete "$INSTDIR\release-notes.html"
+Delete "$INSTDIR\Wireshark Release Notes.html"
 
 RMDir "$INSTDIR\accessible"
 RMDir "$INSTDIR\audio"
@@ -1615,7 +1622,7 @@ Var USBPCAP_NAME ; DisplayName from USBPcap installation
 Function myShowCallback
 
   ClearErrors
-  ; detect if WinPcap should be installed
+  ; detect if Npcap should be installed
   WriteINIStr "$PLUGINSDIR\NpcapPage.ini" "Field 4" "Text" "Install Npcap ${NPCAP_PACKAGE_VERSION}"
   ReadRegStr $NPCAP_NAME HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\NpcapInst" "DisplayName"
   IfErrors 0 lbl_npcap_installed

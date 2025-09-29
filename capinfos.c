@@ -51,6 +51,7 @@
 #include <locale.h>
 
 #include <ws_exit_codes.h>
+#include <wsutil/clopts_common.h>
 #include <wsutil/ws_getopt.h>
 
 #include <glib.h>
@@ -174,7 +175,7 @@ typedef enum {
 } order_t;
 
 typedef struct _pkt_cmt {
-  int recno;
+  uint32_t recno;
   char *cmt;
   struct _pkt_cmt *next;
 } pkt_cmt;
@@ -632,9 +633,9 @@ print_stats(const char *filename, capture_info *cf_info)
     if (pkt_comments && cf_info->pkt_cmts != NULL) {
       for (p = cf_info->pkt_cmts; p != NULL; prev = p, p = p->next, g_free(prev)) {
         if (machine_readable){
-          printf("Packet %d Comment:    %s\n", p->recno, g_strescape(p->cmt, NULL));
+          printf("Packet %u Comment:    %s\n", p->recno, g_strescape(p->cmt, NULL));
         } else {
-          printf("Packet %d Comment:    %s\n", p->recno, p->cmt);
+          printf("Packet %u Comment:    %s\n", p->recno, p->cmt);
         }
         g_free(p->cmt);
       }
@@ -679,12 +680,16 @@ putquote(void)
     if (quote_char) putchar(quote_char);
 }
 
-static void
-print_stats_table_header_label(const char *label)
+static void G_GNUC_PRINTF(1, 2)
+print_stats_table_header_label(const char *fmt, ...)
 {
+    va_list ap;
+
     putsep();
     putquote();
-    printf("%s", label);
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
     putquote();
 }
 
@@ -692,8 +697,6 @@ static void
 print_stats_table_header(capture_info *cf_info)
 {
     pkt_cmt *p;
-    char    *buf;
-    size_t   buf_len;
 
     putquote();
     printf("File name");
@@ -730,14 +733,9 @@ print_stats_table_header(capture_info *cf_info)
     if (cap_comment)        print_stats_table_header_label("Capture comment");
 
     if (pkt_comments && cf_info->pkt_cmts != NULL) {
-      /* Packet 2^64 Comment" + NULL */
-      buf_len = strlen("Packet 18446744073709551616 Comment") + 1;
-      buf = (char *)g_malloc0(buf_len);
-
-      for (p = cf_info->pkt_cmts; p != NULL; p = p->next) {
-        snprintf(buf, buf_len, "Packet %d Comment", p->recno);
-        print_stats_table_header_label(buf);
-      }
+        for (p = cf_info->pkt_cmts; p != NULL; p = p->next) {
+            print_stats_table_header_label("Packet %u Comment", p->recno);
+        }
     }
 
     printf("\n");
@@ -1090,7 +1088,6 @@ process_cap_file(const char *filename, bool need_separator)
     uint32_t              snaplen_min_inferred = 0xffffffff;
     uint32_t              snaplen_max_inferred =          0;
     wtap_rec              rec;
-    Buffer                buf;
     capture_info          cf_info;
     bool                  have_times = true;
     nstime_t              earliest_packet_time;
@@ -1157,9 +1154,8 @@ process_cap_file(const char *filename, bool need_separator)
     wtap_set_cb_new_secrets(cf_info.wth, count_decryption_secret);
 
     /* Tally up data that we need to parse through the file to find */
-    wtap_rec_init(&rec);
-    ws_buffer_init(&buf, 1514);
-    while (wtap_read(cf_info.wth, &rec, &buf, &err, &err_info, &data_offset))  {
+    wtap_rec_init(&rec, 1514);
+    while (wtap_read(cf_info.wth, &rec, &err, &err_info, &data_offset))  {
         if (rec.presence_flags & WTAP_HAS_TS) {
             prev_time = cur_time;
             cur_time = rec.ts;
@@ -1268,7 +1264,6 @@ process_cap_file(const char *filename, bool need_separator)
         wtap_rec_reset(&rec);
     } /* while */
     wtap_rec_cleanup(&rec);
-    ws_buffer_free(&buf);
 
     /*
      * Get IDB info strings.
@@ -1469,8 +1464,12 @@ main(int argc, char *argv[])
     static const struct ws_option long_options[] = {
         {"help", ws_no_argument, NULL, 'h'},
         {"version", ws_no_argument, NULL, 'v'},
+        LONGOPT_WSLOG
         {0, 0, 0, 0 }
     };
+
+#define OPTSTRING "abcdehiklmnopqrstuvxyzABCDEFHIKLMNPQRST"
+    static const char optstring[] = OPTSTRING;
 
     int status = 0;
 
@@ -1493,7 +1492,7 @@ main(int argc, char *argv[])
     ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -1529,7 +1528,7 @@ main(int argc, char *argv[])
     wtap_init(true);
 
     /* Process the options */
-    while ((opt = ws_getopt_long(argc, argv, "abcdehiklmnopqrstuvxyzABCDEFHIKLMNPQRST", long_options, NULL)) !=-1) {
+    while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) !=-1) {
 
         switch (opt) {
 

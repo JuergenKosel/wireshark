@@ -20,6 +20,7 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/expert.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/cmdarg_err.h>
 
 void register_tap_listener_expert_info(void);
 
@@ -33,10 +34,6 @@ typedef enum severity_level_t {
     max_level
 } severity_level_t;
 
-/* This variable stores the lowest level that will be displayed.
-   May be changed from the command line */
-static severity_level_t lowest_report_level = comment_level;
-
 typedef struct expert_entry
 {
     uint32_t     group;
@@ -48,6 +45,7 @@ typedef struct expert_entry
 
 /* Overall struct for storing all data seen */
 typedef struct expert_tapdata_t {
+    severity_level_t lowest_report_level; /* the lowest level that will be displayed */
     GArray       *ei_array[max_level]; /* expert info items */
     GStringChunk *text;         /* for efficient storage of summary strings */
 } expert_tapdata_t;
@@ -104,7 +102,7 @@ expert_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U
     }
 
     /* Don't store details at a lesser severity than we are interested in */
-    if (severity_level < lowest_report_level) {
+    if (severity_level < data->lowest_report_level) {
         return TAP_PACKET_REDRAW; /* XXX - TAP_PACKET_DONT_REDRAW? */
     }
 
@@ -161,7 +159,7 @@ static void draw_items_for_severity(GArray *items, const char *label)
     /* Items */
     for (n=0; n < items->len; n++) {
         ei = &g_array_index(items, expert_entry, n);
-        tmp_str = val_to_str_wmem(NULL, ei->group, expert_group_vals, "Unknown (%d)");
+        tmp_str = val_to_str(NULL, ei->group, expert_group_vals, "Unknown (%d)");
         printf("%12d %10s %18s  %s\n",
               ei->frequency,
               tmp_str,
@@ -195,13 +193,15 @@ expert_tapdata_free(expert_tapdata_t* hs)
 }
 
 /* Create a new expert stats struct */
-static void expert_stat_init(const char *opt_arg, void *userdata _U_)
+static bool expert_stat_init(const char *opt_arg, void *userdata _U_)
 {
     const char       *args   = NULL;
     const char       *filter = NULL;
     GString          *error_string;
     expert_tapdata_t *hs;
     int               n;
+    severity_level_t lowest_report_level = comment_level;
+
 
     /* Check for args. */
     if (strncmp(opt_arg, "expert", 6) == 0) {
@@ -243,6 +243,7 @@ static void expert_stat_init(const char *opt_arg, void *userdata _U_)
 
     /* Create top-level struct */
     hs = g_new0(expert_tapdata_t, 1);
+    hs->lowest_report_level = lowest_report_level;
 
     /* Allocate chunk of strings */
     hs->text = g_string_chunk_new(100);
@@ -257,17 +258,19 @@ static void expert_stat_init(const char *opt_arg, void *userdata _U_)
     /**********************************************/
 
     error_string = register_tap_listener("expert", hs,
-                                         filter, 0,
+                                         filter, TL_REQUIRES_NOTHING,
                                          expert_stat_reset,
                                          expert_stat_packet,
                                          expert_stat_draw,
                                          (tap_finish_cb)expert_tapdata_free);
     if (error_string) {
-        printf("Expert tap error (%s)!\n", error_string->str);
+        cmdarg_err("Expert tap error (%s)!\n", error_string->str);
         g_string_free(error_string, TRUE);
         expert_tapdata_free(hs);
-        exit(1);
+        return false;
     }
+
+    return true;
 }
 
 static stat_tap_ui expert_stat_ui = {

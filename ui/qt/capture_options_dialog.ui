@@ -80,6 +80,11 @@
          </column>
          <column>
           <property name="text">
+           <string>Optimize</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
            <string>Capture Filter</string>
           </property>
          </column>
@@ -249,6 +254,60 @@
          </item>
          <item>
           <spacer name="horizontalSpacer_7">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_comp">
+         <item>
+          <widget class="QLabel" name="labelCompression">
+           <property name="text">
+            <string>Compression:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="rbCompressionNone">
+           <property name="text">
+            <string>None</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="rbCompressionGzip">
+           <property name="text">
+            <string>gzip</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="rbCompressionLZ4">
+           <property name="text">
+            <string>LZ4</string>
+           </property>
+           <attribute name="buttonGroup">
+            <string notr="true">buttonGroup</string>
+           </attribute>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_comp">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
@@ -466,36 +525,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</stri
             </item>
            </widget>
           </item>
-          <item row="5" column="0">
-           <widget class="QGroupBox" name="gbCompression">
-            <property name="title">
-             <string>compression</string>
-            </property>
-            <layout class="QVBoxLayout" name="verticalLayout_4">
-             <item>
-              <widget class="QRadioButton" name="rbCompressionNone">
-               <property name="text">
-                <string>None</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
-              <widget class="QRadioButton" name="rbCompressionGzip">
-               <property name="text">
-                <string>gzip</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup</string>
-               </attribute>
-              </widget>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item row="5" column="1" colspan="2">
+          <item row="5" column="0" colspan="2">
            <widget class="QGroupBox" name="nameTemplateGB">
             <property name="title">
              <string>File infix pattern</string>

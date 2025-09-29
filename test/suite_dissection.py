@@ -127,6 +127,26 @@ class TestDissectBpv7:
             ), encoding='utf-8', env=test_env)
         assert stdout.strip() == ''
 
+    def test_bpv7_bpsec_cose_mac0_result_alg(self, cmd_tshark, capture_file, test_env):
+        stdout = subprocess.check_output((cmd_tshark,
+                '-r', capture_file('dtn_udpcl_bpv7_bpsec_cose_mac0.pcap'),
+                '-Tfields',
+                '-ebpsec.asb.ctxid',
+                '-ebpsec.asb.result.id',
+                '-ecose.alg.int',
+            ), encoding='utf-8', env=test_env)
+        assert stdout.strip() == '\t'.join(['3', '17', '5'])
+
+    def test_bpv7_bpsec_cose_encrypt_result_alg(self, cmd_tshark, capture_file, test_env):
+        stdout = subprocess.check_output((cmd_tshark,
+                '-r', capture_file('dtn_udpcl_bpv7_bpsec_cose_encrypt_ec.pcap'),
+                '-Tfields',
+                '-ebpsec.asb.ctxid',
+                '-ebpsec.asb.result.id',
+                '-ecose.alg.int',
+            ), encoding='utf-8', env=test_env)
+        assert stdout.strip() == '\t'.join(['3', '96', '3,-31'])
+
 
 class TestDissectCose:
     '''
@@ -136,51 +156,58 @@ class TestDissectCose:
     def test_cose_sign_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_sign_tagged.pcap'),
-                '-Tfields', '-ecose.msg.signature',
+                '-Tfields',
+                '-ecose.msg.signature',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, 'e2aeafd40d69d19dfe6e52077c5d7ff4e408282cbefb5d06cbf414af2e19d982ac45ac98b8544c908b4507de1e90b717c3d34816fe926a2b98f53afd2fa0f30a')
+        assert stdout.strip() == 'e2aeafd40d69d19dfe6e52077c5d7ff4e408282cbefb5d06cbf414af2e19d982ac45ac98b8544c908b4507de1e90b717c3d34816fe926a2b98f53afd2fa0f30a,00a2d28a7c2bdb1587877420f65adf7d0b9a06635dd1de64bb62974c863f0b160dd2163734034e6ac003b01e8705524c5c4ca479a952f0247ee8cb0b4fb7397ba08d009e0c8bf482270cc5771aa143966e5a469a09f613488030c5b07ec6d722e3835adb5b2d8c44e95ffb13877dd2582866883535de3bb03d01753f83ab87bb4f7a0297'
 
     def test_cose_sign1_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_sign1_tagged.pcap'),
-                '-Tfields', '-ecose.msg.signature',
+                '-Tfields',
+                '-ecose.msg.signature',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '8eb33e4ca31d1c465ab05aac34cc6b23d58fef5c083106c4d25a91aef0b0117e2af9a291aa32e14ab834dc56ed2a223444547e01f11d3b0916e5a4c345cacb36')
+        assert stdout.strip() == '8eb33e4ca31d1c465ab05aac34cc6b23d58fef5c083106c4d25a91aef0b0117e2af9a291aa32e14ab834dc56ed2a223444547e01f11d3b0916e5a4c345cacb36'
 
     def test_cose_encrypt_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_encrypt_tagged.pcap'),
-                '-Tfields', '-ecose.kid',
+                '-Tfields',
+                '-ecose.kid',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '6f75722d736563726574')
+        assert stdout.strip() == '6f75722d736563726574'
 
     def test_cose_encrypt0_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_encrypt0_tagged.pcap'),
-                '-Tfields', '-ecose.iv',
+                '-Tfields',
+                '-ecose.iv',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '89f52f65a1c580933b5261a78c')
+        assert stdout.strip() == '89f52f65a1c580933b5261a78c'
 
     def test_cose_mac_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_mac_tagged.pcap'),
-                '-Tfields', '-ecose.kid',
+                '-Tfields',
+                '-ecose.msg.mac_tag',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '30313863306165352d346439622d343731622d626664362d656566333134626337303337')
+        assert stdout.strip() == 'bf48235e809b5c42e995f2b7d5fa13620e7ed834e337f6aa43df161e49e9323e'
 
     def test_cose_mac0_tagged(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_mac0_tagged.pcap'),
-                '-Tfields', '-ecose.msg.mac_tag',
+                '-Tfields',
+                '-ecose.msg.mac_tag',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '726043745027214f')
+        assert stdout.strip() == '726043745027214f'
 
     def test_cose_keyset(self, cmd_tshark, capture_file, test_env):
         stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('cose_keyset.pcap'),
-                '-Tfields', '-ecose.key.k',
+                '-Tfields',
+                '-ecose.key.k',
             ), encoding='utf-8', env=test_env)
-        assert grep_output(stdout, '849b57219dae48de646d07dbb533566e976686457c1491be3a76dcea6c427188')
+        assert stdout.strip() == '849b57219dae48de646d07dbb533566e976686457c1491be3a76dcea6c427188'
 
 
 class TestDissectGprpc:
@@ -624,6 +651,8 @@ class TestDissectProtobuf:
                       ' && pbf.wireshark.protobuf.test.TestDefaultValueMessage.bytesWithDefaultValue_1F2F890D0A00004B == 1f:2f:89:0d:0a:00:00:4b'
                       ' && pbf.wireshark.protobuf.test.TestDefaultValueMessage.optional' # test taking keyword 'optional' as identification
                       ' && pbf.wireshark.protobuf.test.TestDefaultValueMessage.message' # test taking keyword 'message' as identification
+                      ' && pbf.wireshark.protobuf.test.TestDefaultValueMessage.stringWithNoValue == ""' # test default value is empty for strings
+                      ' && pbf.wireshark.protobuf.test.TestDefaultValueMessage.bytesWithNoValue == ""' # test default value is empty for bytes
             ), encoding='utf-8', env=test_env)
         assert grep_output(stdout, 'floatWithDefaultValue_0point23: 0.23') # another default value will be displayed
         assert grep_output(stdout, 'missing required field \'missingRequiredField\'') # check the missing required field export warn
@@ -919,6 +948,16 @@ class TestDissectQuic:
         '''Verify that QUIC and TLS handshake reassembly works (second pass).'''
         self.check_quic_tls_handshake_reassembly(
             cmd_tshark, capture_file, test_env, extraArgs=['-2'])
+
+    def test_quic_multiple_retry(self, cmd_tshark, capture_file, test_env):
+        '''Verify that a second Retry is correctly ignored.'''
+        stdout = subprocess.check_output([cmd_tshark,
+                               '-r', capture_file('quic-double-retry.pcapng.gz'),
+                               '-zexpert,warn',
+                               ],
+                               encoding='utf-8', env=test_env)
+        assert not grep_output(stdout, 'Warns')
+        assert not grep_output(stdout, 'Errors')
 
 class TestDecompressSmb2:
     @staticmethod

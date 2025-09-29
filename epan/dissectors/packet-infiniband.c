@@ -20,6 +20,8 @@
 #include <epan/etypes.h>
 #include <epan/show_exception.h>
 #include <epan/decode_as.h>
+#include <epan/reassemble.h>
+#include <epan/proto_data.h>
 #include <wiretap/erf_record.h>
 #include <wiretap/wtap.h>
 
@@ -168,21 +170,21 @@ static void parse_APPLICATION_MANAGEMENT(proto_tree *, tvbuff_t *, int *offset);
 static void parse_RESERVED_MANAGEMENT(proto_tree *, tvbuff_t *, int *offset);
 
 static bool parse_MAD_Common(proto_tree*, tvbuff_t*, int *offset, MAD_Data*);
-static bool parse_RMPP(proto_tree* , tvbuff_t* , int *offset);
+static bool parse_RMPP(proto_tree* , packet_info* , tvbuff_t* , int *offset);
 static void label_SUBM_Method(proto_item*, MAD_Data*, packet_info*);
 static void label_SUBM_Attribute(proto_item*, MAD_Data*, packet_info*);
 static void label_SUBA_Method(proto_item*, MAD_Data*, packet_info*);
 static void label_SUBA_Attribute(proto_item*, MAD_Data*, packet_info*);
 
 /* Class Attribute Parsing Routines */
-static bool parse_SUBM_Attribute(proto_tree*, tvbuff_t*, int *offset, MAD_Data*);
-static bool parse_SUBA_Attribute(proto_tree*, tvbuff_t*, int *offset, MAD_Data*);
+static bool parse_SUBM_Attribute(proto_tree*, packet_info*, tvbuff_t*, int *offset, MAD_Data*);
+static bool parse_SUBA_Attribute(proto_tree*, packet_info*, tvbuff_t*, int *offset, MAD_Data*);
 
 /* These methods parse individual attributes
 * Naming convention FunctionHandle = "parse_" + [Attribute Name];
 * Where [Attribute Name] is the attribute identifier from chapter 14 of the IB Specification
 * Subnet Management */
-static void parse_NoticesAndTraps(proto_tree*, tvbuff_t*, int *offset);
+static void parse_NoticesAndTraps(proto_tree*, packet_info*, tvbuff_t*, int *offset);
 static void parse_NodeDescription(proto_tree*, tvbuff_t*, int *offset);
 static int parse_NodeInfo(proto_tree*, tvbuff_t*, int *offset);
 static int parse_SwitchInfo(proto_tree*, tvbuff_t*, int *offset);
@@ -745,7 +747,7 @@ static int ett_eoib;
 #define MELLANOX_SEGMENT_FLAG           0x001F
 
 /* Attributes
-* Additional Structures for individuala attribute decoding.
+* Additional Structures for individual attribute decoding.
 * Since they are not headers the naming convention is slightly modified
 * Convention: hf_infiniband_[attribute name]_[field]
 * This was not entirely necessary but I felt the previous convention
@@ -1185,6 +1187,38 @@ static int hf_infiniband_link_vl;
 static int hf_infiniband_link_fccl;
 static int hf_infiniband_link_lpcrc;
 
+/* RC Send reassembling */
+static reassembly_table infiniband_rc_send_reassembly_table;
+static int ett_infiniband_rc_send_fragment;
+static int ett_infiniband_rc_send_fragments;
+static int hf_infiniband_rc_send_fragments;
+static int hf_infiniband_rc_send_fragment;
+static int hf_infiniband_rc_send_fragment_overlap;
+static int hf_infiniband_rc_send_fragment_overlap_conflict;
+static int hf_infiniband_rc_send_fragment_multiple_tails;
+static int hf_infiniband_rc_send_fragment_too_long_fragment;
+static int hf_infiniband_rc_send_fragment_error;
+static int hf_infiniband_rc_send_fragment_count;
+static int hf_infiniband_rc_send_reassembled_in;
+static int hf_infiniband_rc_send_reassembled_length;
+static int hf_infiniband_rc_send_reassembled_data;
+static const fragment_items infiniband_rc_send_frag_items = {
+	&ett_infiniband_rc_send_fragment,
+	&ett_infiniband_rc_send_fragments,
+	&hf_infiniband_rc_send_fragments,
+	&hf_infiniband_rc_send_fragment,
+	&hf_infiniband_rc_send_fragment_overlap,
+	&hf_infiniband_rc_send_fragment_overlap_conflict,
+	&hf_infiniband_rc_send_fragment_multiple_tails,
+	&hf_infiniband_rc_send_fragment_too_long_fragment,
+	&hf_infiniband_rc_send_fragment_error,
+	&hf_infiniband_rc_send_fragment_count,
+	&hf_infiniband_rc_send_reassembled_in,
+	&hf_infiniband_rc_send_reassembled_length,
+	&hf_infiniband_rc_send_reassembled_data,
+	"RC Send fragments"
+};
+
 /* Trap Type/Descriptions for dissection */
 static const value_string Operand_Description[]= {
     { 0, " Normal Flow Control"},
@@ -1570,7 +1604,7 @@ static const value_string DctOpCodeMap[] =
 #define AETH_SYNDROME_VALUE 0x1F
 
 
-/* Array of all availavle OpCodes to make matching a bit easier.
+/* Array of all available OpCodes to make matching a bit easier.
 * The OpCodes dictate the header sequence following in the packet.
 * These arrays tell the dissector which headers must be decoded for the given OpCode. */
 static uint32_t opCode_RDETH_DETH_ATOMICETH[] = {
@@ -1729,8 +1763,20 @@ static void table_destroy_notify(void *data) {
 static int
 dissect_rroce(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    /* this is a RRoCE packet, so signal the IB dissector not to look for LRH/GRH */
+    /*
+     * this is a RRoCE packet so signal the IB dissector not to look for LRH/GRH
+     *
+     * We also make sure to reset pinfo->{ptype,srcport,destport} so
+     * that PT_IBQP is only set temporary, so that Follow UDP Stream
+     * still works.
+     */
+    port_type saved_ptype = pinfo->ptype;
+    uint32_t saved_srcport = pinfo->srcport;
+    uint32_t saved_destport = pinfo->destport;
     dissect_infiniband_common(tvb, pinfo, tree, IB_PACKET_STARTS_WITH_BTH);
+    pinfo->ptype = saved_ptype;
+    pinfo->srcport = saved_srcport;
+    pinfo->destport = saved_destport;
     return tvb_captured_length(tvb);
 }
 
@@ -1754,7 +1800,7 @@ dissect_infiniband(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 
 /* Common Dissector for both InfiniBand and RoCE packets
  * IN:
- *       tvb - The tvbbuff of packet data
+ *       tvb - The tvbuf of packet data
  *       pinfo - The packet info structure with column information
  *       tree - The tree structure under which field nodes are to be added
  *       starts_with - regular IB packet starts with LRH, ROCE starts with GRH and RROCE starts with BTH,
@@ -1787,7 +1833,7 @@ dissect_infiniband_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 
     /* General Variables */
     bool bthFollows = false;    /* Tracks if we are parsing a BTH.  This is a significant decision point */
-    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false};
+    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false, false};
     int32_t nextHeaderSequence = -1; /* defined by this dissector. #define which indicates the upcoming header sequence from OpCode */
     uint8_t nxtHdr = 0;              /* Keyed off for header dissection order */
     uint16_t packetLength = 0;       /* Packet Length.  We track this as tvb_length - offset.   */
@@ -2284,7 +2330,7 @@ dissect_infiniband_link(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     /* Clear other columns */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "InfiniBand Link");
     col_add_str(pinfo->cinfo, COL_INFO,
-             val_to_str(operand, Operand_Description, "Unknown (0x%1x)"));
+             val_to_str(pinfo->pool, operand, Operand_Description, "Unknown (0x%1x)"));
 
     /* Assigns column values */
     dissect_general_info(tvb, offset, pinfo, IB_PACKET_STARTS_WITH_LRH);
@@ -2317,7 +2363,7 @@ dissect_infiniband_link(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
 /* Description: Finds the header sequence that follows the Base Transport Header.
 * Somwhat inefficient (should be using a single key,value pair data structure)
-* But uses pure probablity to take a stab at better efficiency.
+* But uses pure probability to take a stab at better efficiency.
 * Searches largest header sequence groups first, and then finally resorts to single matches for unique header sequences
 * IN: OpCode: The OpCode from the Base Transport Header.
 * OUT: The Header Sequence enumeration.  See Declarations for #defines from (0-22) */
@@ -2586,7 +2632,7 @@ parse_AETH(proto_tree * parentTree, tvbuff_t *tvb, int *offset, packet_info *pin
             break;
         case AETH_SYNDROME_OPCODE_NAK:
             proto_tree_add_item_ret_uint(AETH_syndrome_tree, hf_infiniband_syndrome_error_code, tvb, local_offset, 1, ENC_BIG_ENDIAN, &nak_error);
-            col_append_fstr(pinfo->cinfo, COL_INFO, "[%s] ", val_to_str(nak_error, aeth_syndrome_nak_error_code_vals, "Unknown (%d)"));
+            col_append_fstr(pinfo->cinfo, COL_INFO, "[%s] ", val_to_str(pinfo->pool, nak_error, aeth_syndrome_nak_error_code_vals, "Unknown (%d)"));
             break;
     }
 
@@ -2701,6 +2747,138 @@ static void update_sport(packet_info *pinfo)
     pinfo->srcport = conv_data->src_qp;
 }
 
+static bool parse_PAYLOAD_do_rc_send_reassembling(packet_info *pinfo,
+                                                  struct infinibandinfo *info)
+{
+    conversation_t *conversation = NULL;
+    conversation_infiniband_data *proto_data = NULL;
+
+    switch (info->opCode) {
+    case RC_SEND_FIRST:
+    case RC_SEND_MIDDLE:
+    case RC_SEND_ONLY:
+    case RC_SEND_ONLY_IMM:
+    case RC_SEND_ONLY_INVAL:
+    case RC_SEND_LAST:
+    case RC_SEND_LAST_IMM:
+    case RC_SEND_LAST_INVAL:
+        break;
+    default:
+        /* not a fragmented RC Send */
+        return false;
+    }
+
+    /*
+     * Check if RC Send reassembling was used before in
+     * this conversation
+     */
+    conversation = find_conversation_pinfo(pinfo, 0);
+    if (conversation == NULL) {
+        return false;
+    }
+    proto_data = conversation_get_proto_data(conversation, proto_infiniband);
+    if (proto_data == NULL) {
+        return false;
+    }
+
+    return proto_data->do_rc_send_reassembling;
+
+    return true;
+}
+
+static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
+                                              struct infinibandinfo *info,
+                                              tvbuff_t *tvb,
+                                              proto_tree *top_tree)
+{
+    static const uint32_t rc_send_id = 99;
+    conversation_t *conversation = NULL;
+    conversation_infiniband_data *proto_data = NULL;
+    bool more_frags = false;
+    fragment_head *fd_head = NULL;
+    bool fd_head_not_cached = false;
+
+    switch (info->opCode) {
+    case RC_SEND_FIRST:
+    case RC_SEND_MIDDLE:
+        more_frags = true;
+        break;
+    case RC_SEND_ONLY:
+    case RC_SEND_ONLY_IMM:
+    case RC_SEND_ONLY_INVAL:
+    case RC_SEND_LAST:
+    case RC_SEND_LAST_IMM:
+    case RC_SEND_LAST_INVAL:
+        break;
+    default:
+        /* not a fragmented RC Send */
+        return tvb;
+    }
+
+    conversation = find_or_create_conversation(pinfo);
+    proto_data = conversation_get_proto_data(conversation, proto_infiniband);
+    if (proto_data == NULL) {
+        /*
+         * Remember that RC Send reassembling was requested
+         * for this conversation
+         */
+        proto_data = wmem_new0(wmem_file_scope(), conversation_infiniband_data);
+        proto_data->do_rc_send_reassembling = true;
+        conversation_add_proto_data(conversation,
+                                    proto_infiniband,
+                                    proto_data);
+    }
+
+    fd_head = (fragment_head *)p_get_proto_data(wmem_file_scope(),
+                                                pinfo,
+                                                proto_infiniband,
+                                                rc_send_id);
+    if (fd_head == NULL) {
+            fd_head_not_cached = true;
+
+            pinfo->fd->visited = 0;
+            fd_head = fragment_add_seq_next(&infiniband_rc_send_reassembly_table,
+                                            tvb, 0, pinfo,
+                                            conversation->conv_index,
+                                            NULL, tvb_captured_length(tvb),
+                                            more_frags);
+    }
+
+    if (fd_head == NULL) {
+            /*
+             * We really want the fd_head and pass it to
+             * process_reassembled_data()
+             *
+             * So that individual fragments gets the
+             * reassembled in field.
+             */
+            fd_head = fragment_get_reassembled_id(&infiniband_rc_send_reassembly_table,
+                                                  pinfo,
+                                                  conversation->conv_index);
+    }
+
+    if (fd_head == NULL) {
+            /*
+             * we need more data...
+             */
+            return NULL;
+    }
+
+    if (fd_head_not_cached) {
+            p_add_proto_data(wmem_file_scope(), pinfo,
+                             proto_infiniband,
+                             rc_send_id,
+                             fd_head);
+    }
+
+    return process_reassembled_data(tvb, 0, pinfo,
+                                    "Reassembled Infiniband RC Send fragments",
+                                    fd_head,
+                                    &infiniband_rc_send_frag_items,
+                                    NULL, /* update_col_info*/
+                                    top_tree);
+}
+
 /* Parse Payload - Packet Payload / Invariant CRC / maybe Variant CRC
 * IN: parentTree to add the dissection to - in this code the all_headers_tree
 * IN: pinfo - packet info from wireshark
@@ -2800,6 +2978,7 @@ static void parse_PAYLOAD(proto_tree *parentTree,
     }
     else /* Normal Data Packet - Parse as such */
     {
+        bool allow_reassembling = true;
         /* update sport for the packet, for dissectors that performs
          * exact match on saddr, dadr, sport, dport tuple.
          */
@@ -2816,6 +2995,21 @@ static void parse_PAYLOAD(proto_tree *parentTree,
         if (reported_length >= crclen)
             reported_length -= crclen;
         next_tvb = tvb_new_subset_length(tvb, local_offset, reported_length);
+
+        info->do_rc_send_reassembling = parse_PAYLOAD_do_rc_send_reassembling(pinfo, info);
+
+reassemble:
+
+        if (info->do_rc_send_reassembling) {
+            allow_reassembling = false;
+            next_tvb = parse_PAYLOAD_reassemble_tvb(pinfo, info, next_tvb, top_tree);
+            if (next_tvb == NULL) {
+                /*
+                 * we need more data...
+                 */
+                goto skip_dissector;
+            }
+        }
 
         if (try_heuristic_first)
         {
@@ -2846,6 +3040,11 @@ static void parse_PAYLOAD(proto_tree *parentTree,
             call_data_dissector(next_tvb, pinfo, top_tree);
         }
 
+        if (allow_reassembling && info->do_rc_send_reassembling) {
+                goto reassemble;
+        }
+
+skip_dissector:
         /* Will contain ICRC <and maybe VCRC> = 4 or 4+2 (crclen) */
         local_offset = tvb_reported_length(tvb) - crclen;
     }
@@ -3104,7 +3303,7 @@ static void parse_SUBN_LID_ROUTED(proto_tree *parentTree, packet_info *pinfo, tv
     label_SUBM_Attribute(SUBN_LID_ROUTED_header_item, &MadData, pinfo);
 
     /* Try to do the detail parse of the attribute.  If there is an error, or the attribute is unknown, we'll just highlight the generic data. */
-    if (!parse_SUBM_Attribute(SUBN_LID_ROUTED_header_tree, tvb, &local_offset, &MadData))
+    if (!parse_SUBM_Attribute(SUBN_LID_ROUTED_header_tree, pinfo, tvb, &local_offset, &MadData))
     {
         proto_tree_add_item(SUBN_LID_ROUTED_header_tree, hf_infiniband_smp_data, tvb, local_offset, 64, ENC_NA);
     local_offset += 64;
@@ -3164,7 +3363,7 @@ static void parse_SUBN_DIRECTED_ROUTE(proto_tree *parentTree, packet_info *pinfo
     local_offset += 28;
 
     /* Try to do the detail parse of the attribute.  If there is an error, or the attribute is unknown, we'll just highlight the generic data. */
-    if (!parse_SUBM_Attribute(SUBN_DIRECTED_ROUTE_header_tree, tvb, &local_offset, &MadData))
+    if (!parse_SUBM_Attribute(SUBN_DIRECTED_ROUTE_header_tree, pinfo, tvb, &local_offset, &MadData))
     {
         proto_tree_add_item(SUBN_DIRECTED_ROUTE_header_tree, hf_infiniband_smp_data, tvb, local_offset, 64, ENC_NA);
     local_offset += 64;
@@ -3195,7 +3394,7 @@ static void parse_SUBNADMN(proto_tree *parentTree, packet_info *pinfo, tvbuff_t 
         /* TODO: Mark Corrupt Packet - Not enough bytes exist for at least the Common MAD header which is present in all MAD packets */
         return;
     }
-    if (!parse_RMPP(parentTree, tvb, offset))
+    if (!parse_RMPP(parentTree, pinfo, tvb, offset))
     {
         /* TODO: Mark Corrupt Packet */
         return;
@@ -3218,7 +3417,7 @@ static void parse_SUBNADMN(proto_tree *parentTree, packet_info *pinfo, tvbuff_t 
     label_SUBA_Method(SUBNADMN_header_item, &MadData, pinfo);
     label_SUBA_Attribute(SUBNADMN_header_item, &MadData, pinfo);
 
-    if (!parse_SUBA_Attribute(SUBNADMN_header_tree, tvb, &local_offset, &MadData))
+    if (!parse_SUBA_Attribute(SUBNADMN_header_tree, pinfo, tvb, &local_offset, &MadData))
     {
         proto_tree_add_item(SUBNADMN_header_tree, hf_infiniband_subnet_admin_data, tvb, local_offset, 200, ENC_NA);
     local_offset += 200;
@@ -3326,7 +3525,7 @@ static bool parse_CM_Req_ServiceID(proto_tree *parent_tree, tvbuff_t *tvb, int *
     bool ip_cm_sid;
 
     if ((serviceid & RDMA_IP_CM_SID_PREFIX_MASK) == RDMA_IP_CM_SID_PREFIX) {
-        service_id_item = proto_tree_add_item(parent_tree, hf_cm_req_service_id, tvb, local_offset, 8, ENC_NA);
+        service_id_item = proto_tree_add_item(parent_tree, hf_cm_req_service_id, tvb, local_offset, 8, ENC_BIG_ENDIAN);
         proto_item_set_text(service_id_item, "%s", "IP CM ServiceID");
         service_id_tree = proto_item_add_subtree(service_id_item, ett_cm_sid);
 
@@ -3385,7 +3584,7 @@ create_conv_and_add_proto_data(packet_info *pinfo, uint64_t service_id,
     conversation_t *conv;
     conversation_infiniband_data *proto_data;
 
-    proto_data = wmem_new(wmem_file_scope(), conversation_infiniband_data);
+    proto_data = wmem_new0(wmem_file_scope(), conversation_infiniband_data);
     proto_data->service_id = service_id;
     proto_data->client_to_server = client_to_server;
     proto_data->src_qp = src_port;
@@ -3438,7 +3637,7 @@ static void save_conversation_info(packet_info *pinfo, uint8_t *local_gid, uint8
         /* Now we create a conversation for the CM exchange. This uses both
            sides of the conversation since CM packets also include the source
            QPN */
-        proto_data = wmem_new(wmem_file_scope(), conversation_infiniband_data);
+        proto_data = wmem_new0(wmem_file_scope(), conversation_infiniband_data);
         proto_data->service_id = connection->service_id;
         proto_data->client_to_server = true;
 
@@ -3480,10 +3679,10 @@ static void parse_IP_CM_Req_Msg(proto_tree *parent_tree, tvbuff_t *tvb, int loca
 
     if (ipv == 4) {
         /* skip first 12 bytes of zero for sip */
-        proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_sip4, tvb, local_offset + 12, 4, ENC_NA);
+        proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_sip4, tvb, local_offset + 12, 4, ENC_BIG_ENDIAN);
         local_offset += 16;
         /* skip first 12 bytes of zero for dip */
-        proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_dip4, tvb, local_offset + 12, 4, ENC_NA);
+        proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_dip4, tvb, local_offset + 12, 4, ENC_BIG_ENDIAN);
     } else {
         proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_sip6, tvb, local_offset, 16, ENC_NA);
         local_offset += 16;
@@ -3564,12 +3763,12 @@ static void parse_CM_Req(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tvb
 
     if (pinfo->dst.type == AT_IPv4) {
         local_gid  = (uint8_t *)wmem_alloc(pinfo->pool, 4);
-        proto_tree_add_item(CM_header_tree, hf_cm_req_primary_local_gid_ipv4, tvb, local_offset + 12, 4, ENC_NA);
+        proto_tree_add_item(CM_header_tree, hf_cm_req_primary_local_gid_ipv4, tvb, local_offset + 12, 4, ENC_BIG_ENDIAN);
         (*(uint32_t*)local_gid) = tvb_get_ipv4(tvb, local_offset + 12);
         local_offset += 16;
 
         remote_gid = (uint8_t *)wmem_alloc(pinfo->pool, 4);
-        proto_tree_add_item(CM_header_tree, hf_cm_req_primary_remote_gid_ipv4, tvb, local_offset + 12, 4, ENC_NA);
+        proto_tree_add_item(CM_header_tree, hf_cm_req_primary_remote_gid_ipv4, tvb, local_offset + 12, 4, ENC_BIG_ENDIAN);
         (*(uint32_t*)remote_gid) = tvb_get_ipv4(tvb, local_offset + 12);
     } else {
         local_gid = (uint8_t *)wmem_alloc(pinfo->pool, GID_SIZE);
@@ -3651,7 +3850,7 @@ static void create_bidi_conv(packet_info *pinfo, connection_context *connection)
     conversation_t *conv;
     conversation_infiniband_data *proto_data;
 
-    proto_data = wmem_new(wmem_file_scope(), conversation_infiniband_data);
+    proto_data = wmem_new0(wmem_file_scope(), conversation_infiniband_data);
     proto_data->service_id = connection->service_id;
     proto_data->client_to_server = false;
     memset(&proto_data->mad_private_data[0], 0, MAD_DATA_SIZE);
@@ -3908,7 +4107,7 @@ static void parse_CM_DRsp(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tv
 static void parse_COM_MGT(proto_tree *parentTree, packet_info *pinfo, tvbuff_t *tvb, int *offset, proto_tree* top_tree)
 {
     MAD_Data    MadData;
-    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false};
+    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false, false};
     int         local_offset;
     const char *label;
     proto_item *CM_header_item;
@@ -4039,7 +4238,7 @@ static void parse_APPLICATION_MANAGEMENT(proto_tree *parentTree, tvbuff_t *tvb, 
 /* Parse Reserved Management Packets.
 
 * This is an !ERROR CONDITION!
-* It means that the Management Class value used was defined as a reserved value for furture use.
+* It means that the Management Class value used was defined as a reserved value for future use.
 * This method is here since we will want to report this information directly to the UI without blowing up Wireshark.
 
 * IN: parentTree to add the dissection to
@@ -4127,7 +4326,7 @@ static bool parse_MAD_Common(proto_tree *parentTree, tvbuff_t *tvb, int *offset,
 * IN: parentTree to add the dissection to
 * IN: tvb - the data buffer from wireshark
 * IN/OUT: The current and updated offset */
-static bool parse_RMPP(proto_tree *parentTree, tvbuff_t *tvb, int *offset)
+static bool parse_RMPP(proto_tree *parentTree, packet_info* pinfo, tvbuff_t *tvb, int *offset)
 {
     int         local_offset = *offset;
     uint8_t     RMPP_Type    = tvb_get_uint8(tvb, local_offset + 1);
@@ -4135,7 +4334,7 @@ static bool parse_RMPP(proto_tree *parentTree, tvbuff_t *tvb, int *offset)
     proto_tree *RMPP_header_tree;
 
     RMPP_header_item = proto_tree_add_item(parentTree, hf_infiniband_RMPP, tvb, local_offset, 12, ENC_NA);
-    proto_item_set_text(RMPP_header_item, "%s", val_to_str(RMPP_Type, RMPP_Packet_Types, "Reserved RMPP Type! (0x%02x)"));
+    proto_item_set_text(RMPP_header_item, "%s", val_to_str(pinfo->pool, RMPP_Type, RMPP_Packet_Types, "Reserved RMPP Type! (0x%02x)"));
     RMPP_header_tree = proto_item_add_subtree(RMPP_header_item, ett_rmpp);
 
     proto_tree_add_item(RMPP_header_tree, hf_infiniband_rmpp_version, tvb, local_offset, 1, ENC_BIG_ENDIAN);
@@ -4240,21 +4439,21 @@ static void label_SUBA_Attribute(proto_item *SubAItem, MAD_Data *MadHeader, pack
 * IN: Parent Tree to add the item to in the dissection tree
 * IN: tvbuff, offset - the data and where it is.
 * IN: MAD_Data the data from the Common MAD Header that provides the information we need */
-static bool parse_SUBM_Attribute(proto_tree *parentTree, tvbuff_t *tvb, int *offset, MAD_Data *MadHeader)
+static bool parse_SUBM_Attribute(proto_tree *parentTree, packet_info* pinfo, tvbuff_t *tvb, int *offset, MAD_Data *MadHeader)
 {
     uint16_t    attributeID = MadHeader->attributeID;
     proto_item *SUBM_Attribute_header_item;
     proto_tree *SUBM_Attribute_header_tree;
 
     SUBM_Attribute_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, *offset, 64, ENC_NA);
-    proto_item_set_text(SUBM_Attribute_header_item, "%s", val_to_str(attributeID, SUBM_Attributes, "Unknown Attribute Type! (0x%02x)"));
+    proto_item_set_text(SUBM_Attribute_header_item, "%s", val_to_str(pinfo->pool, attributeID, SUBM_Attributes, "Unknown Attribute Type! (0x%02x)"));
     SUBM_Attribute_header_tree = proto_item_add_subtree(SUBM_Attribute_header_item, ett_subm_attribute);
 
 
     switch (attributeID)
     {
         case 0x0002:
-            parse_NoticesAndTraps(SUBM_Attribute_header_tree , tvb, offset);
+            parse_NoticesAndTraps(SUBM_Attribute_header_tree , pinfo, tvb, offset);
             break;
         case 0x0010:
              parse_NodeDescription(SUBM_Attribute_header_tree , tvb, offset);
@@ -4314,14 +4513,14 @@ static bool parse_SUBM_Attribute(proto_tree *parentTree, tvbuff_t *tvb, int *off
 * IN: Parent Tree to add the item to in the dissection tree
 * IN: tvbuff, offset - the data and where it is.
 * IN: MAD_Data the data from the Common MAD Header that provides the information we need */
-static bool parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, int *offset, MAD_Data *MadHeader)
+static bool parse_SUBA_Attribute(proto_tree *parentTree, packet_info* pinfo, tvbuff_t *tvb, int *offset, MAD_Data *MadHeader)
 {
     uint16_t    attributeID = MadHeader->attributeID;
     proto_item *SUBA_Attribute_header_item;
     proto_tree *SUBA_Attribute_header_tree;
 
     SUBA_Attribute_header_item = proto_tree_add_item(parentTree, hf_infiniband_SA, tvb, *offset, 200, ENC_NA);
-    proto_item_set_text(SUBA_Attribute_header_item, "%s", val_to_str(attributeID, SUBA_Attributes, "Unknown Attribute Type! (0x%02x)"));
+    proto_item_set_text(SUBA_Attribute_header_item, "%s", val_to_str(pinfo->pool, attributeID, SUBA_Attributes, "Unknown Attribute Type! (0x%02x)"));
     SUBA_Attribute_header_tree = proto_item_add_subtree(SUBA_Attribute_header_item, ett_suba_attribute);
 
     /* Skim off the RID fields should they be present */
@@ -4334,7 +4533,7 @@ static bool parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, int *off
             parse_ClassPortInfo(SUBA_Attribute_header_tree, tvb, offset);
             break;
         case 0x0002: /* (Notice) */
-            parse_NoticesAndTraps(SUBA_Attribute_header_tree, tvb, offset);
+            parse_NoticesAndTraps(SUBA_Attribute_header_tree, pinfo, tvb, offset);
             break;
         case 0x0003: /* (InformInfo) */
             parse_InformInfo(SUBA_Attribute_header_tree, tvb, offset);
@@ -4418,7 +4617,7 @@ static bool parse_SUBA_Attribute(proto_tree *parentTree, tvbuff_t *tvb, int *off
 
 /* Parse ClassPortInfo Attribute Field
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins      */
 static int parse_ClassPortInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -4482,7 +4681,7 @@ static int parse_ClassPortInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offse
 
 /* Parse NoticeDataDetails Attribute Field
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins
 *       trapNumber - The Trap ID of the Trap Data being Dissected  */
 
@@ -4692,9 +4891,9 @@ static int parse_NoticeDataDetails(proto_tree* parentTree, tvbuff_t* tvb, int *o
 
 /* Parse NoticesAndTraps Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
-static void parse_NoticesAndTraps(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
+static void parse_NoticesAndTraps(proto_tree* parentTree, packet_info* pinfo, tvbuff_t* tvb, int *offset)
 {
     int         local_offset = *offset;
     proto_item *NoticesAndTraps_header_item;
@@ -4705,7 +4904,7 @@ static void parse_NoticesAndTraps(proto_tree* parentTree, tvbuff_t* tvb, int *of
         return;
 
     NoticesAndTraps_header_item = proto_tree_add_item(parentTree, hf_infiniband_smp_data, tvb, local_offset, 64, ENC_NA);
-    proto_item_set_text(NoticesAndTraps_header_item, "%s", val_to_str(trapNumber, Trap_Description, "Unknown or Vendor Specific Trap Number! (0x%02x)"));
+    proto_item_set_text(NoticesAndTraps_header_item, "%s", val_to_str(pinfo->pool, trapNumber, Trap_Description, "Unknown or Vendor Specific Trap Number! (0x%02x)"));
     NoticesAndTraps_header_tree = proto_item_add_subtree(NoticesAndTraps_header_item, ett_noticestraps);
 
     proto_tree_add_item(NoticesAndTraps_header_tree, hf_infiniband_Notice_IsGeneric, tvb, local_offset, 1, ENC_BIG_ENDIAN);
@@ -4736,7 +4935,7 @@ static void parse_NoticesAndTraps(proto_tree* parentTree, tvbuff_t* tvb, int *of
 
 /* Parse NodeDescription Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_NodeDescription(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -4752,7 +4951,7 @@ static void parse_NodeDescription(proto_tree* parentTree, tvbuff_t* tvb, int *of
 
 /* Parse NodeInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_NodeInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -4795,7 +4994,7 @@ static int parse_NodeInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse SwitchInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_SwitchInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -4841,7 +5040,7 @@ static int parse_SwitchInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse GUIDInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_GUIDInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -4866,7 +5065,7 @@ static int parse_GUIDInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse PortInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5127,7 +5326,7 @@ static int parse_PortInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse P_KeyTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_P_KeyTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5157,7 +5356,7 @@ static void parse_P_KeyTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse SLtoVLMappingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_SLtoVLMappingTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5187,7 +5386,7 @@ static void parse_SLtoVLMappingTable(proto_tree* parentTree, tvbuff_t* tvb, int 
 
 /* Parse VLArbitrationTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_VLArbitrationTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5218,7 +5417,7 @@ static void parse_VLArbitrationTable(proto_tree* parentTree, tvbuff_t* tvb, int 
 
 /* Parse LinearForwardingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_LinearForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5245,7 +5444,7 @@ static void parse_LinearForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, i
 
 /* Parse RandomForwardingTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_RandomForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5280,7 +5479,7 @@ static void parse_RandomForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, i
 
 /* Parse NoticesAndTraps Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_MulticastForwardingTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5308,7 +5507,7 @@ static void parse_MulticastForwardingTable(proto_tree* parentTree, tvbuff_t* tvb
 
 /* Parse SMInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_SMInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5337,7 +5536,7 @@ static int parse_SMInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse VendorDiag Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_VendorDiag(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5362,7 +5561,7 @@ static int parse_VendorDiag(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse LedInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static void parse_LedInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5382,7 +5581,7 @@ static void parse_LedInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 
 /* Parse LinkSpeedWidthPairsTable Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_LinkSpeedWidthPairsTable(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5568,7 +5767,7 @@ static void parse_RID(proto_tree* SA_header_tree, tvbuff_t* tvb, int *offset, MA
 
 /* Parse InformInfo Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_InformInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5613,7 +5812,7 @@ static int parse_InformInfo(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 }
 /* Parse LinkRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_LinkRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5640,7 +5839,7 @@ static int parse_LinkRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 }
 /* Parse ServiceRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_ServiceRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5683,7 +5882,7 @@ static int parse_ServiceRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offse
 }
 /* Parse PathRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_PathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5740,7 +5939,7 @@ static int parse_PathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 }
 /* Parse MCMemberRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins   */
 static int parse_MCMemberRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5790,7 +5989,7 @@ static int parse_MCMemberRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offs
 }
 /* Parse TraceRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_TraceRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5832,7 +6031,7 @@ static int parse_TraceRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 }
 /* Parse MultiPathRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5908,7 +6107,7 @@ static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *off
 }
 /* Parse ServiceAssociationRecord Attribute
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins     */
 static int parse_ServiceAssociationRecord(proto_tree* parentTree, tvbuff_t* tvb, int *offset)
 {
@@ -5935,7 +6134,7 @@ static int parse_ServiceAssociationRecord(proto_tree* parentTree, tvbuff_t* tvb,
 
 /* Parse PortCounters MAD from the Performance management class.
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins
 *       pinfo - The packet info structure with column information  */
 static int parse_PERF_PortCounters(proto_tree* parentTree, tvbuff_t* tvb, packet_info *pinfo, int *offset)
@@ -5999,7 +6198,7 @@ static int parse_PERF_PortCounters(proto_tree* parentTree, tvbuff_t* tvb, packet
 
 /* Parse PortCountersExtended MAD from the Performance management class.
 * IN:   parentTree - The tree to add the dissection to
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins
 *       pinfo - The packet info structure with column information  */
 static int parse_PERF_PortCountersExtended(proto_tree* parentTree, tvbuff_t* tvb, packet_info *pinfo, int *offset)
@@ -6047,7 +6246,7 @@ static int parse_PERF_PortCountersExtended(proto_tree* parentTree, tvbuff_t* tvb
 /* dissect_general_info
 * Used to extract very few values from the packet in the case that full dissection is disabled by the user.
 * IN:
-*       tvb - The tvbbuff of packet data
+*       tvb - The tvbuf of packet data
 *       offset - The offset in TVB where the attribute begins
 *       pinfo - The packet info structure with column information
 *       starts_with - regular IB packet starts with LRH, ROCE starts with GRH and RROCE starts with BTH,
@@ -6062,8 +6261,8 @@ static void dissect_general_info(tvbuff_t *tvb, int offset, packet_info *pinfo, 
     uint8_t           management_class   = 0;
     MAD_Data          MadData;
 
-    /* BTH - Base Trasport Header */
-    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false};
+    /* BTH - Base Transport Header */
+    struct infinibandinfo info = { NULL, 0, 0, 0, 0, 0, 0, 0, false, false};
     int bthSize = 12;
     void *src_addr,                 /* the address to be displayed in the source/destination columns */
          *dst_addr;                 /* (lid/gid number) will be stored here */
@@ -8816,6 +9015,56 @@ void proto_register_infiniband(void)
         &ett_eoib
     };
 
+    static hf_register_info hf_rc_send[] = {
+        { &hf_infiniband_rc_send_fragments,
+                { "Reassembled Infiniband RC Send Fragments", "infiniband.rc_send.fragments",
+                FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment,
+                { "Infiniband RC Send Fragment", "infiniband.rc_send.fragment",
+                FT_FRAMENUM, BASE_NONE, NULL, 0, NULL, HFILL }},
+        { &hf_infiniband_rc_send_fragment_overlap,
+                { "Fragment overlap", "infiniband.rc_send.fragment.overlap",
+                FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment_overlap_conflict,
+                { "Conflicting data in fragment overlap", "infiniband.rc_send.fragment.overlap.conflict",
+                FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment_multiple_tails,
+                { "Multiple tail fragments found", "infiniband.rc_send.fragment.multipletails",
+                FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment_too_long_fragment,
+                { "Fragment too long", "infiniband.rc_send.fragment.toolongfragment",
+                FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment_error,
+                { "Defragmentation error", "infiniband.rc_send.fragment.error",
+                FT_FRAMENUM, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_fragment_count,
+                { "Fragment count", "infiniband.rc_send.fragment.count",
+                FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_reassembled_in,
+                { "Reassembled PDU in frame", "infiniband.rc_send.reassembled_in",
+                FT_FRAMENUM, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_reassembled_length,
+                { "Reassembled Infiniband RC Send length", "infiniband.rc_send.reassembled.length",
+                FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
+
+        { &hf_infiniband_rc_send_reassembled_data,
+                { "Reassembled Infiniband RC Send data", "infiniband.rc_send.reassembled.data",
+                FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
+    };
+
+    static int *ett_rc_send_array[] = {
+        &ett_infiniband_rc_send_fragment,
+        &ett_infiniband_rc_send_fragments,
+    };
+
     proto_infiniband = proto_register_protocol("InfiniBand", "IB", "infiniband");
     ib_handle = register_dissector("infiniband", dissect_infiniband, proto_infiniband);
 
@@ -8855,6 +9104,12 @@ void proto_register_infiniband(void)
 
     subdissector_table = register_decode_as_next_proto(proto_infiniband, "infiniband", "Infiniband Payload",
                                                        infiniband_payload_prompt);
+
+    /* RC Send reassembling */
+    proto_register_field_array(proto_infiniband, hf_rc_send, array_length(hf_rc_send));
+    proto_register_subtree_array(ett_rc_send_array, array_length(ett_rc_send_array));
+    reassembly_table_register(&infiniband_rc_send_reassembly_table,
+        &addresses_ports_reassembly_table_functions);
 
     register_shutdown_routine(infiniband_shutdown);
 }

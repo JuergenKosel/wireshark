@@ -37,7 +37,8 @@
  * XL and CAN classic/CAN FD frames by testing that bit.
  */
 #define CANXL_XLF 0x80 /* XL flag - if set, this is an XL frame */
-#define CANXL_SEC 0x01 /* Simple Extended Content */
+#define CANXL_SEC 0x01 /* Simple Extended Content (security/segmentation) */
+#define CANXL_RRS 0x02 /* Remote Request Substitution */
 
 /*
  * CAN frame type.
@@ -136,6 +137,22 @@ bool socketcan_set_source_and_destination_columns(packet_info* pinfo, can_info_t
 #define CANXL_SDU_TYPE_CIA_611_2                0x08
 #define CANXL_SDU_TYPE_AUTOSAR_MPDU             0x09
 #define CANXL_SDU_TYPE_CIA_613_2                0x0A
+
+static const value_string canxl_sdu_type_vals[] = {
+    { 0x00, "Reserved" },
+    { CANXL_SDU_TYPE_CONTENT_BASED_ADDRESSING, "Content-based Addressing" },
+    { 0x02, "Reserved for future use" },
+    { CANXL_SDU_TYPE_CAN_CC_CAN_FD, "CAN CC/CAN FD" },
+    { CANXL_SDU_TYPE_IEEE_802_3, "IEEE 802.3 (MAC frame)" },
+    { CANXL_SDU_TYPE_IEEE_802_3_EXTENDED, "IEEE 802.3 (MAC frame) extended" },
+    { CANXL_SDU_TYPE_CAN_CC, "CAN CC" },
+    { CANXL_SDU_TYPE_CAN_FD, "CAN FD" },
+    { CANXL_SDU_TYPE_CIA_611_2, "CiA 611-2 (Multi-PDU)" },
+    { CANXL_SDU_TYPE_AUTOSAR_MPDU, "AUTOSAR Multi-PDU" },
+    { CANXL_SDU_TYPE_CIA_613_2, "CiA 613-2 (CANsec key agreement protocol" },
+    { 0xFF, "Reserved" },
+    { 0, NULL }
+};
 
 #endif /* __PACKET_SOCKETCAN_H__ */
 

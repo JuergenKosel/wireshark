@@ -193,6 +193,9 @@ WSLUA_METHOD Tvb_bytes(lua_State* L) {
         return 0;
     }
 
+    /* XXX - Why is *any* negative value allowed here to mean "to the
+     * end of the Tvb" instead of just -1 as elsewhere?
+     */
     if (len < 0) {
         len = tvb_captured_length_remaining(tvb->ws_tvb,offset);
         if (len < 0) {
@@ -375,6 +378,12 @@ bool push_TvbRange(lua_State* L, tvbuff_t* ws_tvb, int offset, int len) {
         return false;
     }
 
+    /* XXX - What if offset is negative? In epan/tvbuff.h functions, a negative
+     * offset means "the offset from the end of the backing tvbuff at which
+     * the new tvbuff's data begins", but that's not done consistently in this
+     * code when taking ranges and passing an offset. And maybe we don't want
+     * to support negative offsets at all in the future (#20103).
+     */
     if (len == -1) {
         len = tvb_captured_length_remaining(ws_tvb,offset);
         if (len < 0) {
@@ -415,7 +424,7 @@ WSLUA_METHOD TvbRange_tvb(lua_State *L) {
         return 0;
     }
 
-    if (tvb_offset_exists(tvbr->tvb->ws_tvb,  tvbr->offset + tvbr->len -1 )) {
+    if (tvb_bytes_exist(tvbr->tvb->ws_tvb, tvbr->offset, tvbr->len)) {
         tvb = (Tvb)g_malloc(sizeof(struct _wslua_tvb));
         tvb->expired = false;
         tvb->need_free = false;
@@ -1262,18 +1271,30 @@ WSLUA_METHOD TvbRange_range(lua_State* L) {
 
     TvbRange tvbr = checkTvbRange(L,1);
     int offset = (int)luaL_optinteger(L,WSLUA_OPTARG_TvbRange_range_OFFSET,0);
-    int len;
+    int len = (int)luaL_optinteger(L,WSLUA_OPTARG_TvbRange_range_LENGTH,-1);
 
     if (!(tvbr && tvbr->tvb)) return 0;
-
-    len = (int)luaL_optinteger(L,WSLUA_OPTARG_TvbRange_range_LENGTH,tvbr->len-offset);
-
     if (tvbr->tvb->expired) {
         luaL_error(L,"expired tvb");
         return 0;
     }
 
-    if (offset >= tvbr->len || (len + offset) > tvbr->len) {
+    if (offset < 0) {
+        WSLUA_OPTARG_ERROR(TvbRange_range,OFFSET,"offset before start of TvbRange");
+        return 0;
+    }
+    if (offset > tvbr->len) {
+        WSLUA_OPTARG_ERROR(TvbRange_range,OFFSET,"offset beyond end of TvbRange");
+        return 0;
+    }
+
+    if (len == -1) {
+        len = tvbr->len - offset;
+    }
+    if (len < 0) {
+        luaL_error(L,"out of bounds");
+        return 0;
+    } else if ( (len + offset) > tvbr->len) {
         luaL_error(L,"Range is out of bounds");
         return 0;
     }

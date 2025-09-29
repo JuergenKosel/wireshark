@@ -2,7 +2,7 @@ README.wslua
 
 This is a HOWTO for adding support for new Lua hooks/functions/abilities in
 Wireshark.   If you see any errors or have any improvements, submit patches -
-free software is a community effort....
+free software is a community effort…
 
 This is NOT a guide for how to write Lua plugins - that's documented already
 on the Wireshark webpages.
@@ -494,7 +494,7 @@ WSLUA_ARG_ERROR - this is a pure C macro and does not generate any
 documentation.  It is used for errors in type/value of function/method
 arguments.
 
-Example: see the example in thr WSLUA_CONSTRUCTOR above.
+Example: see the example in the WSLUA_CONSTRUCTOR above.
 
 
 ==============================================================================

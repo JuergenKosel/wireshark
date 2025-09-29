@@ -243,13 +243,18 @@ compute_offset(const tvbuff_t *tvb, const int offset, unsigned *offset_ptr)
 	}
 	else {
 		/* Negative offset - relative to the end of the packet. */
-		if (G_LIKELY((unsigned) -offset <= tvb->length)) {
-			*offset_ptr = tvb->length + offset;
-		} else if ((unsigned) -offset <= tvb->contained_length) {
+		/* Prevent UB on 2's complement platforms. All tested compilers
+		 * (gcc, clang, MSVC) compile this to a single instruction on
+		 * x86, ARM, RISC-V, S390x, SPARC, etc. at -O1 and higher
+		 * according to godbolt.org. */
+		unsigned abs_offset = ((unsigned)-(offset + 1)) + 1;
+		if (G_LIKELY(abs_offset <= tvb->length)) {
+			*offset_ptr = tvb->length - abs_offset;
+		} else if (abs_offset <= tvb->contained_length) {
 			return BoundsError;
 		} else if (tvb->flags & TVBUFF_FRAGMENT) {
 			return FragmentBoundsError;
-		} else if ((unsigned) -offset <= tvb->reported_length) {
+		} else if (abs_offset <= tvb->reported_length) {
 			return ContainedBoundsError;
 		} else {
 			return ReportedBoundsError;
@@ -668,7 +673,12 @@ tvb_ensure_bytes_exist(const tvbuff_t *tvb, const int offset, const int length)
 	/* XXX: Below this point could be replaced with a call to
 	 * check_offset_length with no functional change, however this is a
 	 * *very* hot path and check_offset_length is not well-optimized for
-	 * this case, so we eat some code duplication for a lot of speedup. */
+	 * this case (mostly because that function handles length -1 meaning
+	 * "until the end of the buffer?"), so we eat some code duplication
+	 * for a lot of speedup.
+	 *
+	 * XXX - Could it be replaced with a call just to compute_offset?
+	 */
 
 	if (offset >= 0) {
 		/* Positive offset - relative to the beginning of the packet. */
@@ -686,13 +696,15 @@ tvb_ensure_bytes_exist(const tvbuff_t *tvb, const int offset, const int length)
 	}
 	else {
 		/* Negative offset - relative to the end of the packet. */
-		if (G_LIKELY((unsigned) -offset <= tvb->length)) {
-			real_offset = tvb->length + offset;
-		} else if ((unsigned) -offset <= tvb->contained_length) {
+		/* Prevent UB on 2's complement platforms. */
+		unsigned abs_offset = ((unsigned)-(offset + 1)) + 1;
+		if (G_LIKELY(abs_offset <= tvb->length)) {
+			real_offset = tvb->length - abs_offset;
+		} else if (abs_offset <= tvb->contained_length) {
 			THROW(BoundsError);
 		} else if (tvb->flags & TVBUFF_FRAGMENT) {
 			THROW(FragmentBoundsError);
-		} else if ((unsigned) -offset <= tvb->reported_length) {
+		} else if (abs_offset <= tvb->reported_length) {
 			THROW(ContainedBoundsError);
 		} else {
 			THROW(ReportedBoundsError);
@@ -1028,7 +1040,7 @@ tvb_get_ntohs(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 2);
-	return pntoh16(ptr);
+	return pntohu16(ptr);
 }
 
 int16_t
@@ -1037,7 +1049,7 @@ tvb_get_ntohis(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 2);
-	return pntoh16(ptr);
+	return pntohu16(ptr);
 }
 
 uint32_t
@@ -1046,7 +1058,7 @@ tvb_get_ntoh24(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 3);
-	return pntoh24(ptr);
+	return pntohu24(ptr);
 }
 
 int32_t
@@ -1065,7 +1077,7 @@ tvb_get_ntohl(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 4);
-	return pntoh32(ptr);
+	return pntohu32(ptr);
 }
 
 int32_t
@@ -1074,7 +1086,7 @@ tvb_get_ntohil(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 4);
-	return pntoh32(ptr);
+	return pntohu32(ptr);
 }
 
 uint64_t
@@ -1083,7 +1095,7 @@ tvb_get_ntoh40(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 5);
-	return pntoh40(ptr);
+	return pntohu40(ptr);
 }
 
 int64_t
@@ -1102,7 +1114,7 @@ tvb_get_ntoh48(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 6);
-	return pntoh48(ptr);
+	return pntohu48(ptr);
 }
 
 int64_t
@@ -1121,7 +1133,7 @@ tvb_get_ntoh56(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 7);
-	return pntoh56(ptr);
+	return pntohu56(ptr);
 }
 
 int64_t
@@ -1140,7 +1152,7 @@ tvb_get_ntoh64(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 8);
-	return pntoh64(ptr);
+	return pntohu64(ptr);
 }
 
 int64_t
@@ -1149,7 +1161,7 @@ tvb_get_ntohi64(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 8);
-	return pntoh64(ptr);
+	return pntohu64(ptr);
 }
 
 uint16_t
@@ -1563,7 +1575,7 @@ tvb_get_letohs(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 2);
-	return pletoh16(ptr);
+	return pletohu16(ptr);
 }
 
 int16_t
@@ -1572,7 +1584,7 @@ tvb_get_letohis(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 2);
-	return pletoh16(ptr);
+	return pletohu16(ptr);
 }
 
 uint32_t
@@ -1581,7 +1593,7 @@ tvb_get_letoh24(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 3);
-	return pletoh24(ptr);
+	return pletohu24(ptr);
 }
 
 int32_t
@@ -1600,7 +1612,7 @@ tvb_get_letohl(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 4);
-	return pletoh32(ptr);
+	return pletohu32(ptr);
 }
 
 int32_t
@@ -1609,7 +1621,7 @@ tvb_get_letohil(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 4);
-	return pletoh32(ptr);
+	return pletohu32(ptr);
 }
 
 uint64_t
@@ -1618,7 +1630,7 @@ tvb_get_letoh40(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 5);
-	return pletoh40(ptr);
+	return pletohu40(ptr);
 }
 
 int64_t
@@ -1637,7 +1649,7 @@ tvb_get_letoh48(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 6);
-	return pletoh48(ptr);
+	return pletohu48(ptr);
 }
 
 int64_t
@@ -1656,7 +1668,7 @@ tvb_get_letoh56(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 7);
-	return pletoh56(ptr);
+	return pletohu56(ptr);
 }
 
 int64_t
@@ -1675,7 +1687,7 @@ tvb_get_letoh64(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 8);
-	return pletoh64(ptr);
+	return pletohu64(ptr);
 }
 
 int64_t
@@ -1684,7 +1696,7 @@ tvb_get_letohi64(tvbuff_t *tvb, const int offset)
 	const uint8_t *ptr;
 
 	ptr = fast_ensure_contiguous(tvb, offset, 8);
-	return pletoh64(ptr);
+	return pletohu64(ptr);
 }
 
 /*
@@ -2166,9 +2178,9 @@ tvb_get_ntohguid(tvbuff_t *tvb, const int offset, e_guid_t *guid)
 {
 	const uint8_t *ptr = ensure_contiguous(tvb, offset, GUID_LEN);
 
-	guid->data1 = pntoh32(ptr + 0);
-	guid->data2 = pntoh16(ptr + 4);
-	guid->data3 = pntoh16(ptr + 6);
+	guid->data1 = pntohu32(ptr + 0);
+	guid->data2 = pntohu16(ptr + 4);
+	guid->data3 = pntohu16(ptr + 6);
 	memcpy(guid->data4, ptr + 8, sizeof guid->data4);
 }
 
@@ -2177,22 +2189,16 @@ tvb_get_letohguid(tvbuff_t *tvb, const int offset, e_guid_t *guid)
 {
 	const uint8_t *ptr = ensure_contiguous(tvb, offset, GUID_LEN);
 
-	guid->data1 = pletoh32(ptr + 0);
-	guid->data2 = pletoh16(ptr + 4);
-	guid->data3 = pletoh16(ptr + 6);
+	guid->data1 = pletohu32(ptr + 0);
+	guid->data2 = pletohu16(ptr + 4);
+	guid->data3 = pletohu16(ptr + 6);
 	memcpy(guid->data4, ptr + 8, sizeof guid->data4);
 }
 
-/*
- * NOTE: to support code written when proto_tree_add_item() took a
- * bool as its last argument, with false meaning "big-endian"
- * and true meaning "little-endian", we treat any non-zero value of
- * "encoding" as meaning "little-endian".
- */
 void
 tvb_get_guid(tvbuff_t *tvb, const int offset, e_guid_t *guid, const unsigned encoding)
 {
-	if (encoding) {
+	if (encoding & ENC_LITTLE_ENDIAN) {
 		tvb_get_letohguid(tvb, offset, guid);
 	} else {
 		tvb_get_ntohguid(tvb, offset, guid);
@@ -2236,6 +2242,7 @@ tvb_get_bits_array(wmem_allocator_t *scope, tvbuff_t *tvb, const int bit_offset,
 uint8_t
 tvb_get_bits8(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits)
 {
+	DISSECTOR_ASSERT_HINT(no_of_bits <= 8, "Too many bits requested for 8-bit return type");
 	return (uint8_t)_tvb_get_bits64(tvb, bit_offset, no_of_bits);
 }
 
@@ -2243,6 +2250,7 @@ tvb_get_bits8(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits)
 uint16_t
 tvb_get_bits16(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits, const unsigned encoding)
 {
+	DISSECTOR_ASSERT_HINT(no_of_bits <= 16, "Too many bits requested for 16-bit return type");
 	return (uint16_t)tvb_get_bits64(tvb, bit_offset, no_of_bits, encoding);
 }
 
@@ -2250,6 +2258,7 @@ tvb_get_bits16(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits, const u
 uint32_t
 tvb_get_bits32(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits, const unsigned encoding)
 {
+	DISSECTOR_ASSERT_HINT(no_of_bits <= 32, "Too many bits requested for 32-bit return type");
 	return (uint32_t)tvb_get_bits64(tvb, bit_offset, no_of_bits, encoding);
 }
 
@@ -2257,6 +2266,8 @@ tvb_get_bits32(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits, const u
 uint64_t
 tvb_get_bits64(tvbuff_t *tvb, unsigned bit_offset, const int no_of_bits, const unsigned encoding)
 {
+	DISSECTOR_ASSERT_HINT(no_of_bits <= 64, "Too many bits requested for 64-bit return type");
+
 	/* encoding determines bit numbering within octet array */
 	if (encoding & ENC_LITTLE_ENDIAN) {
 		return _tvb_get_bits64_le(tvb, bit_offset, no_of_bits);
@@ -3777,7 +3788,7 @@ tvb_get_dect_standard_8bits_stringz(wmem_allocator_t *scope, tvbuff_t *tvb, int 
 	/* XXX, conversion between signed/unsigned integer */
 	if (lengthp)
 		*lengthp = size;
-	return get_t61_string(scope, ptr, size);
+	return get_dect_standard_8bits_string(scope, ptr, size);
 }
 
 uint8_t *
@@ -4600,7 +4611,7 @@ int tvb_get_token_len(tvbuff_t *tvb, const int offset, int len, int *next_offset
 char *
 tvb_bytes_to_str_punct(wmem_allocator_t *scope, tvbuff_t *tvb, const int offset, const int len, const char punct)
 {
-	DISSECTOR_ASSERT(len > 0);
+	DISSECTOR_ASSERT(len >= 0);
 	return bytes_to_str_punct(scope, ensure_contiguous(tvb, offset, len), len, punct);
 }
 
@@ -4727,7 +4738,7 @@ tvb_bcd_dig_to_str_be(wmem_allocator_t *scope, tvbuff_t *tvb, const int offset, 
 char *tvb_bytes_to_str(wmem_allocator_t *allocator, tvbuff_t *tvb,
     const int offset, const int len)
 {
-	DISSECTOR_ASSERT(len > 0);
+	DISSECTOR_ASSERT(len >= 0);
 	return bytes_to_str(allocator, ensure_contiguous(tvb, offset, len), len);
 }
 
@@ -4798,7 +4809,7 @@ tvb_get_varint(tvbuff_t *tvb, unsigned offset, unsigned maxlen, uint64_t *value,
 			*value |= ((b & 0x7F) << (i * 7)); /* add lower 7 bits to val */
 
 			if (b < 0x80) {
-				/* end successfully becauseof last byte's msb(most significant bit) is zero */
+				/* end successfully because of last byte's msb(most significant bit) is zero */
 				return i + 1;
 			}
 		}
@@ -4815,7 +4826,7 @@ tvb_get_varint(tvbuff_t *tvb, unsigned offset, unsigned maxlen, uint64_t *value,
 			*value |= ((b & 0x7F) << (i * 7)); /* add lower 7 bits to val */
 
 			if (b < 0x80) {
-				/* end successfully becauseof last byte's msb(most significant bit) is zero */
+				/* end successfully because of last byte's msb(most significant bit) is zero */
 				*value = (*value >> 1) ^ ((*value & 1) ? -1 : 0);
 				return i + 1;
 			}

@@ -386,6 +386,9 @@ packet list window. The format can be one of:
 r:: Relative, which specifies timestamps are
 displayed relative to the first packet captured.
 
+rc:: Relative to Capture Start, which specifies timestamps are
+displayed relative to the start of the capturing.
+
 a:: Absolute, which specifies that actual times
 be displayed for all packets.
 
@@ -415,7 +418,7 @@ actual dates and times be displayed for all packets in UTC.
 --
 
 -u <s | hms>::
-Show timesamps as seconds (“s”, the default) or hours, minutes, and seconds (“hms”)
+Show timestamps as seconds (“s”, the default) or hours, minutes, and seconds (“hms”)
 
 -v::
 --version::
@@ -446,13 +449,13 @@ lua_script:<lua_script_filename>::
 Tells Wireshark to load the given script in addition to the default Lua scripts.
 
 lua_script[num]:argument::
-Tells Wireshark to pass the given argument to the lua script identified by
+Tells Wireshark to pass the given argument to the Lua script identified by
 _num_, which is the number indexed order of the _lua_script_ command. For
 example, if only one script was loaded with `-X lua_script:my.lua`, then `-X
 lua_script1:foo` will pass the string _foo_ to the _my.lua_ script. If two
 scripts were loaded, such as `-X lua_script:my.lua -X lua_script:other.lua`
 in that order, then a `-X lua_script2:bar` would pass the
-string _bar_ to the second lua script, ie., _other.lua_.
+string _bar_ to the second Lua script, ie., _other.lua_.
 
 read_format:<file_type>::
 Tells Wireshark to use a specific input file type, instead of determining it
@@ -787,10 +790,16 @@ The _Type_ is the type of value to be shown. This can be a predefined type, ie. 
 The following settings are applicable when the _Type_ is set to "custom"
 
 The _Fields_ setting is the display filter name of the field to be shown in the column in the packet list.
+//For WS5.0: The _Custom Expression_ setting is the display filter name of the field to be shown in the column in the packet list.
 
-The _Field Occurrence_ setting is count of the given field in the frame, for fields that appear more than once in a frame.
+The _Field Occurrence_ setting is the count of the given field in the frame, for fields that appear more than once in a frame.
 
 Selecting _Resolved_ causes name resolution to be applied to the field value, when available.
+//For WS5.0: The _Display Format_ setting is to select what representation of the field is shown in the column.
+
+The _Width_ is the width of the column.
+
+The _Alignment_ is the alignment of the text in the column.
 
 ==== Font and Colors
 
@@ -829,6 +838,8 @@ Selecting _Show selected packet number_ adds the selected packet number to the c
 
 Selecting _Show file load time_ adds the time it took to load the capture file to the status bar, taking up some space in the status bar.
 
+The button _Restore Defaults_ allows you to get back to a working basic configuration.
+
 ==== Capture
 
 These preferences allow you to set the default conditions for packet capture.
@@ -842,6 +853,10 @@ Note that this can be multiple interfaces separated by a comma.
 Selecting _Capture packets in promiscuous mode_ causes the network interface(s) to capture on to be configured in promiscuous mode.
 This allows all (Ethernet) frames to be received by the network interface to be capture, not only those that are addressed to the capture interface.
 
+Selecting _Capture packets in monitor mode on 802.11 devices_ causes the WiFi interface(s) to capture on to be configured in monitor mode.
+This allows all WiFi frames to be received by the WiFi interface to be captured, not only those that are addressed to the capture interface.
+Results may vary, depending on the actual capabilities of the operating system, the WiFi driver software and WiFi interface itself.
+
 Selecting _Capture packets in pcapng format_ causes the Next-Generation packet capture file format to be used when capturing.
 This much more capable packet capture file format has many advantages over the original format, although not every external tool may be capable of handling packet captures in this format.
 
@@ -850,6 +865,10 @@ This does give an insight in the packets captured, although it takes processing 
 
 The preference _Interval between updates (ms)_ allows you to configure how often the packet list is updated during the packet capture process.
 A higher interval reduces processing, but causes more delay between capture and display in the packet list.
+
+The preference _Enable the Real-Time Aggregation View_ allows you to change the visibility of aggregation view button in main toolbar.
+
+The preference _Aggregation fields_ allows you to customized the frame key used for aggregation filter.
 
 Selecting _Don't load interfaces on startup_ prevents Wireshark from spawning dumpcap to populate the list of capture interfaces on the local system.
 This might be a time consuming operation delaying the start of the program, however on most systems this is not an issue.
@@ -940,6 +959,8 @@ There are several way to do this, which can be controlled through the following 
 Selecting _Use captured DNS packet data for name resolution_ causes DNS response packets in the capture file to fill the network address resolution table.
 These can then be used to resolve addresses found in the packets.
 
+Selecting _Use SNI information from captured handshake packets_ causes TLS client hello packets with a Server Name Indication extension to fill the network address resolution table.
+
 Selecting _Use your system's DNS settings for name resolution_ causes DNS requests to be made as would be for other network applications.
 
 Selecting _Use a custom list of DNS servers for name resolution_ causes DNS requests to be made to manually configured DNS servers.
@@ -989,6 +1010,9 @@ The bytes in the byte field are normally shown as a concatenated sequence of hex
 This preference allows you to get the representation of each byte separated by a space.
 This may improve readability of the individual bytes in the byte field.
 
+The preference _Format absolute times like asctime_ allows you to define how absolute times are formatted, in the columns and in the protocol tree.
+Either in the old format used in previous Wireshark versions, or using the more unambiguous method defined in ISO 8601.
+
 Selecting _Look for incomplete dissectors_ causes expert items to be added to the dissection of packet data for which the dissector does not create an interpretation.
 Dissectors should strive to not skip packet bytes and this preference allows you to be made aware of this.
 
@@ -1008,8 +1032,13 @@ While _NONE_ keeps the historical behaviour, the other options are built on thre
  _V_ (VLAN), _M_ (MAC Address), _I_ (Interface).
 The presence of packets which seem to be duplicates because they have the same payload but aren't filtered by the other preference _Ignore duplicate frames_,
 is a strong indication that a deinterlacing key is likely to change the interpretation.
-Check carefully the different values of Interface IDs, MAC Addresses, and VLAN Tags, to identify which deinterlacing key is appropriate for 
-isolating the conversations and bringing the proper interpretation.
+Check carefully the different values of Interface IDs, MAC Addresses, and VLAN Tags, to identify which deinterlacing key is appropriate for
+isolating the conversations and bringing the proper interpretation, but keep in mind that capturing on different interfaces or VLANs doesn't necessarily
+mean that deinterlacing is needed.
+
+When the deinterlacing key has any impact on the dissection, either the IPv4/IPv6 tabs of the Conversations dialog or the tuple values related to Ethernet
+or IPv4/IPv6 in the Conversation Hash Tables dialog will make this obvious (protocols supporting multiple incarnations of a connection such as TCP are
+harder to interpret and then rather not checked first).
 
 The preference _The max number of hashes to keep in memory for determining duplicate frames_ allows you to set how large the set of frames to consider for duplication is.
 
@@ -1030,6 +1059,8 @@ These preference have influence on the Statistics Tree (stats_tree) based dialog
 image::images/ws-pref-statistics.png[{screenshot-attrs}]
 
 The preference _Tap update interval in ms_ allows you to set how quickly protocol taps are being updated, partially determining the update speed of various dialogs and graphs.
+
+The preference _Maximum Flow Graph items to export as image_ allows you to set how dense or expansive the exported graph may become.
 
 Selecting _Enable the calculation of burst information_ allows the Statistics Tree system to calculate burst information.
 
@@ -1055,6 +1086,8 @@ Selecting _Always sort 'range' nodes in ascending order_ makes an exception for 
 
 Selecting _Display the full stats_tree plug-in name_ causes the full menu path of the Statistics Tree plugin to be shown in the title.
 
+The preference _Default output format_ allows you to select how you want the statistics to be saved by default, either as plain text or some structured format.
+
 ==== Advanced
 
 The “Advanced” pane will let you view and edit all of Wireshark’s preferences, similar to link:about:config[] and link:chrome:flags[] in the Firefox and Chrome web browsers.
@@ -1062,7 +1095,11 @@ The “Advanced” pane will let you view and edit all of Wireshark’s preferen
 .Advanced preferences
 image::images/ws-pref-advanced.png[{screenshot-attrs}]
 
-You can search for a preference by typing text into the “Search” entry.
+You can search for a preference by typing text into the “Search” entry. The search text will be matched against the internal name of the preference, but also associated help texts in order to improve discoverability.
+
+Selecting _Show changed values_ restricts the list to settings having non-default values. This may help finding what has changed more easily.
+
+// XXX - this needs to go into its own (extended) subsection
 You can also pass preference names to Wireshark and TShark on the command line.
 For example, the __gui.prepend_window_title__ can be used to differentiate between different instances of Wireshark on your screen:
 
@@ -1224,6 +1261,8 @@ Most UATs are stored in the
 * <<ChIKEv2DecryptionSection,IKEv2 decryption table>> (ikev2_decryption_table)
 
 * <<ChStatIOGraphs,I/O Graphs>> (io_graphs)
+
+* <<ChStatPlots,Plots>> (plots)
 
 * <<ChK12ProtocolsSection,K12 Protocols>> (k12_protos)
 
@@ -1504,10 +1543,10 @@ the performance impact is slight.
 Wireshark can decrypt Encrypted Payloads of IKEv2 (Internet Key Exchange version
 2) packets if necessary information is provided. Note that you can decrypt only
 IKEv2 packets with this feature. If you want to decrypt IKEv1 packets or ESP
-packets, use Log Filename setting under ISAKMP protocol preference or settings
-under ESP protocol preference respectively.
+packets, edit ISAKMP protocol preference IKEv1 Decryption Table or ESP
+protocol preference ESP SAs respectively.
 
-This is handled by a user table, as described in <<ChUserTable>>,
+This is handled by a UAT, as described in <<ChUserTable>>,
 with the following fields:
 
 Initiator’s SPI::

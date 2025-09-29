@@ -47,7 +47,8 @@
  * RFC8669 Segment Routing Prefix Segment Identifier Extensions for BGP
  * http://www.iana.org/assignments/bgp-parameters/ (last updated 2012-04-26)
  * RFC8538 Notification Message Support for BGP Graceful Restart
- * draft-ietf-bess-evpn-igmp-mld-proxy-03
+ * RFC9251 Internet Group Management Protocol (IGMP) and Multicast Listener
+ *         Discovery (MLD) Proxies for Ethernet VPN (EVPN)
  * draft-ietf-idr-tunnel-encaps-15
  * draft-ietf-idr-segment-routing-te-policy-08
  * draft-yu-bess-evpn-l2-attributes-04
@@ -177,6 +178,7 @@ static dissector_handle_t bgp_handle;
 #define BGP_CAPABILITY_BFD_STRICT                   74  /* draft-ietf-idr-bgp-bfd-strict-mode */
 #define BGP_CAPABILITY_SOFT_VERSION                 75  /* draft-abraitis-bgp-version-capability */
 #define BGP_CAPABILITY_PATHS_LIMIT                  76  /* draft-abraitis-idr-addpath-paths-limit */
+#define BGP_CAPABILITY_LINK_LOCAL_NEXT_HOP          77  /* draft-white-linklocal-capability */
 #define BGP_CAPABILITY_ROUTE_REFRESH_CISCO         128  /* Cisco, RFC8810 */
 #define BGP_CAPABILITY_RPD_CISCO                   129  /* Cisco, RFC8810 */
 #define BGP_CAPABILITY_ORF_CISCO                   130  /* Cisco, RFC8810 */
@@ -184,14 +186,17 @@ static dissector_handle_t bgp_handle;
 #define BGP_CAPABILITY_FQDN_CISCO                  184  /* Cisco, RFC8810 */
 #define BGP_CAPABILITY_OPERATIONAL_MSG_CISCO       185  /* Cisco, RFC8810 */
 
-#define BGP_ORF_PREFIX_CISCO    0x80 /* Cisco */
+#define BGP_ORF_COMM            0x02 /* unknown */
+#define BGP_ORF_EXTCOMM         0x03 /* unknown */
+#define BGP_ORF_ASPATH          0x04 /* draft-ietf-idr-aspath-orf (expired) */
+#define BGP_ORF_PREFIX          0x40 /* RFC5292 */
+#define BGP_ORF_CP_ORF          0x41 /* RFC7543 */
+#define BGP_ORF_VPN_PREFIX      0x42 /* draft-ietf-idr-vpn-prefix-orf-06 */
+#define BGP_ORF_PREFIX_CISCO    0x80 /* Cisco, same as 0x40 */
 #define BGP_ORF_COMM_CISCO      0x81 /* Cisco */
 #define BGP_ORF_EXTCOMM_CISCO   0x82 /* Cisco */
 #define BGP_ORF_ASPATH_CISCO    0x83 /* Cisco */
 
-#define BGP_ORF_COMM        0x02 /* RFC5291 */
-#define BGP_ORF_EXTCOMM     0x03 /* RFC5291 */
-#define BGP_ORF_ASPATH      0x04 /* draft-ietf-idr-aspath-orf-02.txt */
 /* RFC5291 */
 #define BGP_ORF_ACTION      0xc0
 #define BGP_ORF_ADD         0x00
@@ -855,7 +860,10 @@ static dissector_handle_t bgp_handle;
 #define LINK_STATE_LINK_NLRI                    2
 #define LINK_STATE_IPV4_TOPOLOGY_PREFIX_NLRI    3
 #define LINK_STATE_IPV6_TOPOLOGY_PREFIX_NLRI    4
+#define LINK_STATE_SR_POLICY_CANDIDATE_PATH     5
 #define LINK_STATE_SRV6_SID_NLRI                6
+#define LINK_STATE_STUB_LINK_NLRI               7
+
 
 /* Link-State NLRI Protocol-ID values */
 #define BGP_LS_NLRI_PROTO_ID_UNKNOWN       0
@@ -900,6 +908,7 @@ static dissector_handle_t bgp_handle;
 #define BGP_NLRI_TLV_AREA_ID                        514
 #define BGP_NLRI_TLV_IGP_ROUTER_ID                  515
 #define BGP_NLRI_TLV_BGP_ROUTER_ID                  516
+#define BGP_NLRI_TLV_BGP_CONFEDERATION_MEMBER       517
 #define BGP_NLRI_TLV_SRV6_SID_INFO                  518
 
 #define BGP_NLRI_TLV_NODE_FLAG_BITS                 1024
@@ -1250,9 +1259,9 @@ static dissector_handle_t bgp_handle;
  #define SRV6_ENDPOINT_BEHAVIOR_END_M                  0x004A /* End.M (Mirror SID) [draft-ietf-rtgwg-srv6-egress-protection-02]                          */
 #define SRV6_ENDPOINT_BEHAVIOR_END_REPLICATE          0x004B /* End.Replicate [RFC9524]                                                                  */
 #define SRV6_ENDPOINT_BEHAVIOR_END_NSH                0x0054 /* End.NSH - NSH Segment [RFC9491]                                                          */
-#define SRV6_ENDPOINT_BEHAVIOR_END_DX1                0x009E /* End.DX1 [draft-ietf-pals-ple-02]                                                         */
-#define SRV6_ENDPOINT_BEHAVIOR_END_DX1_NEXT_CSID      0x009F /* End.DX1 with NEXT-CSID [draft-ietf-pals-ple-02]                                          */
-#define SRV6_ENDPOINT_BEHAVIOR_END_DX1_REPL_CSID      0x00A0 /* End.DX1 with REPLACE-CSID [draft-ietf-pals-ple-02]                                       */
+#define SRV6_ENDPOINT_BEHAVIOR_END_DX1                0x009E /* End.DX1 [RFC9801]                                                                        */
+#define SRV6_ENDPOINT_BEHAVIOR_END_DX1_NEXT_CSID      0x009F /* End.DX1 with NEXT-CSID [RFC9801]                                                         */
+#define SRV6_ENDPOINT_BEHAVIOR_END_DX1_REPL_CSID      0x00A0 /* End.DX1 with REPLACE-CSID [RFC9801]                                                      */
 #define SRV6_ENDPOINT_BEHAVIOR_OPAQUE                 0xFFFF /* Opaque [RFC8986]                                                                         */
 
 static const value_string bgptypevals[] = {
@@ -1652,14 +1661,14 @@ static const value_string bgpext_com_stype_tr_exp_3[] = {
 
 static const value_string bgpext_com_stype_tr_evpn[] = {
     { BGP_EXT_COM_STYPE_EVPN_MMAC,        "MAC Mobility" },
-    { BGP_EXT_COM_STYPE_EVPN_LABEL,       "ESI MPLS Label" },
-    { BGP_EXT_COM_STYPE_EVPN_IMP,         "ES Import" },
+    { BGP_EXT_COM_STYPE_EVPN_LABEL,       "ESI Label" },
+    { BGP_EXT_COM_STYPE_EVPN_IMP,         "ES-Import Route Target" },
     { BGP_EXT_COM_STYPE_EVPN_ROUTERMAC,   "EVPN Router's MAC" },
-    { BGP_EXT_COM_STYPE_EVPN_L2ATTR,      "Layer 2 Attributes" },
+    { BGP_EXT_COM_STYPE_EVPN_L2ATTR,      "EVPN Layer 2 Attributes" },
     { BGP_EXT_COM_STYPE_EVPN_ETREE,       "E-Tree" },
     { BGP_EXT_COM_STYPE_EVPN_DF,          "DF Election" },
     { BGP_EXT_COM_STYPE_EVPN_ISID,        "I-SID" },
-    { BGP_EXT_COM_STYPE_EVPN_ND,          "ND" },
+    { BGP_EXT_COM_STYPE_EVPN_ND,          "ARP/ND" },
     { BGP_EXT_COM_STYPE_EVPN_MCFLAGS,     "Multicast Flags Extended Community" },
     { BGP_EXT_COM_STYPE_EVPN_EVIRT0,      "EVI-RT Type 0 Extended Community" },
     { BGP_EXT_COM_STYPE_EVPN_EVIRT1,      "EVI-RT Type 1 Extended Community" },
@@ -1961,12 +1970,19 @@ static const value_string bgpattr_nlri_safi[] = {
 
 /* ORF Type, RFC5291 */
 static const value_string orf_type_vals[] = {
-    {   2,      "Communities ORF-Type" },
-    {   3,      "Extended Communities ORF-Type" },
-    { 128,      "Cisco PrefixList ORF-Type" },
-    { 129,      "Cisco CommunityList ORF-Type" },
-    { 130,      "Cisco Extended CommunityList ORF-Type" },
-    { 131,      "Cisco AsPathList ORF-Type" },
+    /* first 3 entries: questionable origin */
+    { BGP_ORF_COMM,           "(unregistered) Communities ORF-Type" },
+    { BGP_ORF_EXTCOMM,        "(unregistered) Extended Communities ORF-Type" },
+    { BGP_ORF_ASPATH,         "(unregistered) AS-path ORF-Type" },
+    /* IANA registered */
+    { BGP_ORF_PREFIX,         "Address Prefix ORF" },
+    { BGP_ORF_CP_ORF,         "CP-ORF" },
+    { BGP_ORF_VPN_PREFIX,     "VPN Prefix ORF" },
+    /* vendor-specific */
+    { BGP_ORF_PREFIX_CISCO,   "Cisco PrefixList ORF-Type" },
+    { BGP_ORF_COMM_CISCO,     "Cisco CommunityList ORF-Type" },
+    { BGP_ORF_EXTCOMM_CISCO,  "Cisco Extended CommunityList ORF-Type" },
+    { BGP_ORF_ASPATH_CISCO,   "Cisco AsPathList ORF-Type" },
     { 0,        NULL }
 };
 
@@ -2045,6 +2061,7 @@ static const value_string capability_vals[] = {
     { BGP_CAPABILITY_MULTISESSION_CISCO,            "Multisession (Cisco)" },
     { BGP_CAPABILITY_FQDN_CISCO,                    "FQDN (Cisco)" },
     { BGP_CAPABILITY_OPERATIONAL_MSG_CISCO,         "OPERATIONAL message (Cisco)" },
+    { BGP_CAPABILITY_LINK_LOCAL_NEXT_HOP,           "Link-Local Next Hop Capability" },
     { 0, NULL }
 };
 
@@ -2087,46 +2104,48 @@ static const value_string mcast_vpn_route_type[] = {
 
 /* NLRI type value_string as defined in idr-ls */
 static const value_string bgp_ls_nlri_type_vals[] = {
-        { LINK_STATE_LINK_NLRI,                 "Link NLRI" },
-        { LINK_STATE_NODE_NLRI,                 "Node NLRI" },
-        { LINK_STATE_IPV4_TOPOLOGY_PREFIX_NLRI, "IPv4 Topology Prefix NLRI" },
-        { LINK_STATE_IPV6_TOPOLOGY_PREFIX_NLRI, "IPv6 Topology Prefix NLRI" },
-        { LINK_STATE_SRV6_SID_NLRI,             "SRv6 SID NLRI" },
-        {0, NULL },
+    { LINK_STATE_NODE_NLRI,                 "Node NLRI" },
+    { LINK_STATE_LINK_NLRI,                 "Link NLRI" },
+    { LINK_STATE_IPV4_TOPOLOGY_PREFIX_NLRI, "IPv4 Topology Prefix NLRI" },
+    { LINK_STATE_IPV6_TOPOLOGY_PREFIX_NLRI, "IPv6 Topology Prefix NLRI" },
+    { LINK_STATE_SR_POLICY_CANDIDATE_PATH,  "ST Policy Candidate Path NLRI" },
+    { LINK_STATE_SRV6_SID_NLRI,             "SRv6 SID NLRI" },
+    { LINK_STATE_STUB_LINK_NLRI,            "Stub Link NLRI" },
+    { 0, NULL },
 };
 
 /* Link-State NLRI Protocol-ID value strings */
 static const value_string link_state_nlri_protocol_id_values[] = {
-        {BGP_LS_NLRI_PROTO_ID_UNKNOWN, "Unknown" },
-        {BGP_LS_NLRI_PROTO_ID_IS_IS_LEVEL_1, "IS-IS Level 1"},
-        {BGP_LS_NLRI_PROTO_ID_IS_IS_LEVEL_2, "IS-IS Level 2"},
-        {BGP_LS_NLRI_PROTO_ID_OSPF_V2, "OSPFv2"},
-        {BGP_LS_NLRI_PROTO_ID_DIRECT, "Direct"},
-        {BGP_LS_NLRI_PROTO_ID_STATIC, "Static"},
-        {BGP_LS_NLRI_PROTO_ID_OSPF_V3, "OSPFv3"},
-        {BGP_LS_NLRI_PROTO_ID_BGP, "BGP"},
-        {BGP_LS_NLRI_PROTO_ID_RSVP_TE, "RSVP-TE" },
-        {BGP_LS_NLRI_PROTO_ID_SEGMENT_ROUTING, "Segment Routing" },
-        {0, NULL},
+    { BGP_LS_NLRI_PROTO_ID_UNKNOWN,         "Unknown" },
+    { BGP_LS_NLRI_PROTO_ID_IS_IS_LEVEL_1,   "IS-IS Level 1"},
+    { BGP_LS_NLRI_PROTO_ID_IS_IS_LEVEL_2,   "IS-IS Level 2"},
+    { BGP_LS_NLRI_PROTO_ID_OSPF_V2,         "OSPFv2"},
+    { BGP_LS_NLRI_PROTO_ID_DIRECT,          "Direct"},
+    { BGP_LS_NLRI_PROTO_ID_STATIC,          "Static"},
+    { BGP_LS_NLRI_PROTO_ID_OSPF_V3,         "OSPFv3"},
+    { BGP_LS_NLRI_PROTO_ID_BGP,             "BGP"},
+    { BGP_LS_NLRI_PROTO_ID_RSVP_TE,         "RSVP-TE" },
+    { BGP_LS_NLRI_PROTO_ID_SEGMENT_ROUTING, "Segment Routing" },
+    { 0, NULL},
 };
 
 /* Link-State routing universes */
 static const val64_string link_state_nlri_routing_universe_values[] = {
-        {BGP_LS_NLRI_ROUTING_UNIVERSE_LEVEL_3, "L3 packet topology" },
-        {BGP_LS_NLRI_ROUTING_UNIVERSE_LEVEL_1, "L1 optical topology"},
-        {0, NULL}
+    { BGP_LS_NLRI_ROUTING_UNIVERSE_LEVEL_3, "L3 packet topology" },
+    { BGP_LS_NLRI_ROUTING_UNIVERSE_LEVEL_1, "L1 optical topology"},
+    { 0, NULL}
 };
 
 /* Link state prefix NLRI OSPF Route Type */
 static const value_string link_state_prefix_descriptors_ospf_route_type[] = {
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_UNKNOWN,     "Unknown" },
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_INTRA_AREA,  "Intra-Area"},
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_INTER_AREA,  "Inter Area"},
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_EXTERNAL_1,  "External 1"},
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_EXTERNAL_2,  "External 2"},
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_1,      "NSSA 1"},
-        {BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_2,      "NSSA 2"},
-        {0, NULL}
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_UNKNOWN,     "Unknown" },
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_INTRA_AREA,  "Intra-Area"},
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_INTER_AREA,  "Inter Area"},
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_EXTERNAL_1,  "External 1"},
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_EXTERNAL_2,  "External 2"},
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_1,      "NSSA 1"},
+    { BGP_LS_PREFIX_OSPF_ROUTE_TYPE_NSSA_2,      "NSSA 2"},
+    { 0 , NULL}
 };
 
 /* Link state Flex Algo Metric Type: draft-ietf-lsr-flex-algo-17 */
@@ -2171,7 +2190,7 @@ static const value_string flowspec_nlri_opvaluepair_type[] = {
     { BGPNLRI_FSPEC_PCK_LEN,  "Packet Length filter" },
     { BGPNLRI_FSPEC_DSCP,     "DSCP marking filter" },
     { BGPNLRI_FSPEC_FRAGMENT, "IP fragment filter" },
-    {0, NULL },
+    { 0, NULL },
 };
 
 /* Subtype Route Refresh, draft-ietf-idr-bgp-enhanced-route-refresh-02 */
@@ -2556,6 +2575,8 @@ static int hf_bgp_evpn_nlri_ipv6_gtw;
 static int hf_bgp_evpn_nlri_igmp_mc_or_length;
 static int hf_bgp_evpn_nlri_igmp_mc_or_addr_ipv4;
 static int hf_bgp_evpn_nlri_igmp_mc_or_addr_ipv6;
+static int hf_bgp_evpn_nlri_igmp_mc_reserved;
+static int hf_bgp_evpn_nlri_igmp_mc_max_resp_time;
 static int hf_bgp_evpn_nlri_igmp_mc_flags;
 static int hf_bgp_evpn_nlri_igmp_mc_flags_v1;
 static int hf_bgp_evpn_nlri_igmp_mc_flags_v2;
@@ -2922,6 +2943,8 @@ static int hf_bgp_ls_tlv_igp_router;                          /* 515 */
 static int hf_bgp_ls_tlv_igp_router_id;
 static int hf_bgp_ls_tlv_bgp_router_id;                       /* 516 */
 static int hf_bgp_ls_tlv_bgp_router_id_id;
+static int hf_bgp_ls_tlv_bgp_confederation_member;            /* 517 */
+static int hf_bgp_ls_tlv_bgp_confederation_member_as;
 static int hf_bgp_ls_tlv_srv6_sid_info;                       /* 518 */
 static int hf_bgp_ls_tlv_srv6_sid_info_sid;
 
@@ -3422,6 +3445,9 @@ static expert_field ei_bgp_cap_len_bad;
 static expert_field ei_bgp_cap_gr_helper_mode_only;
 static expert_field ei_bgp_notify_minor_unknown;
 static expert_field ei_bgp_route_refresh_orf_type_unknown;
+static expert_field ei_bgp_route_refresh_orf_type_unsupported;
+static expert_field ei_bgp_route_refresh_orf_type_unregistered;
+static expert_field ei_bgp_route_refresh_orf_action_invalid;
 static expert_field ei_bgp_length_invalid;
 static expert_field ei_bgp_prefix_length_invalid;
 static expert_field ei_bgp_afi_type_not_supported;
@@ -4302,7 +4328,7 @@ decode_flowspec_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t afi, 
         filter_item = proto_tree_add_item(nlri_tree, hf_bgp_flowspec_nlri_filter, tvb, offset+cursor_fspec, 1, ENC_NA);
         filter_tree = proto_item_add_subtree(filter_item, ett_bgp_flow_spec_nlri_filter);
         proto_tree_add_item(filter_tree, hf_bgp_flowspec_nlri_filter_type, tvb, offset+cursor_fspec, 1, ENC_BIG_ENDIAN);
-        proto_item_append_text(filter_item, ": %s", val_to_str(tvb_get_uint8(tvb,offset+cursor_fspec), flowspec_nlri_opvaluepair_type, "Unknown filter %d"));
+        proto_item_append_text(filter_item, ": %s", val_to_str(pinfo->pool, tvb_get_uint8(tvb,offset+cursor_fspec), flowspec_nlri_opvaluepair_type, "Unknown filter %d"));
         switch (tvb_get_uint8(tvb,offset+cursor_fspec)) {
         case BGPNLRI_FSPEC_DST_PFIX:
             cursor_fspec++;
@@ -4539,7 +4565,7 @@ decode_sr_policy_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t afi)
        proto_tree_add_item(tree, hf_bgp_sr_policy_nlri_endpoint_v4, tvb, offset, 4, ENC_BIG_ENDIAN);
        return 13;
    } else {
-       proto_tree_add_item(tree, hf_bgp_sr_policy_nlri_endpoint_v6, tvb, offset, 4, ENC_NA);
+       proto_tree_add_item(tree, hf_bgp_sr_policy_nlri_endpoint_v6, tvb, offset, 16, ENC_NA);
        return 25;
    }
 }
@@ -5125,7 +5151,14 @@ static int decode_bgp_link_node_descriptor(tvbuff_t *tvb, proto_tree *tree, int 
               tlv_tree = proto_item_add_subtree(tlv_item, ett_bgp_mp_reach_nlri);
               proto_tree_add_item(tlv_tree, hf_bgp_ls_type, tvb, offset, 2, ENC_BIG_ENDIAN);
               proto_tree_add_item(tlv_tree, hf_bgp_ls_length, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
-              proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_bgp_router_id_id, tvb, offset + 4, sub_length, ENC_NA);
+              proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_bgp_router_id_id, tvb, offset + 4, sub_length, ENC_BIG_ENDIAN);
+          break;
+          case BGP_NLRI_TLV_BGP_CONFEDERATION_MEMBER:
+              tlv_item = proto_tree_add_item(tree, hf_bgp_ls_tlv_bgp_confederation_member, tvb, offset, sub_length+4, ENC_NA);
+              tlv_tree = proto_item_add_subtree(tlv_item, ett_bgp_mp_reach_nlri);
+              proto_tree_add_item(tlv_tree, hf_bgp_ls_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+              proto_tree_add_item(tlv_tree, hf_bgp_ls_length, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+              proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_bgp_confederation_member_as, tvb, offset + 4, sub_length, ENC_BIG_ENDIAN);
           break;
           default:
               expert_add_info_format(pinfo, tree, &ei_bgp_ls_warn, "Undefined node Descriptor Sub-TLV type (%u)!", type);
@@ -6326,7 +6359,7 @@ decode_link_state_attribute_tlv(proto_tree *tree, tvbuff_t *tvb, int offset, pac
                                        length, "SRv6 End.X SID", 20);
                 break;
             }
-            proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_endpoint_behavior, tvb, offset + 4, 2, ENC_NA);
+            proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_endpoint_behavior, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
             proto_tree_add_bitmask(tlv_tree, tvb, offset + 6,
                                    hf_bgp_ls_sr_tlv_srv6_endx_sid_flags,
                                    ett_bgp_link_state, srv6_endx_sid_flags, ENC_BIG_ENDIAN);
@@ -6359,7 +6392,7 @@ decode_link_state_attribute_tlv(proto_tree *tree, tvbuff_t *tvb, int offset, pac
                                        ((protocol_id == BGP_LS_NLRI_PROTO_ID_OSPF_V2) || (protocol_id == BGP_LS_NLRI_PROTO_ID_OSPF_V3)) ? 26 : 28);
                 break;
             }
-            proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_endpoint_behavior, tvb, offset + 4, 2, ENC_NA);
+            proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_endpoint_behavior, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
             proto_tree_add_bitmask(tlv_tree, tvb, offset + 6,
                                    hf_bgp_ls_sr_tlv_srv6_endx_sid_flags,
                                    ett_bgp_link_state, srv6_endx_sid_flags, ENC_BIG_ENDIAN);
@@ -6372,7 +6405,7 @@ decode_link_state_attribute_tlv(proto_tree *tree, tvbuff_t *tvb, int offset, pac
                 local_offset += 4;
             } else {
                 /* FF: most common case is IS-IS, so if it is not OSPF we go that way */
-                proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_neighbor_isis, tvb, local_offset, 6, ENC_BIG_ENDIAN);
+                proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_neighbor_isis, tvb, local_offset, 6, ENC_NA);
                 local_offset += 6;
             }
             proto_tree_add_item(tlv_tree, hf_bgp_ls_sr_tlv_srv6_endx_sid_sid, tvb, local_offset, 16, ENC_NA);
@@ -6681,7 +6714,7 @@ decode_link_state_attribute_tlv(proto_tree *tree, tvbuff_t *tvb, int offset, pac
             proto_tree_add_item(tlv_tree, hf_bgp_ls_type, tvb, offset, 2, ENC_BIG_ENDIAN);
             ti = proto_tree_add_item(tlv_tree, hf_bgp_ls_length, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
             if (length == BGP_NLRI_TLV_LEN_IPV4_ROUTER_ID) {
-                proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_ipv4_router_id_value, tvb, offset + 4, BGP_NLRI_TLV_LEN_IPV4_ROUTER_ID, ENC_NA);
+                proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_ipv4_router_id_value, tvb, offset + 4, BGP_NLRI_TLV_LEN_IPV4_ROUTER_ID, ENC_BIG_ENDIAN);
             } else if (length == BGP_NLRI_TLV_LEN_IPV6_ROUTER_ID) {
                 proto_tree_add_item(tlv_tree, hf_bgp_ls_tlv_ipv6_router_id_value, tvb, offset + 4, BGP_NLRI_TLV_LEN_IPV6_ROUTER_ID, ENC_NA);
             } else {
@@ -6839,7 +6872,7 @@ static int decode_evpn_nlri_esi(proto_tree *tree, tvbuff_t *tvb, int offset, pac
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_lacp_mac, tvb,
                                 offset+1, 6, ENC_NA);
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_portk, tvb,
-                                offset+7, 2, ENC_NA);
+                                offset+7, 2, ENC_BIG_ENDIAN);
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_remain, tvb,
                                 offset+9, 1, ENC_NA);
             break;
@@ -6847,7 +6880,7 @@ static int decode_evpn_nlri_esi(proto_tree *tree, tvbuff_t *tvb, int offset, pac
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_rb_mac, tvb,
                                 offset+1, 6, ENC_NA);
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_rbprio, tvb,
-                                offset+7, 2, ENC_NA);
+                                offset+7, 2, ENC_BIG_ENDIAN);
             proto_tree_add_item(esi_tree, hf_bgp_evpn_nlri_esi_remain, tvb,
                                 offset+9, 1, ENC_NA);
             break;
@@ -6915,7 +6948,7 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
 
     proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_rt, tvb, reader_offset,
                         1, ENC_BIG_ENDIAN);
-    proto_item_append_text(ti, ": %s", val_to_str(tvb_get_uint8(tvb, offset), evpnrtypevals, "Unknown capability %d"));
+    proto_item_append_text(ti, ": %s", val_to_str(pinfo->pool, tvb_get_uint8(tvb, offset), evpnrtypevals, "Unknown capability %d"));
     /* moving to next field */
     reader_offset++;
 
@@ -7026,7 +7059,7 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
                 return -1;
             }
             proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_ip_addr, tvb, reader_offset,
-                                4, ENC_NA);
+                                4, ENC_BIG_ENDIAN);
             reader_offset += 4;
         } else if (ip_len == 16) {
             /*IPv6 address*/
@@ -7107,7 +7140,7 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
                 return -1;
             }
             proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_ip_addr, tvb, reader_offset,
-                                4, ENC_NA);
+                                4, ENC_BIG_ENDIAN);
             reader_offset += 4;
         } else if (ip_len == 16) {
             /*IPv6 address*/
@@ -7169,7 +7202,7 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
                 return -1;
             }
             proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_ip_addr, tvb, reader_offset,
-                                4, ENC_NA);
+                                4, ENC_BIG_ENDIAN);
             reader_offset += 4;
         } else if (ip_len == 16) {
             /*IPv6 address*/
@@ -7234,11 +7267,11 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
             case 34 :
                 /* IPv4 address */
                 proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_ip_addr, tvb, reader_offset,
-                                    4, ENC_NA);
+                                    4, ENC_BIG_ENDIAN);
                 reader_offset += 4;
 
                 proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_ipv4_gtw, tvb, reader_offset,
-                                    4, ENC_NA);
+                                    4, ENC_BIG_ENDIAN);
                 reader_offset += 4;
 
                 data = load_path_attr_data(pinfo);
@@ -7304,7 +7337,7 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
           +--------------------------------------------------+
           |  RD (8 octets)                                   |
           +--------------------------------------------------+
-          | Ethernet Segment Identifier (10 octets)          |
+          |  Ethernet Segment Identifier (10 octets)         |
           +--------------------------------------------------+
           |  Ethernet Tag ID  (4 octets)                     |
           +--------------------------------------------------+
@@ -7319,6 +7352,32 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
           |  Originator Router Length (1 octet)              |
           +--------------------------------------------------+
           |  Originator Router Address (variable)            |
+          +--------------------------------------------------+
+          |  Flags (1 octet)                                 |
+          +--------------------------------------------------+
+
+          +--------------------------------------------------+
+          |  RD (8 octets)                                   |
+          +--------------------------------------------------+
+          |  Ethernet Segment Identifier (10 octets)         |
+          +--------------------------------------------------+
+          |  Ethernet Tag ID  (4 octets)                     |
+          +--------------------------------------------------+
+          |  Multicast Source Length (1 octet)               |
+          +--------------------------------------------------+
+          |  Multicast Source Address (variable)             |
+          +--------------------------------------------------+
+          |  Multicast Group Length (1 octet)                |
+          +--------------------------------------------------+
+          |  Multicast Group Address (Variable)              |
+          +--------------------------------------------------+
+          |  Originator Router Length (1 octet)              |
+          +--------------------------------------------------+
+          |  Originator Router Address (variable)            |
+          +--------------------------------------------------+
+          |  Reserved (4 octets)                             |
+          +--------------------------------------------------+
+          |  Maximum Response Time (1 octet)                 |
           +--------------------------------------------------+
           |  Flags (1 octet)                                 |
           +--------------------------------------------------+
@@ -7363,6 +7422,22 @@ static int decode_evpn_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, packet_
                  reader_offset += 16;
                  break;
         }
+
+        if (route_type == EVPN_IGMP_LEAVE_ROUTE) {
+            proto_tree_add_item(prefix_tree, hf_bgp_evpn_nlri_igmp_mc_reserved, tvb,
+                                reader_offset, 4, ENC_NA);
+            reader_offset += 4;
+
+            /* Maximum Response Time, per RFC2236 (IGMPv2)
+             * XXX - What if this is the max response time from RFC3376 (IGMPv3)?
+             */
+            uint8_t tsecs = tvb_get_uint8(tvb, offset);
+            proto_tree_add_uint_format_value(prefix_tree, hf_bgp_evpn_nlri_igmp_mc_max_resp_time, tvb,
+                                             reader_offset, 1, tsecs, "%.1f sec (0x%02x)", tsecs*0.1, tsecs);
+
+            reader_offset += 1;
+        }
+
         if (reader_offset - start_offset < nlri_len) {
             proto_tree_add_bitmask(prefix_tree, tvb, reader_offset, hf_bgp_evpn_nlri_igmp_mc_flags,
                                    ett_bgp_evpn_nlri_mc, evpn_nlri_igmp_mc_flags, ENC_BIG_ENDIAN);
@@ -7493,7 +7568,7 @@ static int decode_bgp_mup_nlri_type1_st_route(proto_tree *tree, tvbuff_t *tvb, i
         reader_offset++;
 
         if (endpoint_address_length==32) {
-            proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_ep_ip_addr, tvb, reader_offset, 4, ENC_NA);
+            proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_ep_ip_addr, tvb, reader_offset, 4, ENC_BIG_ENDIAN);
             reader_offset += 4;
         } else if (endpoint_address_length==128) {
             proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_ep_ipv6_addr, tvb, reader_offset, 16, ENC_NA);
@@ -7504,10 +7579,9 @@ static int decode_bgp_mup_nlri_type1_st_route(proto_tree *tree, tvbuff_t *tvb, i
             return -1;
         }
         source_address_length = tvb_get_uint8(tvb, reader_offset); // should be zero or multiple of 8
-        if (source_address_length==0) {
-            reader_offset++;
-        } else if (source_address_length==32) {
-            proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_source_ip_addr, tvb, reader_offset, 4, ENC_NA);
+        reader_offset++;
+        if (source_address_length==32) {
+            proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_source_ip_addr, tvb, reader_offset, 4, ENC_BIG_ENDIAN);
             reader_offset += 4;
         } else if (source_address_length==128) {
             proto_tree_add_item(arch_spec_tree, hf_bgp_mup_nlri_3gpp_5g_source_ipv6_addr, tvb, reader_offset, 16, ENC_NA);
@@ -7654,12 +7728,12 @@ static int decode_bgp_mup_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, pack
     prefix_tree = proto_item_add_subtree(nlri_pi, ett_bgp_mup_nlri);
 
     proto_tree_add_item(prefix_tree, hf_bgp_mup_nlri_at, tvb, reader_offset, 1, ENC_BIG_ENDIAN);
-    proto_item_append_text(nlri_pi, ": %s", val_to_str(architecture_type, bgp_mup_architecture_types,
+    proto_item_append_text(nlri_pi, ": %s", val_to_str(pinfo->pool, architecture_type, bgp_mup_architecture_types,
                            "Unknown architecture type %d"));
     reader_offset++;
 
     proto_tree_add_item(prefix_tree, hf_bgp_mup_nlri_rt, tvb, reader_offset, 2, ENC_BIG_ENDIAN);
-    proto_item_append_text(nlri_pi, ": %s", val_to_str(route_type, bgp_mup_route_types,
+    proto_item_append_text(nlri_pi, ": %s", val_to_str(pinfo->pool, route_type, bgp_mup_route_types,
                            "Unknown route type %d"));
     reader_offset += 2;
 
@@ -7700,7 +7774,7 @@ static int decode_bgp_mup_nlri(proto_tree *tree, tvbuff_t *tvb, int offset, pack
         reader_offset += 8;
         switch (afi) {
         case AFNUM_INET:
-            proto_tree_add_item(prefix_tree, hf_bgp_mup_nlri_ip_addr, tvb, reader_offset, 4, ENC_NA);
+            proto_tree_add_item(prefix_tree, hf_bgp_mup_nlri_ip_addr, tvb, reader_offset, 4, ENC_BIG_ENDIAN);
             break;
         case AFNUM_INET6:
             proto_tree_add_item(prefix_tree, hf_bgp_mup_nlri_ipv6_addr, tvb, reader_offset, 16, ENC_NA);
@@ -7915,7 +7989,7 @@ decode_prefix_MP(proto_tree *tree, int hf_path_id, int hf_addr4, int hf_addr6,
                 }
                 offset += 1;
 
-                proto_tree_add_item(tree, hf_bgp_endpoint_address, tvb, offset, 4, ENC_NA);
+                proto_tree_add_item(tree, hf_bgp_endpoint_address, tvb, offset, 4, ENC_BIG_ENDIAN);
 
                 total_length = 5; /* length(1 octet) + address(4 octets) */
                 break;
@@ -8242,7 +8316,7 @@ decode_prefix_MP(proto_tree *tree, int hf_path_id, int hf_addr4, int hf_addr6,
                 */
                 if(plen == 12) /* BGP-AD */
                 {
-                    proto_tree_add_item(tree, hf_bgp_bgpad_pe_addr, tvb, offset+10, 4, ENC_NA);
+                    proto_tree_add_item(tree, hf_bgp_bgpad_pe_addr, tvb, offset+10, 4, ENC_BIG_ENDIAN);
                 }else{ /* VPLS-BGP */
 
                     proto_tree_add_item(tree, hf_bgp_vplsbgp_ce_id, tvb, offset+10, 2, ENC_BIG_ENDIAN);
@@ -8509,7 +8583,7 @@ decode_prefix_MP(proto_tree *tree, int hf_path_id, int hf_addr4, int hf_addr6,
 /*
  * Dissect a BGP capability.
  */
-static int
+int
 dissect_bgp_capability_item(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int offset, bool action)
 {
     proto_tree *cap_tree;
@@ -8523,7 +8597,7 @@ dissect_bgp_capability_item(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
 
     proto_tree_add_item(cap_tree, hf_bgp_cap_type, tvb, offset, 1, ENC_BIG_ENDIAN);
     ctype = tvb_get_uint8(tvb, offset);
-    proto_item_append_text(ti, ": %s", val_to_str(ctype, capability_vals, "Unknown capability %d"));
+    proto_item_append_text(ti, ": %s", val_to_str(pinfo->pool, ctype, capability_vals, "Unknown capability %d"));
     offset += 1;
 
     ti_len = proto_tree_add_item(cap_tree, hf_bgp_cap_length, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -8713,6 +8787,7 @@ dissect_bgp_capability_item(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
             }
             break;
 
+        case BGP_CAPABILITY_LINK_LOCAL_NEXT_HOP:
         case BGP_CAPABILITY_ENHANCED_ROUTE_REFRESH:
         case BGP_CAPABILITY_ROUTE_REFRESH_CISCO:
         case BGP_CAPABILITY_ROUTE_REFRESH:
@@ -8860,7 +8935,7 @@ dissect_bgp_open(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
     proto_tree_add_item(tree, hf_bgp_open_holdtime, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    proto_tree_add_item(tree, hf_bgp_open_identifier, tvb, offset, 4, ENC_NA);
+    proto_tree_add_item(tree, hf_bgp_open_identifier, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
 
     proto_tree_add_item(tree, hf_bgp_open_opt_len, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -8898,7 +8973,7 @@ dissect_bgp_open(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
             /* display and grab the type ... */
             proto_tree_add_item(par_tree, hf_bgp_open_opt_param_type, tvb, offset, 1, ENC_BIG_ENDIAN);
             ptype = tvb_get_uint8(tvb, offset);
-            proto_item_append_text(ti, ": %s", val_to_str(ptype, bgp_open_opt_vals, "Unknown Parameter %d"));
+            proto_item_append_text(ti, ": %s", val_to_str(pinfo->pool, ptype, bgp_open_opt_vals, "Unknown Parameter %d"));
             offset += 1;
 
             /* ... and length */
@@ -9144,7 +9219,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 }
 
                 proto_item_set_text(community_item, "%s: %u:%u",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_as2, "Unknown subtype 0x%02x"),
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_as2, "Unknown subtype 0x%02x"),
                         tvb_get_ntohs(tvb,offset+2), tvb_get_ntohl(tvb, offset+4));
                 break;
 
@@ -9153,7 +9228,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_value_as2, tvb, offset+2, 2, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_ntr_as2, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_ntr_as2, "Unknown subtype 0x%02x"));
 
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_AS2_LBW:
@@ -9177,7 +9252,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_IP4, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s: %s:%u",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_IP4, "Unknown subtype 0x%02x"),
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_IP4, "Unknown subtype 0x%02x"),
                         tvb_ip_to_str(pinfo->pool, tvb, offset+2), tvb_get_ntohs(tvb,offset+6));
 
                 switch(com_stype_low_byte) {
@@ -9198,7 +9273,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_value_an2, tvb, offset+6, 2, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s: %s:%u",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_ntr_IP4, "Unknown subtype 0x%02x"),
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_ntr_IP4, "Unknown subtype 0x%02x"),
                         tvb_ip_to_str(pinfo->pool, tvb, offset+2), tvb_get_ntohs(tvb,offset+6));
                 break;
 
@@ -9208,7 +9283,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_value_an2, tvb, offset+6, 2, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s: %u.%u(%u):%u",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_as4, "Unknown subtype 0x%02x"),
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_as4, "Unknown subtype 0x%02x"),
                         tvb_get_ntohs(tvb,offset+2), tvb_get_ntohs(tvb,offset+4), tvb_get_ntohl(tvb,offset+2),
                         tvb_get_ntohs(tvb,offset+6));
                 break;
@@ -9219,7 +9294,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_value_an2, tvb, offset+6, 2, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s: %u.%u(%u):%u",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_ntr_as4, "Unknown subtype 0x%02x"),
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_ntr_as4, "Unknown subtype 0x%02x"),
                         tvb_get_ntohs(tvb,offset+2), tvb_get_ntohs(tvb,offset+4), tvb_get_ntohl(tvb,offset+2),
                         tvb_get_ntohs(tvb,offset+6));
                 break;
@@ -9228,7 +9303,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_opaque, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_opaque, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_opaque, "Unknown subtype 0x%02x"));
 
                 switch(com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_OPA_COST:
@@ -9247,7 +9322,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
 
                         proto_item_append_text(community_item, " %u, POI: %s (%s)",
                                 tvb_get_ntohl(tvb, offset+4),
-                                val_to_str(tvb_get_uint8(tvb, offset+2), bgpext_com_cost_poi_type, "Unknown subtype 0x%02x"),
+                                val_to_str(pinfo->pool, tvb_get_uint8(tvb, offset+2), bgpext_com_cost_poi_type, "Unknown subtype 0x%02x"),
                                 (tvb_get_uint8(tvb, offset+3) & BGP_EXT_COM_COST_CID_REP) ? "Replaces attribute value" : "Evaluated after");
                         }
                         break;
@@ -9305,7 +9380,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_ntr_opaque, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_ntr_opaque, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_ntr_opaque, "Unknown subtype 0x%02x"));
 
                 switch(com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_OPA_COST:
@@ -9324,7 +9399,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
 
                         proto_item_append_text(community_item, " %u, POI: %s (%s)",
                                 tvb_get_ntohl(tvb, offset+4),
-                                val_to_str(tvb_get_uint8(tvb, offset+2), bgpext_com_cost_poi_type, "Unknown subtype 0x%02x"),
+                                val_to_str(pinfo->pool, tvb_get_uint8(tvb, offset+2), bgpext_com_cost_poi_type, "Unknown subtype 0x%02x"),
                                 (tvb_get_uint8(tvb, offset+3) & BGP_EXT_COM_COST_CID_REP) ? "Replaces attribute value" : "Evaluated after");
                         }
                         break;
@@ -9394,7 +9469,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_evpn, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_evpn, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_evpn, "Unknown subtype 0x%02x"));
 
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_EVPN_MMAC:
@@ -9505,7 +9580,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_mup, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_mup, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_mup, "Unknown subtype 0x%02x"));
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_MUP_DIRECT_SEG:
                         /* format of this community is open, then display it in 2-byte:4-byte decimal format like route target */
@@ -9529,7 +9604,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_exp, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_exp, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_exp, "Unknown subtype 0x%02x"));
 
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_EXP_OSPF_RT:
@@ -9565,7 +9640,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                         proto_tree_add_item(community_tree, hf_bgp_ext_com_value_an4, tvb, offset+4, 4, ENC_BIG_ENDIAN);
 
                         proto_item_set_text(community_item, "%s: %u:%u",
-                                val_to_str(com_stype_low_byte, bgpext_com_stype_tr_exp, "Unknown subtype 0x%02x"),
+                                val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_exp, "Unknown subtype 0x%02x"),
                                 tvb_get_ntohs(tvb,offset+2), tvb_get_ntohl(tvb, offset+4));
                         break;
 
@@ -9660,12 +9735,12 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_exp_2, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_exp_2, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_exp_2, "Unknown subtype 0x%02x"));
 
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_EXP_2_FLOW_RED:
                         {
-                                proto_tree_add_item(community_tree, hf_bgp_ext_com_value_IP4, tvb, offset+2, 4, ENC_NA);
+                                proto_tree_add_item(community_tree, hf_bgp_ext_com_value_IP4, tvb, offset+2, 4, ENC_BIG_ENDIAN);
                                 proto_tree_add_item(community_tree, hf_bgp_ext_com_value_an2, tvb, offset+6, 2, ENC_BIG_ENDIAN);
                         }
                         break;
@@ -9691,7 +9766,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_exp_3, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_exp_3, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_exp_3, "Unknown subtype 0x%02x"));
 
                 switch (com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_EXP_3_FLOW_RED:
@@ -9722,7 +9797,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                 proto_tree_add_item(community_tree, hf_bgp_ext_com_stype_tr_exp_eigrp, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
                 proto_item_set_text(community_item, "%s:",
-                        val_to_str(com_stype_low_byte, bgpext_com_stype_tr_eigrp, "Unknown subtype 0x%02x"));
+                        val_to_str(pinfo->pool, com_stype_low_byte, bgpext_com_stype_tr_eigrp, "Unknown subtype 0x%02x"));
 
                 switch(com_stype_low_byte) {
                     case BGP_EXT_COM_STYPE_EXP_EIGRP_FT:
@@ -9805,12 +9880,12 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, uint16_t tlen
                         proto_tree_add_item(community_tree, hf_bgp_ext_com_eigrp_e_m, tvb, offset+4, 4, ENC_BIG_ENDIAN);
 
                         proto_item_append_text(community_tree, " %s, Metric: %u",
-                          val_to_str(tvb_get_ntohs(tvb, offset+2), eigrp_proto2string, "Unknown protocol %u"),
+                          val_to_str(pinfo->pool, tvb_get_ntohs(tvb, offset+2), eigrp_proto2string, "Unknown protocol %u"),
                           tvb_get_ntohl(tvb, offset+4));
                         break;
 
                     case BGP_EXT_COM_STYPE_EXP_EIGRP_RID:
-                       proto_tree_add_item(community_tree, hf_bgp_ext_com_eigrp_rid, tvb, offset+4, 4, ENC_NA);
+                       proto_tree_add_item(community_tree, hf_bgp_ext_com_eigrp_rid, tvb, offset+4, 4, ENC_BIG_ENDIAN);
                        proto_item_append_text(community_tree, " %s", tvb_ip_to_str(pinfo->pool, tvb, offset+4));
                      break;
                 }
@@ -9879,9 +9954,9 @@ dissect_bgp_update_pmsi_attr(packet_info *pinfo, proto_tree *parent_tree, tvbuff
             proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_not_present, tvb, offset+1, 1, ENC_NA);
             break;
         case PMSI_TUNNEL_RSVPTE_P2MP:
-            proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_rsvp_p2mp_id, tvb, offset+5, 4, ENC_NA);
+            proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_rsvp_p2mp_id, tvb, offset+5, 4, ENC_BIG_ENDIAN);
             proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_rsvp_p2mp_tunnel_id, tvb, offset+11, 2, ENC_BIG_ENDIAN);
-            proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_rsvp_p2mp_ext_tunnel_idv4, tvb, offset+13, 4, ENC_NA);
+            proto_tree_add_item(tunnel_id_tree, hf_bgp_pmsi_tunnel_rsvp_p2mp_ext_tunnel_idv4, tvb, offset+13, 4, ENC_BIG_ENDIAN);
             proto_item_append_text(tunnel_id_item, ": Id %u, Ext Id %s",
                                 tvb_get_ntohs(tvb, offset+11), tvb_ip_to_str(pinfo->pool, tvb, offset+13));
             break;
@@ -10058,7 +10133,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
         tlen = alen;
 
         ti_pa = proto_tree_add_item(subtree, hf_bgp_update_path_attribute, tvb, o + i, tlen + aoff, ENC_NA);
-        proto_item_append_text(ti_pa, " - %s", val_to_str(bgpa_type, bgpattr_type, "Unknown (%u)"));
+        proto_item_append_text(ti_pa, " - %s", val_to_str(pinfo->pool, bgpa_type, bgpattr_type, "Unknown (%u)"));
 
         subtree2 = proto_item_add_subtree(ti_pa, ett_bgp_attr);
 
@@ -10450,7 +10525,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                 /* snarf each cluster identifier */
                 while (q < end) {
                     proto_tree_add_item(cluster_list_tree, hf_bgp_update_path_attribute_cluster_id,
-                                        tvb, q - 3 + aoff, 4, ENC_NA);
+                                        tvb, q - 3 + aoff, 4, ENC_BIG_ENDIAN);
                     proto_item_append_text(ti, " %s", tvb_ip_to_str(pinfo->pool, tvb, q-3+aoff));
                     proto_item_append_text(ti_pa, " %s", tvb_ip_to_str(pinfo->pool, tvb, q-3+aoff));
                     q += 4;
@@ -11000,7 +11075,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                         hf_bgp_prefix_sid_srv6_l3vpn_sub_tlv,
                                                                         tvb, sub_pnt , srv6_service_subtlv_len + 3, ENC_NA);
                                         proto_item_append_text(stlv_item, " - %s",
-                                                               val_to_str(srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
+                                                               val_to_str(pinfo->pool, srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
                                         stlv_tree = proto_item_add_subtree(stlv_item, ett_bgp_prefix_sid_srv6_l3vpn_sid_information);
 
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sub_tlv_type, tvb, sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11008,7 +11083,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sub_tlv_reserved, tvb, sub_pnt + 3, 1, ENC_NA);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sid_value, tvb, sub_pnt + 4, 16, ENC_NA);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sid_flags, tvb, sub_pnt + 20, 1, ENC_NA);
-                                        proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_srv6_endpoint_behavior, tvb, sub_pnt + 21, 2, ENC_NA);
+                                        proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_srv6_endpoint_behavior, tvb, sub_pnt + 21, 2, ENC_BIG_ENDIAN);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_reserved, tvb, sub_pnt + 23, 1, ENC_NA);
 
                                         srv6_data_sstlv_item = proto_tree_add_item(stlv_tree,
@@ -11028,7 +11103,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                                      hf_bgp_prefix_sid_srv6_l3vpn_sub_sub_tlv,
                                                                                      tvb, sub_sub_pnt , srv6_service_data_subsubtlv_len + 3, ENC_NA);
                                                     proto_item_append_text(sstlv_item, " - %s",
-                                                                           val_to_str(srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
+                                                                           val_to_str(pinfo->pool, srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
                                                     sstlv_tree = proto_item_add_subtree(sstlv_item, ett_bgp_prefix_sid_srv6_l3vpn_sid_structure);
 
                                                     proto_tree_add_item(sstlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sub_sub_tlv_type, tvb, sub_sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11045,7 +11120,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                                      hf_bgp_prefix_sid_srv6_l3vpn_sub_sub_tlv,
                                                                                      tvb, sub_sub_pnt , srv6_service_data_subsubtlv_len + 3, ENC_NA);
                                                     proto_item_append_text(sstlv_item, " - %s",
-                                                                           val_to_str(srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
+                                                                           val_to_str(pinfo->pool, srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
                                                     sstlv_tree = proto_item_add_subtree(sstlv_item, ett_bgp_prefix_sid_srv6_l3vpn_sid_unknown);
 
                                                     proto_tree_add_item(sstlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sub_sub_tlv_type, tvb, sub_sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11060,7 +11135,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                         stlv_item = proto_tree_add_item(srv6_stlv_tree,
                                                                         hf_bgp_prefix_sid_srv6_l3vpn_sub_tlv,
                                                                         tvb, sub_pnt , srv6_service_subtlv_len + 3, ENC_NA);
-                                        proto_item_append_text(stlv_item, " - %s", val_to_str(srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
+                                        proto_item_append_text(stlv_item, " - %s", val_to_str(pinfo->pool, srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
                                         stlv_tree = proto_item_add_subtree(stlv_item, ett_bgp_prefix_sid_srv6_l3vpn_unknown);
 
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l3vpn_sub_tlv_type, tvb, sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11094,7 +11169,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                         hf_bgp_prefix_sid_srv6_l2vpn_sub_tlv,
                                                                         tvb, sub_pnt , srv6_service_subtlv_len + 3, ENC_NA);
                                         proto_item_append_text(stlv_item, " - %s",
-                                                               val_to_str(srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
+                                                               val_to_str(pinfo->pool, srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
                                         stlv_tree = proto_item_add_subtree(stlv_item, ett_bgp_prefix_sid_srv6_l2vpn_sid_information);
 
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sub_tlv_type, tvb, sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11102,7 +11177,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sub_tlv_reserved, tvb, sub_pnt + 3, 1, ENC_NA);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sid_value, tvb, sub_pnt + 4, 16, ENC_NA);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sid_flags, tvb, sub_pnt + 20, 1, ENC_NA);
-                                        proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_srv6_endpoint_behavior, tvb, sub_pnt + 21, 2, ENC_NA);
+                                        proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_srv6_endpoint_behavior, tvb, sub_pnt + 21, 2, ENC_BIG_ENDIAN);
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_reserved, tvb, sub_pnt + 23, 1, ENC_NA);
 
                                         srv6_data_sstlv_item = proto_tree_add_item(stlv_tree,
@@ -11122,7 +11197,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                                      hf_bgp_prefix_sid_srv6_l2vpn_sub_sub_tlv,
                                                                                      tvb, sub_sub_pnt , srv6_service_data_subsubtlv_len + 3, ENC_NA);
                                                     proto_item_append_text(sstlv_item, " - %s",
-                                                                           val_to_str(srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
+                                                                           val_to_str(pinfo->pool, srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
                                                     sstlv_tree = proto_item_add_subtree(sstlv_item, ett_bgp_prefix_sid_srv6_l2vpn_sid_structure);
 
                                                     proto_tree_add_item(sstlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sub_sub_tlv_type, tvb, sub_sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11139,7 +11214,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                                                                      hf_bgp_prefix_sid_srv6_l2vpn_sub_sub_tlv,
                                                                                      tvb, sub_sub_pnt , srv6_service_data_subsubtlv_len + 3, ENC_NA);
                                                     proto_item_append_text(sstlv_item, " - %s",
-                                                                           val_to_str(srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
+                                                                           val_to_str(pinfo->pool, srv6_service_data_subsubtlv_type, srv6_service_data_sub_sub_tlv_type, "Unknown (%u)"));
                                                     sstlv_tree = proto_item_add_subtree(sstlv_item, ett_bgp_prefix_sid_srv6_l2vpn_sid_unknown);
 
                                                     proto_tree_add_item(sstlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sub_sub_tlv_type, tvb, sub_sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11154,7 +11229,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                                         stlv_item = proto_tree_add_item(srv6_stlv_tree,
                                                                         hf_bgp_prefix_sid_srv6_l2vpn_sub_tlv,
                                                                         tvb, sub_pnt , srv6_service_subtlv_len + 3, ENC_NA);
-                                        proto_item_append_text(stlv_item, " - %s", val_to_str(srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
+                                        proto_item_append_text(stlv_item, " - %s", val_to_str(pinfo->pool, srv6_service_subtlv_type, srv6_service_sub_tlv_type, "Unknown (%u)"));
                                         stlv_tree = proto_item_add_subtree(stlv_item, ett_bgp_prefix_sid_srv6_l2vpn_unknown);
 
                                         proto_tree_add_item(stlv_tree, hf_bgp_prefix_sid_srv6_l2vpn_sub_tlv_type, tvb, sub_pnt, 1, ENC_BIG_ENDIAN);
@@ -11168,7 +11243,7 @@ dissect_bgp_path_attr(proto_tree *subtree, tvbuff_t *tvb, uint16_t path_attr_len
                             break;
                         default:
                             tlv_item = proto_tree_add_item(subtree2, hf_bgp_prefix_sid_unknown, tvb, q, prefix_sid_sublen + 3, ENC_NA);
-                            proto_item_append_text(tlv_item, " (%s)", val_to_str(prefix_sid_subtype, bgp_prefix_sid_type, "%u"));
+                            proto_item_append_text(tlv_item, " (%s)", val_to_str(pinfo->pool, prefix_sid_subtype, bgp_prefix_sid_type, "%u"));
                             tlv_tree = proto_item_add_subtree(tlv_item, ett_bgp_prefix_sid_unknown);
                             proto_tree_add_item(tlv_tree, hf_bgp_prefix_sid_type, tvb, q, 1, ENC_BIG_ENDIAN);
                             proto_tree_add_item(tlv_tree, hf_bgp_prefix_sid_length, tvb, q + 1, 2, ENC_BIG_ENDIAN);
@@ -11458,7 +11533,7 @@ dissect_bgp_notification(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo)
                 offset = dissect_bgp_capability_item(tvb, tree, pinfo, offset, false);
             }
         } else if (major_error == BGP_MAJOR_ERROR_OPEN_MSG && minor_cease == 2 ) { /* Display Bad Peer AS Number */
-            proto_tree_add_item(tree, hf_bgp_notify_error_open_bad_peer_as, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
+            proto_tree_add_item(tree, hf_bgp_notify_error_open_bad_peer_as, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_BIG_ENDIAN);
         } else {
             proto_tree_add_item(tree, hf_bgp_notify_data, tvb, offset, hlen - BGP_MIN_NOTIFICATION_MSG_SIZE, ENC_NA);
         }
@@ -11542,43 +11617,66 @@ example 2
         proto_item_set_len(ti, orflen + 4);
         p += 2;
 
-        if (orftype != BGP_ORF_PREFIX_CISCO) {
-            expert_add_info_format(pinfo, ti1, &ei_bgp_route_refresh_orf_type_unknown, "ORFEntry-Unknown (type %u)", orftype);
-            p += orflen;
-            continue;
-        }
         pend = p + orflen;
-        while (p < pend) {
 
-            ti1 = proto_tree_add_item(subtree, hf_bgp_route_refresh_orf_entry_prefixlist, tvb, p, 1, ENC_NA);
-            subtree1 = proto_item_add_subtree(ti1, ett_bgp_orf_entry);
-            proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_action, tvb, p, 1, ENC_BIG_ENDIAN);
-            entryflag = tvb_get_uint8(tvb, p);
-            if (((entryflag & BGP_ORF_ACTION) >> 6) == BGP_ORF_REMOVEALL) {
+        switch (orftype) {
+        case BGP_ORF_COMM:
+        case BGP_ORF_EXTCOMM:
+        case BGP_ORF_ASPATH:
+            expert_add_info_format(pinfo, ti1, &ei_bgp_route_refresh_orf_type_unregistered, "Deprecated non-IANA ORF Entry type %u", orftype);
+            break;
+
+        case BGP_ORF_PREFIX:
+        case BGP_ORF_PREFIX_CISCO:
+            while (p < pend) {
+                ti1 = proto_tree_add_item(subtree, hf_bgp_route_refresh_orf_entry_prefixlist, tvb, p, 1, ENC_NA);
+                subtree1 = proto_item_add_subtree(ti1, ett_bgp_orf_entry);
+                proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_action, tvb, p, 1, ENC_BIG_ENDIAN);
+                entryflag = tvb_get_uint8(tvb, p);
+                if (((entryflag & BGP_ORF_ACTION) >> 6) == BGP_ORF_REMOVEALL) {
+                    p++;
+                    continue;
+                }
+                if (((entryflag & BGP_ORF_ACTION) >> 6) > BGP_ORF_REMOVEALL) {
+                    expert_add_info_format(pinfo, ti1, &ei_bgp_route_refresh_orf_action_invalid, "Invalid ORF action");
+                    p++;
+                    continue;
+                }
+                proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_match, tvb, p, 1, ENC_BIG_ENDIAN);
                 p++;
-                continue;
+
+                proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_sequence, tvb, p, 4, ENC_BIG_ENDIAN);
+                p +=4;
+
+                proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_prefixmask_lower, tvb, p, 1, ENC_BIG_ENDIAN);
+                p++;
+
+                proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_prefixmask_upper, tvb, p, 1, ENC_BIG_ENDIAN);
+                p++;
+
+                advance = decode_prefix4(subtree1, pinfo, NULL, hf_bgp_route_refresh_orf_entry_ip, tvb, p, "ORF");
+                if (advance < 0)
+                        break;
+                entrylen = 7 + 1 + advance;
+
+                proto_item_set_len(ti1, entrylen);
+                p += advance;
             }
-            proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_match, tvb, p, 1, ENC_BIG_ENDIAN);
-            p++;
+            break;
 
-            proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_sequence, tvb, p, 4, ENC_BIG_ENDIAN);
-            p +=4;
+        case BGP_ORF_CP_ORF:
+        case BGP_ORF_VPN_PREFIX:
+        case BGP_ORF_COMM_CISCO:
+        case BGP_ORF_EXTCOMM_CISCO:
+        case BGP_ORF_ASPATH_CISCO:
+            expert_add_info_format(pinfo, ti1, &ei_bgp_route_refresh_orf_type_unsupported, "ORF entry type %u not supported for decoding", orftype);
+            break;
 
-            proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_prefixmask_lower, tvb, p, 1, ENC_BIG_ENDIAN);
-            p++;
-
-            proto_tree_add_item(subtree1, hf_bgp_route_refresh_orf_entry_prefixmask_upper, tvb, p, 1, ENC_BIG_ENDIAN);
-            p++;
-
-            advance = decode_prefix4(subtree1, pinfo, NULL, hf_bgp_route_refresh_orf_entry_ip, tvb, p, "ORF");
-            if (advance < 0)
-                    break;
-            entrylen = 7 + 1 + advance;
-
-            proto_item_set_len(ti1, entrylen);
-            p += advance;
-
+        default:
+            expert_add_info_format(pinfo, ti1, &ei_bgp_route_refresh_orf_type_unknown, "ORFEntry-Unknown (type %u)", orftype);
         }
+
+        p = pend;
     }
 }
 
@@ -11600,7 +11698,7 @@ dissect_bgp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
     bgp_len = tvb_get_ntohs(tvb, BGP_MARKER_SIZE);
     bgp_type = tvb_get_uint8(tvb, BGP_MARKER_SIZE + 2);
-    typ = val_to_str(bgp_type, bgptypevals, "Unknown message type (0x%02x)");
+    typ = val_to_str(pinfo->pool, bgp_type, bgptypevals, "Unknown message type (0x%02x)");
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "BGP");
     col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, typ);
@@ -13684,6 +13782,12 @@ proto_register_bgp(void)
       { &hf_bgp_ls_tlv_bgp_router_id_id,
         { "BGP Router-ID", "bgp.ls.tlv.bgp_router_id.id", FT_IPv4,
           BASE_NONE, NULL, 0x0, NULL, HFILL}},
+      { &hf_bgp_ls_tlv_bgp_confederation_member,
+        { "BGP Confederation Member TLV", "bgp.ls.tlv.confederation_member", FT_NONE,
+          BASE_NONE, NULL, 0x0, NULL, HFILL }},
+      { &hf_bgp_ls_tlv_bgp_confederation_member_as,
+        { "BGP Confederation Member AS", "bgp.ls.tlv.confederation_member.as", FT_UINT32,
+          BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_ls_tlv_srv6_sid_info,
         { "SRv6 SID Information TLV", "bgp.ls.tlv.srv6_sid_info", FT_NONE,
           BASE_NONE, NULL, 0x0, NULL, HFILL}},
@@ -14309,6 +14413,12 @@ proto_register_bgp(void)
       { &hf_bgp_evpn_nlri_igmp_mc_or_addr_ipv6,
        { "Originator Router Address IPv6", "bgp.evpn.nlri.or_addr_ipv6", FT_IPv6,
           BASE_NONE, NULL, 0x0, NULL, HFILL}},
+      { &hf_bgp_evpn_nlri_igmp_mc_reserved,
+       { "Reserved", "bgp.evpn.nlri.igmp_mc_reserved", FT_BYTES,
+          BASE_NONE, NULL, 0x0, NULL, HFILL}},
+      { &hf_bgp_evpn_nlri_igmp_mc_max_resp_time,
+       { "Max. response time", "bgp.evpn.nlri.igmp_mc_max_resp_time", FT_UINT8,
+          BASE_DEC, NULL, 0x0, NULL, HFILL}},
       { &hf_bgp_evpn_nlri_igmp_mc_flags,
        { "Flags", "bgp.evpn.nlri.igmp_mc_flags", FT_UINT8,
           BASE_HEX, NULL, 0x0, NULL, HFILL}},
@@ -14504,7 +14614,10 @@ proto_register_bgp(void)
         { &ei_bgp_cap_len_bad, { "bgp.cap.length.bad", PI_MALFORMED, PI_ERROR, "Capability length is wrong", EXPFILL }},
         { &ei_bgp_cap_gr_helper_mode_only, { "bgp.cap.gr.helper_mode_only", PI_REQUEST_CODE, PI_CHAT, "Graceful Restart Capability supported in Helper mode only", EXPFILL }},
         { &ei_bgp_notify_minor_unknown, { "bgp.notify.minor_error.unknown", PI_UNDECODED, PI_NOTE, "Unknown notification error", EXPFILL }},
-        { &ei_bgp_route_refresh_orf_type_unknown, { "bgp.route_refresh.orf.type.unknown", PI_MALFORMED, PI_ERROR, "ORFEntry-Unknown", EXPFILL }},
+        { &ei_bgp_route_refresh_orf_type_unknown, { "bgp.route_refresh.orf.type.unknown", PI_UNDECODED, PI_WARN, "unknown ORF type", EXPFILL }},
+        { &ei_bgp_route_refresh_orf_type_unsupported, { "bgp.route_refresh.orf.type.unsupported", PI_UNDECODED, PI_WARN, "ORF type: decoding not supported", EXPFILL }},
+        { &ei_bgp_route_refresh_orf_type_unregistered, { "bgp.route_refresh.orf.type.unregistered", PI_MALFORMED, PI_ERROR, "ORF type: unregistered/non-IANA value", EXPFILL }},
+        { &ei_bgp_route_refresh_orf_action_invalid, { "bgp.route_refresh.orf.action.invalid", PI_MALFORMED, PI_ERROR, "ORF action: invalid value", EXPFILL }},
         { &ei_bgp_length_invalid, { "bgp.length.invalid", PI_MALFORMED, PI_ERROR, "Length is invalid", EXPFILL }},
         { &ei_bgp_prefix_length_invalid, { "bgp.prefix_length.invalid", PI_MALFORMED, PI_ERROR, "Prefix length is invalid", EXPFILL }},
         { &ei_bgp_afi_type_not_supported, { "bgp.afi_type_not_supported", PI_PROTOCOL, PI_ERROR, "AFI Type not supported", EXPFILL }},

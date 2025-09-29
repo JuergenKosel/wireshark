@@ -1,25 +1,23 @@
 [
   {
     "_index": "packets-2004-12-05",
-    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "2004-12-05T19:16:24.317453000+0000",
+          "frame.time": "2004-12-05T19:16:24.317453000Z",
           "frame.time_utc": "2004-12-05T19:16:24.317453000Z",
-          "frame.time_epoch": "1102274184.317453000",
+          "frame.time_epoch": "2004-12-05T19:16:24.317453000Z",
           "frame.offset_shift": "0.000000000",
-          "frame.time_delta": "0.000000000",
-          "frame.time_delta_displayed": "0.000000000",
           "frame.time_relative": "0.000000000",
           "frame.number": "1",
           "frame.len": "314",
           "frame.cap_len": "314",
           "frame.marked": "0",
           "frame.ignored": "0",
-          "frame.protocols": "eth:ethertype:ip:udp:dhcp"
+          "frame.protocols": "eth:ethertype:ip:udp:dhcp",
+          "frame.encoding": "0"
         },
         "eth": {
           "eth.dst": "ff:ff:ff:ff:ff:ff",
@@ -158,15 +156,14 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "2004-12-05T19:16:24.317748000+0000",
+          "frame.time": "2004-12-05T19:16:24.317748000Z",
           "frame.time_utc": "2004-12-05T19:16:24.317748000Z",
-          "frame.time_epoch": "1102274184.317748000",
+          "frame.time_epoch": "2004-12-05T19:16:24.317748000Z",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.000295000",
           "frame.time_delta_displayed": "0.000295000",
@@ -176,7 +173,8 @@
           "frame.cap_len": "342",
           "frame.marked": "0",
           "frame.ignored": "0",
-          "frame.protocols": "eth:ethertype:ip:udp:dhcp"
+          "frame.protocols": "eth:ethertype:ip:udp:dhcp",
+          "frame.encoding": "0"
         },
         "eth": {
           "eth.dst": "00:0b:82:01:fc:42",
@@ -325,15 +323,14 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "2004-12-05T19:16:24.387484000+0000",
+          "frame.time": "2004-12-05T19:16:24.387484000Z",
           "frame.time_utc": "2004-12-05T19:16:24.387484000Z",
-          "frame.time_epoch": "1102274184.387484000",
+          "frame.time_epoch": "2004-12-05T19:16:24.387484000Z",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.069736000",
           "frame.time_delta_displayed": "0.069736000",
@@ -343,7 +340,8 @@
           "frame.cap_len": "314",
           "frame.marked": "0",
           "frame.ignored": "0",
-          "frame.protocols": "eth:ethertype:ip:udp:dhcp"
+          "frame.protocols": "eth:ethertype:ip:udp:dhcp",
+          "frame.encoding": "0"
         },
         "eth": {
           "eth.dst": "ff:ff:ff:ff:ff:ff",
@@ -488,15 +486,14 @@
   },
   {
     "_index": "packets-2004-12-05",
-    "_type": "doc",
     "_score": null,
     "_source": {
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "2004-12-05T19:16:24.387798000+0000",
+          "frame.time": "2004-12-05T19:16:24.387798000Z",
           "frame.time_utc": "2004-12-05T19:16:24.387798000Z",
-          "frame.time_epoch": "1102274184.387798000",
+          "frame.time_epoch": "2004-12-05T19:16:24.387798000Z",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.000314000",
           "frame.time_delta_displayed": "0.000314000",
@@ -506,7 +503,8 @@
           "frame.cap_len": "342",
           "frame.marked": "0",
           "frame.ignored": "0",
-          "frame.protocols": "eth:ethertype:ip:udp:dhcp"
+          "frame.protocols": "eth:ethertype:ip:udp:dhcp",
+          "frame.encoding": "0"
         },
         "eth": {
           "eth.dst": "00:0b:82:01:fc:42",

@@ -17,13 +17,15 @@
 
 import os
 import sys
-import argparse
 from pyclibrary import CParser
 
 def parse_files(infiles, outfile):
 
     print("Input: {}".format(infiles))
     print("Output: '{}'".format(outfile))
+    pre_line_count = 0
+    with open(outfile, 'r') as out_f:
+        pre_line_count = len(out_f.read().splitlines())
 
     parser = CParser(infiles)
 
@@ -67,6 +69,11 @@ static ws_enum_t const all_enums[] = {
 };
 """
 
+    post_line_count = len(source.splitlines())
+    if post_line_count < pre_line_count:
+        sys.stderr.write(f"Can't shrink {outfile} from {pre_line_count} lines to {post_line_count} lines.\n")
+        sys.exit(1)
+
     try:
         fh = open(outfile, 'w')
     except OSError:
@@ -78,8 +85,8 @@ static ws_enum_t const all_enums[] = {
 epan_files = [
     "epan/address.h",
     "epan/ipproto.h",
-    "epan/proto.h",
     "epan/ftypes/ftypes.h",
+    "epan/proto.h",         # PyClibrary 0.3.0 needs this after ftypes.h
     "epan/stat_groups.h",
 ]
 parse_files(epan_files, "epan/introspection-enums.c")

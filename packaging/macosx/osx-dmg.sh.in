@@ -8,7 +8,6 @@ set -e
 app_name="Wireshark"
 dmgbuild="@DMGBUILD_EXECUTABLE@"
 version="@PROJECT_VERSION@"
-log_version="@LOG_PROJECT_VERSION@"
 app_settings_file="@CMAKE_BINARY_DIR@/packaging/macosx/wireshark-app.dmgbuild"
 dsym_settings_file="@CMAKE_BINARY_DIR@/packaging/macosx/wireshark-dsym.dmgbuild"
 architecture=""
@@ -55,10 +54,12 @@ do
 	shift 1
 done
 
-if lipo "$app_name.app/Contents/MacOS/$app_name" -verify_arch arm64 ; then
-	architecture="Arm 64"
+if lipo "$app_name.app/Contents/MacOS/$app_name" -verify_arch arm64 x86_64 ; then
+	architecture=""
+elif lipo "$app_name.app/Contents/MacOS/$app_name" -verify_arch arm64 ; then
+	architecture=" Arm 64"
 elif lipo "$app_name.app/Contents/MacOS/$app_name" -verify_arch x86_64 ; then
-	architecture="Intel 64"
+	architecture=" Intel 64"
 else
 	echo "Error: $app_name.app missing or has unknown architecture."
 	lipo "$app_name.app/Contents/MacOS/$app_name" -detailed_info
@@ -66,13 +67,13 @@ else
 fi
 
 if [[ $app_name = Strato* ]] ; then
-	version=$log_version
+	version="@STRATOSHARK_VERSION@"
 	app_settings_file="@CMAKE_BINARY_DIR@/packaging/macosx/stratoshark-app.dmgbuild"
 	dsym_settings_file="@CMAKE_BINARY_DIR@/packaging/macosx/stratoshark-dsym.dmgbuild"
 fi
 
 app_vol_name="$app_name ${version}"
-app_img_name="$app_vol_name $architecture.dmg"
+app_img_name="${app_vol_name}${architecture}.dmg"
 
 printf "\nCreating application disk image %s\n" "$app_img_name"
 
@@ -83,7 +84,7 @@ printf "\nCreating application disk image %s\n" "$app_img_name"
 	"$app_img_name" || exit 1
 
 dsym_vol_name="$app_name dSYM ${version}"
-dsym_img_name="$dsym_vol_name $architecture.dmg"
+dsym_img_name="${dsym_vol_name}${architecture}.dmg"
 
 printf "\nCreating debugging symbols disk image %s\n" "$dsym_img_name"
 

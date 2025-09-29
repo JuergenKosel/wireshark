@@ -113,6 +113,71 @@ WSLUA_METAMETHOD Dissector__call(lua_State* L) {
     return Dissector_call(L);
 }
 
+WSLUA_METHOD Dissector_decrypt(lua_State* L) {
+    /* Calls a dissector against a given packet (or part of it). */
+#define WSLUA_ARG_Dissector_decrypt_TVB 2 /* The buffer to dissect. */
+#define WSLUA_ARG_Dissector_decrypt_PINFO 3 /* The packet info. */
+#define WSLUA_ARG_Dissector_decrypt_TREE 4 /* The tree on which to add the protocol items. */
+
+    Dissector volatile d = checkDissector(L,1);
+    Tvb tvb = checkTvb(L,WSLUA_ARG_Dissector_decrypt_TVB);
+    Pinfo pinfo = checkPinfo(L,WSLUA_ARG_Dissector_decrypt_PINFO);
+    TreeItem ti = checkTreeItem(L,WSLUA_ARG_Dissector_decrypt_TREE);
+    volatile int len = 0;
+    struct data_source *ds, *ds_DTLS, *ds_TLS;
+    tvbuff_t *tvb_decrypted = NULL;
+    char *decrypted = "";
+
+    if (! ( d && tvb && pinfo) ) return 0;
+
+    WRAP_NON_LUA_EXCEPTIONS(
+        len = call_dissector(d, tvb->ws_tvb, pinfo->ws_pinfo, ti->tree);
+    )
+
+    ds_DTLS = get_data_source_by_name(pinfo->ws_pinfo, "Decrypted DTLS");
+    ds_TLS = get_data_source_by_name(pinfo->ws_pinfo, "Decrypted TLS");
+
+    if (ds_DTLS) {
+        ds = ds_DTLS;
+    }
+    else if (ds_TLS) {
+        ds = ds_TLS;
+    }
+    else {
+        ds = NULL;
+    }
+
+    if (ds) {
+        tvb_decrypted = get_data_source_tvb(ds);
+        if (tvb_decrypted) {
+            wmem_allocator_t *scope = NULL;
+            const int offset = 0;
+
+            len = tvb_reported_length(tvb_decrypted);
+            decrypted = (uint8_t *)wmem_alloc(scope, len + 1);
+            tvb_memcpy(tvb_decrypted, decrypted, offset, len);
+            decrypted[len] = '\0';
+        }
+    }
+
+    lua_pushinteger(L,(lua_Integer)len);
+    lua_pushstring(L,(const char *) decrypted);
+    if (tvb_decrypted) {
+        push_Tvb(L,tvb_decrypted);
+    } else {
+        lua_pushnil(L);
+    }
+    WSLUA_RETURN(3); /* Number of bytes dissected and decrypted content */
+}
+
+WSLUA_METAMETHOD Dissector__decrypt(lua_State* L) {
+    /* Calls a dissector against a given packet (or part of it). */
+#define WSLUA_ARG_Dissector__decrypt_TVB 2 /* The buffer to dissect. */
+#define WSLUA_ARG_Dissector__decrypt_PINFO 3 /* The packet info. */
+#define WSLUA_ARG_Dissector__decrypt_TREE 4 /* The tree on which to add the protocol items. */
+    return Dissector_decrypt(L);
+}
+
 WSLUA_METAMETHOD Dissector__tostring(lua_State* L) {
     /* Gets the Dissector's description. */
     Dissector d = checkDissector(L,1);
@@ -131,12 +196,14 @@ WSLUA_METHODS Dissector_methods[] = {
     WSLUA_CLASS_FNREG(Dissector,get),
     WSLUA_CLASS_FNREG(Dissector,call),
     WSLUA_CLASS_FNREG(Dissector,list),
+    WSLUA_CLASS_FNREG(Dissector,decrypt),
     { NULL, NULL }
 };
 
 WSLUA_META Dissector_meta[] = {
     WSLUA_CLASS_MTREG(Dissector,tostring),
     WSLUA_CLASS_MTREG(Dissector,call),
+    WSLUA_CLASS_MTREG(Dissector,decrypt),
     { NULL, NULL }
 };
 
@@ -209,12 +276,15 @@ WSLUA_CONSTRUCTOR DissectorTable_new (lua_State *L) {
         proto_id = proto_get_id_by_short_name(proto->name);
     }
 
+    name = g_strdup(name);
+    ui_name = g_strdup(ui_name);
+
     dt->table = (type == FT_NONE) ?
         register_decode_as_next_proto(proto_id, name, ui_name, NULL) :
         register_dissector_table(name, ui_name, proto_id, type, base);
     dt->heur_list = NULL;
-    dt->name = g_strdup(name);
-    dt->ui_name = g_strdup(ui_name);
+    dt->name = name;
+    dt->ui_name = ui_name;
     dt->created = true;
     dt->expired = false;
 
@@ -260,11 +330,13 @@ WSLUA_CONSTRUCTOR DissectorTable_heuristic_new(lua_State *L) {
 
 
     DissectorTable dt;
+    name = g_strdup(name);
+    ui_name = g_strdup(ui_name);
     dt = (DissectorTable)g_malloc(sizeof(struct _wslua_distbl_t));
     dt->table = NULL;
     dt->heur_list = register_heur_dissector_list_with_description(name, ui_name, proto_id);
-    dt->name = g_strdup(name);
-    dt->ui_name = g_strdup(ui_name);
+    dt->name = name;
+    dt->ui_name = ui_name;
     dt->created = true;
     dt->expired = false;
 
@@ -782,7 +854,7 @@ WSLUA_METHOD DissectorTable_get_dissector (lua_State *L) {
     /*
      Try to obtain a dissector from a table.
      */
-#define WSLUA_ARG_DissectorTable_get_dissector_PATTERN 2 /* The pattern to be matched (either an integer or a string depending on the table's type). */
+#define WSLUA_ARG_DissectorTable_get_dissector_PATTERN 2 /* The pattern to be matched, depending on the table's type. */
 
     DissectorTable dt = checkDissectorTable(L,1);
     ftenum_t type;
@@ -801,9 +873,13 @@ WSLUA_METHOD DissectorTable_get_dissector (lua_State *L) {
         const e_guid_t* guid = fvalue_get_guid(fval);
         guid_key gk = {*guid, 0};
         handle = dissector_get_guid_handle(dt->table,&gk);
-    } else if ( type == FT_UINT32 || type == FT_UINT16 || type ==  FT_UINT8 || type ==  FT_UINT24 ) {
+    } else if ( type == FT_UINT8 || type == FT_UINT16 || type == FT_UINT24 || type == FT_UINT32 ) {
         uint32_t port = wslua_checkuint32(L, WSLUA_ARG_DissectorTable_get_dissector_PATTERN);
         handle = dissector_get_uint_handle(dt->table,port);
+    } else if ( type == FT_NONE ) {
+        handle = dissector_get_payload_handle(dt->table);
+    } else {
+        luaL_error(L,"Strange type %d for DissectorTable %s",type,dt->name);
     }
 
     if (handle) {

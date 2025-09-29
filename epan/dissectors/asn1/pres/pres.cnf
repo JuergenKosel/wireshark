@@ -23,7 +23,7 @@ CPR-PPDU/normal-mode-parameters	cPR_PPDU_normal_mode_parameters
 
 ARU-PPDU/x400-mode-parameters aRU_PPDU_x400_mode_parameters
 CPR-PPDU/x400-mode-parameters cPU_PPDU_x400_mode_parameters
-CPA-PPDU/x410-mode-parameters cPR_PPDU_x400_mode_parameters
+CPA-PPDU/x410-mode-parameters cPR_PPDU_x410_mode_parameters
 
 ARP-PPDU/provider-reason aRU_PPDU_provider-reason
 CPR-PPDU/normal-mode-parameters/provider-reason cPR_PPDU__provider-reason
@@ -91,7 +91,7 @@ CPR-PPDU/normal-mode-parameters/provider-reason cPR_PPDU__provider-reason
 
   %(DEFAULT_BODY)s
 
-  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%%s)", val_to_str(reason, pres_Abort_reason_vals, "unknown: %%d"));
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%%s)", val_to_str(actx->pinfo->pool, reason, pres_Abort_reason_vals, "unknown: %%d"));
 
 #.FN_HDR Context-list/_item
 	abstract_syntax_name_oid=NULL;

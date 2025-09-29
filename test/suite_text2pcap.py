@@ -51,17 +51,23 @@ def check_capinfos_info(cmd_capinfos, cap_file):
         'packets': None,
         'datasize': None,
         'timeend': None,
+        'interfaces': None,
+        'userappl': [],
     }
     str_pats = {
         'filetype': 'File type',
         'encapsulation': 'File encapsulation',
-        'timeend': 'Last packet time',
+        'timeend': 'Latest packet time',
     }
     int_pats = {
         'packets': 'Number of packets',
         'datasize': 'Data size',
+        'interfaces': 'Number of interfaces in file',
     }
-    capinfos_out = get_capture_info(cmd_capinfos, ('-tEcdMe',), cap_file)
+    str_list_pats = {
+        'userappl': 'Capture application',
+    }
+    capinfos_out = get_capture_info(cmd_capinfos, ('-MtEcdeIF',), cap_file)
 
     for ci_line in capinfos_out.splitlines():
         for sp_key in str_pats:
@@ -75,6 +81,12 @@ def check_capinfos_info(cmd_capinfos, cap_file):
             int_res = re.search(int_pat, ci_line)
             if int_res is not None:
                 cap_info[ip_key] = int(int_res.group(1))
+
+        for sp_key, sp_value in str_list_pats.items():
+            str_pat = r'{}:\s+([\S ]+)'.format(sp_value)
+            str_res = re.search(str_pat, ci_line)
+            if str_res is not None:
+                cap_info[sp_key].append(str_res.group(1))
 
     return cap_info
 
@@ -113,10 +125,8 @@ def check_text2pcap(cmd_tshark, cmd_text2pcap, cmd_capinfos, capture_file, resul
 
         assert file_type in file_type_to_testout, 'Invalid file type'
 
-        # text2pcap_generate_input()
-        # $TSHARK -o 'gui.column.format:"Time","%t"' -tad -P -x -r $1 > testin.txt
         testin_file = result_file(testin_txt)
-        tshark_cmd = '"{cmd}" -r "{cf}" -o gui.column.format:"Time","%t" -t ad -P --hexdump frames > "{of}"'.format(
+        tshark_cmd = '"{cmd}" -r "{cf}" -t ad --hexdump frames --hexdump time > "{of}"'.format(
             cmd = cmd_tshark,
             cf = cap_file,
             of = testin_file,
@@ -129,8 +139,7 @@ def check_text2pcap(cmd_tshark, cmd_text2pcap, cmd_capinfos, capture_file, resul
         filetype_flag = pre_cap_info['filetype'].split()[0]
         # We want the -a flag, because the tshark -x format is a hex+ASCII
         # format where the ASCII can be confused for hex bytes without it.
-        # XXX: -t ISO also works now too for this output
-        text2pcap_cmd = '"{cmd}" -a -F {filetype} -l {linktype} -t "%Y-%m-%d %H:%M:%S.%f" "{in_f}" "{out_f}"'.format(
+        text2pcap_cmd = '"{cmd}" -a -F {filetype} -l {linktype} -t "ISO" "{in_f}" "{out_f}"'.format(
             cmd = cmd_text2pcap,
             filetype = filetype_flag,
             linktype = encap_to_link_type[pre_cap_info['encapsulation']],
@@ -241,6 +250,12 @@ class TestText2pcapPcapng:
         '''Test text2pcap with sip.pcapng.'''
         check_text2pcap('sip.pcapng', 'pcapng')
 
+    def test_text2pcap_icmp_ascii_pcapng(self, check_text2pcap):
+        '''Test text2pcap with a test that needs special ASCII handling.'''
+        # This file has multiple spaces and spaces at hex dump line start,
+        # and was not handled by a simpler version of the ASCII rollback.
+        check_text2pcap('icmp_ascii.pcapng', 'pcapng')
+
 
 @pytest.fixture
 def check_rawip(run_text2pcap_capinfos_tshark):
@@ -326,6 +341,35 @@ class TestText2pcapParsing:
                 "0020  74"
         check_rawip(pdata, 1, 33)
 
+    def test_text2pcap_two_byte_words(self, check_rawip):
+        '''Verify: Byte groups of 2 to 4 bytes can be used.'''
+        pdata = "000  4500 0021 0001 0000 4011 7cc9 7f00 0001\n" \
+                "010  7f00 0001 ff98 0013 000d b548 6669 7273\n" \
+                "020  74\n" \
+                "000  4500 0022 000100 004011 7cc87f00 0001\n" \
+                "010  7f00 0001 ff990013 000e bce9 7365636f\n" \
+                "020  6e64\n"
+        check_rawip(pdata, 2, 67)
+
+    def test_text2pcap_two_byte_words_od(self, check_rawip):
+        '''Verify: od/hexdump style multiple byte groups where the
+           last group is zero padded and an extra line indicates
+           the true length can be used.'''
+        pdata = "000  4500 0021 0001 0000 4011 7cc9 7f00 0001\n" \
+                "010  7f00 0001 ff98 0013 000d b548 6669 7273\n" \
+                "020  7400\n" \
+                "021\n"
+        check_rawip(pdata, 1, 33)
+
+    def test_text2pcap_two_byte_words_le(self, run_text2pcap_capinfos_tshark):
+        '''Verify: Little-endian 2-byte groups can be used.'''
+        pdata = "000  0045 2100 0100 0000 1140 c97c 007f 0100\n" \
+                "010  007f 0100 98ff 1300 0d00 48b5 6966 7372\n" \
+                "020  0074\n" \
+                "021\n"
+        assert {'encapsulation': 'rawip4', 'packets': 1, \
+            'datasize': 33, 'expert': ''} == \
+            run_text2pcap_capinfos_tshark(pdata, ("-Erawip4", "--little-endian"))
 
 class TestText2pcapRegex:
     def test_text2pcap_regex(self, run_text2pcap_capinfos_tshark):
@@ -401,7 +445,7 @@ class TestText2pcapHeaders:
     def test_text2pcap_sctp(self, run_text2pcap_capinfos_tshark):
         '''Test SCTP over IPv4'''
         assert {'encapsulation': 'ether', 'packets': 1, \
-            'datasize': 70, 'expert': ''}, \
+            'datasize': 70, 'expert': ''} == \
             run_text2pcap_capinfos_tshark(
                 "0000   00 03 00 18 00 00 00 00 00 00 00 00 00 00 00 03\n" +
                 "0010   01 00 03 03 00 00 00 08\n",

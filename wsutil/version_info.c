@@ -28,6 +28,10 @@
 #include <gmodule.h>
 #include <pcre2.h>
 
+#ifdef HAVE_XXHASH
+#include <xxhash.h>
+#endif
+
 #ifdef HAVE_ZLIB
 #include <zlib.h>
 #endif
@@ -78,12 +82,14 @@ ws_init_version_info(const char *appname,
 	 */
 	if (strstr(appname, application_flavor_name_proper()) != NULL) {
 		appname_with_version = ws_strdup_printf("%s %s",
-			appname, get_ws_vcs_version_info());
+			appname,
+			application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info());
 	}
 	/* Include our application flavor. The default is "Wireshark" */
 	else {
 		appname_with_version = ws_strdup_printf("%s (%s) %s",
-			appname, application_flavor_name_proper(), get_ws_vcs_version_info());
+			appname, application_flavor_name_proper(),
+			application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info());
 	}
 
 	/* Get the compile-time version information string */
@@ -218,6 +224,16 @@ gather_pcre2_compile_info(feature_list l)
 	 * I don't know what it is for a pre-release.
 	 */
 	with_feature(l, "PCRE2 %u.%u %s", PCRE2_MAJOR, PCRE2_MINOR, PCRE2_DATE_EXPAND_AND_QUOTE(PCRE2_DATE));
+}
+
+void
+gather_xxhash_compile_info(feature_list l)
+{
+#ifdef HAVE_XXHASH
+	with_feature(l, "xxhash " XXHASH_VERSION_STRING);
+#else
+	without_feature(l, "xxhash");
+#endif /* HAVE_XXHASH */
 }
 
 void
@@ -517,6 +533,15 @@ gather_pcre2_runtime_info(feature_list l)
 }
 
 void
+gather_xxhash_runtime_info(feature_list l)
+{
+	(void)l;
+#if defined(HAVE_XXHASH)
+	with_feature(l, "xxhash %u", XXH_versionNumber());
+#endif
+}
+
+void
 gather_zlib_runtime_info(feature_list l)
 {
     (void)l;
@@ -602,8 +627,8 @@ get_runtime_version_info(gather_feature_func gather_runtime)
 const char *
 get_ws_vcs_version_info(void)
 {
-#ifdef VCS_VERSION
-	return VERSION " (" VCS_VERSION ")";
+#ifdef WIRESHARK_VCS_VERSION
+	return VERSION " (" WIRESHARK_VCS_VERSION ")";
 #else
 	return VERSION;
 #endif
@@ -612,18 +637,18 @@ get_ws_vcs_version_info(void)
 const char *
 get_ss_vcs_version_info(void)
 {
-#ifdef VCS_COMMIT_ID
-	return LOG_VERSION " (" VCS_NUM_COMMITS "-" VCS_COMMIT_ID ")";
+#ifdef STRATOSHARK_VCS_VERSION
+	return STRATOSHARK_VERSION " (" STRATOSHARK_VCS_VERSION ")";
 #else
-	return LOG_VERSION;
+	return STRATOSHARK_VERSION;
 #endif
 }
 
 const char *
 get_ws_vcs_version_info_short(void)
 {
-#ifdef VCS_VERSION
-	return VCS_VERSION;
+#ifdef WIRESHARK_VCS_VERSION
+	return WIRESHARK_VCS_VERSION;
 #else
 	return VERSION;
 #endif
@@ -672,7 +697,7 @@ const char *
 get_copyright_info(void)
 {
 	return
-		"Copyright 1998-2024 Gerald Combs <gerald@wireshark.org> and contributors.";
+		"Copyright 1998-2025 Gerald Combs <gerald@wireshark.org> and contributors.";
 }
 
 const char *

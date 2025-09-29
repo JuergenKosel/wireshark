@@ -2773,7 +2773,7 @@ static int ett_gsm_old_RequestParameterList;
 static int ett_gsm_old_SentParameter;
 static int ett_gsm_old_AuthenticationSetListOld;
 static int ett_gsm_old_SentParameterList;
-static int ett_gsm_old_ResetArgV1;
+static int ett_gsm_old_ResetArgV2;
 
 /* --- Module SS-DataTypes --- --- ---                                        */
 
@@ -2973,7 +2973,7 @@ static uint8_t sms_encoding;
 static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
 static int dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
 static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
-const char* gsm_map_opr_code(uint32_t val, proto_item *item);
+static const char* gsm_map_opr_code(uint32_t val, proto_item *item);
 
 typedef struct {
   struct tcap_private_t * tcap_private;
@@ -3763,7 +3763,7 @@ dissect_gsm_map_msisdn(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
       switch(na){
       case 1:
           /* international number */
-          dissect_e164_msisdn(tvb, tree, 1, tvb_reported_length(tvb)-1, E164_ENC_BCD);
+          dissect_e164_msisdn(tvb, pinfo, tree, 1, tvb_reported_length(tvb)-1, E164_ENC_BCD);
       break;
       default:
           proto_tree_add_item(tree, hf_gsm_map_address_digits, tvb, 1, -1, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN);
@@ -5515,7 +5515,7 @@ dissect_gsm_map_ss_USSD_String(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
   switch(sms_encoding){
     case SMS_ENCODING_7BIT:
     case SMS_ENCODING_7BIT_LANG:
-      proto_tree_add_item(subtree, hf_gsm_map_ussd_string, parameter_tvb, 0, length, ENC_3GPP_TS_23_038_7BITS|ENC_NA);
+      proto_tree_add_item(subtree, hf_gsm_map_ussd_string, parameter_tvb, 0, length, ENC_3GPP_TS_23_038_7BITS);
       break;
     case SMS_ENCODING_8BIT:
       /* XXX - ASCII, or some extended ASCII? */
@@ -19255,7 +19255,7 @@ dissect_gsm_old_SentParameterList(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 }
 
 
-static const ber_sequence_t gsm_old_ResetArgV1_sequence[] = {
+static const ber_sequence_t gsm_old_ResetArgV2_sequence[] = {
   { &hf_gsm_old_networkResource, BER_CLASS_UNI, BER_UNI_TAG_ENUMERATED, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_gsm_map_NetworkResource },
   { &hf_gsm_old_hlr_Number  , BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_NOOWNTAG, dissect_gsm_map_ISDN_AddressString },
   { &hf_gsm_old_hlr_List    , BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_gsm_map_HLR_List },
@@ -19263,9 +19263,9 @@ static const ber_sequence_t gsm_old_ResetArgV1_sequence[] = {
 };
 
 static int
-dissect_gsm_old_ResetArgV1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_gsm_old_ResetArgV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   gsm_old_ResetArgV1_sequence, hf_index, ett_gsm_old_ResetArgV1);
+                                   gsm_old_ResetArgV2_sequence, hf_index, ett_gsm_old_ResetArgV2);
 
   return offset;
 }
@@ -23837,8 +23837,8 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
     offset=dissect_gsm_map_ms_CancelVcsgLocationArg(false, tvb, offset, actx, tree, -1);
     break;
   case 37: /*reset*/
-      if (application_context_version == 1) {
-          offset = dissect_gsm_old_ResetArgV1(false, tvb, offset, actx, tree, -1);
+      if (application_context_version <= 2) {
+          offset = dissect_gsm_old_ResetArgV2(false, tvb, offset, actx, tree, -1);
       } else {
           offset = dissect_gsm_map_ms_ResetArg(false, tvb, offset, actx, tree, -1);
       }
@@ -25411,6 +25411,7 @@ void proto_reg_handoff_gsm_map(void) {
     register_ber_oid_dissector_handle("0.4.0.0.1.0.7.3", map_handle, proto_gsm_map,"reportingContext-v3" );
     register_ber_oid_dissector_handle("0.4.0.0.1.0.8.3", map_handle, proto_gsm_map,"callCompletionContext-v3" );
     register_ber_oid_dissector_handle("0.4.0.0.1.0.9.3", map_handle, proto_gsm_map,"serviceTerminationContext-v3" );
+    register_ber_oid_dissector_handle("0.4.0.0.1.0.10.3", map_handle, proto_gsm_map,"resetContext-v3" );
     register_ber_oid_dissector_handle("0.4.0.0.1.0.10.2", map_handle, proto_gsm_map,"resetContext-v2" );
     register_ber_oid_dissector_handle("0.4.0.0.1.0.10.1", map_handle, proto_gsm_map,"resetContext-v1" );
     register_ber_oid_dissector_handle("0.4.0.0.1.0.11.3", map_handle, proto_gsm_map,"handoverControlContext-v3" );
@@ -34252,7 +34253,7 @@ void proto_register_gsm_map(void) {
     &ett_gsm_old_SentParameter,
     &ett_gsm_old_AuthenticationSetListOld,
     &ett_gsm_old_SentParameterList,
-    &ett_gsm_old_ResetArgV1,
+    &ett_gsm_old_ResetArgV2,
 
 /* --- Module SS-DataTypes --- --- ---                                        */
 
@@ -34544,7 +34545,6 @@ void proto_register_gsm_map(void) {
 /* --- Module NokiaMAP-Extensions --- --- ---                                 */
 
 
-  oid_add_from_string("ericsson-gsm-Map-Ext","1.2.826.0.1249.58.1.0" );
   oid_add_from_string("accessTypeNotAllowed-id","1.3.12.2.1107.3.66.1.2");
   /*oid_add_from_string("map-ac networkLocUp(1) version3(3)","0.4.0.0.1.0.1.3" );
    *

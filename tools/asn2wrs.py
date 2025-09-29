@@ -1706,6 +1706,22 @@ class EthCtx:
                 fempty = False
         self.output.file_close(fx, discard=fempty)
 
+    #--- eth_output_reg_vs -----------------------------------------------------
+    def eth_output_reg_vs(self):
+        fx = self.output.file_open('reg_vs')
+        fempty = True
+        for t in self.eth_export_ord:
+            if (self.eth_type[t]['export'] & EF_VALS) and self.eth_type[t]['val'].eth_has_vals():
+                if not self.eth_type[t]['export'] & EF_TABLE:
+                    if self.eth_type[t]['export'] & EF_WS_DLL:
+                        if self.eth_type[t]['vals_ext']:
+                            fx.write("  register_external_value_string_ext(\"%s\", &%s);\n" % (self.eth_vals_nm(t), self.eth_vals_nm(t)))
+                        else:
+                            fx.write("  register_external_value_string(\"%s\", %s);\n" % (self.eth_vals_nm(t), self.eth_vals_nm(t)))
+                        fempty = False
+
+        self.output.file_close(fx, discard=fempty)
+
     #--- eth_output_export ------------------------------------------------------
     def eth_output_export(self):
         fx = self.output.file_open('exp', ext='h')
@@ -1714,10 +1730,7 @@ class EthCtx:
                 fx.write(self.eth_type[t]['val'].eth_type_enum(t, self))
             if (self.eth_type[t]['export'] & EF_VALS) and self.eth_type[t]['val'].eth_has_vals():
                 if not self.eth_type[t]['export'] & EF_TABLE:
-                    if self.eth_type[t]['export'] & EF_WS_DLL:
-                        fx.write("WS_DLL_PUBLIC ")
-                    else:
-                        fx.write("extern ")
+                    fx.write("extern ")
                     if self.eth_type[t]['val'].HasConstraint() and self.eth_type[t]['val'].constr.Needs64b(self) \
                        and self.eth_type[t]['val'].type == 'IntegerType':
                         fx.write("const val64_string %s[];\n" % (self.eth_vals_nm(t)))
@@ -2196,6 +2209,7 @@ class EthCtx:
             self.eth_output_hf_arr()
             self.eth_output_ett_arr()
             self.eth_output_export()
+            self.eth_output_reg_vs()
             self.eth_output_val()
             self.eth_output_valexp()
             self.eth_output_dis_hnd()
@@ -2316,6 +2330,9 @@ class EthCnf:
 
     def omit_assignment(self, type, ident, module):
         if self.ectx.conform.use_item('OMIT_ASSIGNMENT', ident):
+            return True
+        mident = "$%s$%s" % (module, ident)
+        if self.ectx.conform.use_item('OMIT_ASSIGNMENT', mident):
             return True
         if self.ectx.conform.use_item('OMIT_ASSIGNMENT', '*') or \
            self.ectx.conform.use_item('OMIT_ASSIGNMENT', '*'+type) or \
@@ -4124,8 +4141,7 @@ class SeqType (SqType):
             autotag = True
             lst = self.all_components()
             for e in (self.elt_list):
-                if e.val.HasOwnTag(): autotag = False
-                break
+                if e.val.HasOwnTag(): autotag = False; break
         # expand COMPONENTS OF
         if self.need_components():
             if components_available:

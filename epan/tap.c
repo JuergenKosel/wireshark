@@ -29,6 +29,7 @@
 #include <wsutil/wslog.h>
 
 static bool tapping_is_active=false;
+static dfilter_t *main_filter;
 
 typedef struct _tap_dissector_t {
 	struct _tap_dissector_t *next;
@@ -264,6 +265,7 @@ void tap_build_interesting (epan_dissect_t *edt)
 {
 	tap_listener_t *tl;
 	bool need_protocols = false;
+	bool need_main_filter = false;
 
 	/* nothing to do, just return */
 	if(!tap_listener_queue){
@@ -279,6 +281,12 @@ void tap_build_interesting (epan_dissect_t *edt)
 		if(tl->flags & TL_REQUIRES_PROTOCOLS){
 			need_protocols = true;
 		}
+		if(tl->flags & TL_LIMIT_TO_DISPLAY_FILTER){
+			need_main_filter = true;
+		}
+	}
+	if (need_main_filter && main_filter) {
+		epan_dissect_prime_with_dfilter(edt, main_filter);
 	}
 	if (need_protocols) {
 		epan_dissect_fake_protocols(edt, false);
@@ -356,6 +364,17 @@ tap_push_tapped_queue(epan_dissect_t *edt)
 					 * packet passes.
 					 */
 					unsigned flags = tl->flags;
+					if((tl->flags & TL_LIMIT_TO_DISPLAY_FILTER) && main_filter) {
+
+						if (!dfilter_apply_edt(main_filter, edt)){
+							/* The packet didn't
+							 * pass the filter. */
+							if (tl->flags & TL_IGNORE_DISPLAY_FILTER)
+								flags |= TL_DISPLAY_FILTER_IGNORED;
+							else
+								continue;
+						}
+					}
 					if(tl->code){
 						if (!dfilter_apply_edt(tl->code, edt)){
 							/* The packet didn't
@@ -519,12 +538,6 @@ find_tap_id(const char *name)
 static void
 free_tap_listener(tap_listener_t *tl)
 {
-	/* The free_tap_listener is called in the error path of
-	 * register_tap_listener (when the dfilter fails to be registered)
-	 * and the finish callback is set after that.
-	 * If this is changed make sure the finish callback is not called
-	 * twice to prevent double-free errors.
-	 */
 	if (tl->finish) {
 		tl->finish(tl->tapdata);
 	}
@@ -574,7 +587,7 @@ register_tap_listener(const char *tapname, void *tapdata, const char *fstring,
 			    "Filter \"%s\" is invalid - %s",
 			    fstring, df_err->msg);
 			df_error_free(&df_err);
-			free_tap_listener(tl);
+			g_free(tl);
 			return error_string;
 		}
 		tl->fstring=g_strdup(fstring);
@@ -648,6 +661,12 @@ set_tap_dfilter(void *tapdata, const char *fstring)
 GString *
 set_tap_flags(void *tapdata, unsigned flags)
 {
+	/* This never fails, and hence always returns NULL.
+	 * It could fail on an unknown flag, but that's a
+	 * programming error, not a runtime error (a bad filter
+	 * above can be a runtime error. Also like the above,
+	 * there's no failure notification on an unknown listener.
+	 */
 	tap_listener_t *tl=NULL,*tl2;
 
 	if(!tap_listener_queue){
@@ -666,7 +685,7 @@ set_tap_flags(void *tapdata, unsigned flags)
 		}
 	}
 
-	if(tl){
+	if(tl && tl->flags != flags) {
 		tl->needs_redraw=true;
 		tl->flags=flags;
 	}
@@ -800,6 +819,8 @@ have_filtering_tap_listeners(void)
 	for(tl=tap_listener_queue;tl;tl=tl->next){
 		if(tl->code)
 			return true;
+		if((tl->flags & TL_LIMIT_TO_DISPLAY_FILTER) && main_filter)
+			return true;
 	}
 	return false;
 }
@@ -856,6 +877,14 @@ void tap_cleanup(void)
 
 	g_slist_free(tap_plugins);
 	tap_plugins = NULL;
+}
+
+void tap_load_main_filter(dfilter_t *dfcode)
+{
+	/* Does not take ownership. This is not const because too
+	 * much of the dfilter API does not accept a const dfilter_t.
+	 */
+	main_filter = dfcode;
 }
 
 /*

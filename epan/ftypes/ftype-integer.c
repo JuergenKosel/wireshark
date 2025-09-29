@@ -14,7 +14,6 @@
 #include <epan/strutil.h>
 #include <epan/to_str.h>
 
-#include <wsutil/safe-math.h>
 #include <wsutil/array.h>
 
 static void
@@ -526,13 +525,13 @@ sinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _
 }
 
 static char *
-uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display)
+uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int field_display)
 {
 	size_t size = 20 + 1; /* enough for 2^64-1, in decimal or 0xXXXXXXXXXXXXXXXX */
 	char *result = wmem_alloc(scope, size);
 	char *buf = result;
 
-	if (FIELD_DISPLAY(field_display) == BASE_HEX || FIELD_DISPLAY(field_display) == BASE_HEX_DEC) {
+	if ((rtype != FTREPR_EK) && (FIELD_DISPLAY(field_display) == BASE_HEX || FIELD_DISPLAY(field_display) == BASE_HEX_DEC)) {
 		/* This format perfectly fits into 19 bytes. */
 		*buf++ = '0';
 		*buf++ = 'x';
@@ -645,7 +644,7 @@ sint64_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
 static enum ft_result
 sint64_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
-	if (!psnip_safe_int64_add(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
+	if (ckd_add(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
 		*err_ptr = ws_strdup_printf("sint64_add: overflow");
 		return FT_ERROR;
 	}
@@ -655,7 +654,7 @@ sint64_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 static enum ft_result
 _sint64_subtract(int64_t *sint_dst, int64_t sint_a, int64_t sint_b, char **err_ptr)
 {
-	if (!psnip_safe_int64_sub(sint_dst, sint_a, sint_b)) {
+	if (ckd_sub(sint_dst, sint_a, sint_b)) {
 		*err_ptr = ws_strdup_printf("sint64_subtract: overflow");
 		return FT_ERROR;
 	}
@@ -671,7 +670,7 @@ sint64_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_
 static enum ft_result
 sint64_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
-	if (!psnip_safe_int64_mul(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
+	if (ckd_mul(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
 		*err_ptr = ws_strdup_printf("sint64_multiply: overflow");
 		return FT_ERROR;
 	}
@@ -684,12 +683,12 @@ sint64_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 	if (b->value.sinteger64 == 0) {
 		*err_ptr = ws_strdup_printf("sint64_divide: division by zero");
 		return FT_ERROR;
-	}
-
-	if (!psnip_safe_int64_div(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
+	} else if (a->value.sinteger64 == INT64_MIN && b->value.sinteger64 == -1) {
+		dst->value.sinteger64 = INT64_MIN; // wrap around value
 		*err_ptr = ws_strdup_printf("sint64_divide: overflow");
 		return FT_ERROR;
 	}
+	dst->value.sinteger64 = a->value.sinteger64 / b->value.sinteger64;
 	return FT_OK;
 }
 
@@ -699,19 +698,19 @@ sint64_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 	if (b->value.sinteger64 == 0) {
 		*err_ptr = ws_strdup_printf("sint64_modulo: division by zero");
 		return FT_ERROR;
-	}
-
-	if (!psnip_safe_int64_mod(&dst->value.sinteger64, a->value.sinteger64, b->value.sinteger64)) {
+	} else if (a->value.sinteger64 == INT64_MIN && b->value.sinteger64 == -1) {
+		dst->value.sinteger64 = INT64_MIN; // wrap around value
 		*err_ptr = ws_strdup_printf("sint64_modulo: overflow");
 		return FT_ERROR;
 	}
+	dst->value.sinteger64 = a->value.sinteger64 % b->value.sinteger64;
 	return FT_OK;
 }
 
 static enum ft_result
 uint64_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
-	if (!psnip_safe_uint64_add(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
+	if (ckd_add(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
 		*err_ptr = ws_strdup_printf("uint64_add: overflow");
 		return FT_ERROR;
 	}
@@ -723,16 +722,15 @@ uint64_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_
 {
 	if (b->value.uinteger64 > a->value.uinteger64) {
 		/* Uses signed arithmetic. */
-		if (a->value.uinteger64 > INT64_MAX ||
-				b->value.uinteger64 > INT64_MAX) {
+		if (ckd_sub(&dst->value.sinteger64, a->value.uinteger64, b->value.uinteger64)) {
 			*err_ptr = ws_strdup_printf("uint64_subtract: signed overflow");
 			return FT_ERROR;
 		}
 		FTYPE_LOOKUP(FT_INT64, dst->ftype);
-		return _sint64_subtract(&dst->value.sinteger64, (int64_t)a->value.uinteger64, (int64_t)b->value.uinteger64, err_ptr);
+		return FT_OK;
 	}
 
-	if (!psnip_safe_uint64_sub(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
+	if (ckd_sub(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
 		*err_ptr = ws_strdup_printf("uint64_subtract: overflow");
 		return FT_ERROR;
 	}
@@ -742,7 +740,7 @@ uint64_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_
 static enum ft_result
 uint64_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
-	if (!psnip_safe_uint64_mul(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
+	if (ckd_mul(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
 		*err_ptr = ws_strdup_printf("uint64_multiply: overflow");
 		return FT_ERROR;
 	}
@@ -757,10 +755,7 @@ uint64_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 		return FT_ERROR;
 	}
 
-	if (!psnip_safe_uint64_div(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
-		*err_ptr = ws_strdup_printf("uint64_divide: overflow");
-		return FT_ERROR;
-	}
+	dst->value.uinteger64 = a->value.uinteger64 / b->value.uinteger64;
 	return FT_OK;
 }
 
@@ -772,10 +767,7 @@ uint64_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 		return FT_ERROR;
 	}
 
-	if (!psnip_safe_uint64_mod(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
-		*err_ptr = ws_strdup_printf("uint64_modulo: overflow");
-		return FT_ERROR;
-	}
+	dst->value.uinteger64 = a->value.uinteger64 % b->value.uinteger64;
 	return FT_OK;
 }
 
@@ -868,6 +860,9 @@ boolean_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int
 		case FTREPR_JSON:
 		case FTREPR_RAW:
 			str = val ? "1" : "0";
+			break;
+		case FTREPR_EK:
+			str = val ? "true" : "false";
 			break;
 	}
 
@@ -978,6 +973,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1016,6 +1012,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1054,6 +1051,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1092,6 +1090,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1130,6 +1129,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1168,6 +1168,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1206,6 +1207,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1244,6 +1246,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1282,6 +1285,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1320,6 +1324,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1358,6 +1363,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1396,6 +1402,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1434,6 +1441,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1472,6 +1480,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1510,6 +1519,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1548,6 +1558,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1586,6 +1597,7 @@ ftype_register_integers(void)
 		sint64_hash,			/* hash */
 		sint64_is_zero,			/* is_zero */
 		sint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		sint64_bitwise_and,		/* bitwise_and */
@@ -1624,6 +1636,7 @@ ftype_register_integers(void)
 		boolean_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		NULL,				/* bitwise_and */
@@ -1663,6 +1676,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */
@@ -1702,6 +1716,7 @@ ftype_register_integers(void)
 		uint64_hash,			/* hash */
 		uint64_is_zero,			/* is_zero */
 		uint64_is_negative,		/* is_negative */
+		NULL,				/* is_nan */
 		NULL,				/* len */
 		NULL,				/* slice */
 		uint64_bitwise_and,		/* bitwise_and */

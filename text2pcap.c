@@ -100,6 +100,7 @@
 #include "wiretap/pcap-encap.h"
 
 #define LONGOPT_COMPRESS                LONGOPT_BASE_APPLICATION+1
+#define LONGOPT_LITTLE_ENDIAN           LONGOPT_BASE_APPLICATION+2
 
 /*--- Options --------------------------------------------------------------------*/
 
@@ -377,6 +378,18 @@ cleanup_dump_params(wtap_dump_params *params)
     wtap_dump_params_cleanup(params);
 }
 
+static const struct ws_option long_options[] = {
+    {"help", ws_no_argument, NULL, 'h'},
+    {"version", ws_no_argument, NULL, 'v'},
+    {"compress", ws_required_argument, NULL, LONGOPT_COMPRESS},
+    {"little-endian", ws_no_argument, NULL, LONGOPT_LITTLE_ENDIAN},
+    LONGOPT_WSLOG
+    {0, 0, 0, 0 }
+};
+
+#define OPTSTRING "hqab:De:E:F:i:l:m:nN:o:u:P:r:s:S:t:T:v4:6:"
+static const char optstring[] = OPTSTRING;
+
 /*----------------------------------------------------------------------
  * Parse CLI options
  */
@@ -386,12 +399,6 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     int   ret;
     int   c;
     char *p;
-    static const struct ws_option long_options[] = {
-        {"help", ws_no_argument, NULL, 'h'},
-        {"version", ws_no_argument, NULL, 'v'},
-        {"compress", ws_required_argument, NULL, LONGOPT_COMPRESS},
-        {0, 0, 0, 0 }
-    };
     const char *interface_name = NULL;
     /* Link-layer type; see https://www.tcpdump.org/linktypes.html for details */
     uint32_t pcap_link_type = 1;   /* Default is LINKTYPE_ETHERNET */
@@ -412,13 +419,12 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     ws_init_version_info("Text2pcap", NULL, NULL);
 
     /* Scan CLI parameters */
-    while ((c = ws_getopt_long(argc, argv, "hqab:De:E:F:i:l:m:nN:o:u:P:r:s:S:t:T:v4:6:", long_options, NULL)) != -1) {
+    while ((c = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (c) {
         case 'h':
             show_help_header("Generate a capture file from an ASCII hexdump of packets.");
             print_usage(stdout);
-            exit(0);
-            break;
+            return WS_EXIT_NOW;
         case 'q': quiet = true; break;
         case 'a': info->hexdump.identify_ascii = true; break;
         case 'D': info->hexdump.has_direction = true; break;
@@ -675,8 +681,7 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
 
         case 'v':
             show_version();
-            exit(0);
-            break;
+            return WS_EXIT_NOW;
 
         case '4':
         case '6':
@@ -745,6 +750,10 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
                 list_output_compression_types();
                 return WS_EXIT_INVALID_OPTION;
             }
+            break;
+
+        case LONGOPT_LITTLE_ENDIAN:
+            info->hexdump.little_endian = true;
             break;
 
         case '?':
@@ -1044,7 +1053,7 @@ main(int argc, char *argv[])
     ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -1070,6 +1079,9 @@ main(int argc, char *argv[])
     memset(&info, 0, sizeof(info));
     wtap_dump_params_init(&params, NULL);
     if ((ret = parse_options(argc, argv, &info, &params)) != EXIT_SUCCESS) {
+        /* Check for options that print information and then quit */
+        if (ret == WS_EXIT_NOW)
+            ret = EXIT_SUCCESS;
         goto clean_exit;
     }
 

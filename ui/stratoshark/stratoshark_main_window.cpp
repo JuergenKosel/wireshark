@@ -45,7 +45,7 @@ DIAG_ON(frame-larger-than=)
 #include "ui/util.h"
 #include "ui/preference_utils.h"
 
-#include "byte_view_tab.h"
+#include "data_source_tab.h"
 #ifdef HAVE_LIBPCAP
 #include "capture_options_dialog.h"
 #endif
@@ -81,7 +81,6 @@ DIAG_ON(frame-larger-than=)
 #include <QMetaObject>
 #include <QMimeData>
 #include <QTabWidget>
-#include <QTextCodec>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUrl>
@@ -324,8 +323,7 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
     freeze_focus_(NULL),
     was_maximized_(false),
     capture_stopping_(false),
-    capture_filter_valid_(false),
-    use_capturing_title_(false)
+    capture_filter_valid_(false)
 #ifdef HAVE_LIBPCAP
     , capture_options_dialog_(NULL)
     , info_data_()
@@ -341,10 +339,10 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
     }
     gbl_cur_main_window_ = this;
 #ifdef HAVE_LIBPCAP
+    info_data_.ui.ui = this;
     capture_input_init(&cap_session_, CaptureFile::globalCapFile());
 #endif
 
-    findTextCodecs();
     // setpUi calls QMetaObject::connectSlotsByName(this). connectSlotsByName
     // iterates over *all* of our children, looking for matching "on_" slots.
     // The fewer children we have at this point the better.
@@ -531,7 +529,7 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connect(mainApp, &WiresharkApplication::captureActive,
             this, &StratosharkMainWindow::captureActive);
 
-    byte_view_tab_ = new ByteViewTab(&master_split_);
+    data_source_tab_ = new DataSourceTab(&master_split_);
 
     // Packet list and proto tree must exist before these are called.
     setMenusForSelectedPacket();
@@ -675,19 +673,20 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     main_ui_->actionHelpMPTShark->setToolTip(gchar_free_to_qstring(topic_action_url(LOCALPAGE_MAN_TSHARK)));
 
     main_ui_->actionHelpContents->setToolTip(gchar_free_to_qstring(topic_action_url(HELP_CONTENT)));
-    main_ui_->actionHelpWebsite->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_HOME)));
+    main_ui_->actionHelpWebsite->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_HOME)));
     main_ui_->actionHelpFAQ->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_FAQ)));
     main_ui_->actionHelpAsk->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_ASK)));
-    main_ui_->actionHelpDownloads->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_DOWNLOAD)));
-    main_ui_->actionHelpWiki->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_WIKI)));
+    main_ui_->actionHelpDownloads->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_DOWNLOAD)));
+    main_ui_->actionHelpWiki->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_WIKI)));
     main_ui_->actionHelpSampleCaptures->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_SAMPLE_CAPTURES)));
+    main_ui_->actionHelpReleaseNotes->setToolTip(gchar_free_to_qstring(topic_action_url(LOCALPAGE_STRATOSHARK_RELEASE_NOTES)));
 
     showWelcome();
 }
 
 StratosharkMainWindow::~StratosharkMainWindow()
 {
-    disconnect(main_ui_->mainStack, 0, 0, 0);
+    disconnect(main_ui_->mainStack, &QStackedWidget::currentChanged, this, &StratosharkMainWindow::mainStackChanged);
     if (previous_focus_ != nullptr) {
         disconnect(previous_focus_, &QWidget::destroyed, this, &StratosharkMainWindow::resetPreviousFocus);
     }
@@ -810,9 +809,16 @@ void StratosharkMainWindow::removeInterfaceToolbar(const char *menu_title)
 
 void StratosharkMainWindow::updateStyleSheet()
 {
+    // TODO: The event type QEvent::ApplicationPaletteChange is sent to all
+    // top-level windows, which propagate QEvent::PaletteChange events to
+    // all children - but not those that use style sheets.
+    //
+    // Workaround this by updating the style sheets manually for all child
+    // widgets that have style sheets that do depend on the application
+    // palette (generally whether the theme is dark or not.) Some of these
+    // widgets only have style sheets that vary with whether theme is dark
+    // on macOS. (XXX - We could just update them all anyway.)
 #ifdef Q_OS_MAC
-    // TODO: The event type QEvent::ApplicationPaletteChange is not sent to all child widgets.
-    // Workaround this by doing it manually for all AccordionFrame.
     main_ui_->addressEditorFrame->updateStyleSheet();
     main_ui_->columnEditorFrame->updateStyleSheet();
     main_ui_->filterExpressionFrame->updateStyleSheet();
@@ -820,9 +826,9 @@ void StratosharkMainWindow::updateStyleSheet()
     main_ui_->preferenceEditorFrame->updateStyleSheet();
     main_ui_->searchFrame->updateStyleSheet();
 
-    df_combo_box_->updateStyleSheet();
     welcome_page_->updateStyleSheets();
 #endif
+    df_combo_box_->updateStyleSheet();
 }
 
 bool StratosharkMainWindow::eventFilter(QObject *obj, QEvent *event) {
@@ -1751,7 +1757,7 @@ bool StratosharkMainWindow::testCaptureFileClose(QString before_what, FileCloseC
             QPushButton *discard_button;
 
             msg_dialog.setIcon(QMessageBox::Question);
-            msg_dialog.setWindowTitle("Unsaved packets" UTF8_HORIZONTAL_ELLIPSIS);
+            msg_dialog.setWindowTitle(tr("Unsaved packets…"));
 
             /* This file has unsaved data or there's a capture in
                progress; ask the user whether to save the data. */
@@ -1941,56 +1947,6 @@ void StratosharkMainWindow::captureStop() {
     }
 }
 
-void StratosharkMainWindow::findTextCodecs() {
-    const QList<int> mibs = QTextCodec::availableMibs();
-    QRegularExpression ibmRegExp("^IBM([0-9]+).*$");
-    QRegularExpression iso8859RegExp("^ISO-8859-([0-9]+).*$");
-    QRegularExpression windowsRegExp("^WINDOWS-([0-9]+).*$");
-    QRegularExpressionMatch match;
-    for (int mib : mibs) {
-        QTextCodec *codec = QTextCodec::codecForMib(mib);
-        // QTextCodec::availableMibs() returns a list of hard-coded MIB
-        // numbers, it doesn't check if they are really available. ICU data may
-        // not have been compiled with support for all encodings.
-        if (!codec) {
-            continue;
-        }
-
-        QString key = codec->name().toUpper();
-        char rank;
-
-        if (key.localeAwareCompare("IBM") < 0) {
-            rank = 1;
-        } else if ((match = ibmRegExp.match(key)).hasMatch()) {
-            rank = match.captured(1).size(); // Up to 5
-        } else if (key.localeAwareCompare("ISO-8859-") < 0) {
-            rank = 6;
-        } else if ((match = iso8859RegExp.match(key)).hasMatch()) {
-            rank = 6 + match.captured(1).size(); // Up to 6 + 2
-        } else if (key.localeAwareCompare("WINDOWS-") < 0) {
-            rank = 9;
-        } else if ((match = windowsRegExp.match(key)).hasMatch()) {
-            rank = 9 + match.captured(1).size(); // Up to 9 + 4
-        } else {
-            rank = 14;
-        }
-        // This doesn't perfectly well order the IBM codecs because it's
-        // annoying to properly place IBM00858 and IBM00924 in the middle of
-        // code page numbers not zero padded to 5 digits.
-        // We could manipulate the key further to have more commonly used
-        // charsets earlier. IANA MIB ordering would be unexpected:
-        // https://www.iana.org/assignments/character-sets/character-sets.xml
-        // For data about use in HTTP (other protocols can be quite different):
-        // https://w3techs.com/technologies/overview/character_encoding
-
-        key.prepend(char('0' + rank));
-        // We use a map here because, due to backwards compatibility,
-        // the same QTextCodec may be returned for multiple MIBs, which
-        // happens for GBK/GB2312, EUC-KR/windows-949/UHC, and others.
-        text_codec_map_.insert(key, codec);
-    }
-}
-
 void StratosharkMainWindow::initMainToolbarIcons()
 {
     // Normally 16 px. Reflects current GTK+ behavior and other Windows apps.
@@ -2006,9 +1962,9 @@ void StratosharkMainWindow::initMainToolbarIcons()
     // Toolbar actions. The GNOME HIG says that we should have a menu icon for each
     // toolbar item but that clutters up our menu. Set menu icons sparingly.
 
-    main_ui_->actionCaptureStart->setIcon(StockIcon("x-capture-start-circle"));
+    main_ui_->actionCaptureStart->setIcon(StockIcon("x-capture-start"));
     main_ui_->actionCaptureStop->setIcon(StockIcon("x-capture-stop"));
-    main_ui_->actionCaptureRestart->setIcon(StockIcon("x-capture-restart-circle"));
+    main_ui_->actionCaptureRestart->setIcon(StockIcon("x-capture-restart"));
     main_ui_->actionCaptureOptions->setIcon(StockIcon("x-capture-options"));
 
     // Menu icons are disabled in stratoshark_main_window.ui for these File-> items.
@@ -2045,6 +2001,8 @@ void StratosharkMainWindow::initMainToolbarIcons()
     main_ui_->actionViewResizeColumns->setIcon(StockIcon("x-resize-columns"));
     main_ui_->actionViewResetLayout->setIcon(StockIcon("x-reset-layout_2"));
     main_ui_->actionViewReload->setIcon(StockIcon("x-capture-file-reload"));
+    // XXX - What icon to use?
+    //main_ui_->actionViewRedissect->setIcon(StockIcon("x-capture-file-reload"));
 
     main_ui_->actionNewDisplayFilterExpression->setIcon(StockIcon("list-add"));
 }
@@ -2064,7 +2022,7 @@ void StratosharkMainWindow::initShowHideMainWidgets()
     shmw_actions[main_ui_->actionViewStatusBar] = main_ui_->statusBar;
     shmw_actions[main_ui_->actionViewPacketList] = packet_list_;
     shmw_actions[main_ui_->actionViewPacketDetails] = proto_tree_;
-    shmw_actions[main_ui_->actionViewPacketBytes] = byte_view_tab_;
+    shmw_actions[main_ui_->actionViewPacketBytes] = data_source_tab_;
 
     foreach(QAction *shmwa, shmw_actions.keys()) {
         shmwa->setData(QVariant::fromValue(shmw_actions[shmwa]));
@@ -2142,6 +2100,7 @@ void StratosharkMainWindow::initFreezeActions()
     QList<QAction *> freeze_actions = QList<QAction *>()
             << main_ui_->actionFileClose
             << main_ui_->actionViewReload
+            << main_ui_->actionViewRedissect
             << main_ui_->actionEditMarkSelected
             << main_ui_->actionEditMarkAllDisplayed
             << main_ui_->actionEditUnmarkAllDisplayed
@@ -2245,7 +2204,7 @@ bool StratosharkMainWindow::addFollowStreamMenuItem(const void *key _U_, void *v
      */
     // XXX - Should we add matches for syscall properties, e.g. file descriptors?
     const char *short_name = (const char*)key;
-    if (g_strcmp0(short_name, "Falco Bridge") == 0) {
+    if (g_strcmp0(short_name, "Falco Events") == 0) {
         follow_action->setText(tr("File Descriptor Stream"));
     }
     // if (g_strcmp0(short_name, "TCP") == 0) {
@@ -2413,10 +2372,12 @@ void StratosharkMainWindow::setForCapturedPackets(bool have_captured_packets)
     main_ui_->actionViewZoomOut->setEnabled(have_captured_packets);
     main_ui_->actionViewNormalSize->setEnabled(have_captured_packets);
     main_ui_->actionViewResizeColumns->setEnabled(have_captured_packets);
+    main_ui_->actionViewRedissect->setEnabled(have_captured_packets);
 
     main_ui_->actionStatisticsCaptureFileProperties->setEnabled(have_captured_packets);
     main_ui_->actionStatisticsProtocolHierarchy->setEnabled(have_captured_packets);
     main_ui_->actionStatisticsIOGraph->setEnabled(have_captured_packets);
+    main_ui_->actionStatisticsPlot->setEnabled(have_captured_packets);
 }
 
 void StratosharkMainWindow::setMenusForFileSet(bool enable_list_files) {
@@ -2598,6 +2559,7 @@ void StratosharkMainWindow::reloadDynamicMenus()
     mainApp->clearRemovedMenuGroupItems();
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void StratosharkMainWindow::externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, int depth)
 {
     QAction * itemAction = Q_NULLPTR;
@@ -2608,7 +2570,7 @@ void StratosharkMainWindow::externalMenuHelper(ext_menu_t * menu, QMenu  * subMe
     Q_ASSERT(subMenu != NULL);
 
     /* If the depth counter exceeds, something must have gone wrong */
-    Q_ASSERT(depth < EXT_MENUBAR_MAX_DEPTH);
+    Q_ASSERT(depth < mainApp->maxMenuDepth());
 
     children = menu->children;
     /* Iterate the child entries */
@@ -2668,7 +2630,7 @@ void StratosharkMainWindow::addPluginIFStructures()
         if (menu->parent_menu) {
             QMenu *sortUnderneath = searchSubMenu(QString(menu->parent_menu));
             if (sortUnderneath)
-                subMenu = sortUnderneath->addMenu(menu->label);
+                subMenu = findOrAddMenu(sortUnderneath, QStringList() << menu->label);
         }
 
         if (!subMenu)

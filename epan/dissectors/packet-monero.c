@@ -48,7 +48,7 @@ static const value_string monero_commands[] =
   { 2007, "ChainResponse" },
   { 2008, "NewFluffyBlock" },
   { 2009, "FluffyMissingTxsRequest" },
-  { 2010, "GetTxPoolCompliment" },
+  { 2010, "GetTxPoolComplement" },
   { 0, NULL }
 };
 
@@ -386,7 +386,7 @@ static int dissect_monero_tcp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
   proto_tree_add_item(tree,             hf_monero_protocol,     tvb,  29,  4, ENC_LITTLE_ENDIAN);
   offset += MONERO_HEADER_LENGTH;
 
-  command_label = val_to_str(command, monero_commands, "[Unknown command %d]");
+  command_label = val_to_str(pinfo->pool, command, monero_commands, "[Unknown command %d]");
   col_add_str(pinfo->cinfo, COL_INFO, command_label);
 
   /* data payload */

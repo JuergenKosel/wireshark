@@ -41,6 +41,7 @@ endmacro()
 ADD_MAN_PAGE(wireshark   1)
 ADD_MAN_PAGE(tshark      1)
 ADD_MAN_PAGE(stratoshark 1)
+ADD_MAN_PAGE(strato      1)
 
 ADD_MAN_PAGE(androiddump 1)
 ADD_MAN_PAGE(capinfos    1)
@@ -87,10 +88,10 @@ endif()
 
 set(WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN1_FILES ${MAN1_INSTALL_FILES} PARENT_SCOPE)
 set(WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES ${MAN4_INSTALL_FILES} PARENT_SCOPE)
-# XXX We need a Stratoshark-specific man page list, which might overlap with Wireshark's.
-# Just install everything for now.
-set(STRATOSHARK_BUNDLE_RESOURCE_SHARE_MAN1_FILES ${WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN1_FILES} PARENT_SCOPE)
-set(STRATOSHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES ${WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES} PARENT_SCOPE)
+# It might be nice to have Stratoshark-specific man page list, but that would also
+# add more complexity here. Just install everything for now.
+set(STRATOSHARK_BUNDLE_RESOURCE_SHARE_MAN1_FILES ${MAN1_INSTALL_FILES} PARENT_SCOPE)
+set(STRATOSHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES ${MAN4_INSTALL_FILES} PARENT_SCOPE)
 
 set(MAN_INCLUDES man_pages/diagnostic-options.adoc man_pages/dissection-options.adoc man_pages/files.adoc)
 
@@ -108,18 +109,22 @@ if(ASCIIDOCTOR_FOUND)
 endif()
 
 if(ASCIIDOCTOR_FOUND)
-	ASCIIDOCTOR2HTML(release-notes.adoc)
-	ASCIIDOCTOR2TXT(release-notes.adoc)
+	ASCIIDOCTOR2HTML("Wireshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
+	ASCIIDOCTOR2TXT("Wireshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
+	ASCIIDOCTOR2HTML("Stratoshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
+	ASCIIDOCTOR2TXT("Stratoshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
 
 	add_custom_target(release_notes_html
 		DEPENDS
-			${CMAKE_CURRENT_BINARY_DIR}/release-notes.html
+			"${CMAKE_CURRENT_BINARY_DIR}/Wireshark Release Notes.html"
+			"${CMAKE_CURRENT_BINARY_DIR}/Stratoshark Release Notes.html"
 	)
 	set_target_properties(release_notes_html PROPERTIES FOLDER "Documentation")
 
 	add_custom_target(release_notes_txt
 		DEPENDS
-			${CMAKE_CURRENT_BINARY_DIR}/release-notes.txt
+			"${CMAKE_CURRENT_BINARY_DIR}/Wireshark Release Notes.txt"
+			"${CMAKE_CURRENT_BINARY_DIR}/Stratoshark Release Notes.txt"
 			release_notes_html
 	)
 	set_target_properties(release_notes_txt PROPERTIES FOLDER "Documentation")
@@ -130,13 +135,6 @@ if(ASCIIDOCTOR_FOUND)
 			release_notes_txt
 	)
 	set_target_properties(release_notes PROPERTIES FOLDER "Documentation")
-
-	ASCIIDOCTOR2HTML(faq.adoc)
-	add_custom_target(faq_html DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/faq.html)
-	set_doc_target_properties(faq_html)
-
-	add_custom_target(faq DEPENDS faq_html)
-	set_doc_target_properties(faq)
 endif()
 
 
@@ -167,7 +165,8 @@ if(ASCIIDOCTOR_FOUND)
 	install(
 		FILES
 			${HTML_INSTALL_FILES}
-			${CMAKE_CURRENT_BINARY_DIR}/release-notes.html
+			"${CMAKE_CURRENT_BINARY_DIR}/Wireshark Release Notes.html"
+			"${CMAKE_CURRENT_BINARY_DIR}/Stratoshark Release Notes.html"
 		DESTINATION
 			${CMAKE_INSTALL_DOCDIR}
 		COMPONENT "ReleaseNotes"
@@ -205,6 +204,7 @@ set(WSUG_FILES
 	wsug_src/wsug_use.adoc
 	wsug_src/wsug_work.adoc
 	wsug_src/capinfos-h.txt
+	wsug_src/captype-h.txt
 	wsug_src/dumpcap-h.txt
 	wsug_src/editcap-F.txt
 	wsug_src/editcap-T.txt
@@ -256,6 +256,7 @@ set(WSUG_GRAPHICS
 	wsug_src/images/toolbar/x-colorize-packets.png
 	wsug_src/images/toolbar/x-resize-columns.png
 	wsug_src/images/toolbar/x-stay-last.png
+	wsug_src/images/toolbar/aggregation.png
 	wsug_src/images/toolbar/zoom-in.png
 	wsug_src/images/toolbar/zoom-original.png
 	wsug_src/images/toolbar/zoom-out.png
@@ -354,6 +355,7 @@ set(WSUG_GRAPHICS
 	wsug_src/images/ws-stats-lte-mac-traffic.png
 	wsug_src/images/ws-stats-lte-rlc-traffic.png
 	wsug_src/images/ws-stats-packet-lengths.png
+	wsug_src/images/ws-stats-plots.png
 	wsug_src/images/ws-stats-srt-smb2.png
 	wsug_src/images/ws-stats-wlan-traffic.png # GTK+
 	wsug_src/images/ws-statusbar-empty.png
@@ -395,6 +397,7 @@ set(WSDG_FILES
 	wsdg_src/wsdg_tests.adoc
 	wsdg_src/wsdg_tools.adoc
 	wsdg_src/wsdg_userinterface.adoc
+	wsdg_src/wsdg_wiretap.adoc
 	wsdg_src/wsdg_works.adoc
 	${COMMON_GUIDE_FILES}
 )
@@ -439,6 +442,7 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_pinfo.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_address.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_column.c
+	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_conversation.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_nstime.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_proto.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_dissector.c
@@ -456,6 +460,7 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_wtap.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_utility.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_struct.c
+	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_gcrypt.c
 )
 
 # Empty file to trigger wsluarm generation.

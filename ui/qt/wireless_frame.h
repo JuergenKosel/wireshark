@@ -41,8 +41,6 @@ private:
     int startTimer(int interval);
     void getInterfaceInfo();
     void setInterfaceInfo();
-    int getCenterFrequency(int control_frequency, int bandwidth);
-    int getBandwidthFromChanType(int chan_type);
     void updateInterfaceList();
 
 private slots:
@@ -54,6 +52,8 @@ private slots:
     void on_channelComboBox_activated(int);
     void on_channelTypeComboBox_activated(int);
     void on_fcsComboBox_activated(int);
+    void channelComboBoxIndexChanged(int);
+    void bandComboBoxIndexChanged(int);
 
 private:
     Ui::WirelessFrame *ui;

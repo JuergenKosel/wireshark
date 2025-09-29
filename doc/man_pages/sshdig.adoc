@@ -35,6 +35,8 @@ sshdig - Provide interfaces to capture system calls from a remote host through S
 [ *--remote-priv-user*=<privileged user name> ]
 [ *--remote-filter*=<remote capture filter> ]
 [ *--remote-count*=<number> ]
+[ *--remote-modern-bpf* ]
+[ *--remote-io-snaplen*=<snapshot length> ]
 
 [manarg]
 *sshdig*
@@ -58,7 +60,6 @@ sshdig - Provide interfaces to capture system calls from a remote host through S
 *--remote-host=myremotehost*
 *--remote-port=22*
 *--remote-username=user*
-*--remote-interface=eth2*
 *--remote-capture-command='sysdig --unbuffered --write=-'*
 
 == DESCRIPTION
@@ -71,7 +72,7 @@ The feature is functionally equivalent to
     $ ssh remoteuser@remotehost -p 22222 'sysdig --unbuffered -w -' > FILE &
     $ stratoshark FILE
 
-//    $ ssh somehost sysdig -w - | sshark -i -
+//    $ ssh somehost sysdig -w - | tshark -i -
 
 Typically sshdig is not invoked directly. Instead it can be configured through
 the Stratoshark graphical user interface or its command line. The following will
@@ -143,9 +144,6 @@ The passphrase for the private key for authentication.
 --proxycommand=<proxy command>::
 The command to use as proxy for the SSH connection.
 
---remote-interface=<remote interface>::
-The remote network interface to capture from.
-
 --remote-capture-command-select=<capture command-selection>::
 The command to run on the remote system.
 Either *sysdig* for a remote capture command using sysdig, or *other*, where the remote capture command must be provided with the *--remote-capture-command* option.
@@ -166,6 +164,12 @@ This is passed to the remote capture program, and must comply with its syntax ru
 
 --remote-count=<number>::
 The number of events to capture.
+
+--remote-modern-bpf::
+Capture using an eBPF probe instead of the kernel module.
+
+--remote-io-snaplen=<snapshot length>::
+The number of bytes to capture in each I/O event.
 
 == EXAMPLES
 
@@ -226,7 +230,7 @@ To see interface configuration options:
 
 To capture:
 
-    sshdig --extcap-interface=sshdig --fifo=/tmp/ssh.pcap --capture --remote-host 192.168.1.10
+    sshdig --extcap-interface=sshdig --fifo=/tmp/ssh.scap --capture --remote-host 192.168.1.10
     --remote-username user
 
 // To use different capture binaries:
@@ -244,13 +248,13 @@ To capture:
 NOTE: kbd:[CTRL+C] should be used to stop the capture in order to ensure clean termination.
 
 The sshdig binary can be renamed to support multiple instances. For instance if we want sshdig
-to show up twice in stratoshark (for instance to handle multiple profiles), we can copy sshdig to
+to show up twice in Stratoshark (for instance to handle multiple profiles), we can copy sshdig to
 sshdig-host1 and sshdig-host2. Each binary will show up an interface name same as the executable
 name. Those executables not being "sshdig" will show up as "custom version" in the capture source description.
 
 == SEE ALSO
 
-xref:stratoshark.html[stratoshark](1), xref:tshark.html[tshark](1), xref:dumpcap.html[dumpcap](1), xref:extcap.html[extcap](4), xref:https://www.tcpdump.org/manpages/tcpdump.1.html[tcpdump](1)
+xref:stratoshark.html[stratoshark](1), xref:strato.html[strato](1), xref:dumpcap.html[dumpcap](1), xref:extcap.html[extcap](4)
 
 == NOTES
 

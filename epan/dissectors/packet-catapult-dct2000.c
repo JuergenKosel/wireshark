@@ -2271,7 +2271,6 @@ static void check_for_oob_mac_lte_events(packet_info *pinfo, tvbuff_t *tvb, prot
     unsigned             temp;
     mac_lte_oob_event    oob_event;
     struct mac_lte_info *p_mac_lte_info;
-    uint16_t             n;
 
     /* Current strings of interest begin with ">> ", so if don't see, avoid sscanf() calls. */
     if (strncmp(string, ">> ", 3) != 0) {
@@ -2300,7 +2299,7 @@ static void check_for_oob_mac_lte_events(packet_info *pinfo, tvbuff_t *tvb, prot
         if (number_of_ues > 1) {
             current_position = string;
 
-            for (n=1; n < number_of_ues; n++) {
+            for (unsigned n=1; n < number_of_ues; n++) {
 
                 /* Find the start of the next entry */
                 current_position = strstr(current_position, "] ");
@@ -2347,7 +2346,7 @@ static void check_for_oob_mac_lte_events(packet_info *pinfo, tvbuff_t *tvb, prot
             p_mac_lte_info->direction = DIRECTION_UPLINK;
            break;
         case ltemac_send_sr:
-            for (n=0; n < number_of_ues; n++) {
+            for (unsigned n=0; n < number_of_ues; n++) {
                 p_mac_lte_info->oob_ueid[n] = ueids[n];
                 p_mac_lte_info->oob_rnti[n] = rntis[n];
             }
@@ -3606,37 +3605,37 @@ void proto_register_catapult_dct2000(void)
         },
         { &hf_catapult_dct2000_ipprim_udp_src_port,
             { "UDP Source Port",
-              "dct2000.ipprim.udp.srcport", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.udp.srcport", FT_UINT16, BASE_PT_UDP, NULL, 0x0,
               "IPPrim UDP Source Port", HFILL
             }
         },
         { &hf_catapult_dct2000_ipprim_udp_dst_port,
             { "UDP Destination Port",
-              "dct2000.ipprim.udp.dstport", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.udp.dstport", FT_UINT16, BASE_PT_UDP, NULL, 0x0,
               "IPPrim UDP Destination Port", HFILL
             }
         },
         { &hf_catapult_dct2000_ipprim_udp_port,
             { "UDP Port",
-              "dct2000.ipprim.udp.port", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.udp.port", FT_UINT16, BASE_PT_UDP, NULL, 0x0,
               "IPPrim UDP Port", HFILL
             }
         },
         { &hf_catapult_dct2000_ipprim_tcp_src_port,
             { "TCP Source Port",
-              "dct2000.ipprim.tcp.srcport", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.tcp.srcport", FT_UINT16, BASE_PT_TCP, NULL, 0x0,
               "IPPrim TCP Source Port", HFILL
             }
         },
         { &hf_catapult_dct2000_ipprim_tcp_dst_port,
             { "TCP Destination Port",
-              "dct2000.ipprim.tcp.dstport", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.tcp.dstport", FT_UINT16, BASE_PT_TCP, NULL, 0x0,
               "IPPrim TCP Destination Port", HFILL
             }
         },
         { &hf_catapult_dct2000_ipprim_tcp_port,
             { "TCP Port",
-              "dct2000.ipprim.tcp.port", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.ipprim.tcp.port", FT_UINT16, BASE_PT_TCP, NULL, 0x0,
               "IPPrim TCP Port", HFILL
             }
         },
@@ -3679,7 +3678,7 @@ void proto_register_catapult_dct2000(void)
         },
         { &hf_catapult_dct2000_sctpprim_dst_port,
             { "UDP Destination Port",
-              "dct2000.sctprim.dstport", FT_UINT16, BASE_DEC, NULL, 0x0,
+              "dct2000.sctprim.dstport", FT_UINT16, BASE_PT_SCTP, NULL, 0x0,
               "SCTPPrim Destination Port", HFILL
             }
         },

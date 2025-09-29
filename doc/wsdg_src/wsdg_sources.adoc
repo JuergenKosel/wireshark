@@ -51,25 +51,29 @@ Using Wireshark’s GitLab project you can:
 * Browse and search the source code using a web interface.
 * See which person changed a specific piece of code.
 
-[#ChSrcWebInterface]
+[#ChSrcGitNamingConventions]
 
 ==== Git Naming Conventions
 
 Like most revision control systems, Git uses
 https://en.wikipedia.org/wiki/Branching_%28revision_control%29[branching]
 to manage different copies of the source code and allow parallel development.
-Wireshark uses the following branch naming conventions:
+Wireshark releases use the following branch naming conventions:
 
 .master.
 Main feature development and odd-numbered development releases.
 
-.release-x.y, master-x.y.
-Stable release maintenance. For example, release-3.4 is used to manage the 3.4.x official releases.
+.release-x.y.
+Stable release maintenance. For example, release-4.4 is used to manage the 4.4.x official releases.
 
-Tags for major releases and release candidates consist of a “v” followed by a version number such as “v3.2.1” or “v3.2.3rc0”.
-Major releases additionally have a tag prefixed with “wireshark-” followed by a version number, such as “wireshark-3.2.0”.
+Tags for major Wireshark releases and release candidates consist of a “v” followed by a version number such as “v4.4.1” or “v4.4.3rc0”.
+Major releases additionally have a tag prefixed with “wireshark-” followed by a version number, such as “wireshark-4.4.0”.
 
-Tags created after August 1, 2024 are signed using SSH. This includes the tags for versions 4.4.0rc1, 4.4.0, 4.2.7, and 4.0.17. If you wish to verify these tags, you must have the following entry in __~/.ssh/allowed_signers__:
+Tags for major Stratoshark releases and release candidates consist of an “ssv” followed by a version number such as “ssv1.2.3” or “ssv1.3.4rc0”.
+
+Tags created after August 1, 2024 are signed using SSH. This includes the tags for versions 4.4.0rc1, 4.4.0, 4.2.7, and 4.0.17. If you wish to verify these tags, you must have
+https://git-scm.com/docs/git-config#Documentation/git-config.txt-gpgsshallowedSignersFile[gpg.ssh.allowedSignersFile]
+configured and have the following entry in your “allowed signers” file:
 
     gerald@wireshark.org namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBHe1qOxwBietT54lZ3qawTc8B9unWP+T3JVR9l2rQaP
 
@@ -505,7 +509,7 @@ $ export WIRESHARK_DEBUG_WMEM_OVERRIDE=simple
 
 Wireshark uses GLib's GSlice memory allocator, either indirectly via wmem or via various GLib API calls.
 GLib provides a `G_SLICE` environment variable that can be set to `always-malloc` (similar to `simple`) or `debug-blocks` (similar to `strict`).
-See https://developer-old.gnome.org/glib/stable/glib-running.html for details.
+See https://docs.gtk.org/glib/running.html for details.
 The C libraries on FreeBSD, Linux, and macOS also support memory allocation debugging via various environment variables.
 You can enable many of them by running `source tools/debug-alloc.env` in a POSIX shell.
 
@@ -1049,8 +1053,8 @@ $ git cherry-pick -x 1ab2c3d4
 $ ninja
 $ ...
 
-# OPTIONAL: Add entries to doc/release-notes.adoc.
-$EDITOR doc/release-notes.adoc
+# OPTIONAL: Add entries to doc/Wireshark_Release_Notes.adoc.
+$EDITOR "doc/Wireshark_Release_Notes.adoc"
 
 # If you made any changes, update your commit.
 git commit --amend -a
@@ -1183,10 +1187,10 @@ A https://appvisor.com/pad/[PAD] file is also published at https://www.wireshark
 [discrete]
 ===== Artwork
 
-Logo and icon artwork can be found in the _image_ directory in the
+Logo and icon artwork can be found in the _resources_ directory in the
 distribution. This is available online at
 
-{wireshark-code-browse-url}/image
+{wireshark-code-browse-url}/resources
 
 [discrete]
 ===== Licensing
@@ -1197,16 +1201,16 @@ later. Make sure you and your package comply with this license.
 [discrete]
 ===== Trademarks
 
-Wireshark and the “fin” logo are registered trademarks of the Wireshark
-Foundation. Make sure you and your package comply with trademark law.
+Wireshark, Stratoshark, and their respective “fin” logos are trademarks of the link:{wireshark-foundation-url}[Wireshark Foundation].
+If you have any questions about the use of these trademarks, please contact the foundation.
 
 [discrete]
 ===== Privileges
 
 All function calls that require elevated privileges are in dumpcap.
 
-WIRESHARK CONTAINS OVER THREE MILLION LINES OF SOURCE CODE. DO NOT RUN
-THEM AS ROOT.
+WIRESHARK CONTAINS MILLIONS AND MILLIONS OF LINES OF SOURCE CODE.
+DO NOT RUN THEM AS ROOT.
 
 Warnings are displayed when Wireshark and TShark are run as root.
 

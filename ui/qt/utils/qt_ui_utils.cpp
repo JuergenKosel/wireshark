@@ -16,7 +16,7 @@
 #include <epan/addr_resolv.h>
 #include <epan/range.h>
 #include <epan/to_str.h>
-#include <epan/value_string.h>
+#include <wsutil/value_string.h>
 
 #include <ui/recent.h>
 #include <ui/util.h>
@@ -128,7 +128,7 @@ const QString address_to_display_qstring(const _address *address)
 const QString val_to_qstring(const uint32_t val, const value_string *vs, const char *fmt)
 {
     QString val_qstr;
-    char* gchar_p = val_to_str_wmem(NULL, val, vs, fmt);
+    char* gchar_p = val_to_str(NULL, val, vs, fmt);
     val_qstr = gchar_p;
     wmem_free(NULL, gchar_p);
 
@@ -138,7 +138,7 @@ const QString val_to_qstring(const uint32_t val, const value_string *vs, const c
 const QString val_ext_to_qstring(const uint32_t val, value_string_ext *vse, const char *fmt)
 {
     QString val_qstr;
-    char* gchar_p = val_to_str_ext_wmem(NULL, val, vse, fmt);
+    char* gchar_p = val_to_str_ext(NULL, val, vse, fmt);
     val_qstr = gchar_p;
     wmem_free(NULL, gchar_p);
 

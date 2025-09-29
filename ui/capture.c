@@ -43,11 +43,12 @@
 #include "ui/simple_dialog.h"
 #include "ui/ws_ui_util.h"
 
-#include "wsutil/file_util.h"
-#include "wsutil/str_util.h"
+#include <wsutil/application_flavor.h>
+#include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
-#include <wsutil/wslog.h>
+#include <wsutil/str_util.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 
 typedef struct if_stat_cache_item_s {
     char *name;
@@ -164,8 +165,7 @@ capture_start(capture_options *capture_opts, GPtrArray *capture_comments,
     /* spawn/exec of the capture child, without waiting for any response from it */
     capture_callback_invoke(capture_cb_capture_prepared, cap_session);
 
-    wtap_rec_init(&cap_session->rec);
-    ws_buffer_init(&cap_session->buf, 1514);
+    wtap_rec_init(&cap_session->rec, 1514);
 
     cap_session->wtap = NULL;
 
@@ -329,19 +329,26 @@ cf_open_error_message(int err, char *err_info)
 
         case WTAP_ERR_FILE_UNKNOWN_FORMAT:
             /* Seen only when opening a capture file for reading. */
-            errmsg = "The file \"%s\" isn't a capture file in a format Wireshark understands.";
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
+                "The file \"%%s\" isn't a capture file in a format %s understands.",
+                application_flavor_name_proper());
+            errmsg = errmsg_errno;
             break;
 
         case WTAP_ERR_UNSUPPORTED:
             snprintf(errmsg_errno, sizeof(errmsg_errno),
-                       "The file \"%%s\" contains record data that Wireshark doesn't support.\n"
-                       "(%s)", err_info != NULL ? err_info : "no information supplied");
+                "The file \"%%s\" contains record data that %s doesn't support.\n"
+                "(%s)", application_flavor_name_proper(),
+                err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
 
         case WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED:
-            errmsg = "The file \"%s\" is a capture for a network type that Wireshark doesn't support.";
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
+                "The file \"%%s\" is a capture for a network type that %s doesn't support.",
+                application_flavor_name_proper());
+            errmsg = errmsg_errno;
             break;
 
         case WTAP_ERR_BAD_FILE:
@@ -381,6 +388,14 @@ cf_open_error_message(int err, char *err_info)
             snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" cannot be decompressed; it is compressed in a way that We don't support.\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
+            g_free(err_info);
+            errmsg = errmsg_errno;
+            break;
+
+        case WTAP_ERR_REC_MALFORMED:
+            snprintf(errmsg_errno, sizeof(errmsg_errno), "%%s contains a malformed record.\n"
+                "(%s)",
+                err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
             errmsg = errmsg_errno;
             break;
@@ -425,7 +440,7 @@ capture_input_new_file(capture_session *cap_session, char *new_file)
             cap_session->session_will_restart = true;
             capture_callback_invoke(capture_cb_capture_update_finished, cap_session);
             cf_finish_tail((capture_file *)cap_session->cf,
-                           &cap_session->rec, &cap_session->buf, &err,
+                           &cap_session->rec, &err,
                            &cap_session->frame_dup_cache, cap_session->frame_cksum);
             cf_close((capture_file *)cap_session->cf);
         }
@@ -485,19 +500,6 @@ capture_input_new_file(capture_session *cap_session, char *new_file)
     return true;
 }
 
-static void
-capture_info_packet(info_data_t* cap_info, int wtap_linktype, const unsigned char *pd, uint32_t caplen, union wtap_pseudo_header *pseudo_header)
-{
-    capture_packet_info_t cpinfo;
-
-    /* Setup the capture packet structure */
-    cpinfo.counts = cap_info->counts.counts_hash;
-
-    cap_info->counts.total++;
-    if (!try_capture_dissector("wtap_encap", wtap_linktype, pd, 0, caplen, &cpinfo, pseudo_header))
-        cap_info->counts.other++;
-}
-
 /* new packets arrived */
 static void
 capture_info_new_packets(int to_read, wtap *wth, info_data_t* cap_info)
@@ -506,36 +508,41 @@ capture_info_new_packets(int to_read, wtap *wth, info_data_t* cap_info)
     char *err_info;
     int64_t data_offset;
     wtap_rec rec;
-    Buffer buf;
-    union wtap_pseudo_header *pseudo_header;
-    int wtap_linktype;
 
     cap_info->ui.new_packets = to_read;
 
     /*ws_warning("new packets: %u", to_read);*/
 
-    wtap_rec_init(&rec);
-    ws_buffer_init(&buf, 1514);
+    wtap_rec_init(&rec, 1514);
     while (to_read > 0) {
         wtap_cleareof(wth);
-        if (wtap_read(wth, &rec, &buf, &err, &err_info, &data_offset)) {
-            if (rec.rec_type == REC_TYPE_PACKET) {
-                pseudo_header = &rec.rec_header.packet_header.pseudo_header;
-                wtap_linktype = rec.rec_header.packet_header.pkt_encap;
-
-                capture_info_packet(cap_info, wtap_linktype,
-                    ws_buffer_start_ptr(&buf),
-                    rec.rec_header.packet_header.caplen,
-                    pseudo_header);
-
-                /*ws_warning("new packet");*/
-                to_read--;
-            }
-            wtap_rec_reset(&rec);
+        if (!wtap_read(wth, &rec, &err, &err_info, &data_offset)) {
+            /* Read failed. capture_input_new_packets should handle
+             * aborting the capture, etc. if necessary. */
+            break;
         }
+        if (rec.rec_type == REC_TYPE_PACKET) {
+            capture_packet_info_t cpinfo;
+
+            /* Setup the capture packet structure */
+            cpinfo.counts = cap_info->counts.counts_hash;
+
+            cap_info->counts.total++;
+            if (!try_capture_dissector("wtap_encap",
+                                        rec.rec_header.packet_header.pkt_encap,
+                                        ws_buffer_start_ptr(&rec.data),
+                                        0,
+                                        rec.rec_header.packet_header.caplen,
+                                        &cpinfo,
+                                        &rec.rec_header.packet_header.pseudo_header))
+                cap_info->counts.other++;
+
+            /*ws_warning("new packet");*/
+            to_read--;
+        }
+        wtap_rec_reset(&rec);
     }
     wtap_rec_cleanup(&rec);
-    ws_buffer_free(&buf);
 
     capture_info_ui_update(&cap_info->ui);
 }
@@ -568,7 +575,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
         to_read += cap_session->count_pending;
         cap_session->count_pending = 0;
         switch (cf_continue_tail((capture_file *)cap_session->cf, to_read,
-                                 &cap_session->rec, &cap_session->buf, &err,
+                                 &cap_session->rec, &err,
                                  &cap_session->frame_dup_cache, cap_session->frame_cksum)) {
 
             case CF_READ_OK:
@@ -746,7 +753,6 @@ capture_input_closed(capture_session *cap_session, char *msg)
     }
 
     wtap_rec_cleanup(&cap_session->rec);
-    ws_buffer_free(&cap_session->buf);
     if(cap_session->state == CAPTURE_PREPARING) {
         /* We started the capture child, but we didn't manage to start
            the capture process; note that the attempt to start it
@@ -761,7 +767,7 @@ capture_input_closed(capture_session *cap_session, char *msg)
 
             /* Read what remains of the capture file. */
             status = cf_finish_tail((capture_file *)cap_session->cf,
-                                    &cap_session->rec, &cap_session->buf, &err,
+                                    &cap_session->rec, &err,
                                     &cap_session->frame_dup_cache, cap_session->frame_cksum);
 
             // The real-time reading of the pcap is done. Now we can clear the

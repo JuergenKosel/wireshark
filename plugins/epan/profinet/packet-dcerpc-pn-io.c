@@ -53,6 +53,7 @@
 
 
 #include "config.h"
+#define WS_LOG_DOMAIN "PROFINET"
 
 #include <string.h>
 #include <glib.h>
@@ -69,6 +70,12 @@
 #include <wsutil/array.h>
 #include <wsutil/file_util.h>
 #include <epan/prefs.h>
+
+#include <wsutil/strtoi.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxml/xpath.h>
+#include <libxml/xpathInternals.h>
 
 #include "packet-pn.h"
 
@@ -103,8 +110,13 @@ void proto_reg_handoff_pn_io(void);
 #define PA_PROFILE_TB_PARENT_GAS_ANALYZER 1u
 #define PA_PROFILE_TB_PARENT_ENUMERATED_IO 1u
 #define PA_PROFILE_TB_PARENT_BINARY_IO 1u
+#ifdef _WIN32
+#define strtok_sys(str, delim, context) strtok_s(str, delim, context)
+#else
+#define strtok_sys(str, delim, context) strtok_r(str, delim, context)
+#endif
 
-
+static dissector_handle_t eap_handle;
 
 static int proto_pn_io;
 static int proto_pn_io_device;
@@ -143,6 +155,7 @@ static int hf_pn_io_ar_properties_device_access;
 static int hf_pn_io_ar_properties_companion_ar;
 static int hf_pn_io_ar_properties_achnowledge_companion_ar;
 static int hf_pn_io_ar_properties_reserved;
+static int hf_pn_io_ar_properties_reject_dcp_set_request;
 static int hf_pn_io_ar_properties_time_aware_system;
 static int hf_pn_io_ar_properties_combined_object_container_with_legacy_startupmode;
 static int hf_pn_io_ar_properties_combined_object_container_with_advanced_startupmode;
@@ -153,9 +166,11 @@ static int hf_pn_RedundancyInfo_reserved;
 static int hf_pn_io_number_of_ARDATAInfo;
 
 static int hf_pn_io_cminitiator_activitytimeoutfactor;
-static int hf_pn_io_cminitiator_udprtport;
+static int hf_pn_io_initiator_udprtport;
 static int hf_pn_io_station_name_length;
 static int hf_pn_io_cminitiator_station_name;
+static int hf_pn_io_cmresponder_station_name;
+
 /* static int hf_pn_io_responder_station_name; */
 static int hf_pn_io_arproperties_StartupMode;
 
@@ -201,7 +216,7 @@ static int hf_pn_io_iocr_properties_full_subframe_structure;
 static int hf_pn_io_data_length;
 static int hf_pn_io_ir_frame_data;
 static int hf_pn_io_frame_id;
-static int hf_pn_io_send_clock_factor;
+static int hf_pn_io_gating_cycle;
 static int hf_pn_io_reduction_ratio;
 static int hf_pn_io_phase;
 static int hf_pn_io_sequence;
@@ -529,67 +544,117 @@ static int hf_pn_io_number_of_subslots;
 /* static int hf_pn_io_maintenance_demanded_drop_budget; */
 /* static int hf_pn_io_error_drop_budget; */
 
-static int hf_pn_io_tsn_number_of_queues;
-static int hf_pn_io_tsn_max_supported_record_size;
-static int hf_pn_io_tsn_transfer_time_tx;
-static int hf_pn_io_tsn_transfer_time_rx;
-static int hf_pn_io_tsn_port_capabilities_time_aware;
-static int hf_pn_io_tsn_port_capabilities_preemption;
-static int hf_pn_io_tsn_port_capabilities_queue_masking;
-static int hf_pn_io_tsn_port_capabilities_reserved;
-static int hf_pn_io_tsn_forwarding_group;
-static int hf_pn_io_tsn_forwarding_group_ingress;
-static int hf_pn_io_tsn_forwarding_group_egress;
-static int hf_pn_io_tsn_stream_class;
-static int hf_pn_io_tsn_dependent_forwarding_delay;
-static int hf_pn_io_tsn_independent_forwarding_delay;
-static int hf_pn_io_tsn_forwarding_delay_block_number_of_entries;
-static int hf_pn_io_tsn_expected_neighbor_block_number_of_entries;
-static int hf_pn_io_tsn_port_id_block_number_of_entries;
+static int hf_pn_io_cim_number_of_queues;
+static int hf_pn_io_cim_net_max_supported_record_size;
+static int hf_pn_io_traffic_class_translate_entry;
+static int hf_pn_io_traffic_class_translate_entry_vid;
+static int hf_pn_io_traffic_class_translate_entry_reserved1;
+static int hf_pn_io_traffic_class_translate_entry_pcp;
+static int hf_pn_io_traffic_class_translate_entry_reserved2;
+static int hf_pn_io_cim_net_conf_upload_network_attributes_number_of_entries;
+static int hf_pn_io_cim_net_transfer_time_tx;
+static int hf_pn_io_cim_net_transfer_time_rx;
+static int hf_pn_io_port_capabilities_time_aware;
+static int hf_pn_io_port_capabilities_preemption;
+static int hf_pn_io_port_capabilities_queue_masking;
+static int hf_pn_io_port_capabilities_reserved;
+static int hf_pn_io_cim_station_forwarding_group;
+static int hf_pn_io_cim_station_forwarding_group_ingress;
+static int hf_pn_io_cim_station_forwarding_group_egress;
+static int hf_pn_io_cim_net_stream_class;
+static int hf_pn_io_cim_forwarding_delay_entry;
+static int hf_pn_io_cim_forwarding_delay_dependent;
+static int hf_pn_io_cim_forwarding_delay_reserved;
+static int hf_pn_io_cim_forwarding_delay_independent;
+static int hf_pn_io_cim_ingress_port_slot_nr;
+static int hf_pn_io_cim_station_forwarding_delay_block_number_of_entries;
+static int hf_pn_io_cim_station_expected_neighbor_block_number_of_entries;
+static int hf_pn_io_cim_station_port_capabilities_block_number_of_entries;
+static int hf_pn_io_cim_expected_network_attributes_uuid;
 
-static int hf_pn_io_tsn_nme_parameter_uuid;
-static int hf_pn_io_tsn_domain_vid_config;
-static int hf_pn_io_tsn_domain_vid_config_stream_high_vid;
-static int hf_pn_io_tsn_domain_vid_config_stream_high_red_vid;
-static int hf_pn_io_tsn_domain_vid_config_stream_low_vid;
-static int hf_pn_io_tsn_domain_vid_config_stream_low_red_vid;
-static int hf_pn_io_tsn_domain_vid_config_non_stream_vid;
-static int hf_pn_io_tsn_domain_vid_config_non_stream_vid_B;
-static int hf_pn_io_tsn_domain_vid_config_non_stream_vid_C;
-static int hf_pn_io_tsn_domain_vid_config_non_stream_vid_D;
-static int hf_pn_io_tsn_domain_vid_config_reserved;
-static int hf_pn_io_number_of_tsn_time_data_block_entries;
-static int hf_pn_io_number_of_tsn_domain_queue_rate_limiter_entries;
-static int hf_pn_io_number_of_tsn_domain_port_ingress_rate_limiter_entries;
-static int hf_pn_io_number_of_tsn_domain_port_config_entries;
+static int hf_pn_io_security;
+static int hf_pn_io_security_information;
+static int hf_pn_io_security_information_protection_mode;
+static int hf_pn_io_security_information_reserved;
+static int hf_pn_io_security_operation;
+static int hf_pn_io_security_features;
+static int hf_pn_io_security_features_key_pair_generation;
+static int hf_pn_io_security_features_reserved;
+static int hf_pn_io_rtc_algorithm;
+static int hf_pn_io_rta_algorithm;
+static int hf_pn_io_rpc_algorithm;
+static int hf_pn_io_derivation_algorithm;
+static int hf_pn_io_agreement_algorithm;
+static int hf_pn_io_signature_algorithm;
+static int hf_pn_io_security_capability;
+static int hf_pn_io_security_capability_usage;
+static int hf_pn_io_security_capability_algorithm_symmetric_ao;
+static int hf_pn_io_security_capability_algorithm_symmetric_ae;
+static int hf_pn_io_security_capability_algorithm_key_derivation_function;
+static int hf_pn_io_security_capability_algorithm_key_agreement_function;
+static int hf_pn_io_security_capability_algorithm_digital_signature_function;
+static int hf_pn_io_security_capability_algorithm_reserved;
+static int hf_pn_io_security_configuration_parameters;
+static int hf_pn_io_security_mode;
+static int hf_pn_io_certificate_validity_period_check;
+static int hf_pn_io_security_configuration_parameters_reserved1;
+static int hf_pn_io_security_configuration_parameters_reserved2;
+static int hf_pn_io_security_data;
+static int hf_pn_io_sack_degradation_threshold;
+static int hf_pn_io_credential_id;
+static int hf_pn_io_credential_id_credential_type;
+static int hf_pn_io_credential_id_reserved;
+static int hf_pn_io_number_of_entries;
+static int hf_pn_io_private_key;
+static int hf_pn_io_private_key_length;
+static int hf_pn_io_certificate_length;
+static int hf_pn_io_certificate;
+static int hf_pn_io_certification_request_length;
+static int hf_pn_io_certification_request;
 
-static int hf_pn_io_tsn_domain_port_config;
-static int hf_pn_io_tsn_domain_port_config_preemption_enabled;
-static int hf_pn_io_tsn_domain_port_config_boundary_port_config;
-static int hf_pn_io_tsn_domain_port_config_reserved;
+static int hf_pn_io_nme_parameter_uuid;
+static int hf_pn_io_nme_domain_vid_config;
+static int hf_pn_io_nme_domain_vid_config_stream_high_vid;
+static int hf_pn_io_nme_domain_vid_config_stream_high_red_vid;
+static int hf_pn_io_nme_domain_vid_config_stream_low_vid;
+static int hf_pn_io_nme_domain_vid_config_stream_low_red_vid;
+static int hf_pn_io_nme_domain_vid_config_non_stream_vid;
+static int hf_pn_io_nme_domain_vid_config_non_stream_vid_B;
+static int hf_pn_io_nme_domain_vid_config_non_stream_vid_C;
+static int hf_pn_io_nme_domain_vid_config_non_stream_vid_D;
+static int hf_pn_io_nme_domain_vid_config_reserved;
+static int hf_pn_io_number_of_nme_domain_time_data_block_entries;
+static int hf_pn_io_number_of_port_queue_egress_rate_limiter_entries;
+static int hf_pn_io_number_of_port_ingress_rate_limiter_entries;
+static int hf_pn_io_number_of_cim_station_port_status_entries;
 
-static int hf_pn_io_tsn_domain_port_ingress_rate_limiter;
-static int hf_pn_io_tsn_domain_port_ingress_rate_limiter_cir;
-static int hf_pn_io_tsn_domain_port_ingress_rate_limiter_cbs;
-static int hf_pn_io_tsn_domain_port_ingress_rate_limiter_envelope;
-static int hf_pn_io_tsn_domain_port_ingress_rate_limiter_rank;
+static int hf_pn_io_cim_station_port_status;
+static int hf_pn_io_cim_station_port_status_preemption_status ;
+static int hf_pn_io_cim_station_port_status_boundary_port_status;
+static int hf_pn_io_cim_station_port_status_reserved;
 
-static int hf_pn_io_tsn_domain_queue_rate_limiter;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_cir;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_cbs;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_envelope;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_rank;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_queue_id;
-static int hf_pn_io_tsn_domain_queue_rate_limiter_reserved;
+static int hf_pn_io_port_ingress_rate_limiter;
+static int hf_pn_io_port_ingress_rate_limiter_cir;
+static int hf_pn_io_port_ingress_rate_limiter_cbs;
+static int hf_pn_io_port_ingress_rate_limiter_envelope;
+static int hf_pn_io_port_ingress_rate_limiter_rank;
 
-static int hf_pn_io_number_of_tsn_domain_queue_config_entries;
-static int hf_pn_io_tsn_domain_queue_config;
-static int hf_pn_io_tsn_domain_queue_config_queue_id;
-static int hf_pn_io_tsn_domain_queue_config_tci_pcp;
-static int hf_pn_io_tsn_domain_queue_config_shaper;
-static int hf_pn_io_tsn_domain_queue_config_preemption_mode;
-static int hf_pn_io_tsn_domain_queue_config_unmask_time_offset;
-static int hf_pn_io_tsn_domain_queue_config_mask_time_offset;
+static int hf_pn_io_port_queue_egress_rate_limiter;
+static int hf_pn_io_port_queue_egress_rate_limiter_cir;
+static int hf_pn_io_port_queue_egress_rate_limiter_cbs;
+static int hf_pn_io_port_queue_egress_rate_limiter_envelope;
+static int hf_pn_io_port_queue_egress_rate_limiter_rank;
+static int hf_pn_io_port_queue_egress_rate_limiter_queue_id;
+static int hf_pn_io_port_queue_egress_rate_limiter_reserved;
+
+static int hf_pn_io_number_of_nme_domain_queue_config_entries;
+static int hf_pn_io_nme_domain_queue_config;
+static int hf_pn_io_nme_domain_queue_config_queue_id;
+static int hf_pn_io_nme_domain_queue_config_tci_pcp;
+static int hf_pn_io_nme_domain_queue_config_shaper;
+static int hf_pn_io_nme_domain_queue_config_preemption_mode;
+static int hf_pn_io_nme_domain_queue_config_unmask_time_offset;
+static int hf_pn_io_nme_domain_queue_config_mask_time_offset;
 
 static int hf_pn_io_network_deadline;
 static int hf_pn_io_time_domain_number;
@@ -602,19 +667,30 @@ static int hf_pn_io_time_sync_properties_reserved;
 static int hf_pn_io_time_domain_uuid;
 static int hf_pn_io_time_domain_name_length;
 static int hf_pn_io_time_domain_name;
-static int hf_pn_io_tsn_nme_name_uuid;
-static int hf_pn_io_tsn_nme_name_length;
-static int hf_pn_io_tsn_nme_name;
-static int hf_pn_io_tsn_domain_uuid;
-static int hf_pn_io_tsn_domain_name_length;
-static int hf_pn_io_tsn_domain_name;
+static int hf_pn_io_nme_name_uuid;
+static int hf_pn_io_nme_name_address;
+static int hf_pn_io_nme_name_address_subtype;
+static int hf_pn_io_nme_name_length;
+static int hf_pn_io_nme_name;
+static int hf_pn_io_nme_domain_uuid;
+static int hf_pn_io_nme_domain_name_length;
+static int hf_pn_io_nme_domain_name;
 
-static int hf_pn_io_tsn_fdb_command;
-static int hf_pn_io_tsn_dst_add;
+static int hf_pn_io_min_ipg_breaking_point;
+static int hf_pn_io_min_ipg_frame_size;
+static int hf_pn_io_frame_send_offset_deviation;
+static int hf_pn_io_supported_burst_size;
+static int hf_pn_io_supported_burst_size_frames;
+static int hf_pn_io_supported_burst_size_octets;
 
-static int hf_pn_io_number_of_tsn_domain_sync_tree_entries;
-static int hf_pn_io_tsn_domain_sync_port_role;
-static int hf_pn_io_tsn_domain_port_id;
+static int hf_pn_io_cim_fdb_command;
+static int hf_pn_io_cim_dst_add;
+
+static int hf_pn_io_number_of_nme_domain_sync_tree_entries;
+static int hf_pn_io_cim_sync_tree_data_uuid;
+static int hf_pn_io_cim_stream_collection_uuid;
+static int hf_pn_io_nme_domain_sync_port_role;
+static int hf_pn_io_cim_station_element_id;
 
 static int hf_pn_io_maintenance_required_power_budget;
 static int hf_pn_io_maintenance_demanded_power_budget;
@@ -914,7 +990,7 @@ static int hf_pn_io_snmp_read_community_name;
 static int hf_pn_io_snmp_write_community_name;
 
 static int hf_pn_io_snmp_control;
-
+static int hf_pn_io_eap_data;
 /* static int hf_pn_io_packedframe_SFCRC; */
 static int ett_pn_io;
 static int ett_pn_io_block;
@@ -954,7 +1030,7 @@ static int ett_pn_io_ir_tx_phase;
 static int ett_pn_io_ir_rx_phase;
 static int ett_pn_io_subframe_data;
 static int ett_pn_io_SFIOCRProperties;
-static int ett_pn_io_frame_defails;
+static int ett_pn_io_frame_details;
 static int ett_pn_io_profisafe_f_parameter;
 static int ett_pn_io_profisafe_f_parameter_prm_flag1;
 static int ett_pn_io_profisafe_f_parameter_prm_flag2;
@@ -978,7 +1054,18 @@ static int ett_pn_io_sr_properties;
 static int ett_pn_io_line_delay;
 static int ett_pn_io_counter_status;
 static int ett_pn_io_neighbor;
-
+static int ett_pn_io_credential_id;
+static int ett_pn_io_security;
+static int ett_pn_io_security_configuration_parameters;
+static int ett_pn_io_security_features;
+static int ett_pn_io_security_capability;
+static int ett_pn_io_rtc_algorithm;
+static int ett_pn_io_rta_algorithm;
+static int ett_pn_io_rpc_algorithm;
+static int ett_pn_io_derivation_algorithm;
+static int ett_pn_io_agreement_algorithm;
+static int ett_pn_io_signature_algorithm;
+static int ett_pn_io_eap;
 static int ett_pn_io_GroupProperties;
 
 static int ett_pn_io_asset_management_info;
@@ -999,13 +1086,17 @@ static int ett_pn_io_pe_measurement_id;
 static int ett_pn_io_pe_measurement_value;
 static int ett_pn_io_pe_operational_mode;
 
-static int ett_pn_io_tsn_domain_port_config;
-static int ett_pn_io_tsn_domain_port_ingress_rate_limiter;
-static int ett_pn_io_tsn_domain_queue_rate_limiter;
-static int ett_pn_io_tsn_domain_vid_config;
-static int ett_pn_io_tsn_domain_queue_config;
+static int ett_pn_io_cim_station_port_status;
+static int ett_pn_io_cim_forwarding_delay_entry;
+static int ett_pn_io_supported_burst_size;
+static int ett_pn_io_port_ingress_rate_limiter;
+static int ett_pn_io_port_queue_egress_rate_limiter;
+static int ett_pn_io_nme_domain_vid_config;
+static int ett_pn_io_nme_name_address;
+static int ett_pn_io_traffic_class_translate_entry;
+static int ett_pn_io_nme_domain_queue_config;
 static int ett_pn_io_time_sync_properties;
-static int ett_pn_io_tsn_domain_port_id;
+static int ett_pn_io_cim_station_element_id;
 
 static int ett_pn_io_snmp_command_name;
 
@@ -1013,6 +1104,8 @@ static int ett_pn_io_snmp_command_name;
 #define PD_SUB_FRAME_BLOCK_FIOCR_PROPERTIES_LENGTH 4
 #define PD_SUB_FRAME_BLOCK_FRAME_ID_LENGTH 2
 #define PD_SUB_FRAME_BLOCK_SUB_FRAME_DATA_LENGTH 4
+#define HEURISTIC_EXTRACTION 0
+#define MANUAL_EXTRACTION 1
 
 static expert_field ei_pn_io_block_version;
 static expert_field ei_pn_io_block_length;
@@ -1048,9 +1141,22 @@ static uint16_t ver_pn_io_implicitar = 1;
 /* PNIO Preference Variables */
 bool           pnio_ps_selection = true;
 static const char *pnio_ps_networkpath = "";
+static const char* pnio_configpath = "";
+int extract_method;
+static const enum_val_t pnio_method_enum[] = {
+    { "heuristic",    "heuristic extraction",        0 },
+    { "manual",      "manual extraction",       1 },
+    { NULL, NULL, 0 }
+};
+
+static uint8_t* stateflag = NULL;
+wmem_list_t* conversation_address_list;
+
+static wmem_allocator_t *pnio_pref_scope;
 
 wmem_list_t       *aruuid_frame_setup_list;
 static wmem_map_t *pnio_time_aware_frame_map;
+static wmem_map_t *pnio_gsd_device_map;
 
 
 /* Allow heuristic dissection */
@@ -1125,6 +1231,7 @@ static const value_string pn_io_block_type[] = {
     { 0x010A, "SRInfoBlock"},
     { 0x010B, "ARFSUBlock"},
     { 0x010C, "RSInfoBlock"},
+    { 0x010D, "ARAlgorithmInfoBlock"},
     { 0x0110, "IODControlReq Prm End.req"},
     { 0x8110, "IODControlRes Prm End.rsp"},
     { 0x0111, "IODControlReq Plug Prm End.req"},
@@ -1143,7 +1250,11 @@ static const value_string pn_io_block_type[] = {
     { 0x8117, "IOXControlRes Ready for RT_CLASS_3.rsp"},
     { 0x0118, "PrmBeginReq"},
     { 0x8118, "PrmBeginRes"},
+    { 0x811A, "SecurityResponse" },
+
     { 0x0119, "SubmoduleListBlock"},
+    { 0x011A, "SecurityRequestBlock"},
+    { 0x011B, "ARUUIDBlock"},
 
     { 0x0200, "PDPortDataCheck"},
     { 0x0201, "PDevData"},
@@ -1204,31 +1315,33 @@ static const value_string pn_io_block_type[] = {
     { 0x0251, "PDPortStatistic"},
     { 0x0260, "OwnPort"},
     { 0x0261, "Neighbors"},
-    { 0x0270, "TSNNetworkControlDataReal"},
-    { 0x0271, "TSNNetworkControlDataAdjust"},
-    { 0x0272, "TSNDomainPortConfigBlock"},
-    { 0x0273, "TSNDomainQueueConfigBlock"},
-    { 0x0274, "TSNTimeDataBlock"},
-    { 0x0275, "TSNStreamPathData"},
-    { 0x0276, "TSNSyncTreeData"},
-    { 0x0277, "TSNUploadNetworkAttributes"},
+    { 0x0270, "CIMNetConfDataReal"},
+    { 0x0271, "CIMNetConfDataAdjust"},
+    { 0x0272, "CIMStationPortConfigBlock"},
+    { 0x0273, "CIMStationQueueConfigBlock"},
+    { 0x0274, "NMEDomainTimeDataBlock"},
+    { 0x0275, "CIMNetConfStreamPathData"},
+    { 0x0276, "CIMNetConfSyncTreeData"},
+    { 0x0277, "CIMNetConfUploadNetworkAttributes"},
     { 0x0278, "ForwardingDelayBlock"},
-    { 0x0279, "TSNExpectedNetworkAttributes"},
-    { 0x027A, "TSNStreamPathDataReal"},
-    { 0x027B, "TSNDomainPortIngressRateLimiterBlock"},
-    { 0x027C, "TSNDomainQueueRateLimiterBlock"},
-    { 0x027D, "TSNPortIDBlock"},
-    { 0x027E, "TSNExpectedNeighborBlock" },
+    { 0x0279, "CIMNetConfExpectedNetworkAttributes"},
+    { 0x027A, "CIMNetConfStreamPathDataReal"},
+    { 0x027B, "CIMStationPortIngressRateLimiterBlock"},
+    { 0x027C, "CIMStationEgressRateLimiterBlock"},
+    { 0x027D, "CIMStationPortCapabilitiesBlock"},
+    { 0x027E, "CIMStationExpectedNeighborBlock" },
+    { 0x027F, "NMEDomainConfigRealBlock" },
     { 0x0300, "CIMSNMPAdjust"},
+    { 0x0302, "CIMSNMPReal"},
     { 0x0400, "MultipleBlockHeader"},
     { 0x0401, "COContainerContent"},
     { 0x0500, "RecordDataReadQuery"},
-    { 0x0501, "TSNAddStreamReq"},
-    { 0x0502, "TSNAddStreamRsp"},
-    { 0x0503, "TSNRemoveStreamReq"},
-    { 0x0504, "TSNRemoveStreamRsp"},
-    { 0x0505, "TSNRenewStreamReq"},
-    { 0x0506, "TSNRenewStreamRsp"},
+    { 0x0501, "UNIAddStreamReq"},
+    { 0x0502, "UNIAddStreamRsp"},
+    { 0x0503, "UNIRemoveStreamReq"},
+    { 0x0504, "UNIRemoveStreamRsp"},
+    { 0x0505, "UNIRenewStreamReq"},
+    { 0x0506, "UNIRenewStreamRsp"},
     { 0x0600, "FSHelloBlock"},
     { 0x0601, "FSParameterBlock"},
     { 0x0602, "FastStartUpBlock"},
@@ -1455,6 +1568,14 @@ static const value_string pn_io_arproperties_acknowldege_companion_ar[] = {
     { 0, NULL }
 };
 
+
+/* Bit 27 */
+static const value_string pn_io_arproperties_reject_dcp_set_request[] = {
+    { 0x00000000, "Accepted" },
+    { 0x00000001, "Rejected" },
+    { 0, NULL }
+};
+
 /* Bit 28 */
 static const value_string pn_io_arproperties_time_aware_system[] = {
     { 0x00000000, "NonTimeAware" },
@@ -1504,7 +1625,9 @@ static const value_string pn_io_iocr_properties_rtclass[] = {
     { 0x00000002, "RT_CLASS_2" },
     { 0x00000003, "RT_CLASS_3" },
     { 0x00000004, "RT_CLASS_UDP" },
-    /*0x00000005 - 0x00000007 reserved */
+    { 0x00000005, "RT_CLASS_STREAM with 'Time-Aware stream'"},
+    { 0x00000006, "reserved" },
+    { 0x00000007, "reserved" },
     { 0, NULL }
 };
 
@@ -1689,8 +1812,37 @@ static const value_string pn_io_index[] = {
     /*0x802E reserved */
     { 0x802F, "PDPortDataAdjust for one subslot" },
     { 0x8030, "IsochronousModeData for one subslot" },
-    { 0x8031, "PDTimeData for one subslot" },
-    /*0x8032 - 0x804F reserved */
+    { 0x8031, "Expected PDSyncData for one subslot with SyncID value 1" },
+    { 0x8032, "Expected PDSyncData for one subslot with SyncID value 2" },
+    { 0x8033, "Expected PDSyncData for one subslot with SyncID value 3" },
+    { 0x8034, "Expected PDSyncData for one subslot with SyncID value 4" },
+    { 0x8035, "Expected PDSyncData for one subslot with SyncID value 5" },
+    { 0x8036, "Expected PDSyncData for one subslot with SyncID value 6" },
+    { 0x8037, "Expected PDSyncData for one subslot with SyncID value 7" },
+    { 0x8038, "Expected PDSyncData for one subslot with SyncID value 8" },
+    { 0x8039, "Expected PDSyncData for one subslot with SyncID value 9" },
+    { 0x803A, "Expected PDSyncData for one subslot with SyncID value 10" },
+    { 0x803B, "Expected PDSyncData for one subslot with SyncID value 11" },
+    { 0x803C, "Expected PDSyncData for one subslot with SyncID value 12" },
+    { 0x803D, "Expected PDSyncData for one subslot with SyncID value 13" },
+    { 0x803E, "Expected PDSyncData for one subslot with SyncID value 14" },
+    { 0x803F, "Expected PDSyncData for one subslot with SyncID value 15" },
+    { 0x8040, "Expected PDSyncData for one subslot with SyncID value 16" },
+    { 0x8041, "Expected PDSyncData for one subslot with SyncID value 17" },
+    { 0x8042, "Expected PDSyncData for one subslot with SyncID value 18" },
+    { 0x8043, "Expected PDSyncData for one subslot with SyncID value 19" },
+    { 0x8044, "Expected PDSyncData for one subslot with SyncID value 20" },
+    { 0x8045, "Expected PDSyncData for one subslot with SyncID value 21" },
+    { 0x8046, "Expected PDSyncData for one subslot with SyncID value 22" },
+    { 0x8047, "Expected PDSyncData for one subslot with SyncID value 23" },
+    { 0x8048, "Expected PDSyncData for one subslot with SyncID value 24" },
+    { 0x8049, "Expected PDSyncData for one subslot with SyncID value 25" },
+    { 0x804A, "Expected PDSyncData for one subslot with SyncID value 26" },
+    { 0x804B, "Expected PDSyncData for one subslot with SyncID value 27" },
+    { 0x804C, "Expected PDSyncData for one subslot with SyncID value 28" },
+    { 0x804D, "Expected PDSyncData for one subslot with SyncID value 29" },
+    { 0x804E, "Expected PDSyncData for one subslot with SyncID value 30" },
+    { 0x804F, "Expected PDSyncData for one subslot with SyncID value 31" },
     { 0x8050, "PDInterfaceMrpDataReal for one subslot" },
     { 0x8051, "PDInterfaceMrpDataCheck for one subslot" },
     { 0x8052, "PDInterfaceMrpDataAdjust for one subslot" },
@@ -1721,20 +1873,21 @@ static const value_string pn_io_index[] = {
     { 0x80CF, "RS_AdjustObserver" },
     { 0x80D0, "Profiles covering condition monitoring - Record_0" },
     /*0x80D1 - 0x80DF reserved */
-    { 0x80F0, "TSNNetworkControlDataReal" },
-    { 0x80F1, "TSNStreamPathData" },
-    { 0x80F2, "TSNSyncTreeData" },
-    { 0x80F3, "TSNUploadNetworkAttributes" },
-    { 0x80F4, "TSNExpectedNetworkAttributes" },
-    { 0x80F5, "TSNNetworkControlDataAdjust" },
-    { 0x80F6, "TSNStreamPathDataReal for stream class High" },
-    { 0x80F7, "TSNStreamPathDataReal for stream class High Redundant" },
-    { 0x80F8, "TSNStreamPathDataReal for stream class Low" },
-    { 0x80F9, "TSNStreamPathDataReal for stream class Low Redundant" },
+    { 0x80F0, "CIMNetConfDataReal" },
+    { 0x80F1, "CIMNetConfStreamPathData" },
+    { 0x80F2, "CIMNetConfSyncTreeData" },
+    { 0x80F3, "CIMNetConfUploadNetworkAttributes" },
+    { 0x80F4, "CIMNetConfExpectedNetworkAttributes" },
+    { 0x80F5, "CIMNetConfDataAdjust" },
+    { 0x80F6, "CIMNetConfStreamPathDataReal for stream class High" },
+    { 0x80F7, "CIMNetConfStreamPathDataReal for stream class High Redundant" },
+    { 0x80F8, "CIMNetConfStreamPathDataReal for stream class Low" },
+    { 0x80F9, "CIMNetConfStreamPathDataReal for stream class Low Redundant" },
     /*0x80FA - 0x80FF reserved for CIM data */
     /*0x8100 - 0x81FF reserved */
     { 0x8200, "CIMSNMPAdjust" },
-    /*0x8201 - 0xAFEF reserved */
+    { 0x8201, "CIMSNMPReal" },
+    /*0x8202 - 0xAFEF reserved */
     { 0xAFF0, "I&M0" },
     { 0xAFF1, "I&M1" },
     { 0xAFF2, "I&M2" },
@@ -1897,10 +2050,14 @@ static const value_string pn_io_index[] = {
     { 0xF887, "AssetManagementData - eighth chunk" },
     { 0xF888, "AssetManagementData - ninth chunk" },
     { 0xF889, "AssetManagementData - tenth chunk" },
-    { 0xF8F0, "Stream Add using TSNAddStreamReq and TSNAddStreamRsp" },
+    { 0xF8F0, "Stream Add using UNIAddStreamReq and UNIAddStreamRsp" },
     { 0xF8F1, "PDRsiInstances" },
-    { 0xF8F2, "Stream Remove using TSNRemoveStreamReq and TSNRemoveStreamRsp" },
-    { 0xF8F3, "Stream Renew using TSNRenewStreamReq and TSNRenewStreamRsp" },
+    { 0xF8F2, "Stream Remove using UNIRemoveStreamReq and UNIRemoveStreamRsp" },
+    { 0xF8F3, "Stream Renew using UNIRenewStreamReq and UNIRenewStreamRsp" },
+    { 0xF900, "Security request using CIMSecurityServiceReq and CIMSecurityServiceRsp" },
+    { 0xF901, "CIMDCPService" },
+    { 0xF902, "Read Aurditable Event using CIMAurditableEventServiceReq and CIMAuditableEventServiceRsp" },
+    { 0xF920, "CIMElectricPowerReal" },
     { 0xFBFF, "Trigger index for RPC connection monitoring" },
     /*0xFC00 - 0xFFFF reserved for profiles */
     { 0, NULL }
@@ -2702,8 +2859,17 @@ static const value_string pn_io_mau_type[] = {
     /*0x0020 - 0x002D reserved */
     { 0x002E, "100BASELX10" },
     /*0x002F - 0x0035 reserved */
-    { 0x0036, "100BASEPXFD" },
-    /*0x0037 - 0x008C reserved */
+    { 0x0036, "10GbaseT or 100BASEPXFD" },
+    /*0x0037 - 0x005C reserved */
+    { 0x005D, "25GbaseSR" },
+    /*0x005E - 0x0066 reserved */
+    { 0x0067, "2.5Gbase-T" },
+    { 0x0068, "5Gbase-T" },
+    /*0x0069 - 0x0071 reserved */
+    { 0x0072, "25Gbase-LR" },
+    { 0x0073, "25Gbase-ER" },
+    /*0x0074 - 0x008C reserved */
+    { 0x0087, "400GigBASER" },
     { 0x008D, "10BASET1L" },
     /*0x008E - 0xFFFF reserved */
     { 0, NULL }
@@ -2908,6 +3074,26 @@ static const value_string pn_io_pe_measurement_status[] = {
     { 0x02, "not available" },
     { 0x03, "temporarily not available" },
     { 0, NULL }
+};
+
+static const range_string pn_io_credential_id_credential_type[] = {
+    { 0x00, 0x00, "No credential exists" },
+    { 0x01, 0x01, "IDevID" },
+    { 0x02, 0x02, "LDevID-Generic" },
+    { 0x03, 0x03, "LDevID-PN" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_number_of_octets[] = {
+    { 0x0000, 0x0000, "Reserved" },
+    { 0x0001, 0x0FFF, "Mandatory values" },
+    { 0x1000, 0xFFFF, "Optimal values" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_number_of_entries[] = {
+    { 0x0000, 0xFFFF, "Number of entries" },
+    { 0, 0, NULL }
 };
 
 static const value_string pn_io_port_state[] = {
@@ -3405,6 +3591,110 @@ static const value_string pn_io_am_location_reserved_vals[] = {
     { 0, NULL }
 };
 
+static const value_string pn_io_security_information_protection_mode[] = {
+    { 0x00, "Authentication only" },
+    { 0x01, "Authenticated encryption" },
+    { 0, NULL }
+};
+
+static const range_string pn_io_security_mode[] = {
+    { 0x0000, 0x0000, "Preserve stored value" },
+    { 0x0001, 0x0001, "ANY Default Value" },
+    { 0x0002, 0x0002, "PROTECTED" },
+    { 0x0003, 0x0003, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_certificate_validity_period_check[] = {
+    { 0x00, 0x00, "Preserved stored value" },
+    { 0x01, 0x01, "OFF Default value" },
+    { 0x02, 0x02, "ON" },
+    { 0x03, 0x03, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_sack_degradation_threshold[] = {
+    { 0x00, 0x00, "Preserve stored value" },
+    { 0x01, 0x3F, "SACKDegredationThresholdFactor" },
+    { 0xFF, 0xFF, "Disable SACKDegredationThresholdFactor Default Value" },
+    { 0, 0, NULL }
+};
+
+static const value_string pn_io_security_features_key_pair_generation[] = {
+    { 0x0, "Not supported" },
+    { 0x1, "Supported" },
+    { 0, NULL }
+};
+
+static const range_string pn_io_security_capability_usage[] = {
+    { 0x00, 0x00, "Not applicable for the desired communication protocol" },
+    { 0x01, 0x01, "Symmetric, authentication only" },
+    { 0x02, 0x02, "Symmetric, authentication encryption" },
+    { 0x03, 0x03, "Key derivation function" },
+    { 0x04, 0x04, "Key agreement function" },
+    { 0x05, 0x05, "Digital signature function" },
+    { 0x06, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_capability_algorithm_symmetric_ao[] = {
+    { 0x00, 0x00, "AEAD_AES_128_GCM" },
+    { 0x01, 0x01, "AEAD_AES_256_GCM" },
+    { 0x02, 0x02, "AEAD_CHACHA20_POLY1305" },
+    { 0x03, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_capability_algorithm_symmetric_ae[] = {
+    { 0x00, 0x00, "AEAD_AES_128_GCM" },
+    { 0x01, 0x01, "AEAD_AES_256_GCM" },
+    { 0x02, 0x02, "AEAD_CHACHA20_POLY1305" },
+    { 0x03, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_capability_algorithm_key_derivation_function[] = {
+    { 0x00, 0x00, "HKDF together with SHA-256" },
+    { 0x01, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_capability_algorithm_key_agreement_function[] = {
+    { 0x00, 0x00, "X25519" },
+    { 0x01, 0x01, "X448" },
+    { 0x02, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_capability_algorithm_digital_signature_function[] = {
+    { 0x00, 0x00, "Ed25519" },
+    { 0x01, 0x01, "Ed448" },
+    { 0x02, 0x02, "ECDSA-with-SHA256 using P-256 curve" },
+    { 0x03, 0x03, "ECDSA-with-SHA512 using P-521 curve" },
+    { 0x04, 0xFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_security_operation[] = {
+    { 0x0000, 0x0000, "Reserved" },
+    { 0x0001, 0x0001, "Get Security Capabilities" },
+    { 0x0002, 0x0002, "Get Available CredentialIDs" },
+    { 0x0003, 0x0003, "Get Security Configuration Parameters" },
+    { 0x0004, 0x0004, "Get EE Certification Path" },
+    { 0x0005, 0x0005, "Get Trusted CA Certificate" },
+    { 0x0006, 0x0006, "Generate Key Pair And CSR" },
+    { 0x0007, 0x0007, "Imprint Private Key" },
+    { 0x0008, 0x0008, "Imprint EE Certification Path" },
+    { 0x0009, 0x0009, "Remove EE Certification Path and Private Key" },
+    { 0x000A, 0x000A, "Imprint Trusted CA Certificate" },
+    { 0x000B, 0x000B, "Remove Trusted CA Certificate" },
+    { 0x000C, 0x000C, "Set Security Configuration Parameters" },
+    { 0x000D, 0x00FF, "Reserved" },
+    { 0x0100, 0x0100, "Process EAP Message" },
+    { 0x0100, 0xFFFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
 static const range_string pn_io_RedundancyDataHoldFactor[] = {
     { 0x0000, 0x0002, "Reserved" },
     { 0x0003, 0x00C7, "Optional - An expiration of the time leads to an AR termination." },
@@ -3451,8 +3741,8 @@ static const value_string pn_io_pdportstatistic_counter_status_reserved[] = {
     { 0, NULL }
 };
 
-static const value_string pn_io_tsn_domain_vid_config_vals[] = {
-    { 0x00, "Reserved" },
+static const value_string pn_io_nme_domain_vid_config_vals[] = {
+    { 0x00, "Disabled" },
     { 0x64, "NonStreamVID-Default" },
     { 0x65, "StreamHighVID-Default" },
     { 0x66, "StreamHighRedVID-Default" },
@@ -3464,32 +3754,32 @@ static const value_string pn_io_tsn_domain_vid_config_vals[] = {
     { 0, NULL }
 };
 
-static const value_string pn_io_tsn_domain_port_config_preemption_enabled_vals[] = {
-    { 0x00, "Preemption support is disabled for this port" },
-    { 0x01, "Preemption support is enabled for this port" },
+static const value_string pn_io_cim_station_port_status_preemption_status_vals[] = {
+    { 0x00, "Preemption is inactive for this link (local port to remote port)" },
+    { 0x01, "Preemption is active for this link (local port to remote port)" },
     { 0, NULL }
 };
 
-static const value_string pn_io_tsn_domain_port_config_boundary_port_config_vals[] = {
+static const value_string pn_io_cim_station_port_status_boundary_port_status_vals[] = {
     { 0x00, "No boundary port" },
     { 0x01, "Boundary port with Remapping1" },
     { 0x02, "Boundary port with Remapping2" },
     { 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_cir[] = {
+static const range_string pn_io_port_ingress_rate_limiter_cir[] = {
     { 0x0000, 0x0000, "No Boundary Port" },
     { 0x0001, 0xFFFF, "Committed information rate in 0,1 Mbit/s"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_cbs[] = {
+static const range_string pn_io_port_ingress_rate_limiter_cbs[] = {
     { 0x0000, 0x0000, "No Boundary Port" },
     { 0x0001, 0xFFFF, "Committed burst size in octets"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_envelope[] = {
+static const range_string pn_io_port_ingress_rate_limiter_envelope[] = {
     { 0x0000, 0x0000, "No Boundary Port" },
     { 0x0001, 0x0001, "Best effort envelope"},
     { 0x0002, 0x0002, "RT_CLASS_X, RTA_CLASS_X envelope"},
@@ -3497,7 +3787,7 @@ static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_envelope[] 
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_rank[] = {
+static const range_string pn_io_port_ingress_rate_limiter_rank[] = {
     { 0x0000, 0x0000, "No Boundary Port" },
     { 0x0001, 0x0001, "CF1"},
     { 0x0002, 0x0002, "CF2"},
@@ -3508,43 +3798,43 @@ static const range_string pn_io_tsn_domain_port_ingress_rate_limiter_rank[] = {
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_cir[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_cir[] = {
     { 0x0000, 0x0000, "Used in case of no rate limiter" },
     { 0x0001, 0xFFFF, "Committed information rate in 0,1 Mbit/s"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_cbs[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_cbs[] = {
     { 0x0000, 0x0000, "Used in case of no rate limiter" },
     { 0x0001, 0xFFFF, "Committed burst size in octets"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_envelope[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_envelope[] = {
     { 0x00, 0x00, "Used in case of no rate limiter" },
     { 0x01, 0x01, "Best effort envelope"},
     { 0x02, 0xFF, "Reserved"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_rank[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_rank[] = {
     { 0x00, 0x00, "Used in case of no boundary port" },
-    { 0x01, 0x01, "CF1"},
-    { 0x02, 0x02, "CF2"},
-    { 0x03, 0x03, "CF3"},
-    { 0x04, 0x04, "CF4"},
-    { 0x05, 0x05, "CF5"},
+    { 0x01, 0x01, "Rank 1 used to address CIR1, CBS1 and CF1"},
+    { 0x02, 0x02, "Rank 2 used to address CIR2, CBS2 and CF2"},
+    { 0x03, 0x03, "Rank 3 used to address CIR3, CBS3 and CF3"},
+    { 0x04, 0x04, "Rank 4 used to address CIR4, CBS4 and CF4"},
+    { 0x05, 0x05, "Rank 5 used to address CIR5, CBS5 and CF5"},
     { 0x06, 0xFF, "Reserved"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_queue_id[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_queue_id[] = {
     { 0x00, 0x07, "Identifier of the queue" },
     { 0x08, 0xFF, "Reserved"},
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_rate_limiter_reserved[] = {
+static const range_string pn_io_port_queue_egress_rate_limiter_reserved[] = {
     { 0x00, 0xFF, "Reserved" },
     { 0, 0, NULL }
 };
@@ -3599,14 +3889,22 @@ static const value_string pn_io_time_sync_properties_vals[] = {
     { 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_queue_config_shaper[] = {
+static const value_string pn_io_nme_name_address_subtype[] = {
+    { 0x01, "The management address of the NME is coded as IPv4 address" },
+    { 0x06, "The management address of the NME is coded as MAC address" },
+    /*all others reserved */
+    { 0, NULL }
+};
+
+static const range_string pn_io_nme_domain_queue_config_shaper[] = {
     { 0x00, 0x00, "Reserved" },
-    { 0x01, 0x01, "Strict Priority" },
-    { 0x02, 0xFF, "Reserved" },
+    { 0x01, 0x01, "Strict priority (SP)" },
+    { 0x02, 0x02, "Enhancements for Transmission Selection (ETS)" },
+    { 0x03, 0xFF, "Reserved" },
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_domain_sync_port_role_vals[] = {
+static const range_string pn_io_nme_domain_sync_port_role_vals[] = {
     { 0x00,0x00, "The port is not part of the sync tree for this sync domain" },
     { 0x01,0x01, "Sync egress port for this sync domain" },
     { 0x02,0x02, "Sync ingress port for this sync domain" },
@@ -3614,7 +3912,39 @@ static const range_string pn_io_tsn_domain_sync_port_role_vals[] = {
     { 0, 0, NULL }
 };
 
-static const value_string pn_io_tsn_fdb_command[] = {
+static const range_string pn_io_min_ipg_breaking_point[] = {
+    { 0x0040,0x07D0, "RT_CLASS_X Frame size in octets when the minimal IPG the last time achievable Default: 0x0040" },
+    /* all others reserved */
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_min_ipg_frame_size[] = {
+    { 0x0028,0x07D0, "RT_CLASS_X Reachable interframe gap in bit times for a sequence of minimum sized frames. Default: 0x0060" },
+    /* all others reserved */
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_frame_send_offset_deviation[] = {
+    { 0x000A,0x03E8, "Maximum permissible deviation, later than expected, to the FrameSendOffset in nanoseconds. Default: 10 ns" },
+    /* all others reserved */
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_supported_burst_size_frames[] = {
+    { 0x00,0x00, "Reserved" },
+    { 0x01,0x00FF, "RT_CLASS_X Maximum number of frames per gating cycle Default: 0x00FF" },
+    { 0x0100,0xFFFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const range_string pn_io_supported_burst_size_octets[] = {
+    { 0x0000,0x003F, "Reserved" },
+    { 0x0040,0x6400, "RT_CLASS_X Maximum number of octets per gating cycle Default: 0x6400" },
+    { 0x6401,0xFFFF, "Reserved" },
+    { 0, 0, NULL }
+};
+
+static const value_string pn_io_cim_fdb_command[] = {
     { 0x01, "AddStreamEntry" },
     { 0x02, "RemoveStreamEntry" },
     { 0x03, "RemoveAllStreamEntries" },
@@ -3622,36 +3952,46 @@ static const value_string pn_io_tsn_fdb_command[] = {
     { 0, NULL }
 };
 
-static const range_string pn_io_tsn_transfer_time_tx_vals[] = {
+static const range_string pn_io_cim_net_transfer_time_tx_vals[] = {
     { 0x00000000, 0x00000000, "Reserved" },
-    { 0x00000001, 0x05F5E100, "Egress transfer time for the local interface of an endstation" },
-    { 0x05F5E101, 0xFFFFFFFF, "Reserved" },
+    { 0x00000001, 0x000F4240, "Egress transfer time for the local interface of an end station" },
+    { 0x000F4240, 0xFFFFFFFF, "Reserved" },
     { 0, 0, NULL }
 
 };
 
-static const range_string pn_io_tsn_transfer_time_rx_vals[] = {
+static const range_string pn_io_cim_net_transfer_time_rx_vals[] = {
 
     { 0x00000000, 0x00000000, "Reserved" },
-    { 0x00000001, 0x05F5E100, "Ingress transfer time for the local interface of an endstation" },
-    { 0x05F5E101, 0xFFFFFFFF, "Reserved" },
+    { 0x00000001, 0x000F4240, "Ingress transfer time for the local interface of an end station" },
+    { 0x000F4240, 0xFFFFFFFF, "Reserved" },
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_max_supported_record_size_vals[] = {
+static const range_string pn_io_cim_net_max_supported_record_size_vals[] = {
     { 0x00000000,0x00000FE3, "Reserved" },
     { 0x00000FE4,0x0000FFFF, "Describes the maximum supported size of RecordDataWrite." },
     {0x00010000,0xFFFFFFFF,"Reserved"},
     { 0, 0, NULL }
 };
-static const range_string pn_io_tsn_forwarding_group_vals[] = {
+
+static const range_string pn_io_traffic_class_translate_entry_vid_vals[] = {
     { 0x00,0x00, "Reserved" },
-    { 0x01,0xFF, "Identifier of logical port grouping. Identifies ports with equal forwarding delay values." },
+    { 0x01,0x0FFF, "Allowed" },
     { 0, 0, NULL }
 };
 
-static const value_string pn_io_tsn_stream_class_vals[] = {
+static const range_string pn_io_traffic_class_translate_entry_pcp_vals[] = {
+    { 0x00,0x07, "Allowed PCP values" },
+    { 0, 0, NULL }
+};
 
+static const range_string pn_io_cim_station_forwarding_group_vals[] = {
+    { 0x00,0xFF, "Identifier of logical port grouping. Identifies ports with equal forwarding delay values." },
+    { 0, 0, NULL }
+};
+
+static const value_string pn_io_cim_net_stream_class_vals[] = {
     /*other reserved */
     { 0x01, "High" },
     { 0x02, "High Redundant" },
@@ -3660,39 +4000,43 @@ static const value_string pn_io_tsn_stream_class_vals[] = {
     { 0, NULL }
 };
 
-static const range_string pn_io_tsn_independent_forwarding_delay_vals[] = {
-
+static const range_string pn_io_cim_forwarding_delay_independent_vals[] = {
+    /*other reserved */
     { 0x00000000, 0x00000000, "Reserved" },
-    { 0x00000001, 0x000F4240, "Independent bridge delay value used for calculation" },
+    { 0x00000001, 0x000F4240, "Frame length independent port to port forwarding delay value of a bridge used for calculation" },
     { 0, 0, NULL }
 };
 
-static const range_string pn_io_tsn_dependent_forwarding_delay_vals[] = {
-
-    { 0x00000000, 0x00000000, "Reserved" },
-    { 0x00000001, 0x000C3500, "Octet size dependent bridge delay value used for calculation" },
-    { 0, 0, NULL }
+static const value_string pn_io_cim_forwarding_delay_dependent_vals[] = {
+    /*other reserved */
+    { 0x00, "Applies for Cut-Through forwarding" },
+    { 0x01, "10 Mbit/s: 800 ns" },
+    { 0x02, "100 Mbit/s: 80 ns" },
+    { 0x03, "1 Gbit/s: 8 ns" },
+    { 0x04, "2,5 Gbit/s: 3 200 ps" },
+    { 0x05, "5 Gbit/s: 1 600 ps" },
+    { 0x06, "10 Gbit/s: 800 ps" },
+    { 0, NULL }
 };
 
-static const value_string pn_io_tsn_number_of_queues_vals[] = {
-
+static const value_string pn_io_cim_number_of_queues_vals[] = {
     { 0x06, "The bridge supports six transmit queues at the port" },
     { 0x08, "The bridge supports eight transmit queues at the port" },
     { 0, NULL }
 };
 
-static const value_string pn_io_tsn_port_capabilities_time_aware_vals[] = {
+static const value_string pn_io_port_capabilities_time_aware_vals[] = {
     { 0x00, "This port is not usable within a Time Aware System"},
     { 0x01, "This port is usable within a Time Aware System" },
     { 0, NULL }
 };
-static const value_string pn_io_tsn_port_capabilities_preemption_vals[] = {
+static const value_string pn_io_port_capabilities_preemption_vals[] = {
     { 0x00, "Preemption is not supported at this port" },
     { 0x01, "Preemption is supported at this port"},
     { 0, NULL }
 };
 
-static const value_string pn_io_tsn_port_capabilities_queue_masking_vals[] = {
+static const value_string pn_io_port_capabilities_queue_masking_vals[] = {
     { 0x00, "Queue Masking is not supported at this port"},
     { 0x01, "Queue Masking is supported at this port" },
     { 0, NULL }
@@ -3926,6 +4270,1601 @@ static const value_string pn_io_snmp_control[] = {
     { 0, NULL }
 };
 
+typedef struct _gsd_dev_key_t {
+    uint32_t vendor_id;
+    uint32_t device_id;
+} gsd_dev_key_t;
+
+typedef struct _gsd_dev_value_t {
+    char *filename;
+    wmem_map_t *modules;
+    wmem_map_t *submodules;
+} gsd_dev_value_t;
+
+typedef struct _gsd_dev_module_t {
+    char *text_id; //
+    char *text; // User-friendly Text (can exist in multiple translations)
+    unsigned amountInGSDML;
+
+} gsm_dev_module_t;
+
+typedef struct _gsd_dev_submodule_t {
+    bool profisafe;
+    uint32_t f_parameter_index;
+} gsm_dev_submodule_t;
+
+static unsigned
+pnio_gsd_device_hash(const void *key)
+{
+    const gsd_dev_key_t *k = (const gsd_dev_key_t *)key;
+
+    uint64_t temp = (uint64_t)k->vendor_id << 32 | k->device_id;
+    return wmem_int64_hash(&temp);
+}
+
+static gboolean
+pnio_gsd_device_equal(const void *key1, const void *key2)
+{
+    const gsd_dev_key_t *a = (const gsd_dev_key_t *)key1;
+    const gsd_dev_key_t *b = (const gsd_dev_key_t *)key2;
+
+    return (a->vendor_id == b->vendor_id) && (a->device_id == b->device_id);
+}
+
+static wmem_map_t *
+pnio_load_gsd_device_modules(const xmlNodePtr deviceNode, xmlXPathContextPtr xpathCtx)
+{
+    xmlXPathObjectPtr result, result2;
+    wmem_map_t *modules = wmem_map_new(pnio_pref_scope, g_direct_hash, g_direct_equal);
+    /* Select all children with a ModuleIdentNumber attribute
+     * XXX - The same ModuleIdentNumber can be used with multiple
+     * TextIDs.
+     */
+    result = xmlXPathEvalExpression(".//*[@ModuleIdentNumber]", xpathCtx);
+    if (!result) {
+        return modules;
+    }
+    xmlNodeSetPtr nodeset = result->nodesetval;
+    int id_size = nodeset ? nodeset->nodeNr : 0;
+    xmlNodePtr moduleNode;
+    xmlChar *moduleIdentStr, *moduleNameStr;
+    uint32_t moduleIdentNr;
+    gsm_dev_module_t *module;
+    for (int i=0; i < id_size; i++) {
+        moduleNode = xmlXPathNodeSetItem(nodeset, i);
+        moduleIdentStr = xmlGetProp(moduleNode, "ModuleIdentNumber");
+        if (ws_basestrtou32(moduleIdentStr, NULL, &moduleIdentNr, 0)) {
+
+            /* Is this a duplicate entry? */
+            module = wmem_map_lookup(modules, GUINT_TO_POINTER(moduleIdentNr));
+            if (module) {
+                xmlFree(moduleIdentStr);
+                module->amountInGSDML++;
+                continue;
+            }
+
+            /* Find the TextId for this module */
+            result2 = xmlXPathNodeEval(moduleNode, "dev:ModuleInfo/dev:Name[@TextId]", xpathCtx);
+            if (!result2) {
+                xmlFree(moduleIdentStr);
+                continue;
+            }
+            if (!result2->nodesetval) {
+                xmlFree(moduleIdentStr);
+                xmlXPathFreeObject(result2);
+                continue;
+            }
+            xmlNodePtr moduleNameNode = xmlXPathNodeSetItem(result2->nodesetval, 0);
+            xmlXPathFreeObject(result2);
+            if (!moduleNameNode) {
+                xmlFree(moduleIdentStr);
+                continue;
+            }
+            moduleNameStr = xmlGetProp(moduleNameNode, "TextId");
+
+            /* Find the Text (friendly name) for this module from the
+             * ExternalTextList section of the GSD file.
+             */
+            char *textquery = wmem_strdup_printf(NULL, ".//dev:ExternalTextList/dev:PrimaryLanguage/dev:Text[@TextId=\"%s\"]", moduleNameStr);
+            result2 = xmlXPathNodeEval(deviceNode, BAD_CAST textquery, xpathCtx);
+            wmem_free(NULL, textquery);
+            if (!result2) {
+                xmlFree(moduleIdentStr);
+                xmlFree(moduleNameStr);
+                continue;
+            }
+            if (!result2->nodesetval) {
+                xmlFree(moduleIdentStr);
+                xmlFree(moduleNameStr);
+                xmlXPathFreeObject(result2);
+                continue;
+            }
+            moduleNameNode = xmlXPathNodeSetItem(result2->nodesetval, 0);
+            xmlXPathFreeObject(result2);
+            if (!moduleNameNode) {
+                xmlFree(moduleIdentStr);
+                xmlFree(moduleNameStr);
+                continue;
+            }
+            xmlChar *moduleText = xmlGetProp(moduleNameNode, "Value");
+            if (!moduleText) {
+                xmlFree(moduleIdentStr);
+                xmlFree(moduleNameStr);
+                continue;
+            }
+            module = wmem_new0(pnio_pref_scope, gsm_dev_module_t);
+            module->amountInGSDML = 1;
+            module->text_id = wmem_strdup(pnio_pref_scope, moduleIdentStr);
+            module->text = wmem_strdup(pnio_pref_scope, moduleText);
+            wmem_map_insert(modules, GUINT_TO_POINTER(moduleIdentNr), module);
+
+            xmlFree(moduleText);
+            xmlFree(moduleNameStr);
+        }
+        xmlFree(moduleIdentStr);
+    }
+    xmlXPathFreeObject(result);
+
+    return modules;
+}
+
+static wmem_map_t *
+pnio_load_gsd_device_submodules(const xmlNodePtr deviceNode, xmlXPathContextPtr xpathCtx)
+{
+    xmlXPathObjectPtr result, result2;
+    wmem_map_t *submodules = wmem_map_new(pnio_pref_scope, g_direct_hash, g_direct_equal);
+    /* Select all children with a SubmoduleIdentNumber attribute
+     * XXX - SubmoduleIdentNumbers are only required to be unique within
+     * a module, submodules can be found in the global SubmoduleList. The
+     * right way to handle this is to look at the UseableSubmodules element
+     * inside a ModuleItem and see which TextId are listed, and then map
+     * those to SubmoduleIdentNumbers on a per-module basis. All we care
+     * for right now is whether PROFIsafe is supported.
+     */
+    result = xmlXPathNodeEval(deviceNode, ".//*[@SubmoduleIdentNumber]", xpathCtx);
+    if (!result) {
+        return submodules;
+    }
+    xmlNodePtr submoduleNode;
+    xmlChar *submoduleIdentStr;
+    uint32_t submoduleIdentNr;
+    xmlNodeSetPtr nodeset = result->nodesetval;
+    int id_size = nodeset ? nodeset->nodeNr : 0;
+    gsm_dev_submodule_t *submodule;
+    for (int i=0; i < id_size; i++) {
+        submoduleNode = xmlXPathNodeSetItem(nodeset, i);
+        submoduleIdentStr = xmlGetProp(submoduleNode, "SubmoduleIdentNumber");
+        if (ws_basestrtou32(submoduleIdentStr, NULL, &submoduleIdentNr, 0)) {
+
+            xmlChar *profisafeStr = xmlGetProp(submoduleNode, "PROFIsafeSupported");
+            bool profisafe = g_strcmp0(profisafeStr, "true") == 0;
+
+            uint32_t fParameterIndexNr = 0;
+            if (profisafe) {
+                /* Look for the F_ParameterRecordDataItem index. */
+                result2 = xmlXPathNodeEval(submoduleNode, "//dev:F_ParameterRecordDataItem", xpathCtx);
+                if (!result2) {
+                    xmlFree(submoduleIdentStr);
+                    continue;
+                }
+                if (!result2->nodesetval) {
+                    xmlXPathFreeObject(result2);
+                    xmlFree(submoduleIdentStr);
+                    continue;
+                }
+                xmlNodePtr fParameterNode = xmlXPathNodeSetItem(result2->nodesetval, 0);
+                xmlXPathFreeObject(result2);
+                if (!fParameterNode) {
+                    ws_warning("PROFIsafeSupport but no F_ParameterRecordDataItem");
+                    xmlFree(submoduleIdentStr);
+                    continue;
+                }
+                xmlChar *fParameterIndexStr;
+                fParameterIndexStr = xmlGetProp(fParameterNode, "Index");
+                if (ws_basestrtou32(fParameterIndexStr, NULL, &fParameterIndexNr, 0)) {
+                    ws_debug("F_Parameter Index: %u", fParameterIndexNr);
+                }
+                xmlFree(fParameterIndexStr);
+            }
+            submodule = wmem_map_lookup(submodules, GUINT_TO_POINTER(submoduleIdentNr));
+            if (submodule) {
+                if (profisafe != submodule->profisafe) {
+                    ws_warning("SubmoduleIdentNumber 0x%08x duplicated with inconsistent PROFIsafeSupport", submoduleIdentNr);
+                }
+            } else {
+                submodule = wmem_new0(pnio_pref_scope, gsm_dev_submodule_t);
+                submodule->profisafe = profisafe;
+                submodule->f_parameter_index = fParameterIndexNr;
+                wmem_map_insert(submodules, GUINT_TO_POINTER(submoduleIdentNr), submodule);
+            }
+
+            xmlFree(profisafeStr);
+        }
+        xmlFree(submoduleIdentStr);
+    }
+    xmlXPathFreeObject(result);
+    return submodules;
+}
+
+static void
+pnio_load_gsd_device_profile(xmlNodePtr deviceNode, xmlXPathContextPtr xpathCtx, const char *filename)
+{
+    xmlXPathObjectPtr result;
+
+    xmlXPathSetContextNode(deviceNode, xpathCtx);
+
+    result = xmlXPathEvalExpression("dev:DeviceIdentity", xpathCtx);
+
+    if (!result) {
+        return;
+    }
+
+    xmlNodeSetPtr nodeset = result->nodesetval;
+    int id_size = nodeset ? nodeset->nodeNr : 0;
+    /* This should be 1. */
+    if (id_size != 1) {
+        ws_warning("ISO15745Profile with more than one DeviceIdentity");
+        xmlXPathFreeObject(result);
+        return;
+    }
+
+    xmlNodePtr deviceIdentity = nodeset->nodeTab[0];
+    xmlXPathFreeObject(result);
+    xmlChar *vendorStr, *deviceStr;
+    uint32_t vendor_id, device_id;
+    vendorStr = xmlGetProp(deviceIdentity, "VendorID");
+    deviceStr = xmlGetProp(deviceIdentity, "DeviceID");
+    if (!ws_basestrtou32(vendorStr, NULL, &vendor_id, 0) ||
+        !ws_basestrtou32(deviceStr, NULL, &device_id, 0)) {
+
+        ws_warning("Failed to convert VendorID or DeviceID to number");
+        xmlFree(vendorStr);
+        xmlFree(deviceStr);
+        return;
+    }
+
+    ws_debug("Vendor: %u Device: %u", vendor_id, device_id);
+    gsd_dev_key_t *key = wmem_new(pnio_pref_scope, gsd_dev_key_t);
+    key->vendor_id = vendor_id;
+    key->device_id = device_id;
+
+    gsd_dev_value_t *value = wmem_new0(pnio_pref_scope, gsd_dev_value_t);
+    value->filename = wmem_strdup(pnio_pref_scope, filename);
+    wmem_map_insert(pnio_gsd_device_map, key, value);
+
+    xmlFree(vendorStr);
+    xmlFree(deviceStr);
+
+    value->modules = pnio_load_gsd_device_modules(deviceNode, xpathCtx);
+    value->submodules = pnio_load_gsd_device_submodules(deviceNode, xpathCtx);
+}
+
+static void
+pnio_load_gsd_files(void)
+{
+    if (pnio_pref_scope == NULL) {
+        pnio_pref_scope = wmem_allocator_new(WMEM_ALLOCATOR_BLOCK);
+        pnio_gsd_device_map = wmem_map_new_autoreset(wmem_epan_scope(), pnio_pref_scope, pnio_gsd_device_hash, pnio_gsd_device_equal);
+    } else {
+        wmem_free_all(pnio_pref_scope);
+    }
+
+    char    *diropen = NULL;  /* saves the final networkpath to open for GSD-files */
+    GDir    *dir;
+    const char *filename;    /* saves the found GSD-file name */
+
+    static const char *dev_ns = "http://www.profibus.com/GSDML/2003/11/DeviceProfile";
+    /* Use the given GSD-file networkpath of the PNIO-Preference */
+    if(pnio_ps_networkpath[0] != '\0') {   /* check the length of the given networkpath (array overflow protection) */
+        if ((dir = g_dir_open(pnio_ps_networkpath, 0, NULL)) != NULL) {
+            /* Find all GSD-files within directory */
+            /* XXX - Either only look at files with a .xml extension, or
+             * do some preliminary looking for magic bytes, so that errors
+             * and warnings can be printed without doing so for files that
+             * clearly aren't XML, e.g. vim swap files.)
+             */
+            while ((filename = g_dir_read_name(dir)) != NULL) {
+
+                /* ---- complete the path to open a GSD-file ---- */
+                diropen = wmem_strdup_printf(NULL, "%s" G_DIR_SEPARATOR_S "%s", pnio_ps_networkpath, filename);
+
+                xmlDocPtr doc;
+                /* libxml2 2.13.0 has a way to set an error handler. */
+                doc = xmlReadFile(diropen, NULL, XML_PARSE_NOERROR);
+                if (doc == NULL) {
+                    ws_info("Failed to parse %s", diropen);
+                    wmem_free(NULL, diropen);
+                    continue;
+                }
+
+                xmlXPathContextPtr xpathCtx;
+                xpathCtx = xmlXPathNewContext(doc);
+                if (xpathCtx == NULL) {
+                    ws_warning("Unable to create XPath context");
+                    xmlFreeDoc(doc);
+                    wmem_free(NULL, diropen);
+                    continue;
+                }
+
+                if (xmlXPathRegisterNs(xpathCtx, BAD_CAST "dev", BAD_CAST dev_ns) != 0) {
+                    ws_warning("Unable to register NS with prefix");
+                    xmlXPathFreeContext(xpathCtx);
+                    xmlFreeDoc(doc);
+                    wmem_free(NULL, diropen);
+                    continue;
+                }
+
+                xmlXPathObjectPtr result;
+                result = xmlXPathEvalExpression("/dev:ISO15745Profile/dev:ProfileBody[dev:DeviceIdentity]", xpathCtx);
+                if (result) {
+                    xmlNodeSetPtr nodeset = result->nodesetval;
+                    int size = nodeset ? nodeset->nodeNr : 0;
+                    for (int i=0; i < size; i++) {
+                        pnio_load_gsd_device_profile(nodeset->nodeTab[i], xpathCtx, diropen);
+                    }
+                    xmlXPathFreeObject(result);
+                }
+                xmlXPathFreeContext(xpathCtx);
+                xmlFreeDoc(doc);
+                wmem_free(NULL, diropen);
+            }
+        }
+
+        g_dir_close(dir);
+    }
+}
+typedef struct {
+    address* device;
+    address* controller;
+} ConversationAddress;
+
+typedef struct {
+    const char* data_type;
+    uint16_t length;
+} DataTypeInfo;
+
+const DataTypeInfo data_types[] = {
+    {"Integer8", 1},
+    {"Integer16", 2},
+    {"Integer32", 4},
+    {"Integer64", 8},
+    {"Unsigned8", 1},
+    {"Unsigned16", 2},
+    {"Unsigned32", 4},
+    {"Unsigned64", 8},
+    {"Float32", 4},
+    {"Float64", 8},
+    {"Date", 7},
+    {"TimeOfDay with date indication", 6},
+    {"TimeOfDay without date indication", 4},
+    {"TimeDifference with date indication", 6},
+    {"TimeDifference without date indication", 4},
+    {"NetworkTime", 8},
+    {"NetworkTimeDifference", 8},
+    {"VisibleString", 0},
+    {"OctetString", 0},
+    {"Float32+Status8", 5},
+    {"F_MessageTrailer4Byte", 4},
+    {"F_MessageTrailer5Byte", 5},
+    {"Unsigned8+Unsigned8", 2},
+    {"Float32+Unsigned8", 5},
+    {"Boolean", 1},
+    {"UnicodeString8", 0},
+    {"61131_STRING", 0},
+    {"61131_WSTRING", 0},
+    {"TimeStamp", 12},
+    {"TimeStampDifference", 12},
+    {"TimeStampDifferenceShort", 8},
+    {"OctetString2+Unsigned8", 3},
+    {"Unsigned16_S", 2},
+    {"N2", 2},
+    {"N4", 4},
+    {"V2", 2},
+    {"L2", 2},
+    {"R2", 2},
+    {"T2", 2},
+    {"T4", 4},
+    {"D2", 2},
+    {"E2", 2},
+    {"C4", 4},
+    {"X2", 2},
+    {"X4", 4},
+    {"Unipolar2.16", 2}
+};
+
+/*Structs for internal mapping of the GSD file*/
+typedef struct {
+    bool is_input;
+    bool is_output;
+    uint16_t length;
+}DataItem;
+
+typedef struct {
+    char* module_item_target;
+    char* fixed_in_slots;
+    char* used_in_slots;
+}ModuleItemRef;
+
+typedef struct {
+    uint32_t submodule_ident_number;
+    char* ID;
+}VirtualSubmoduleItem;
+
+typedef struct {
+    uint32_t submodule_ident_number;
+    uint16_t subslot_number;
+}SystemDefinedSubmodule;
+
+typedef struct {
+    wmem_list_t* module_item_list;
+    wmem_list_t* virtual_submodule_items_list;
+    wmem_list_t* system_defined_submodule_list;
+    uint32_t submodule_ident_number;
+    uint32_t module_ident_number;
+    uint16_t slot_nr;
+    uint16_t subslot_nr;
+    char* text_id;
+    char* moduleNameStr;
+    char* ID;
+}DeviceAccessPointItem;
+
+typedef struct {
+    wmem_allocator_t* scope;
+    bool inside_useable_modules;
+    bool inside_module_item;
+    bool inside_module_list;
+    bool inside_virtual_submodul_item;
+    bool inside_input;
+    bool inside_output;
+    bool inside_device_access_point_item;
+    bool inside_system_defined_submodule_list;
+    bool inside_module_info;
+    bool inside_primary_language;
+    wmem_list_t* module_item_ref_list;
+    wmem_list_t* module_item_list;
+    wmem_list_t* current_data_items;
+    wmem_list_t* virtual_submodule_item_list;
+    wmem_list_t* system_defined_submodule_list;
+    char* module_item_target;
+    char* module_id;
+    char* text_id_DAPI;
+    char* text_id_virtual_submodul_item;
+    char* text_id_module_item;
+    char* module_name;
+    uint32_t module_ident_number;
+    uint32_t submodule_ident_number;
+    uint16_t subslot_number;
+    uint16_t module_subslot;
+    uint16_t subslot_number_DAPI;
+    uint16_t slot_nr;
+    bool has_input;
+    bool has_output;
+    uint16_t offset;
+    DeviceAccessPointItem* device_access_point_item;
+} ParserState;
+
+typedef struct {
+    bool use_manual_method;
+    wmem_list_t* conversation_address_list;
+    wmem_allocator_t* scope;
+} ParserConvState;
+
+
+typedef struct {
+    char* ID;
+    uint32_t module_ident_number;
+    uint16_t slotNr;
+    uint16_t subslot_number;
+    uint32_t submodule_ident_number;
+    uint16_t frame_offset;
+    bool has_input;
+    bool has_output;
+    wmem_list_t* data_items;
+    wmem_list_t* used_in_slots;
+    uint16_t count;
+    uint16_t slots_start;
+    uint16_t slots_end;
+    char* text_id;
+    char* moduleNameStr;
+}ModuleItem;
+
+/* Helper function to extract IOData Length */
+static int get_data_type_length(const char* data_type) {
+    int data_type_count = sizeof(data_types) / sizeof(DataTypeInfo);
+    for (int i = 0; i < data_type_count; i++) {
+        if (strcmp(data_type, data_types[i].data_type) == 0) {
+            return data_types[i].length;
+        }
+    }
+    return 0;
+}
+/* Duplicates list */
+static wmem_list_t* copy_list(wmem_allocator_t* scope, wmem_list_t* src_list)
+{
+    wmem_list_t* new_list = wmem_list_new(scope);
+
+    /* Iterate through each frame in the source list */
+    if (src_list != NULL) {
+        for (wmem_list_frame_t* frame = wmem_list_head(src_list);
+            frame != NULL;
+            frame = wmem_list_frame_next(frame)) {
+
+            DataItem* original_item = (DataItem*)wmem_list_frame_data(frame);
+
+            DataItem* new_item = wmem_new(scope, DataItem);
+            new_item->is_input = original_item->is_input;
+            new_item->is_output = original_item->is_output;
+            new_item->length = original_item->length;
+
+            wmem_list_append(new_list, new_item);
+        }
+    }
+
+    return new_list;
+}
+
+/* Callback function called when an XML markup element is opened */
+static void parser_start_element(GMarkupParseContext* context, const char* element_name, const char** attribute_names,
+    const char** attribute_values, void* user_data, GError** error) {
+
+    (void)context;
+    (void)error;
+    ModuleItemRef* module_item_ref;
+    DataItem* dataitem;
+    VirtualSubmoduleItem* virtual_submodule_item;
+    ParserState* state = (ParserState*)user_data;
+
+    /* DeviceAccessPointItem */
+    if (strcmp(element_name, "DeviceAccessPointItem") == 0) {
+        state->inside_device_access_point_item = true;
+        bool entered = false;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "ModuleIdentNumber") == 0) {
+                state->module_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "ID") == 0) {
+                state->module_id = wmem_strdup(state->scope, attribute_values[i]);
+            }
+            else if (strcmp(attribute_names[i], "FixedInSlots") == 0) {
+                state->slot_nr = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "PhysicalSubslots") == 0) {
+                state->subslot_number_DAPI = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+                entered = true;
+            }
+        }
+        if (!entered) {
+            state->subslot_number_DAPI = 1;
+        }
+    }
+    else if (strcmp(element_name, "ModuleInfo") == 0) {
+        state->inside_module_info = true;
+    }
+    /* TextIds for ModuleName string */
+    else if (strcmp(element_name, "Name") == 0 && state->inside_module_info) {
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "TextId") == 0) {
+                if (state->inside_device_access_point_item && !state->inside_virtual_submodul_item) {
+                    state->text_id_DAPI = wmem_strdup(state->scope, attribute_values[i]);
+                }
+                else if (state->inside_virtual_submodul_item && state->inside_device_access_point_item) {
+                    state->text_id_virtual_submodul_item = wmem_strdup(state->scope, attribute_values[i]);
+                }
+                else if (!state->inside_virtual_submodul_item && state->inside_module_item) {
+                    state->text_id_module_item = wmem_strdup(state->scope, attribute_values[i]);
+                }
+                break;
+            }
+        }
+    }
+    else if (strcmp(element_name, "UseableModules") == 0 && state->inside_device_access_point_item) {
+        state->inside_useable_modules = true;
+    }
+    /* ModuleItemRef */
+    else if (strcmp(element_name, "ModuleItemRef") == 0 && state->inside_useable_modules) {
+        module_item_ref = wmem_new0(state->scope, ModuleItemRef);
+
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "ModuleItemTarget") == 0) {
+                module_item_ref->module_item_target = wmem_strdup(state->scope, attribute_values[i]);
+            }
+
+            else if (strcmp(attribute_names[i], "FixedInSlots") == 0) {
+                module_item_ref->fixed_in_slots = wmem_strdup(state->scope, attribute_values[i]);
+            }
+            else if (strcmp(attribute_names[i], "UsedInSlots") == 0) {
+                module_item_ref->used_in_slots = wmem_strdup(state->scope, attribute_values[i]);
+            }
+        }
+        wmem_list_append(state->module_item_ref_list, module_item_ref);
+    }
+    /* VirtualSubmoduleItem inside DAPI */
+    else if (strcmp(element_name, "VirtualSubmoduleItem") == 0 && state->inside_device_access_point_item) {
+        state->inside_virtual_submodul_item = true;
+        virtual_submodule_item = wmem_new0(state->scope, VirtualSubmoduleItem);
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "SubmoduleIdentNumber") == 0) {
+                virtual_submodule_item->submodule_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "ID") == 0) {
+                virtual_submodule_item->ID = wmem_strdup(state->scope, attribute_values[i]);
+            }
+        }
+        wmem_list_append(state->virtual_submodule_item_list, virtual_submodule_item);
+    }
+    else if (strcmp(element_name, "SystemDefinedSubmoduleList") == 0 && state->inside_device_access_point_item) {
+        state->inside_system_defined_submodule_list = true;
+    }
+    /* InterfaceSubmoduleItem */
+    else if (strcmp(element_name, "InterfaceSubmoduleItem") == 0 && state->inside_system_defined_submodule_list) {
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "SubslotNumber") == 0) {
+                state->subslot_number = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "SubmoduleIdentNumber") == 0) {
+                state->submodule_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+    }
+    /* PortSubmoduleItem */
+    else if (strcmp(element_name, "PortSubmoduleItem") == 0 && state->inside_system_defined_submodule_list) {
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "SubslotNumber") == 0) {
+                state->subslot_number = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "SubmoduleIdentNumber") == 0) {
+                state->submodule_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+    }
+    else if (strcmp(element_name, "ModuleList") == 0) {
+        state->inside_module_list = true;
+    }
+    /* ModuleItem inside ModuleList*/
+    else if (strcmp(element_name, "ModuleItem") == 0 && state->inside_module_list) {
+        state->inside_module_item = true;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "ID") == 0) {
+                state->module_id = wmem_strdup(state->scope, attribute_values[i]);
+            }
+            else if (strcmp(attribute_names[i], "ModuleIdentNumber") == 0) {
+                state->module_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+    }
+    /* VirtualSubmoduleItem inside ModuleItem */
+    else if (strcmp(element_name, "VirtualSubmoduleItem") == 0 && state->inside_module_item) {
+        state->inside_virtual_submodul_item = true;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "SubmoduleIdentNumber") == 0) {
+                state->submodule_ident_number = (uint32_t)strtoul(attribute_values[i], NULL, 0);
+            }
+            else if (strcmp(attribute_names[i], "FixedInSubslots") == 0) {
+                state->module_subslot = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+    }
+    else if (strcmp(element_name, "Input") == 0 && state->inside_module_item) {
+        state->inside_input = true;
+        state->has_input = true;
+    }
+    else if (strcmp(element_name, "Output") == 0 && state->inside_module_item) {
+        state->inside_output = true;
+        state->has_output = true;
+    }
+    /* DataItem Input*/
+    else if (strcmp(element_name, "DataItem") == 0 && state->inside_input) {
+        dataitem = wmem_new0(state->scope, DataItem);
+        dataitem->is_input = true;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "DataType") == 0) {
+                uint16_t data_type_length = get_data_type_length(attribute_values[i]);
+                if (data_type_length > 0) {
+                    dataitem->length = data_type_length;
+                }
+            }
+            else if (strcmp(attribute_names[i], "Length") == 0) {
+                dataitem->length = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+        wmem_list_append(state->current_data_items, dataitem);
+    }
+    /* DataItem Output */
+    else if (strcmp(element_name, "DataItem") == 0 && state->inside_output) {
+        dataitem = wmem_new0(state->scope, DataItem);
+        dataitem->is_output = true;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "DataType") == 0) {
+                uint16_t data_type_length = get_data_type_length(attribute_values[i]);
+                if (data_type_length > 0) {
+                    dataitem->length = data_type_length;
+                }
+            }
+            else if (strcmp(attribute_names[i], "Length") == 0) {
+                dataitem->length = (uint16_t)strtoul(attribute_values[i], NULL, 0);
+            }
+        }
+        wmem_list_append(state->current_data_items, dataitem);
+    }
+    else if (strcmp(element_name, "PrimaryLanguage") == 0) {
+        state->inside_primary_language = true;
+    }
+    else if (strcmp(element_name, "Text") == 0 && state->inside_primary_language) {
+        const char* text_id = NULL;
+        const char* value = NULL;
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "TextId") == 0) {
+                text_id = attribute_values[i];
+            }
+            if (strcmp(attribute_names[i], "Value") == 0) {
+                value = attribute_values[i];
+            }
+        }
+        /* Finds matching moduleName string */
+        if (text_id != NULL && value != NULL) {
+            for (wmem_list_frame_t* module_item_frame = wmem_list_head(state->module_item_list);
+                module_item_frame != NULL;
+                module_item_frame = wmem_list_frame_next(module_item_frame))
+            {
+                ModuleItem* module_item = (ModuleItem*)wmem_list_frame_data(module_item_frame);
+                if (module_item != NULL && module_item->text_id != NULL) {
+                    if (strcmp(module_item->text_id, text_id) == 0) {
+                        module_item->moduleNameStr = wmem_strdup(state->scope, value);
+                    }
+                }
+            }
+            if (state->device_access_point_item != NULL && state->device_access_point_item->text_id != NULL) {
+                if (strcmp(state->device_access_point_item->text_id, text_id) == 0) {
+                    state->device_access_point_item->moduleNameStr = wmem_strdup(state->scope, value);
+                }
+            }
+            if (state->text_id_virtual_submodul_item != NULL) {
+                if (strcmp(state->text_id_virtual_submodul_item, text_id) == 0) {
+                    state->module_name = wmem_strdup(state->scope, value);
+                }
+            }
+        }
+
+    }
+}
+/* Callback function called when an XML markup element is closed */
+static void parser_end_element(GMarkupParseContext* context, const char* element_name, void* user_data, GError** error) {
+    (void)context;
+    (void)error;
+    uint32_t start, end;
+    ParserState* state = (ParserState*)user_data;
+    char* token;
+    char* contextptr = NULL;
+    if (strcmp(element_name, "ModuleInfo") == 0) {
+        state->inside_module_info = false;
+    }
+    else if (strcmp(element_name, "UseableModules") == 0) {
+        state->inside_useable_modules = false;
+    }
+    else if (strcmp(element_name, "VirtualSubmoduleItem") == 0) {
+        state->inside_virtual_submodul_item = false;
+    }
+    /* Creates SystemDefinedSubmodule as InterfaceSubmoduleItem */
+    else if (strcmp(element_name, "InterfaceSubmoduleItem") == 0) {
+        SystemDefinedSubmodule* interface_submodule_item = wmem_new0(state->scope, SystemDefinedSubmodule);
+        interface_submodule_item->submodule_ident_number = state->submodule_ident_number;
+        interface_submodule_item->subslot_number = state->subslot_number;
+        wmem_list_append(state->system_defined_submodule_list, interface_submodule_item);
+    }
+    /* Creates SystemDefinedSubmodule as PortSubmoduleItem */
+    else if (strcmp(element_name, "PortSubmoduleItem") == 0) {
+        SystemDefinedSubmodule* port_submodule_item = wmem_new0(state->scope, SystemDefinedSubmodule);
+        port_submodule_item->submodule_ident_number = state->submodule_ident_number;
+        port_submodule_item->subslot_number = state->subslot_number;
+        wmem_list_append(state->system_defined_submodule_list, port_submodule_item);
+    }
+    else if (strcmp(element_name, "SystemDefinedSubmoduleList") == 0) {
+        state->inside_system_defined_submodule_list = false;
+    }
+    /* Creates DeviceAccessPointItem*/
+    else if (strcmp(element_name, "DeviceAccessPointItem") == 0)
+    {
+        state->device_access_point_item = wmem_new0(state->scope, DeviceAccessPointItem);
+        state->device_access_point_item->ID = state->module_id;
+        state->device_access_point_item->text_id = state->text_id_DAPI;
+        state->device_access_point_item->module_ident_number = state->module_ident_number;
+        state->device_access_point_item->system_defined_submodule_list = state->system_defined_submodule_list;
+        state->device_access_point_item->slot_nr = state->slot_nr;
+        state->device_access_point_item->subslot_nr = state->subslot_number_DAPI;
+        state->device_access_point_item->moduleNameStr = (char*)wmem_alloc(state->scope, MAX_NAMELENGTH);
+        (void)g_strlcpy(state->device_access_point_item->moduleNameStr, "Unknown", MAX_NAMELENGTH);
+
+        /* Get submodule_ident_number for API */
+        if (state->virtual_submodule_item_list != NULL) {
+            if (wmem_list_count(state->virtual_submodule_item_list) == 1) {
+                wmem_list_frame_t* sub_frame = wmem_list_head(state->virtual_submodule_item_list);
+                VirtualSubmoduleItem* sub = (VirtualSubmoduleItem*)wmem_list_frame_data(sub_frame);
+                state->device_access_point_item->submodule_ident_number = sub->submodule_ident_number;
+            }
+            else {
+                wmem_list_frame_t* sub_frame = wmem_list_head(state->virtual_submodule_item_list);
+                while (sub_frame != NULL) {
+                    VirtualSubmoduleItem* sub = (VirtualSubmoduleItem*)wmem_list_frame_data(sub_frame);
+                    if (sub->ID != NULL && state->device_access_point_item->ID != NULL) {
+                        if (strcmp(sub->ID, state->device_access_point_item->ID) == 0)
+                        {
+                            state->device_access_point_item->submodule_ident_number = sub->submodule_ident_number;
+                            break;
+                        }
+                    }
+                    sub_frame = wmem_list_frame_next(sub_frame);
+                }
+            }
+            state->inside_device_access_point_item = false;
+        }
+    }
+    /* Creates and initializes a ModuleItem object */
+    else if (strcmp(element_name, "ModuleItem") == 0 && state->inside_module_list) {
+        ModuleItem* module_item = wmem_new0(state->scope, ModuleItem);
+        module_item->ID = state->module_id;
+        module_item->subslot_number = state->module_subslot;
+        module_item->module_ident_number = state->module_ident_number;
+        module_item->submodule_ident_number = state->submodule_ident_number;
+        module_item->data_items = copy_list(state->scope, state->current_data_items);
+        module_item->has_input = state->has_input;
+        module_item->has_output = state->has_output;
+        module_item->text_id = state->text_id_module_item;
+        module_item->moduleNameStr = (char*)wmem_alloc(state->scope, MAX_NAMELENGTH);
+        (void)g_strlcpy(module_item->moduleNameStr, "Unknown", MAX_NAMELENGTH);
+        wmem_list_append(state->module_item_list, module_item);
+        state->has_output = false;
+        state->has_input = false;
+        state->inside_module_item = false;
+        if (state->current_data_items != NULL) {
+            /* clears data_items for next module_item */
+            while (wmem_list_head(state->current_data_items) != NULL) {
+                wmem_list_remove_frame(state->current_data_items, wmem_list_head(state->current_data_items));
+            }
+        }
+    }
+    /* Determines the actual usage count of a ModuleItem based on the slot specifications */
+    else if (strcmp(element_name, "ModuleList") == 0) {
+        if (state->module_item_ref_list != NULL && state->module_item_list != NULL &&
+            state->device_access_point_item != NULL) {
+            wmem_list_frame_t* ref_frame = wmem_list_head(state->module_item_ref_list);
+            while (ref_frame != NULL) {
+                ModuleItemRef* ref = (ModuleItemRef*)wmem_list_frame_data(ref_frame);
+
+                wmem_list_frame_t* item_frame = wmem_list_head(state->module_item_list);
+                while (item_frame != NULL) {
+                    ModuleItem* item = (ModuleItem*)wmem_list_frame_data(item_frame);
+
+                    if (ref->module_item_target != NULL && item->ID != NULL &&
+                        strcmp(ref->module_item_target, item->ID) == 0) {
+                        if (ref->fixed_in_slots != NULL) {
+                            if (sscanf(ref->fixed_in_slots, "%u..%u", &start, &end) == 2) {
+                                item->count = (end - start + 1);
+                                item->slots_start = start;
+                                item->slots_end = end;
+                            }
+                            else if (sscanf(ref->fixed_in_slots, "%u", &start) == 1) {
+                                item->count = 1;
+                                item->slotNr = start;
+                            }
+                        }
+                        if (ref->used_in_slots != NULL) {
+                            item->used_in_slots = wmem_list_new(state->scope);
+                            token = strtok_sys(ref->used_in_slots, " ", &contextptr);
+                            while (token != NULL)
+                            {
+                                for (size_t i = 0; token[i] != '\0'; i++) {
+                                    if (!g_ascii_isdigit(token[i])) {
+                                        return;
+                                    }
+                                }
+                                uint32_t* num = wmem_new(state->scope, uint32_t);
+                                *num = (uint32_t)strtoul(token, NULL, 0);
+                                wmem_list_append(item->used_in_slots, num);
+                                token = strtok_sys(NULL, " ", &contextptr);
+                            }
+                        }
+                    }
+                    /* Go to next ModuleItem */
+                    item_frame = wmem_list_frame_next(item_frame);
+                }
+
+                /* Got to next ModuleItemRef */
+                ref_frame = wmem_list_frame_next(ref_frame);
+            }
+            state->device_access_point_item->module_item_list = state->module_item_list;
+        }
+        state->inside_module_list = false;
+    }
+    else if (strcmp(element_name, "Input") == 0) {
+        state->inside_input = false;
+    }
+    else if (strcmp(element_name, "Output") == 0) {
+        state->inside_output = false;
+    }
+    else if (strcmp(element_name, "PrimaryLanguage") == 0) {
+        state->inside_primary_language = false;
+    }
+}
+/* Callback function to extract config File to get all MAC-Address in PNIO network traffic */
+static void parser_conv_start_element(GMarkupParseContext* context, const char* element_name, const char** attribute_names,
+    const char** attribute_values, void* user_data, GError** error) {
+    (void)context;
+    (void)error;
+    ParserConvState* state = (ParserConvState*)user_data;
+    if (strcmp(element_name, "conversation") == 0) {
+        ConversationAddress* new_conversation_address = wmem_new0(state->scope, ConversationAddress);
+        for (int i = 0; attribute_names[i] != NULL; i++) {
+            if (strcmp(attribute_names[i], "device") == 0) {
+                const char* device_str = attribute_values[i];
+                uint8_t* device_bytes = wmem_alloc(state->scope, 6 * sizeof(uint8_t));
+                if (sscanf(device_str, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+                    &device_bytes[0],
+                    &device_bytes[1],
+                    &device_bytes[2],
+                    &device_bytes[3],
+                    &device_bytes[4],
+                    &device_bytes[5]) == 6) {
+
+                    address* addr_device = wmem_new0(state->scope, address);
+                    set_address(addr_device, AT_ETHER, 6, device_bytes);
+                    new_conversation_address->device = addr_device;
+                }
+            }
+            else if (strcmp(attribute_names[i], "controller") == 0) {
+                const char* controller_str = attribute_values[i];
+                uint8_t* controller_bytes = wmem_alloc(state->scope, 6 * sizeof(uint8_t));
+                if (sscanf(controller_str, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+                    &controller_bytes[0],
+                    &controller_bytes[1],
+                    &controller_bytes[2],
+                    &controller_bytes[3],
+                    &controller_bytes[4],
+                    &controller_bytes[5]) == 6) {
+
+                    address* addr_controller = wmem_new0(state->scope, address);
+                    set_address(addr_controller, AT_ETHER, 6, controller_bytes);
+                    new_conversation_address->controller = addr_controller;
+                }
+            }
+        }
+        if (new_conversation_address->device != NULL && new_conversation_address->controller != NULL) {
+            wmem_list_append(state->conversation_address_list, new_conversation_address);
+        }
+    }
+    else if (strcmp(element_name, "DeviceAccessPointItem") == 0) {
+        state->use_manual_method = true;
+    }
+}
+
+/* Creates conversations using information extracted from a configuration file */
+static bool gen_conversations(packet_info *pinfo, uint32_t current_fake_aruuid) {
+    char* buf;
+    ConversationAddress* stored_conversation;
+    FILE* fp = NULL;
+    uint32_t packet_num = pinfo->num;
+    if (pnio_configpath != NULL) {
+        GMarkupParser parser_manual = {
+            .start_element = parser_conv_start_element,
+            .end_element = NULL,
+            .text = NULL,
+            .passthrough = NULL,
+            .error = NULL
+        };
+        ParserConvState state = { 0 };
+        state.conversation_address_list = wmem_list_new(pinfo->pool);
+        state.scope = pinfo->pool;
+        /* XXX - https://docs.gtk.org/glib/markup.html
+         * "[GMarkup]... must not be used if you expect to parse untrusted
+         * input." This is a user provided file.
+         */
+        GMarkupParseContext* context = g_markup_parse_context_new(&parser_manual, 0, &state, NULL);
+        fp = ws_fopen(pnio_configpath, "rb");
+        if (fp != NULL) {
+            fseek(fp, 0, SEEK_END);
+            long fsize = ftell(fp);
+            if (fsize == -1L) {
+                fclose(fp);
+                return false;
+            }
+            fseek(fp, 0, SEEK_SET);
+
+            buf = (char*)wmem_alloc(pinfo->pool, fsize + 1);
+            if (fread(buf, 1, fsize, fp) != (size_t)fsize) {
+                fclose(fp);
+                return false;
+            }
+            buf[fsize] = '\0';
+            fclose(fp);
+            if (!g_markup_parse_context_parse(context, buf, -1, NULL)) {
+                // XXX - Should probably handle parsing errors in some way,
+                // e.g. at least produce a warning.
+                g_markup_parse_context_free(context);
+                return false;
+            }
+            for (wmem_list_frame_t* frame = wmem_list_head(state.conversation_address_list);
+                frame != NULL;
+                frame = wmem_list_frame_next(frame))
+            {
+                stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                if (stored_conversation != NULL) {
+                    conversation_t* conversation = find_conversation(packet_num, stored_conversation->device, stored_conversation->controller, CONVERSATION_NONE, 0, 0, 0);
+                    if (conversation == NULL) {
+                        // Create a new conversation (conversation_new copies
+                        // addresses to wmem_file_scope as well.)
+                        conversation = conversation_new(packet_num, stored_conversation->device, stored_conversation->controller, CONVERSATION_NONE, 0, 0, 0);
+                        stationInfo* station_info = wmem_new0(wmem_file_scope(), stationInfo);
+                        init_pnio_rtc1_station(station_info);
+                        station_info->filled_with_objects = false;
+                        conversation_add_proto_data(conversation, current_fake_aruuid, station_info);
+                    }
+                }
+            }
+            g_markup_parse_context_free(context);
+            return state.use_manual_method;
+        }
+    }
+    return false;
+}
+
+/* Creates necessary objects for displaying PNIO data without AR information */
+static void extract_pnio_objects_withoutAR(packet_info* pinfo)
+{
+    GDir* dir;
+    FILE* fp = NULL;
+    const char* filename;
+    const char* extraction_file = pnio_ps_networkpath;
+    const char* fileopen = NULL;
+    char* buf;
+    bool manual_flag = false;
+
+    conversation_t* conversation;
+    ConversationAddress* stored_conversation;
+    stationInfo* station_info = NULL;
+    DataItem* data_item;
+    iocsObject* iocs_object;
+    ioDataObject* io_data_object;
+    wmem_list_t* iocs_list;
+    wmem_list_t* data_item_list;
+    uint32_t current_fake_aruuid = 4126751477; //generated first 4 Bytes from an UUID
+    uint16_t frameOffset = 0;
+
+    GMarkupParseContext* context;
+    ParserState state = { 0 };
+    state.scope = wmem_file_scope();
+    state.module_item_list = wmem_list_new(state.scope);
+    state.module_item_ref_list = wmem_list_new(state.scope);
+    state.current_data_items = wmem_list_new(state.scope);
+    state.virtual_submodule_item_list = wmem_list_new(state.scope);
+    state.system_defined_submodule_list = wmem_list_new(state.scope);
+    GMarkupParser parser = {
+    .start_element = parser_start_element,
+    .end_element = parser_end_element,
+    .text = NULL,
+    .passthrough = NULL,
+    .error = NULL
+    };
+    /* Manual extraction method */
+    if (extract_method == MANUAL_EXTRACTION) {
+        if (*stateflag == 0) {
+            if (gen_conversations(pinfo, current_fake_aruuid)) {
+                /* Uses now the config File to extract the needed Data */
+                extraction_file = pnio_configpath;
+                manual_flag = true;
+            }
+            *stateflag = 1;
+        }
+    }
+    /* Heuristic extraction method */
+    else {
+        /* conversation_address_list contains Device and Controller MAC addresses from acyclic frames.
+           Write/read request frames create a conversation_t, but response frames don't */
+        conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, CONVERSATION_NONE, 0, 0, 0);
+        if (conversation != NULL) {
+            station_info = (stationInfo*)conversation_get_proto_data(conversation, current_fake_aruuid);
+        }
+        if (conversation == NULL || station_info == NULL) {
+            if (conversation_address_list != NULL) {
+                for (wmem_list_frame_t* frame = wmem_list_head(conversation_address_list);
+                    frame != NULL;
+                    frame = wmem_list_frame_next(frame))
+                {
+                    /* Verify packet as input or output */
+                    stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                    if (stored_conversation != NULL) {
+                        if (memcmp(stored_conversation->device->data, pinfo->dl_src.data, 6) == 0 &&
+                            memcmp(stored_conversation->controller->data, pinfo->dl_dst.data, 6) == 0) {
+                            conversation = conversation_new(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, CONVERSATION_NONE, 0, 0, 0);
+                            station_info = wmem_new0(wmem_file_scope(), stationInfo);
+                            init_pnio_rtc1_station(station_info);
+                            station_info->filled_with_objects = false;
+                            conversation_add_proto_data(conversation, current_fake_aruuid, station_info);
+                        }
+                        else if (memcmp(stored_conversation->device->data, pinfo->dl_dst.data, 6) == 0 &&
+                            memcmp(stored_conversation->controller->data, pinfo->dl_src.data, 6) == 0) {
+                            conversation = conversation_new(pinfo->num, &pinfo->dl_dst, &pinfo->dl_src, CONVERSATION_NONE, 0, 0, 0);
+                            station_info = wmem_new0(wmem_file_scope(), stationInfo);
+                            init_pnio_rtc1_station(station_info);
+                            station_info->filled_with_objects = false;
+                            conversation_add_proto_data(conversation, current_fake_aruuid, station_info);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, CONVERSATION_NONE, 0, 0, 0);
+    if (conversation != NULL) {
+        station_info = (stationInfo*)conversation_get_proto_data(conversation, current_fake_aruuid);
+        if (station_info != NULL) {
+            if (!station_info->filled_with_objects) {
+                /* XXX - Opening a file and parsing it can be slow. We should
+                 * parse it once, saving the state in file scoped memory, and
+                 * then copy data from it to the stationInfo as needed for each
+                 * conversation. (If not, the parser state could generally be
+                 * in pinfo->pool scoped memory, and the necessary data copied
+                 * to the file scoped stationInfo.)
+                 */
+                if (extraction_file[0] != '\0') {   /* check the length of the given networkpath (array overflow protection) */
+                    if (manual_flag) {
+                        fileopen = extraction_file;
+                    }
+                    else if ((dir = g_dir_open(extraction_file, 0, NULL)) != NULL) {
+                        if  ((filename = g_dir_read_name(dir)) != NULL) {
+                            /* XXX - Find exactly *ONE* file in the directory,
+                             * in whatever completely arbitrary undefined order
+                             * (possibly via inode number). This seems unlikely
+                             * to be correct.
+                             */
+                            /* ---- complete the path to open a GSD-file ---- */
+                            fileopen = wmem_strdup_printf(pinfo->pool, "%s" G_DIR_SEPARATOR_S "%s", extraction_file, filename);
+                        }
+                        g_dir_close(dir);
+                    }
+                    if (fileopen != NULL) {
+                        /* ---- Open the found GSD-file  ---- */
+                        fp = ws_fopen(fileopen, "rb");
+                        if (fp != NULL) {
+                            fseek(fp, 0, SEEK_END);
+                            long fsize = ftell(fp);
+                            if (fsize == -1L) {
+                                fclose(fp);
+                                return;
+                            }
+                            fseek(fp, 0, SEEK_SET);
+
+                            buf = (char*)wmem_alloc(pinfo->pool, fsize + 1);
+                            if (fread(buf, 1, fsize, fp) != (size_t)fsize) {
+                                fclose(fp);
+                                return;
+                            }
+                            buf[fsize] = '\0';
+                            fclose(fp);
+
+                            /* XXX - https://docs.gtk.org/glib/markup.html
+                             * "[GMarkup]... must not be used if you expect to
+                             * parse untrusted input." This is a user provided
+                             * file.
+                             */
+                            context = g_markup_parse_context_new(&parser, 0, &state, NULL);
+                            if (!g_markup_parse_context_parse(context, buf, -1, NULL)) {
+                                g_markup_parse_context_free(context);
+                                return;
+                            }
+                            /* INPUT-CR */
+                            if (state.device_access_point_item != NULL) {
+                                station_info->gsdPathLength = true;
+                                station_info->gsdFound = true;
+                                station_info->gsdLocation = wmem_strdup(wmem_file_scope(), fileopen);
+                                io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+
+                                /* DAPI as IODataObject */
+                                iocs_list = station_info->ioobject_data_in;
+                                io_data_object->slotNr = state.device_access_point_item->slot_nr;
+                                io_data_object->subSlotNr = state.device_access_point_item->subslot_nr;
+                                io_data_object->moduleNameStr = state.device_access_point_item->moduleNameStr;
+                                io_data_object->moduleIdentNr = state.device_access_point_item->module_ident_number;
+                                io_data_object->subModuleIdentNr = state.device_access_point_item->submodule_ident_number;
+                                io_data_object->discardIOXS = false;
+                                io_data_object->frameOffset = frameOffset;
+                                frameOffset = 1 + frameOffset;
+                                station_info->ioDataObjectNr_in += 1;
+                                wmem_list_append(iocs_list, io_data_object);
+
+                                /* SystemDefinedSubmodule as IODataObject */
+                                if (state.device_access_point_item->system_defined_submodule_list != NULL) {
+                                    wmem_list_frame_t* frame_sys = wmem_list_head(state.device_access_point_item->system_defined_submodule_list);
+                                    while (frame_sys != NULL) {
+                                        SystemDefinedSubmodule* module = (SystemDefinedSubmodule*)wmem_list_frame_data(frame_sys);
+                                        io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                        io_data_object->slotNr = state.device_access_point_item->slot_nr;
+                                        io_data_object->subSlotNr = module->subslot_number;
+                                        io_data_object->discardIOXS = false;
+                                        io_data_object->frameOffset = frameOffset;
+                                        frameOffset = 1 + frameOffset;
+                                        io_data_object->moduleNameStr = state.module_name;
+                                        io_data_object->moduleIdentNr = state.device_access_point_item->module_ident_number;
+                                        io_data_object->subModuleIdentNr = module->submodule_ident_number;
+                                        wmem_list_append(iocs_list, io_data_object);
+                                        station_info->ioDataObjectNr_in += 1;
+                                        frame_sys = wmem_list_frame_next(frame_sys);
+                                    }
+                                }
+                                /* Input IODataObject */
+                                if (state.device_access_point_item->module_item_list != NULL) {
+                                    for (wmem_list_frame_t* frame_in = wmem_list_head(state.device_access_point_item->module_item_list);
+                                        frame_in != NULL;
+                                        frame_in = wmem_list_frame_next(frame_in))
+                                    {
+                                        ModuleItem* item = (ModuleItem*)wmem_list_frame_data(frame_in);
+                                        if (item->has_input) {
+                                            /* Items with FixedInSlots X..X */
+                                            if (item->slots_start != 0 && item->slots_end != 0) {
+                                                uint32_t slotsnr = item->slots_start;
+                                                for (uint16_t i = item->slots_start; i <= item->slots_end; i++) {
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = slotsnr;
+                                                    io_data_object->discardIOXS = false;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number
+                                                        : state.device_access_point_item->subslot_nr;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list);
+                                                            frame != NULL;
+                                                            frame = wmem_list_frame_next(frame))
+                                                        {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_input) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                    station_info->ioDataObjectNr_in += 1;
+                                                    slotsnr++;
+                                                }
+                                            }
+                                            /* Items with FixedInSlot X */
+                                            else {
+                                                for (uint16_t i = 1; i <= item->count; i++) {
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = item->slotNr;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    io_data_object->discardIOXS = false;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list);
+                                                            frame != NULL;
+                                                            frame = wmem_list_frame_next(frame))
+                                                        {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_input) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    station_info->ioDataObjectNr_in += 1;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                }
+                                            }
+                                            /* Items with UsedInSlots */
+                                            if (item->used_in_slots != NULL) {
+                                                for (wmem_list_frame_t* frame_used_in = wmem_list_head(item->used_in_slots);
+                                                    frame_used_in != NULL;
+                                                    frame_used_in = wmem_list_frame_next(frame_used_in))
+                                                {
+                                                    /*void* raw_data = wmem_list_frame_data(frame);
+                                                    uint32_t* num_ptr = (uint32_t*)raw_data;
+                                                    uint32_t slotnr = *num_ptr;*/
+                                                    uint32_t slotnr = *(uint32_t*)wmem_list_frame_data(frame_used_in);
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = slotnr;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    io_data_object->discardIOXS = false;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list);
+                                                            frame != NULL;
+                                                            frame = wmem_list_frame_next(frame))
+                                                        {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_input) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    station_info->ioDataObjectNr_in += 1;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    /* IOCS in Output State */
+                                    for (wmem_list_frame_t* frame_in = wmem_list_head(state.device_access_point_item->module_item_list);
+                                        frame_in != NULL;
+                                        frame_in = wmem_list_frame_next(frame_in))
+                                    {
+                                        ModuleItem* item = (ModuleItem*)wmem_list_frame_data(frame_in);
+                                        if (item->has_output) {
+                                            iocs_list = station_info->iocs_data_in;
+
+                                            /* Items with FixedInSlots X..X */
+                                            if (item->slots_start != 0 && item->slots_end != 0) {
+                                                uint32_t slotsnr = item->slots_start;
+                                                for (uint16_t i = item->slots_start; i <= item->slots_end; i++) {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    iocs_object->slotNr = slotsnr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    slotsnr++;
+                                                    station_info->iocsNr_in += 1;
+                                                }
+                                            }
+                                            /* Items with FixedInSlot X */
+                                            else {
+                                                for (uint16_t i = 1; i <= item->count; i++) {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    iocs_object->slotNr = item->slotNr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    station_info->iocsNr_in += 1;
+                                                }
+                                            }
+                                            /* Items with UsedInSlots */
+                                            if (item->used_in_slots != NULL) {
+                                                for (wmem_list_frame_t* frame = wmem_list_head(item->used_in_slots);
+                                                    frame != NULL;
+                                                    frame = wmem_list_frame_next(frame))
+                                                {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    uint32_t slotnr = *(uint32_t*)wmem_list_frame_data(frame);
+                                                    iocs_object->slotNr = slotnr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    station_info->iocsNr_in += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    /* Reset frameOffset, because the creation of output packet objects begins */
+                                    frameOffset = 0;
+
+                                    /* OUTPUT-CR */
+                                    wmem_list_frame_t* frame_out = wmem_list_head(state.device_access_point_item->module_item_list);
+                                    while (frame_out != NULL) {
+                                        ModuleItem* item = (ModuleItem*)wmem_list_frame_data(frame_out);
+                                        if (item->has_output) {
+                                            /* Output IODataObject */
+                                            iocs_list = station_info->ioobject_data_out;
+
+                                            if (item->slots_start != 0 && item->slots_end != 0) {
+                                                uint32_t slotsnr = item->slots_start;
+                                                for (uint16_t i = item->slots_start; i <= item->slots_end; i++) {
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = slotsnr;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    io_data_object->discardIOXS = false;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list); frame != NULL; frame = wmem_list_frame_next(frame)) {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_output) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                    slotsnr++;
+                                                    station_info->ioDataObjectNr_out += 1;
+                                                }
+                                            }
+                                            else {
+                                                for (uint16_t i = 1; i <= item->count; i++) {
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = item->slotNr;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    io_data_object->discardIOXS = false;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list);
+                                                            frame != NULL;
+                                                            frame = wmem_list_frame_next(frame)) {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_output) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    station_info->ioDataObjectNr_out += 1;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                }
+                                            }
+                                            if (item->used_in_slots != NULL) {
+                                                for (wmem_list_frame_t* frame_used_in = wmem_list_head(item->used_in_slots);
+                                                    frame_used_in != NULL;
+                                                    frame_used_in = wmem_list_frame_next(frame_used_in))
+                                                {
+                                                    uint32_t slotnr = *(uint32_t*)wmem_list_frame_data(frame_used_in);
+                                                    io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
+                                                    io_data_object->slotNr = slotnr;
+                                                    io_data_object->moduleNameStr = item->moduleNameStr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    io_data_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    io_data_object->discardIOXS = false;
+
+                                                    data_item_list = item->data_items;
+                                                    if (data_item_list != NULL) {
+                                                        for (wmem_list_frame_t* frame = wmem_list_head(data_item_list);
+                                                            frame != NULL;
+                                                            frame = wmem_list_frame_next(frame))
+                                                        {
+                                                            data_item = (DataItem*)wmem_list_frame_data(frame);
+                                                            if (data_item->is_output) {
+                                                                io_data_object->length = data_item->length;
+                                                                io_data_object->frameOffset = frameOffset;
+                                                                frameOffset = data_item->length + frameOffset + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    io_data_object->moduleIdentNr = item->module_ident_number;
+                                                    io_data_object->subModuleIdentNr = item->submodule_ident_number;
+                                                    station_info->ioDataObjectNr_in += 1;
+                                                    wmem_list_append(iocs_list, io_data_object);
+                                                }
+                                            }
+                                        }
+                                        frame_out = wmem_list_frame_next(frame_out);
+                                    }
+                                    /* DAPI as Output IOCS in Input State */
+                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                    iocs_list = station_info->iocs_data_out;
+                                    iocs_object->slotNr = state.device_access_point_item->slot_nr;
+                                    iocs_object->subSlotNr = state.device_access_point_item->subslot_nr;
+                                    iocs_object->frameOffset = frameOffset;
+                                    frameOffset = 1 + frameOffset;
+                                    wmem_list_append(iocs_list, iocs_object);
+                                    station_info->iocsNr_out += 1;
+
+                                    /* SystemDefinedSubmodule as Output IOCS in Input State */
+                                    if (state.device_access_point_item->system_defined_submodule_list != NULL) {
+                                        wmem_list_frame_t* frame_sys_defmod = wmem_list_head(state.device_access_point_item->system_defined_submodule_list);
+                                        while (frame_sys_defmod != NULL) {
+                                            SystemDefinedSubmodule* module = (SystemDefinedSubmodule*)wmem_list_frame_data(frame_sys_defmod);
+                                            iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                            iocs_object->slotNr = state.device_access_point_item->slot_nr;
+                                            iocs_object->subSlotNr = module->subslot_number;
+                                            iocs_object->frameOffset = frameOffset;
+                                            frameOffset = 1 + frameOffset;
+                                            wmem_list_append(iocs_list, iocs_object);
+                                            station_info->iocsNr_out += 1;
+                                            frame_sys_defmod = wmem_list_frame_next(frame_sys_defmod);
+                                        }
+                                    }
+                                    /* Output IOCS in Input State */
+                                    frame_out = wmem_list_head(state.device_access_point_item->module_item_list);
+                                    while (frame_out != NULL) {
+                                        ModuleItem* item = (ModuleItem*)wmem_list_frame_data(frame_out);
+                                        if (item->has_input) {
+                                            iocs_list = station_info->iocs_data_out;
+
+                                            if (item->slots_start != 0 && item->slots_end != 0) {
+                                                uint32_t slotsnr = item->slots_start;
+                                                for (uint16_t i = item->slots_start; i <= item->slots_end; i++) {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    iocs_object->slotNr = slotsnr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    slotsnr++;
+                                                    station_info->iocsNr_out += 1;
+                                                }
+                                            }
+                                            else {
+                                                for (uint16_t i = 1; i <= item->count; i++) {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    iocs_object->slotNr = item->slotNr;
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    station_info->iocsNr_out += 1;
+                                                }
+                                            }
+                                            if (item->used_in_slots != NULL) {
+                                                for (wmem_list_frame_t* frame = wmem_list_head(item->used_in_slots);
+                                                    frame != NULL;
+                                                    frame = wmem_list_frame_next(frame))
+                                                {
+                                                    iocs_object = wmem_new0(wmem_file_scope(), iocsObject);
+                                                    uint32_t slotnr = *(uint32_t*)wmem_list_frame_data(frame);
+                                                    iocs_object->slotNr = slotnr;
+                                                    /* if subslot_number is not set, use state.device_access_point_item->subslot_nr */
+                                                    iocs_object->subSlotNr = item->subslot_number ?
+                                                        item->subslot_number : state.device_access_point_item->subslot_nr;
+                                                    iocs_object->frameOffset = frameOffset;
+                                                    frameOffset = 1 + frameOffset;
+                                                    wmem_list_append(iocs_list, iocs_object);
+                                                    station_info->iocsNr_out += 1;
+                                                }
+                                            }
+                                        }
+                                        frame_out = wmem_list_frame_next(frame_out);
+                                    }
+                                    station_info->filled_with_objects = true;
+                                }
+                            }
+                            g_markup_parse_context_free(context);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 static int
 dissect_profidrive_value(tvbuff_t *tvb, int offset, packet_info *pinfo,
                          proto_tree *tree, uint8_t *drep, uint8_t format_val)
@@ -3974,6 +5913,30 @@ dissect_profidrive_value(tvbuff_t *tvb, int offset, packet_info *pinfo,
         expert_add_info_format(pinfo, tree, &ei_pn_io_unsupported, "Not supported or invalid format %u!", format_val);
         break;
     }
+    return(offset);
+}
+
+static int
+adjust_profidrive_padding(tvbuff_t *tvb, int offset, packet_info *pinfo,
+                         proto_tree *tree, uint8_t format_val, uint8_t no_of_vals)
+{
+    // if total number of bytes are odd, we must add a padding for Byte Format
+    if(no_of_vals % 2)
+    {
+        switch(format_val)
+        {
+        case 1:
+        case 2:
+        case 5:
+        case 0x0A:
+        case 0x41:
+            offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+            break;
+        default:
+            break;
+        }
+    }
+
     return(offset);
 }
 
@@ -4146,6 +6109,7 @@ dissect_Alarm_header(tvbuff_t *tvb, int offset,
     uint32_t u32Api;
     uint16_t u16SlotNr;
     uint16_t u16SubslotNr;
+    char* strAlarm;
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_alarm_type, &u16AlarmType);
@@ -4156,13 +6120,12 @@ dissect_Alarm_header(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_subslot_nr, &u16SubslotNr);
 
+    strAlarm = val_to_str(pinfo->pool, u16AlarmType, pn_io_alarm_type, "(0x%x)");
     proto_item_append_text(item, ", %s, API:%u, Slot:0x%x/0x%x",
-        val_to_str(u16AlarmType, pn_io_alarm_type, "(0x%x)"),
-        u32Api, u16SlotNr, u16SubslotNr);
+        strAlarm, u32Api, u16SlotNr, u16SubslotNr);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ", %s, Slot: 0x%x/0x%x",
-        val_to_str(u16AlarmType, pn_io_alarm_type, "(0x%x)"),
-        u16SlotNr, u16SubslotNr);
+        strAlarm, u16SlotNr, u16SubslotNr);
 
     return offset;
 }
@@ -4196,7 +6159,7 @@ dissect_ChannelProperties(tvbuff_t *tvb, int offset,
 /* dissect the RS_BlockHeader */
 static int
 dissect_RS_BlockHeader(tvbuff_t *tvb, int offset,
-    packet_info *pinfo _U_, proto_tree *tree, proto_item *item, uint8_t *drep,
+    packet_info *pinfo, proto_tree *tree, proto_item *item, uint8_t *drep,
     uint16_t *u16RSBodyLength, uint16_t *u16RSBlockType)
 {
     uint16_t u16RSBlockLength;
@@ -4216,7 +6179,7 @@ dissect_RS_BlockHeader(tvbuff_t *tvb, int offset,
         hf_pn_io_block_version_low, &u8BlockVersionLow);
 
     proto_item_append_text(item, ": Type=%s, Length=%u(+4), Version=%u.%u",
-        rval_to_str(*u16RSBlockType, pn_io_rs_block_type, "Unknown (0x%04x)"),
+        rval_to_str_wmem(pinfo->pool, *u16RSBlockType, pn_io_rs_block_type, "Unknown (0x%04x)"),
         u16RSBlockLength, u8BlockVersionHigh, u8BlockVersionLow);
 
     /* Block length is without type and length fields, but with version field */
@@ -5411,19 +7374,19 @@ uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
     offset = dissect_AM_Location(tvb, offset, pinfo, tree, drep);
 
     /* IM_Annotation */
-    proto_tree_add_item(tree, hf_pn_io_im_annotation, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_annotation, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* IM_OrderID */
-    proto_tree_add_item(tree, hf_pn_io_im_order_id, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_order_id, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* AM_HardwareRevision */
-    proto_tree_add_item(tree, hf_pn_io_am_hardware_revision, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_am_hardware_revision, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* IM_Serial_Number */
-    proto_tree_add_item(tree, hf_pn_io_im_serial_number, tvb, offset, 16, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_serial_number, tvb, offset, 16, ENC_ASCII);
     offset += 16;
 
     /* AM_DeviceIdentification */
@@ -5465,19 +7428,19 @@ uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
     offset = dissect_AM_Location(tvb, offset, pinfo, tree, drep);
 
     /* IM_Annotation */
-    proto_tree_add_item(tree, hf_pn_io_im_annotation, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_annotation, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* IM_OrderID */
-    proto_tree_add_item(tree, hf_pn_io_im_order_id, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_order_id, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* AM_SoftwareRevision */
-    proto_tree_add_item(tree, hf_pn_io_am_software_revision, tvb, offset, 64, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_am_software_revision, tvb, offset, 64, ENC_ASCII);
     offset += 64;
 
     /* IM_Serial_Number */
-    proto_tree_add_item(tree, hf_pn_io_im_serial_number, tvb, offset, 16, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_im_serial_number, tvb, offset, 16, ENC_ASCII);
     offset += 16;
 
     /* IM_Software_Revision */
@@ -5860,7 +7823,7 @@ dissect_ReadWrite_header(tvbuff_t *tvb, int offset,
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ", Api:0x%x, Slot:0x%x/0x%x, Index:%s",
         u32Api, u16SlotNr, u16SubslotNr,
-        val_to_str(*u16Index, pn_io_index, "(0x%x)"));
+        val_to_str(pinfo->pool, *u16Index, pn_io_index, "(0x%x)"));
 
     return offset;
 }
@@ -5874,13 +7837,41 @@ dissect_IODWriteReqHeader_block(tvbuff_t *tvb, int offset,
 {
     e_guid_t aruuid;
     e_guid_t null_uuid;
+    ConversationAddress* stored_conversation;
+    bool flag = false;
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    /* Stores mac addresses */
+    if (extract_method == HEURISTIC_EXTRACTION) {
+        if (conversation_address_list != NULL) {
+            for (wmem_list_frame_t* frame = wmem_list_head(conversation_address_list);
+                frame != NULL;
+                frame = wmem_list_frame_next(frame))
+            {
+                stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                if (memcmp(stored_conversation->device->data, pinfo->dl_dst.data, 6) == 0 &&
+                    memcmp(stored_conversation->controller->data, pinfo->dl_src.data, 6) == 0) {
+                    flag = true;
+                    break;
+                }
+            }
+        }
+        if (!flag) {
+            ConversationAddress* conversation_address = wmem_new0(wmem_file_scope(), ConversationAddress);
 
+            address* addr_device = wmem_new0(wmem_file_scope(), address);
+            address* addr_controller = wmem_new0(wmem_file_scope(), address);
+            copy_address_wmem(wmem_file_scope(), addr_device, &pinfo->dl_dst);
+            copy_address_wmem(wmem_file_scope(), addr_controller, &pinfo->dl_src);
+            conversation_address->device = addr_device;
+            conversation_address->controller = addr_controller;
+            wmem_list_append(conversation_address_list, conversation_address);
+        }
+    }
     offset = dissect_ReadWrite_header(tvb, offset, pinfo, tree, item, drep, u16Index, &aruuid);
 
     /* The value NIL indicates the usage of the implicit AR*/
@@ -5915,13 +7906,41 @@ dissect_IODReadReqHeader_block(tvbuff_t *tvb, int offset,
 {
     e_guid_t aruuid;
     e_guid_t null_uuid;
+    ConversationAddress* stored_conversation;
+    bool flag = false;
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    /* Stores mac addresses */
+    if (extract_method == HEURISTIC_EXTRACTION) {
+        if (conversation_address_list != NULL) {
+            for (wmem_list_frame_t* frame = wmem_list_head(conversation_address_list);
+                frame != NULL;
+                frame = wmem_list_frame_next(frame))
+            {
+                stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                if (memcmp(stored_conversation->device->data, pinfo->dl_dst.data, 6) == 0 &&
+                    memcmp(stored_conversation->controller->data, pinfo->dl_src.data, 6) == 0) {
+                    flag = true;
+                    break;
+                }
+            }
+        }
+        if (!flag) {
+            ConversationAddress* conversation_address = wmem_new0(wmem_file_scope(), ConversationAddress);
 
+            address* addr_device = wmem_new0(wmem_file_scope(), address);
+            address* addr_controller = wmem_new0(wmem_file_scope(), address);
+            copy_address_wmem(wmem_file_scope(), addr_device, &pinfo->dl_dst);
+            copy_address_wmem(wmem_file_scope(), addr_controller, &pinfo->dl_src);
+            conversation_address->device = addr_device;
+            conversation_address->controller = addr_controller;
+            wmem_list_append(conversation_address_list, conversation_address);
+        }
+    }
     offset = dissect_ReadWrite_header(tvb, offset, pinfo, tree, item, drep, u16Index, &aruuid);
 
     /* The value NIL indicates the usage of the implicit AR*/
@@ -5959,6 +7978,8 @@ dissect_IODWriteResHeader_block(tvbuff_t *tvb, int offset,
     uint16_t u16AddVal1;
     uint16_t u16AddVal2;
     uint32_t u32Status;
+    ConversationAddress* stored_conversation;
+    bool flag = false;
 
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
@@ -5966,7 +7987,34 @@ dissect_IODWriteResHeader_block(tvbuff_t *tvb, int offset,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    /* Stores mac addresses */
+    if (extract_method == HEURISTIC_EXTRACTION) {
+        if (conversation_address_list != NULL) {
+            for (wmem_list_frame_t* frame = wmem_list_head(conversation_address_list);
+                frame != NULL;
+                frame = wmem_list_frame_next(frame))
+            {
+                stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                if (memcmp(stored_conversation->device->data, pinfo->dl_src.data, 6) == 0 &&
+                    memcmp(stored_conversation->controller->data, pinfo->dl_dst.data, 6) == 0) {
+                    flag = true;
+                    break;
 
+                }
+            }
+        }
+        if (!flag) {
+            ConversationAddress* conversation_address = wmem_new0(wmem_file_scope(), ConversationAddress);
+
+            address* addr_device = wmem_new0(wmem_file_scope(), address);
+            address* addr_controller = wmem_new0(wmem_file_scope(), address);
+            copy_address_wmem(wmem_file_scope(), addr_device, &pinfo->dl_src);
+            copy_address_wmem(wmem_file_scope(), addr_controller, &pinfo->dl_dst);
+            conversation_address->device = addr_device;
+            conversation_address->controller = addr_controller;
+            wmem_list_append(conversation_address_list, conversation_address);
+        }
+    }
     offset = dissect_ReadWrite_header(tvb, offset, pinfo, tree, item, drep, u16Index, &aruuid);
 
     /* The value NIL indicates the usage of the implicit AR*/
@@ -6009,6 +8057,8 @@ dissect_IODReadResHeader_block(tvbuff_t *tvb, int offset,
     e_guid_t aruuid;
     uint16_t u16AddVal1;
     uint16_t u16AddVal2;
+    ConversationAddress* stored_conversation;
+    bool flag = false;
 
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
@@ -6016,7 +8066,33 @@ dissect_IODReadResHeader_block(tvbuff_t *tvb, int offset,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    /* Stores mac addresses */
+    if (extract_method == HEURISTIC_EXTRACTION) {
+        if (conversation_address_list != NULL) {
+            for (wmem_list_frame_t* frame = wmem_list_head(conversation_address_list);
+                frame != NULL;
+                frame = wmem_list_frame_next(frame))
+            {
+                stored_conversation = (ConversationAddress*)wmem_list_frame_data(frame);
+                if (memcmp(stored_conversation->device->data, pinfo->dl_src.data, 6) == 0 &&
+                    memcmp(stored_conversation->controller->data, pinfo->dl_dst.data, 6) == 0) {
+                    flag = true;
+                    break;
+                }
+            }
+        }
+        if (!flag) {
+            ConversationAddress* conversation_address = wmem_new0(wmem_file_scope(), ConversationAddress);
 
+            address* addr_device = wmem_new0(wmem_file_scope(), address);
+            address* addr_controller = wmem_new0(wmem_file_scope(), address);
+            copy_address_wmem(wmem_file_scope(), addr_device, &pinfo->dl_src);
+            copy_address_wmem(wmem_file_scope(), addr_controller, &pinfo->dl_dst);
+            conversation_address->device = addr_device;
+            conversation_address->controller = addr_controller;
+            wmem_list_append(conversation_address_list, conversation_address);
+        }
+    }
     offset = dissect_ReadWrite_header(tvb, offset, pinfo, tree, item, drep, u16Index, &aruuid);
 
     /* The value NIL indicates the usage of the implicit AR*/
@@ -6258,6 +8334,445 @@ dissect_SubmoduleListBlock(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+/* dissect the SecurityRequest block */
+static int
+dissect_SecurityRequest_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, uint16_t u16BodyLength)
+{
+    uint16_t     u16SecurityOperation;
+    uint16_t     u16CertificateRequestLength;
+    uint16_t     u16NumberOfEntries;
+    uint16_t     u16PrivateKeyLength;
+    uint16_t     u16CertificateLength;
+    uint32_t     u32CredentialIDCredentialType;
+    uint32_t     u32CredentialIDReserved;
+    uint64_t     u64SecurityMode;
+    uint64_t     u64CertificateValidityPeriodCheck;
+    uint64_t     u64Reserved1;
+    uint64_t     u64SACKDegredationThreshold;
+    uint64_t     u64Reserved2;
+
+    dcerpc_info di; /* fake dcerpc_info struct */
+    dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
+    di.call_data = &dcv;
+
+
+    proto_item* configuration_item;
+    proto_tree* configuration_tree;
+
+    proto_item* credential_item;
+    proto_tree* credential_tree;
+
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* SecurityOperation */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_security_operation, &u16SecurityOperation);
+
+    if (u16BodyLength > 2)
+    {
+        if (u16SecurityOperation <= 0x000C)
+        {
+            /* SCMRequestData */
+
+            if (u16SecurityOperation >= 0x0004 && u16SecurityOperation <= 0x000B) {
+                /* CredentialID */
+                credential_item = proto_tree_add_item(tree, hf_pn_io_credential_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+                credential_tree = proto_item_add_subtree(credential_item, ett_pn_io_credential_id);
+                dissect_dcerpc_uint32(tvb, offset, pinfo, credential_tree, drep,
+                    hf_pn_io_credential_id_credential_type, &u32CredentialIDCredentialType);
+                u32CredentialIDCredentialType &= 0x0000000F;
+                offset = dissect_dcerpc_uint32(tvb, offset, pinfo, credential_tree, drep,
+                    hf_pn_io_credential_id_reserved, &u32CredentialIDReserved);
+                u32CredentialIDReserved >>= 4;
+            }
+            if (u16SecurityOperation == 0x0006) // GenerateKeyPairandCSRReq
+            {
+                /* CertificationRequestLength */
+                u16CertificateRequestLength = tvb_get_ntohs(tvb, offset);
+                proto_tree_add_uint_format(tree, hf_pn_io_certification_request_length, tvb, offset, 2, u16CertificateRequestLength, "CertificationRequestLength: %u", u16CertificateRequestLength);
+                offset += 2;
+                /* CertificationRequestInfo */
+                proto_tree_add_item(tree, hf_pn_io_certification_request, tvb, offset, u16CertificateRequestLength, ENC_ASCII);
+                offset += u16CertificateRequestLength;
+            }
+            if (u16SecurityOperation == 0x0007) /* ImprintPrivateKeyReq */
+            {
+                /* PrivateKeyLength */
+                u16PrivateKeyLength = tvb_get_ntohs(tvb, offset);
+                proto_tree_add_uint_format(tree, hf_pn_io_private_key_length, tvb, offset, 2, u16PrivateKeyLength, "PrivateKeyLength: %u", u16PrivateKeyLength);
+                offset += 2;
+                //offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_private_key_length, &u16PrivateKeyLength);
+
+                /* PrivateKey */
+                proto_tree_add_item(tree, hf_pn_io_private_key, tvb, offset, u16PrivateKeyLength, ENC_NA);
+                offset += u16PrivateKeyLength;
+            }
+
+            if (u16SecurityOperation == 0x0008) /* ImprintEECertificationPathReq */
+            {
+                /* EECertificationPath */
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* NumberOfElements */
+                offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+                    hf_pn_io_number_of_entries, &u16NumberOfEntries);
+
+                while (u16NumberOfEntries--)
+                {
+                    /* CertificateLength */
+                    u16CertificateLength = tvb_get_ntohs(tvb, offset);
+                    proto_tree_add_uint_format(tree, hf_pn_io_certificate_length, tvb, offset, 2, u16CertificateLength, "CertificateLength: %u", u16CertificateLength);
+                    offset += 2;
+               //     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_certificate_length, &u16CertificateLength);
+
+                    /* Certificate */
+                    proto_tree_add_item(tree, hf_pn_io_certificate, tvb, offset, u16CertificateLength, ENC_NA);
+                    offset += u16CertificateLength;
+
+                    /* Padding */
+                    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+                }
+            }
+
+            if (u16SecurityOperation == 0x000A) /* ImprintTrustedCACertificateReq */
+            {
+                /* TrustedCACertificate */
+                /* CertificateLength */
+                u16CertificateLength = tvb_get_ntohs(tvb, offset);
+                proto_tree_add_uint_format(tree, hf_pn_io_certificate_length, tvb, offset, 2, u16CertificateLength, "CertificateLength: %u", u16CertificateLength);
+                offset += 2;
+            //    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_certificate_length, &u16CertificateLength);
+
+                /* Certificate */
+                proto_tree_add_item(tree, hf_pn_io_certificate, tvb, offset, u16CertificateLength, ENC_NA);
+                offset += u16CertificateLength;
+            }
+
+            if (u16SecurityOperation == 0x000C) /* SetSecurityConfigurationParametersReq */
+            {
+                /* SecurityConfigurationParameters */
+                configuration_item = proto_tree_add_item(tree, hf_pn_io_security_configuration_parameters, tvb, offset, 8, ENC_BIG_ENDIAN);
+                configuration_tree = proto_item_add_subtree(configuration_item, ett_pn_io_security_configuration_parameters);
+
+                /* SecurityMode */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_mode, &u64SecurityMode);
+
+                /* CertificateValidityPeriodCheck */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_certificate_validity_period_check, &u64CertificateValidityPeriodCheck);
+
+                /* Reserved1 */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_configuration_parameters_reserved1, &u64Reserved1);
+
+                /* SACKDegredationThreshold */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_sack_degradation_threshold, &u64SACKDegredationThreshold);
+
+                /* Reserved2 */
+                offset = dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_configuration_parameters_reserved2, &u64Reserved2);
+
+            }
+
+        }
+        else if (u16SecurityOperation == 0x0100)
+        {
+            /* SAMRequestData */
+            tvbuff_t *eap_tvb;
+            // Get EAP Data length
+            uint16_t length = tvb_get_uint16(tvb, offset+2, ENC_BIG_ENDIAN);
+            eap_tvb = tvb_new_subset_length(tvb, offset, length);
+            if ((eap_tvb != NULL) && eap_handle != NULL){
+              call_dissector(eap_handle, eap_tvb, pinfo, tree);
+            }else{
+              proto_tree_add_item(tree, hf_pn_io_eap_data, tvb, offset, length, ENC_NA);
+            }
+            offset += length;
+        }
+        else
+        {
+            offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_reserved16, NULL);
+        }
+    }
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    return offset;
+}
+
+/* dissect the SecurityResponse block */
+static int
+dissect_SecurityResponse_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, uint16_t u16BodyLength)
+{
+    uint16_t     u16SecurityOperation;
+    uint16_t     u16KeyPairGeneration;
+    uint16_t     u16SecurityFeaturesReserved;
+    uint16_t     u16NumberOfEntries;
+    uint16_t     u16SecurityCapabilityUsage;
+    uint16_t     u16SecurityCapabilityAlgorithm;
+    uint16_t     u16CertificateLength;
+    uint16_t     u16CertificateRequestLength;
+    uint32_t     u32CredentialIDCredentialType;
+    uint32_t     u32CredentialIDReserved;
+    uint64_t     u64SecurityMode;
+    uint64_t     u64CertificateValidityPeriodCheck;
+    uint64_t     u64Reserved1;
+    uint64_t     u64SACKDegredationThreshold;
+    uint64_t     u64Reserved2;
+
+    dcerpc_info di; /* fake dcerpc_info struct */
+    dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
+    di.call_data = &dcv;
+
+    proto_item* features_item;
+    proto_tree* features_tree;
+
+    proto_item* capability_item;
+    proto_tree* capability_tree;
+
+    proto_item* credential_item;
+    proto_tree* credential_tree;
+
+    proto_item* configuration_item;
+    proto_tree* configuration_tree;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* SecurityOperation */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_security_operation, &u16SecurityOperation);
+
+    if (u16BodyLength > 2)
+    {
+        if (u16SecurityOperation <= 0x000C)
+        {
+            /* SCMResponseData */
+            switch (u16SecurityOperation)
+            {
+            case(0x0001): /* GetSecurityCapabilitiesRsp */
+                /* SecurityFeatures */
+                features_item = proto_tree_add_item(tree, hf_pn_io_security_features, tvb, offset, 2, ENC_BIG_ENDIAN);
+                features_tree = proto_item_add_subtree(features_item, ett_pn_io_security_features);
+
+                dissect_dcerpc_uint16(tvb, offset, pinfo, features_tree, drep, hf_pn_io_security_features_key_pair_generation, &u16KeyPairGeneration);
+                u16KeyPairGeneration &= 0xF;
+                offset = dissect_dcerpc_uint16(tvb, offset, pinfo, features_tree, drep, hf_pn_io_security_features_reserved, &u16SecurityFeaturesReserved);
+                u16SecurityFeaturesReserved >>= 1;
+
+                /* NumberOfEntries */
+                offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_entries, &u16NumberOfEntries);
+
+                while (u16NumberOfEntries--)
+                {
+                    /* SecurityCapability */
+                    capability_item = proto_tree_add_item(tree, hf_pn_io_security_capability, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    capability_tree = proto_item_add_subtree(capability_item, ett_pn_io_security_capability);
+                    dissect_dcerpc_uint16(tvb, offset, pinfo, capability_item, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+                    u16SecurityCapabilityUsage &= 0xF;
+                    switch (u16SecurityCapabilityUsage)
+                    {
+                    case(0x01):
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_symmetric_ao, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    case(0x02):
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_symmetric_ae, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    case(0x03):
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_key_derivation_function, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    case(0x04):
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_key_agreement_function, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    case(0x05):
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_digital_signature_function, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    default:
+                        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, capability_tree, drep, hf_pn_io_security_capability_algorithm_reserved, &u16SecurityCapabilityAlgorithm);
+                        u16SecurityCapabilityAlgorithm >>= 8;
+                        break;
+                    }
+                }
+                break;
+            case(0x0002): /* GetAvailableCredentialIDRsp */
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* NumberOfElements */
+                offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_entries, &u16NumberOfEntries);
+
+                while (u16NumberOfEntries--)
+                {
+                    /* CredentialID */
+                    credential_item = proto_tree_add_item(tree, hf_pn_io_credential_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    credential_tree = proto_item_add_subtree(credential_item, ett_pn_io_credential_id);
+                    dissect_dcerpc_uint32(tvb, offset, pinfo, credential_tree, drep,
+                        hf_pn_io_credential_id_credential_type, &u32CredentialIDCredentialType);
+                    u32CredentialIDCredentialType &= 0x0000000F;
+                    offset = dissect_dcerpc_uint32(tvb, offset, pinfo, credential_tree, drep,
+                        hf_pn_io_credential_id_reserved, &u32CredentialIDReserved);
+                    u32CredentialIDReserved >>= 4;
+                }
+                break;
+            case(0x0003): /* GetSecurityConfigurationParametersRsp */
+                /* SecurityConfigurationParameters */
+                configuration_item = proto_tree_add_item(tree, hf_pn_io_security_configuration_parameters, tvb, offset, 8, ENC_BIG_ENDIAN);
+                configuration_tree = proto_item_add_subtree(configuration_item, ett_pn_io_security_configuration_parameters);
+
+                /* SecurityMode */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_mode, &u64SecurityMode);
+
+                /* CertificateValidityPeriodCheck */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_certificate_validity_period_check, &u64CertificateValidityPeriodCheck);
+
+                /* Reserved1 */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_configuration_parameters_reserved1, &u64Reserved1);
+
+                /* SACKDegredationThreshold */
+                dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_sack_degradation_threshold, &u64SACKDegredationThreshold);
+
+                /* Reserved2 */
+                offset = dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
+                    hf_pn_io_security_configuration_parameters_reserved2, &u64Reserved2);
+
+                break;
+            case(0x0004): /* GetEECertificationPathRsp */
+                /* EECertificationPath */
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* Padding */
+                offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+                /* NumberOfElements */
+                offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+                    hf_pn_io_number_of_entries, &u16NumberOfEntries);
+
+                while (u16NumberOfEntries--)
+                {
+                    /* CertificateLength */
+                    u16CertificateLength = tvb_get_ntohs(tvb, offset);
+                    proto_tree_add_uint_format(tree, hf_pn_io_certificate_length, tvb, offset, 2, u16CertificateLength, "CertificateLength: %u", u16CertificateLength);
+                    offset += 2;
+
+                    /* Certificate */
+                    proto_tree_add_item(tree, hf_pn_io_certificate, tvb, offset, u16CertificateLength, ENC_NA);
+                    offset += u16CertificateLength;
+
+                    /* Padding */
+                    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+                }
+                break;
+            case(0x0005): /* GetTrustedCACertificateRsp */
+                /* TrustedCACertificate */
+                /* CertificateLength */
+                u16CertificateLength = tvb_get_ntohs(tvb, offset);
+                proto_tree_add_uint_format(tree, hf_pn_io_certificate_length, tvb, offset, 2, u16CertificateLength, "CertificateLength: %u", u16CertificateLength);
+                offset += 2;
+
+                /* Certificate */
+                proto_tree_add_item(tree, hf_pn_io_certificate, tvb, offset, u16CertificateLength, ENC_NA);
+                offset += u16CertificateLength;
+                break;
+            case(0x0006): // GenerateKeyPairAndCSRRsp
+
+                /* CertificationRequestLength */
+                u16CertificateRequestLength = tvb_get_ntohs(tvb, offset);
+                proto_tree_add_uint_format(tree, hf_pn_io_certification_request_length, tvb, offset, 2, u16CertificateRequestLength, "CertificationRequestLength: %u", u16CertificateRequestLength);
+                offset += 2;
+                /* CertificationRequest */
+                proto_tree_add_item(tree, hf_pn_io_certification_request, tvb, offset, u16CertificateRequestLength, ENC_ASCII);
+                offset += u16CertificateRequestLength;
+
+                break;
+            case(0x0007): /* ImprintPrivateKeyRsp */
+            case(0x0008): /* ImprintEECertificationPathRsp */
+            case(0x0009): /* ImprintEECertificationPathAndPrivateKeyRsp */
+            case(0x000A): /* ImprintTrustedCACertificateRsp */
+            case(0x000B): /* RemoveTrustedCACertificateRsp */
+            case(0x000C): /* SetSecurityModeRsp */
+                break;
+            default:
+                offset = dissect_pn_undecoded(tvb, offset, pinfo, tree, tvb_captured_length(tvb));
+                break;
+            }
+        }
+        else if (u16SecurityOperation == 0x0100)
+        {
+            /* SAMResponseData */
+            tvbuff_t *eap_tvb;
+
+            // Get EAP Data length
+            uint16_t length = tvb_get_uint16(tvb, offset+2, ENC_BIG_ENDIAN);
+            eap_tvb = tvb_new_subset_length(tvb, offset, length);
+            if ((eap_tvb != NULL) && eap_handle != NULL){
+              call_dissector(eap_handle, eap_tvb, pinfo, tree);
+            }else{
+              proto_tree_add_item(tree, hf_pn_io_eap_data, tvb, offset, length, ENC_NA);
+            }
+            offset += length;
+        }
+        else
+        {
+            offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_reserved16, NULL);
+        }
+    }
+
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    return offset;
+}
+
+/* dissect the ARUUID block */
+static int
+dissect_ARUUID_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
+{
+    e_guid_t aruuid;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* For 2 byte Padding. It is already dissected in dissect_dcerpc_uuid_t function. */
+    offset += 2;
+
+    /* ARUUID */
+    offset = dissect_dcerpc_uuid_t(tvb, offset, pinfo, tree, drep,
+        hf_pn_io_ar_uuid, &aruuid);
+
+    return offset;
+
+}
 
 /* dissect the PDevData block */
 static int
@@ -6557,9 +9072,9 @@ dissect_PDPortDataReal_block(tvbuff_t *tvb, int offset,
 
     proto_item_append_text(item, ": Slot:0x%x/0x%x, OwnPortID:%s, Peers:%u LinkState.Port:%s LinkState.Link:%s MediaType:%s",
         u16SlotNr, u16SubslotNr, pOwnPortID, u8NumberOfPeers,
-        val_to_str(u8LinkStatePort, pn_io_link_state_port, "0x%x"),
-        val_to_str(u8LinkStateLink, pn_io_link_state_link, "0x%x"),
-        val_to_str(u32MediaType, pn_io_media_type, "0x%x"));
+        val_to_str(pinfo->pool, u8LinkStatePort, pn_io_link_state_port, "0x%x"),
+        val_to_str(pinfo->pool, u8LinkStateLink, pn_io_link_state_link, "0x%x"),
+        val_to_str(pinfo->pool, u32MediaType, pn_io_media_type, "0x%x"));
 
     return offset;
 }
@@ -7096,7 +9611,7 @@ dissect_CheckMAUTypeDifference_block(tvbuff_t *tvb, int offset,
                     hf_pn_io_mau_type_mode, &u16MAUTypeMode);
 
     proto_item_append_text(item, ": MAUTypeMode:%s",
-        val_to_str(u16MAUTypeMode, pn_io_mau_type_mode, "0x%x"));
+        val_to_str(pinfo->pool, u16MAUTypeMode, pn_io_mau_type_mode, "0x%x"));
 
     return offset;
 }
@@ -7220,7 +9735,7 @@ dissect_AdjustMAUType_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_adjust_properties, &u16AdjustProperties);
 
     proto_item_append_text(item, ": MAUType:%s, Properties:0x%x",
-        val_to_str(u16MAUType, pn_io_mau_type, "0x%x"),
+        val_to_str(pinfo->pool, u16MAUType, pn_io_mau_type, "0x%x"),
         u16AdjustProperties);
 
     return offset;
@@ -7246,7 +9761,7 @@ dissect_CheckMAUType_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_mau_type, &u16MAUType);
 
     proto_item_append_text(item, ": MAUType:%s",
-        val_to_str(u16MAUType, pn_io_mau_type, "0x%x"));
+        val_to_str(pinfo->pool, u16MAUType, pn_io_mau_type, "0x%x"));
 
     return offset;
 }
@@ -7346,7 +9861,7 @@ dissect_AdjustPortState_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_adjust_properties, &u16AdjustProperties);
 
     proto_item_append_text(item, ": PortState:%s, Properties:0x%x",
-        val_to_str(u16PortState, pn_io_port_state, "0x%x"),
+        val_to_str(pinfo->pool, u16PortState, pn_io_port_state, "0x%x"),
         u16AdjustProperties);
 
     return offset;
@@ -7372,7 +9887,7 @@ dissect_CheckPortState_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_port_state, &u16PortState);
 
     proto_item_append_text(item, ": %s",
-        val_to_str(u16PortState, pn_io_port_state, "0x%x"));
+        val_to_str(pinfo->pool, u16PortState, pn_io_port_state, "0x%x"));
     return offset;
 }
 
@@ -7529,7 +10044,7 @@ dissect_PDPortFODataAdjust_block(tvbuff_t *tvb, int offset,
 
 /*
     proto_item_append_text(item, ": %s",
-        val_to_str(u16PortState, pn_io_port_state, "0x%x"));*/
+        val_to_str(pinfo->pool, u16PortState, pn_io_port_state, "0x%x"));*/
 
     return offset;
 }
@@ -7567,7 +10082,7 @@ dissect_PDPortFODataCheck_block(tvbuff_t *tvb, int offset,
 
 /*
     proto_item_append_text(item, ": %s",
-        val_to_str(u16PortState, pn_io_port_state, "0x%x"));*/
+        val_to_str(pinfo->pool, u16PortState, pn_io_port_state, "0x%x"));*/
 
     return offset;
 }
@@ -7808,210 +10323,294 @@ dissect_PDInterfaceAdjust_block(tvbuff_t *tvb, int offset,
     return offset;
 }
 
-/* TSNNetworkControlDataReal */
+/* CIMNetConfDataReal */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_TSNNetworkControlDataReal_block(tvbuff_t* tvb, int offset,
-    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
+dissect_CIMNetConfDataReal_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, uint16_t u16BodyLength)
 {
     proto_item* sub_item;
     proto_tree* sub_tree;
 
     e_guid_t  nme_parameter_uuid;
     uint32_t u32NetworkDeadline;
-    uint16_t u16SendClockFactor;
+    uint16_t u16GatingCycle;
     uint16_t u16NumberofEntries;
-    uint16_t u16TSNNMENameLength;
-    uint16_t u16TSNDomainNameLength;
-    e_guid_t  tsn_nme_name_uuid;
-    e_guid_t  tsn_domain_uuid;
+    uint16_t u16NMENameLength;
+    uint16_t u16NMEDomainNameLength;
+    uint8_t  u8NMENameAddressSubtype;
+
+    e_guid_t  nme_name_uuid;
+    e_guid_t  nme_domain_uuid;
+    uint8_t  mac[6];
+    uint32_t ip;
+    uint32_t u32TrafficClassTranslationEntry;
 
     int bit_offset;
+    int offset_begin;
+    int offset_diff;
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    offset_begin = offset;
 
     /* Padding */
     offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
 
     /* NMEParameterUUID*/
-    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_tsn_nme_parameter_uuid, &nme_parameter_uuid);
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_nme_parameter_uuid, &nme_parameter_uuid);
 
-    /* TSNDomainVIDConfig*/
-    sub_item = proto_tree_add_item(tree, hf_pn_io_tsn_domain_vid_config, tvb, offset, 16, ENC_NA);
-    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_tsn_domain_vid_config);
+    /* NMEDomainVIDConfig*/
+    sub_item = proto_tree_add_item(tree, hf_pn_io_nme_domain_vid_config, tvb, offset, 16, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_nme_domain_vid_config);
     bit_offset = offset << 3;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_reserved, tvb, bit_offset, 32, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_reserved, tvb, bit_offset, 32, ENC_BIG_ENDIAN);
     bit_offset += 32;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_D, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_D, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_C, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_C, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_B, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_B, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_low_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_low_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_low_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_low_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_high_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_high_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_high_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_high_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
 
     offset += 16;
 
-    /* TSNDomainPortConfigBlock */
+    /* CIMStationPortConfigBlock */
     offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
 
     /* Network Deadline */
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep, hf_pn_io_network_deadline, &u32NetworkDeadline);
 
-    /* SendClockFactor 16 */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_send_clock_factor, &u16SendClockFactor);
+    /* GatingCycle 16 */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_gating_cycle, &u16GatingCycle);
 
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_tsn_time_data_block_entries, &u16NumberofEntries);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_nme_domain_time_data_block_entries, &u16NumberofEntries);
 
-    /* TSNTimeDataBlock */
+    /* NMEDomainTimeDataBlock */
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
 
         offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
     }
 
-    /* TSNNMENameUUID */
-    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_tsn_nme_name_uuid, &tsn_nme_name_uuid);
+    /* NMENameUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_nme_name_uuid, &nme_name_uuid);
 
-    /* TSNNMENameLength */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_nme_name_length, &u16TSNNMENameLength);
+    /* NMENameAddress*/
+    sub_item = proto_tree_add_item(tree, hf_pn_io_nme_name_address, tvb, offset, 1, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_nme_name_address);
 
-    /* TSNNMEName */
-    proto_tree_add_item(tree, hf_pn_io_tsn_nme_name, tvb, offset, u16TSNNMENameLength, ENC_ASCII | ENC_NA);
-    offset += u16TSNNMENameLength;
+    /* NMENameAddressSubtype */
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_nme_name_address_subtype, &u8NMENameAddressSubtype);
+
+    if (u8NMENameAddressSubtype == 0x01) {
+        offset = dissect_pn_padding(tvb, offset, pinfo, sub_tree, 3);
+        /* IPAddress */
+        offset = dissect_pn_ipv4(tvb, offset, pinfo, sub_tree, hf_pn_io_ip_address, &ip);
+    }
+    else if(u8NMENameAddressSubtype == 0x06){
+        offset = dissect_pn_padding(tvb, offset, pinfo, sub_tree, 1);
+        /* MACAddressValue */
+        offset = dissect_pn_mac(tvb, offset, pinfo, sub_tree, hf_pn_io_macadd, mac);
+    }
+    /* NMENameLength */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_nme_name_length, &u16NMENameLength);
+
+    /* NMEName */
+    proto_tree_add_item(tree, hf_pn_io_nme_name, tvb, offset, u16NMENameLength, ENC_ASCII);
+    offset += u16NMENameLength;
 
     /* Padding */
     offset = dissect_pn_align4(tvb, offset, pinfo, tree);
 
-    /* TSNDomainUUID */
-    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_tsn_domain_uuid, &tsn_domain_uuid);
+    /* NMEDomainUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_nme_domain_uuid, &nme_domain_uuid);
 
-    /* TSNDomainNameLength */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_domain_name_length, &u16TSNDomainNameLength);
+    /* NMEDomainNameLength */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_nme_domain_name_length, &u16NMEDomainNameLength);
 
-    /* TSNDomainName */
-    proto_tree_add_item(tree, hf_pn_io_tsn_domain_name, tvb, offset, u16TSNDomainNameLength, ENC_ASCII | ENC_NA);
-    offset += u16TSNDomainNameLength;
+    /* NMEDomainName */
+    proto_tree_add_item(tree, hf_pn_io_nme_domain_name, tvb, offset, u16NMEDomainNameLength, ENC_ASCII);
+    offset += u16NMEDomainNameLength;
 
     /* Padding */
     offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    /* NMEDomainConfigRealBlock */
+    offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
+
+    /* optional : TrafficClassTranslationTable */
+    offset_diff = offset - offset_begin;
+    if (u16BodyLength != offset_diff) {
+        /* TrafficClassTranslationEntry */
+        sub_item = proto_tree_add_item(tree, hf_pn_io_traffic_class_translate_entry, tvb, offset, 4, ENC_BIG_ENDIAN);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_traffic_class_translate_entry);
+
+        /* TrafficClassTranslationEntry.VID */
+        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_traffic_class_translate_entry_vid, &u32TrafficClassTranslationEntry);
+
+        /* TrafficClassTranslationEntry.PCP */
+        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_traffic_class_translate_entry_pcp, &u32TrafficClassTranslationEntry);
+    }
 
     return offset;
 
 }
 
-/* TSNNetworkControlDataAdjust */
+/* CIMNetConfDataAdjust */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_TSNNetworkControlDataAdjust_block(tvbuff_t* tvb, int offset,
-    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
+dissect_CIMNetConfDataAdjust_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, uint16_t u16BodyLength)
 {
     proto_item* sub_item;
     proto_tree* sub_tree;
 
     e_guid_t  nme_parameter_uuid;
     uint32_t u32NetworkDeadline;
-    uint16_t u16SendClockFactor;
+    uint16_t u16GatingCycle;
     uint16_t u16NumberofEntries;
-    uint16_t u16TSNNMENameLength;
-    e_guid_t  tsn_nme_name_uuid;
+    uint16_t u16NMENameLength;
+    uint8_t  u8NMENameAddressSubtype;
+    e_guid_t  nme_name_uuid;
+    uint8_t  mac[6];
+    uint32_t ip;
+    uint32_t u32TrafficClassTranslationEntry;
 
     int bit_offset;
+    int offset_begin;
+    int offset_diff;
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
         return offset;
     }
+    offset_begin = offset;
 
     /* Padding */
     offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
 
     /* NMEParameterUUID*/
-    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_tsn_nme_parameter_uuid, &nme_parameter_uuid);
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_nme_parameter_uuid, &nme_parameter_uuid);
 
-    /* TSNDomainVIDConfig*/
-    sub_item = proto_tree_add_item(tree, hf_pn_io_tsn_domain_vid_config, tvb, offset, 16, ENC_NA);
-    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_tsn_domain_vid_config);
+    /* NMEDomainVIDConfig*/
+    sub_item = proto_tree_add_item(tree, hf_pn_io_nme_domain_vid_config, tvb, offset, 16, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_nme_domain_vid_config);
 
     bit_offset = offset << 3;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_reserved, tvb, bit_offset, 32, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_reserved, tvb, bit_offset, 32, ENC_BIG_ENDIAN);
     bit_offset += 32;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_D, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_D, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_C, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_C, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid_B, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid_B, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_non_stream_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_non_stream_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_low_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_low_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_low_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_low_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_high_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_high_red_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
     bit_offset += 12;
 
-    proto_tree_add_bits_item(sub_tree, hf_pn_io_tsn_domain_vid_config_stream_high_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(sub_tree, hf_pn_io_nme_domain_vid_config_stream_high_vid, tvb, bit_offset, 12, ENC_BIG_ENDIAN);
 
     offset += 16;
 
-    /* TSNDomainPortConfigBlock */
+    /* CIMStationPortConfigBlock */
     offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
 
     /* Network Deadline */
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep, hf_pn_io_network_deadline, &u32NetworkDeadline);
 
-    /* SendClockFactor 16 */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_send_clock_factor, &u16SendClockFactor);
+    /* GatingCycle 16 */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_gating_cycle, &u16GatingCycle);
 
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_tsn_time_data_block_entries, &u16NumberofEntries);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_number_of_nme_domain_time_data_block_entries, &u16NumberofEntries);
 
-    /* TSNTimeDataBlock */
+    /* NMEDomainTimeDataBlock */
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
 
         offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
     }
 
-    /* TSNNMENameUUID */
-    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_tsn_nme_name_uuid, &tsn_nme_name_uuid);
+    /* NMENameUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_nme_name_uuid, &nme_name_uuid);
 
-    /* TSNNMENameLength */
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_nme_name_length, &u16TSNNMENameLength);
+    /* NMENameAddress*/
+    sub_item = proto_tree_add_item(tree, hf_pn_io_nme_name_address, tvb, offset, 1, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_nme_name_address);
 
-    /* TSNNMEName */
-    proto_tree_add_item(tree, hf_pn_io_tsn_nme_name, tvb, offset, u16TSNNMENameLength, ENC_ASCII | ENC_NA);
-    offset += u16TSNNMENameLength;
+    /* NMENameAddressSubtype */
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_nme_name_address_subtype, &u8NMENameAddressSubtype);
+
+    if (u8NMENameAddressSubtype == 0x01) {
+        offset = dissect_pn_padding(tvb, offset, pinfo, sub_tree, 3);
+        /* IPAddress */
+        offset = dissect_pn_ipv4(tvb, offset, pinfo, sub_tree, hf_pn_io_ip_address, &ip);
+    }
+    else if(u8NMENameAddressSubtype == 0x06){
+        offset = dissect_pn_padding(tvb, offset, pinfo, sub_tree, 1);
+        /* MACAddressValue */
+        offset = dissect_pn_mac(tvb, offset, pinfo, sub_tree, hf_pn_io_macadd, mac);
+    }
+
+    /* NMENameLength */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_nme_name_length, &u16NMENameLength);
+
+    /* NMEName */
+    proto_tree_add_item(tree, hf_pn_io_nme_name, tvb, offset, u16NMENameLength, ENC_ASCII);
+    offset += u16NMENameLength;
+
+    /* Padding */
+    offset = dissect_pn_align4(tvb, offset, pinfo, tree);
+
+    /* optional : TrafficClassTranslationTable */
+    offset_diff = offset - offset_begin;
+    if (u16BodyLength != offset_diff) {
+        /* TrafficClassTranslationEntry */
+        sub_item = proto_tree_add_item(tree, hf_pn_io_traffic_class_translate_entry, tvb, offset, 4, ENC_BIG_ENDIAN);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_traffic_class_translate_entry);
+
+        /* TrafficClassTranslationEntry.VID */
+        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_traffic_class_translate_entry_vid, &u32TrafficClassTranslationEntry);
+
+        /* TrafficClassTranslationEntry.PCP */
+        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_traffic_class_translate_entry_pcp, &u32TrafficClassTranslationEntry);
+    }
 
     /* Padding */
     offset = dissect_pn_align4(tvb, offset, pinfo, tree);
@@ -8019,9 +10618,9 @@ dissect_TSNNetworkControlDataAdjust_block(tvbuff_t* tvb, int offset,
     return offset;
 }
 
-/* TSNStreamPathData */
+/* CIMNetConfStreamPathData */
 static int
-dissect_TSNStreamPathDataReal_block(tvbuff_t* tvb, int offset,
+dissect_CIMNetConfStreamPathDataReal_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, bool real)
 {
     uint8_t u8FDBCommand;
@@ -8030,6 +10629,8 @@ dissect_TSNStreamPathDataReal_block(tvbuff_t* tvb, int offset,
     uint16_t u16StreamClass;
     uint16_t u16SlotNumber;
     uint16_t u16SubSlotNumber;
+    e_guid_t cim_stream_collection_uuid;
+
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
@@ -8042,7 +10643,7 @@ dissect_TSNStreamPathDataReal_block(tvbuff_t* tvb, int offset,
     if (!real) {
         /* FDBCommand */
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_fdb_command, &u8FDBCommand);
+            hf_pn_io_cim_fdb_command, &u8FDBCommand);
     }
     else {
         offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
@@ -8051,36 +10652,40 @@ dissect_TSNStreamPathDataReal_block(tvbuff_t* tvb, int offset,
     offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_sync_tree_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_nme_domain_sync_tree_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
         /* DestinationAddress */
-        offset = dissect_pn_mac(tvb, offset, pinfo, tree, hf_pn_io_tsn_dst_add, dstAdd);
+        offset = dissect_pn_mac(tvb, offset, pinfo, tree, hf_pn_io_cim_dst_add, dstAdd);
 
         /* StreamClass */
-        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_stream_class, &u16StreamClass);
+        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_cim_net_stream_class, &u16StreamClass);
 
         /* IngressPort */
-        /* TSNDomainPortID */
+        /* CIMStationElementID */
         /*SlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_slot_nr, &u16SlotNumber);
         /* SubSlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_subslot_nr, &u16SubSlotNumber);
 
         /* EgressPort */
-        /* TSNDomainPortID */
+        /* CIMStationElementID */
         /*SlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_slot_nr, &u16SlotNumber);
         /* SubSlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_subslot_nr, &u16SubSlotNumber);
     }
+
+    /*CIMStreamCollectionUUID*/
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_stream_collection_uuid, &cim_stream_collection_uuid);
+
     return offset;
 }
 
-/* TSNSyncTreeData */
+/* CIMNetConfSyncTreeData */
 static int
-dissect_TSNSyncTreeData_block(tvbuff_t* tvb, int offset,
+dissect_CIMNetConfSyncTreeData_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t   u16NumberofEntries;
@@ -8088,6 +10693,8 @@ dissect_TSNSyncTreeData_block(tvbuff_t* tvb, int offset,
     uint16_t   u16SubslotNr;
     uint16_t   u16TimeDomainNumber;
     uint8_t    u8SyncPortRole;
+    e_guid_t   cim_sync_tree_data_uuid;
+
     proto_item* sub_item;
     proto_tree* sub_tree;
 
@@ -8098,13 +10705,13 @@ dissect_TSNSyncTreeData_block(tvbuff_t* tvb, int offset,
     }
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_sync_tree_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_nme_domain_sync_tree_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
-        /* TSNDomainPortID */
-        sub_item = proto_tree_add_item(tree, hf_pn_io_tsn_domain_port_id, tvb, offset, 4, ENC_NA);
-        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_tsn_domain_port_id);
+        /* CIMStationElementID */
+        sub_item = proto_tree_add_item(tree, hf_pn_io_cim_station_element_id, tvb, offset, 4, ENC_NA);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_cim_station_element_id);
         /* SlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_slot_nr, &u16SlotNr);
         /*--*/
@@ -8113,18 +10720,22 @@ dissect_TSNSyncTreeData_block(tvbuff_t* tvb, int offset,
         /* TimeDomainNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_time_domain_number, &u16TimeDomainNumber);
         /* SyncPortRole */
-        offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_domain_sync_port_role, &u8SyncPortRole);
+        offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep, hf_pn_io_nme_domain_sync_port_role, &u8SyncPortRole);
 
         /* Padding */
         offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
     }
+
+    /* CIMSyncTreeDataUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_sync_tree_data_uuid, &cim_sync_tree_data_uuid);
+
     return offset;
 }
 
-/* TSNDomainPortConfigBlock */
+/* CIMStationPortConfigBlock */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_TSNDomainPortConfig_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationPortStatus_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t   u16NumberofEntries;
@@ -8132,7 +10743,7 @@ dissect_TSNDomainPortConfig_block(tvbuff_t* tvb, int offset,
     uint16_t   u16SubslotNr;
     proto_item* sub_item_port_config;
     proto_tree* sub_tree_port_config;
-    uint8_t    u8TSNDomainPortConfig;
+    uint8_t    u8CIMStationPortStatus;
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
@@ -8141,7 +10752,7 @@ dissect_TSNDomainPortConfig_block(tvbuff_t* tvb, int offset,
     }
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_port_config_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_cim_station_port_status_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
@@ -8153,41 +10764,41 @@ dissect_TSNDomainPortConfig_block(tvbuff_t* tvb, int offset,
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
             hf_pn_io_subslot_nr, &u16SubslotNr);
 
-        /* TSNDomainPortConfig */
-        sub_item_port_config = proto_tree_add_item(tree, hf_pn_io_tsn_domain_port_config, tvb, offset, 1, ENC_NA);
-        sub_tree_port_config = proto_item_add_subtree(sub_item_port_config, ett_pn_io_tsn_domain_port_config);
+        /* CIMStationPortStatus */
+        sub_item_port_config = proto_tree_add_item(tree, hf_pn_io_cim_station_port_status, tvb, offset, 1, ENC_NA);
+        sub_tree_port_config = proto_item_add_subtree(sub_item_port_config, ett_pn_io_cim_station_port_status);
 
         dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree_port_config, drep,
-            hf_pn_io_tsn_domain_port_config_reserved, &u8TSNDomainPortConfig);
+            hf_pn_io_cim_station_port_status_reserved, &u8CIMStationPortStatus);
         dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree_port_config, drep,
-            hf_pn_io_tsn_domain_port_config_boundary_port_config, &u8TSNDomainPortConfig);
+            hf_pn_io_cim_station_port_status_boundary_port_status, &u8CIMStationPortStatus);
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree_port_config, drep,
-            hf_pn_io_tsn_domain_port_config_preemption_enabled, &u8TSNDomainPortConfig);
+            hf_pn_io_cim_station_port_status_preemption_status, &u8CIMStationPortStatus);
 
         /* Padding */
         offset = dissect_pn_padding(tvb, offset, pinfo, tree, 3);
 
-        /* TSNDomainPortIngressRateLimiter */
+        /* PortIngressRateLimiter */
         offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
 
-        /* TSNDomainQueueConfigBlock */
+        /* CIMStationQueueConfigBlock */
         offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
 
-        /* TSNDomainQueueRateLimiterBlock */
+        /* CIMStationEgressRateLimiterBlock */
         offset = dissect_a_block(tvb, offset, pinfo, /*sub_*/tree, drep);
     }
     return offset;
 }
 
-/* TSNDomainQueueConfigBlock */
+/* CIMStationQueueConfigBlock */
 static int
-dissect_TSNDomainQueueConfig_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationQueueConfig_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t   u16NumberofEntries;
     proto_item* sub_item;
     proto_tree* sub_tree;
-    uint64_t    u64TSNDomainQueueConfig;
+    uint64_t    u64NMEDomainQueueConfig;
     dcerpc_info di; /* fake dcerpc_info struct */
     dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
     di.call_data = &dcv;
@@ -8199,34 +10810,34 @@ dissect_TSNDomainQueueConfig_block(tvbuff_t* tvb, int offset,
     }
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_queue_config_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_nme_domain_queue_config_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
 
-        sub_item = proto_tree_add_item(tree, hf_pn_io_tsn_domain_queue_config, tvb, offset, 8, ENC_NA);
-        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_tsn_domain_queue_config);
+        sub_item = proto_tree_add_item(tree, hf_pn_io_nme_domain_queue_config, tvb, offset, 8, ENC_BIG_ENDIAN);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_nme_domain_queue_config);
 
-        /* TSNDomainQueueConfig */
+        /* NMEDomainQueueConfig */
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_mask_time_offset, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_mask_time_offset, &u64NMEDomainQueueConfig);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_unmask_time_offset, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_unmask_time_offset, &u64NMEDomainQueueConfig);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_preemption_mode, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_preemption_mode, &u64NMEDomainQueueConfig);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_shaper, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_shaper, &u64NMEDomainQueueConfig);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_tci_pcp, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_tci_pcp, &u64NMEDomainQueueConfig);
         offset = dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_config_queue_id, &u64TSNDomainQueueConfig);
+            hf_pn_io_nme_domain_queue_config_queue_id, &u64NMEDomainQueueConfig);
     }
     return offset;
 }
 
-/* TSNTimeDataBlock */
+/* NMEDomainTimeDataBlock */
 static int
-dissect_TSNTimeData_block(tvbuff_t* tvb, int offset,
+dissect_NMEDomainTimeData_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t u16TimeDomainNumber;
@@ -8258,7 +10869,7 @@ dissect_TSNTimeData_block(tvbuff_t* tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_message_timeout_factor, &u16MessageTimeoutFactor);
 
     /* TimeSyncProperties */
-    sub_item = proto_tree_add_item(tree, hf_pn_io_time_sync_properties, tvb, offset, 2, ENC_NA);
+    sub_item = proto_tree_add_item(tree, hf_pn_io_time_sync_properties, tvb, offset, 2, ENC_BIG_ENDIAN);
     sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_time_sync_properties);
 
     dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree, drep,
@@ -8273,7 +10884,7 @@ dissect_TSNTimeData_block(tvbuff_t* tvb, int offset,
     offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep, hf_pn_io_time_domain_name_length, &u8TimeDomainNameLength);
 
     /* TimeDomainName */
-    proto_tree_add_item(tree, hf_pn_io_time_domain_name, tvb, offset, u8TimeDomainNameLength, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(tree, hf_pn_io_time_domain_name, tvb, offset, u8TimeDomainNameLength, ENC_ASCII);
     offset += u8TimeDomainNameLength;
 
     /* Padding */
@@ -8282,15 +10893,21 @@ dissect_TSNTimeData_block(tvbuff_t* tvb, int offset,
     return offset;
 }
 
-/* TSNUploadNetworkAttributesBlock */
+/* CIMNetConfUploadNetworkAttributesBlock */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_TSNUploadNetworkAttributes_block(tvbuff_t* tvb, int offset,
+dissect_CIMNetConfUploadNetworkAttributes_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint32_t    u32TransferTimeTX;
     uint32_t    u32TransferTimeRX;
     uint32_t    u32MaxSupportedRecordSize;
+    proto_item  *sub_item;
+    proto_tree  *sub_tree;
+    uint32_t     u32SupportedBurstSize;
+    uint16_t     u16MinIPGBreakingPoint;
+    uint16_t     u16MinIPGFrameSize;
+    uint16_t     u16FrameSendOffsetDeviation;
 
     if (u8BlockVersionHigh != 1 || (u8BlockVersionLow != 0 && u8BlockVersionLow != 1)) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
@@ -8300,29 +10917,48 @@ dissect_TSNUploadNetworkAttributes_block(tvbuff_t* tvb, int offset,
         /* Align to the next 32 bit twice */
     offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
 
-    /* TSNPortIDBlock */
+    /* CIMStationPortCapabilitiesBlock */
     offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
 
     /*MaxSupportedRecordSize*/
-    offset= dissect_dcerpc_uint32(tvb,offset,pinfo,tree,drep,hf_pn_io_tsn_max_supported_record_size,&u32MaxSupportedRecordSize);
+    offset= dissect_dcerpc_uint32(tvb,offset,pinfo,tree,drep,hf_pn_io_cim_net_max_supported_record_size,&u32MaxSupportedRecordSize);
 
     /* TransferTimeTX */
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_tsn_transfer_time_tx, &u32TransferTimeTX);
+        hf_pn_io_cim_net_transfer_time_tx, &u32TransferTimeTX);
 
     /* TransferTimeRX */
     offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_tsn_transfer_time_rx, &u32TransferTimeRX);
+        hf_pn_io_cim_net_transfer_time_rx, &u32TransferTimeRX);
 
-    /* TSNForwardingDelayBlock */
+    /* CIMStationForwardingDelayBlock */
     offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
+
+    /* SupportedBurstSize */
+    sub_item = proto_tree_add_item(tree, hf_pn_io_supported_burst_size, tvb, offset, 4, ENC_BIG_ENDIAN);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_supported_burst_size);
+
+    /* SupportedBurstSize.Frames */
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_supported_burst_size_frames, &u32SupportedBurstSize);
+
+    /* SupportedBurstSize.Octets */
+    offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep, hf_pn_io_supported_burst_size_octets, &u32SupportedBurstSize);
+
+    /* MinIPGBreakingPoint */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_min_ipg_breaking_point, &u16MinIPGBreakingPoint);
+
+    /* MinIPGFrameSize */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_min_ipg_frame_size, &u16MinIPGFrameSize);
+
+    /* FrameSendOffsetDeviation */
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_frame_send_offset_deviation, &u16FrameSendOffsetDeviation);
 
     return offset;
 }
 
-/* TSNExpectedNeighborBlock */
+/* CIMStationExpectedNeighborBlock */
 static int
-dissect_TSNExpectedNeighbor_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationExpectedNeighbor_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint8_t     u8NumberOfPeers;
@@ -8340,13 +10976,13 @@ dissect_TSNExpectedNeighbor_block(tvbuff_t* tvb, int offset,
         return offset;
     }
 
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_expected_neighbor_block_number_of_entries, &u16NumberOfEntries);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_cim_station_expected_neighbor_block_number_of_entries, &u16NumberOfEntries);
 
     while (u16NumberOfEntries > 0)
     {
         u16NumberOfEntries--;
 
-        /*TSNDomainPortID*/
+        /*CIMStationElementID*/
         /* SlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_slot_nr, &u16SlotNr);
         /*--*/
@@ -8367,7 +11003,7 @@ dissect_TSNExpectedNeighbor_block(tvbuff_t* tvb, int offset,
                 hf_pn_io_length_peer_port_name, &u8LengthPeerPortName);
 
             /* PeerPortName */
-            proto_tree_add_item(tree, hf_pn_io_peer_port_name, tvb, offset, u8LengthPeerPortName, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_pn_io_peer_port_name, tvb, offset, u8LengthPeerPortName, ENC_ASCII);
             offset += u8LengthPeerPortName;
 
             /* LengthPeerStationName */
@@ -8375,7 +11011,7 @@ dissect_TSNExpectedNeighbor_block(tvbuff_t* tvb, int offset,
                 hf_pn_io_length_peer_station_name, &u8LengthPeerStationName);
 
             /* PeerStationName */
-            proto_tree_add_item(tree, hf_pn_io_peer_station_name, tvb, offset, u8LengthPeerStationName, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_pn_io_peer_station_name, tvb, offset, u8LengthPeerStationName, ENC_ASCII);
             offset += u8LengthPeerStationName;
 
             /* Padding */
@@ -8388,12 +11024,43 @@ dissect_TSNExpectedNeighbor_block(tvbuff_t* tvb, int offset,
     return offset;
 }
 
-/* TSNExpectedNetworkAttributesBlock */
+/* NMEDomainConfigRealBlock */
+static int
+dissect_NMEDomainConfigReal_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
+{
+    e_guid_t cim_stream_collection_uuid;
+    e_guid_t cim_sync_tree_data_uuid;
+    e_guid_t cim_expected_network_attributes_uuid;
+
+    if (u8BlockVersionHigh != 1 || (u8BlockVersionLow != 0 && u8BlockVersionLow != 1)) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+    /* Padding */
+    offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
+
+    /*CIMStreamCollectionUUID*/
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_stream_collection_uuid, &cim_stream_collection_uuid);
+
+    /* CIMSyncTreeDataUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_sync_tree_data_uuid, &cim_sync_tree_data_uuid);
+
+    /* CIMExpectedNetworkAttributesUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_expected_network_attributes_uuid, &cim_expected_network_attributes_uuid);
+
+    return offset;
+}
+
+/* CIMNetConfExpectedNetworkAttributesBlock */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_TSNExpectedNetworkAttributes_block(tvbuff_t* tvb, int offset,
+dissect_CIMNetConfExpectedNetworkAttributes_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
+    e_guid_t cim_expected_network_attributes_uuid;
+
     if (u8BlockVersionHigh != 1 || (u8BlockVersionLow != 0 && u8BlockVersionLow != 1)) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
             "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
@@ -8403,27 +11070,30 @@ dissect_TSNExpectedNetworkAttributes_block(tvbuff_t* tvb, int offset,
     /* Align to the next 32 bit twice */
     offset = dissect_pn_padding(tvb, offset, pinfo, tree, 2);
 
-    /* TSNPortIDBlock */
+    /* CIMStationPortCapabilitiesBlock */
     offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
 
-    /* TSNForwardingDelayBlock */
+    /* CIMStationForwardingDelayBlock */
     offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
 
-    /* TSNExpectedNeighborBlock */
+    /* CIMStationExpectedNeighborBlock */
     offset = dissect_a_block(tvb, offset, pinfo, tree, drep);
+
+    /* CIMExpectedNetworkAttributesUUID */
+    offset = dissect_pn_uuid(tvb, offset, pinfo, tree, hf_pn_io_cim_expected_network_attributes_uuid, &cim_expected_network_attributes_uuid);
 
     return offset;
 }
 
-/* TSNDomainPortIngressRateLimiterBlock */
+/* CIMStationPortIngressRateLimiterBlock */
 static int
-dissect_TSNDomainPortIngressRateLimiter_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationPortIngressRateLimiter_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t   u16NumberofEntries;
     proto_item* sub_item_port_ingress;
     proto_tree* sub_tree_port_ingress;
-    uint64_t   u64TSNDomainPortIngressRateLimiter;
+    uint64_t   u64PortIngressRateLimiter;
     dcerpc_info di; /* fake dcerpc_info struct */
     dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
     di.call_data = &dcv;
@@ -8435,36 +11105,36 @@ dissect_TSNDomainPortIngressRateLimiter_block(tvbuff_t* tvb, int offset,
     }
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_port_ingress_rate_limiter_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_port_ingress_rate_limiter_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
 
-        /* TSNDomainPortIngressRateLimiter */
-        sub_item_port_ingress = proto_tree_add_item(tree, hf_pn_io_tsn_domain_port_ingress_rate_limiter, tvb, offset, 8, ENC_NA);
-        sub_tree_port_ingress = proto_item_add_subtree(sub_item_port_ingress, ett_pn_io_tsn_domain_port_ingress_rate_limiter);
+        /* PortIngressRateLimiter */
+        sub_item_port_ingress = proto_tree_add_item(tree, hf_pn_io_port_ingress_rate_limiter, tvb, offset, 8, ENC_BIG_ENDIAN);
+        sub_tree_port_ingress = proto_item_add_subtree(sub_item_port_ingress, ett_pn_io_port_ingress_rate_limiter);
 
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree_port_ingress, &di, drep,
-            hf_pn_io_tsn_domain_port_ingress_rate_limiter_cir, &u64TSNDomainPortIngressRateLimiter);
+            hf_pn_io_port_ingress_rate_limiter_cir, &u64PortIngressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree_port_ingress, &di, drep,
-            hf_pn_io_tsn_domain_port_ingress_rate_limiter_cbs, &u64TSNDomainPortIngressRateLimiter);
+            hf_pn_io_port_ingress_rate_limiter_cbs, &u64PortIngressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree_port_ingress, &di, drep,
-            hf_pn_io_tsn_domain_port_ingress_rate_limiter_envelope, &u64TSNDomainPortIngressRateLimiter);
+            hf_pn_io_port_ingress_rate_limiter_envelope, &u64PortIngressRateLimiter);
         offset = dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree_port_ingress, &di, drep,
-            hf_pn_io_tsn_domain_port_ingress_rate_limiter_rank, &u64TSNDomainPortIngressRateLimiter);
+            hf_pn_io_port_ingress_rate_limiter_rank, &u64PortIngressRateLimiter);
     }
     return offset;
 }
 
-/* TSNDomainQueueRateLimiterBlock */
+/* CIMStationEgressRateLimiterBlock */
 static int
-dissect_TSNDomainQueueRateLimiter_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationEgressRateLimiter_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint16_t   u16NumberofEntries;
     proto_item* sub_item;
     proto_tree* sub_tree;
-    uint64_t   u64TSNDomainQueueRateLimiter;
+    uint64_t   u64PortQueueEgressRateLimiter;
     dcerpc_info di; /* fake dcerpc_info struct */
     dcerpc_call_value dcv; /* fake dcerpc_call_value struct */
     di.call_data = &dcv;
@@ -8476,39 +11146,39 @@ dissect_TSNDomainQueueRateLimiter_block(tvbuff_t* tvb, int offset,
     }
 
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-        hf_pn_io_number_of_tsn_domain_queue_rate_limiter_entries, &u16NumberofEntries);
+        hf_pn_io_number_of_port_queue_egress_rate_limiter_entries, &u16NumberofEntries);
 
     while (u16NumberofEntries > 0) {
         u16NumberofEntries--;
 
-        /* TSNDomainQueueRateLimiter */
-        sub_item = proto_tree_add_item(tree, hf_pn_io_tsn_domain_queue_rate_limiter, tvb, offset, 8, ENC_NA);
-        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_tsn_domain_queue_rate_limiter);
+        /* PortQueueEgressRateLimiter */
+        sub_item = proto_tree_add_item(tree, hf_pn_io_port_queue_egress_rate_limiter, tvb, offset, 8, ENC_BIG_ENDIAN);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_port_queue_egress_rate_limiter);
 
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_cir, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_cir, &u64PortQueueEgressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_cbs, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_cbs, &u64PortQueueEgressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_envelope, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_envelope, &u64PortQueueEgressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_rank, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_rank, &u64PortQueueEgressRateLimiter);
         dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_queue_id, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_queue_id, &u64PortQueueEgressRateLimiter);
         offset = dissect_dcerpc_uint64(tvb, offset, pinfo, sub_tree, &di, drep,
-            hf_pn_io_tsn_domain_queue_rate_limiter_reserved, &u64TSNDomainQueueRateLimiter);
+            hf_pn_io_port_queue_egress_rate_limiter_reserved, &u64PortQueueEgressRateLimiter);
     }
     return offset;
 }
 
-/* TSNPortIDBlock */
+/* CIMStationPortCapabilitiesBlock */
 static int
-dissect_TSNPortID_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationPortCapabilities_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint8_t     u8NumberOfQueues;
     uint8_t     u8ForwardingGroup;
-    uint8_t     u8TSNPortCapabilities;
+    uint8_t     u8PortCapabilities;
     uint16_t    u16NumberOfEntries;
     uint16_t    u16SlotNr;
     uint16_t    u16SubslotNr;
@@ -8521,13 +11191,13 @@ dissect_TSNPortID_block(tvbuff_t* tvb, int offset,
         return offset;
     }
 
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_port_id_block_number_of_entries, &u16NumberOfEntries);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_cim_station_port_capabilities_block_number_of_entries, &u16NumberOfEntries);
 
    while (u16NumberOfEntries > 0)
    {
         u16NumberOfEntries--;
 
-        /*TSNDomainPortID*/
+        /*CIMStationElementID*/
         /* SlotNumber */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_slot_nr, &u16SlotNr);
         /*--*/
@@ -8544,28 +11214,28 @@ dissect_TSNPortID_block(tvbuff_t* tvb, int offset,
 
         /* NumberOfQueues */
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_number_of_queues, &u8NumberOfQueues);
+            hf_pn_io_cim_number_of_queues, &u8NumberOfQueues);
 
-        /* TSNPortCapabilities */
+        /* PortCapabilities */
         /* bit 0 */
         dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_port_capabilities_time_aware, &u8TSNPortCapabilities);
+            hf_pn_io_port_capabilities_time_aware, &u8PortCapabilities);
 
         /* bit 1 */
         dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_port_capabilities_preemption, &u8TSNPortCapabilities);
+            hf_pn_io_port_capabilities_preemption, &u8PortCapabilities);
 
         /* bit 2 */
         dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_port_capabilities_queue_masking, &u8TSNPortCapabilities);
+            hf_pn_io_port_capabilities_queue_masking, &u8PortCapabilities);
 
         /* bit 3-7 */
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_port_capabilities_reserved, &u8TSNPortCapabilities);
+            hf_pn_io_port_capabilities_reserved, &u8PortCapabilities);
 
         /* ForwardingGroup */
         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_forwarding_group, &u8ForwardingGroup);
+            hf_pn_io_cim_station_forwarding_group, &u8ForwardingGroup);
 
         /* Align to the next 32 bit */
         offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
@@ -8574,17 +11244,18 @@ dissect_TSNPortID_block(tvbuff_t* tvb, int offset,
     return offset;
 }
 
-/* TSNForwardingDelayBlock */
+/* CIMStationForwardingDelayBlock */
 static int
-dissect_TSNForwardingDelay_block(tvbuff_t* tvb, int offset,
+dissect_CIMStationForwardingDelay_block(tvbuff_t* tvb, int offset,
     packet_info* pinfo, proto_tree* tree, proto_item* item _U_, uint8_t* drep, uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow)
 {
     uint8_t     u8ForwardingGroupIngress;
     uint8_t     u8ForwardingGroupEgress;
-    uint16_t    u16NumberOfEntries;
-    uint16_t    u16StreamClass;
-    uint32_t    u32DependentForwardingDelay;
-    uint32_t    u32IndependentForwardingDelay;
+    uint16_t     u16NumberOfEntries;
+    uint16_t     u16StreamClass;
+    proto_item* sub_item;
+    proto_tree* sub_tree;
+    uint32_t     u32ForwardingDelay;
 
     if (u8BlockVersionHigh != 1 || (u8BlockVersionLow != 0 && u8BlockVersionLow != 1)) {
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
@@ -8592,33 +11263,37 @@ dissect_TSNForwardingDelay_block(tvbuff_t* tvb, int offset,
         return offset;
     }
 
-    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_tsn_forwarding_delay_block_number_of_entries, &u16NumberOfEntries);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep, hf_pn_io_cim_station_forwarding_delay_block_number_of_entries, &u16NumberOfEntries);
 
-   while (u16NumberOfEntries > 0)
-   {
-        u16NumberOfEntries--;
+    while (u16NumberOfEntries > 0)
+    {
+         u16NumberOfEntries--;
 
-        /*ForwardingGroupIngress*/
-        offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_forwarding_group_ingress, &u8ForwardingGroupIngress);
+         /*ForwardingGroupIngress*/
+         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
+             hf_pn_io_cim_station_forwarding_group_ingress, &u8ForwardingGroupIngress);
 
-        /*ForwardingGroupEgress*/
-        offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_forwarding_group_egress, &u8ForwardingGroupEgress);
+         /*ForwardingGroupEgress*/
+         offset = dissect_dcerpc_uint8(tvb, offset, pinfo, tree, drep,
+             hf_pn_io_cim_station_forwarding_group_egress, &u8ForwardingGroupEgress);
 
-        /* StreamClass */
-        offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_stream_class, &u16StreamClass);
+         /* StreamClass */
+         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
+             hf_pn_io_cim_net_stream_class, &u16StreamClass);
 
-        /* DependentForwardingDelay */
-        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_dependent_forwarding_delay, &u32DependentForwardingDelay);
+         /* ForwardingDelay */
+         sub_item = proto_tree_add_item(tree, hf_pn_io_cim_forwarding_delay_entry, tvb, offset, 4, ENC_BIG_ENDIAN);
+         sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_cim_forwarding_delay_entry);
 
-        /* IndependentForwardingDelay */
-        offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
-            hf_pn_io_tsn_independent_forwarding_delay, &u32IndependentForwardingDelay);
-    }
-    return offset;
+         dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
+             hf_pn_io_cim_forwarding_delay_independent, &u32ForwardingDelay);
+         dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
+             hf_pn_io_cim_forwarding_delay_reserved, &u32ForwardingDelay);
+         offset = dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
+             hf_pn_io_cim_forwarding_delay_dependent, &u32ForwardingDelay);
+     }
+
+     return offset;
 }
 
 /* PDPortStatistic for one subslot */
@@ -8753,10 +11428,10 @@ dissect_OwnPort_block(tvbuff_t *tvb, int offset,
 
     proto_item_append_text(item, ": OwnPortID:%s, LinkState.Port:%s LinkState.Link:%s MediaType:%s MAUType:%s",
         pOwnPortID,
-        val_to_str(u8LinkStatePort, pn_io_link_state_port, "0x%x"),
-        val_to_str(u8LinkStateLink, pn_io_link_state_link, "0x%x"),
-        val_to_str(u32MediaType, pn_io_media_type, "0x%x"),
-        val_to_str(u16MAUType, pn_io_mau_type, "0x%x"));
+        val_to_str(pinfo->pool, u8LinkStatePort, pn_io_link_state_port, "0x%x"),
+        val_to_str(pinfo->pool, u8LinkStateLink, pn_io_link_state_link, "0x%x"),
+        val_to_str(pinfo->pool, u32MediaType, pn_io_media_type, "0x%x"),
+        val_to_str(pinfo->pool, u16MAUType, pn_io_mau_type, "0x%x"));
 
     return offset;
 }
@@ -8900,7 +11575,7 @@ dissect_PDSyncData_block(tvbuff_t *tvb, int offset,
     uint32_t  u32ReservedIntervalEnd;
     uint32_t  u32PLLWindow;
     uint32_t  u32SyncSendFactor;
-    uint16_t  u16SendClockFactor;
+    uint16_t  u16GatingCycle;
     uint16_t  u16SyncProperties;
     uint16_t  u16SyncFrameAddress;
     uint16_t  u16PTCPTimeoutFactor;
@@ -8945,9 +11620,9 @@ dissect_PDSyncData_block(tvbuff_t *tvb, int offset,
         /* SyncSendFactor 32 enum */
         offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
                             hf_pn_io_sync_send_factor, &u32SyncSendFactor);
-        /* SendClockFactor 16 */
+        /* GatingCycle 16 */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                            hf_pn_io_send_clock_factor, &u16SendClockFactor);
+                            hf_pn_io_gating_cycle, &u16GatingCycle);
         /* SyncProperties 16 bitfield */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                             hf_pn_io_sync_properties, &u16SyncProperties);
@@ -8960,7 +11635,7 @@ dissect_PDSyncData_block(tvbuff_t *tvb, int offset,
 
         proto_item_append_text(item, ": Slot:0x%x/0x%x, Interval:%u-%u, PLLWin:%u, Send:%u, Clock:%u",
             u16SlotNr, u16SubslotNr, u32ReservedIntervalBegin, u32ReservedIntervalEnd,
-            u32PLLWindow, u32SyncSendFactor, u16SendClockFactor);
+            u32PLLWindow, u32SyncSendFactor, u16GatingCycle);
         break;
     case(2):
         /* PTCPSubdomainID */
@@ -8978,9 +11653,9 @@ dissect_PDSyncData_block(tvbuff_t *tvb, int offset,
         /* SyncSendFactor 32 enum */
         offset = dissect_dcerpc_uint32(tvb, offset, pinfo, tree, drep,
                             hf_pn_io_sync_send_factor, &u32SyncSendFactor);
-        /* SendClockFactor 16 */
+        /* GatingCycle 16 */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                            hf_pn_io_send_clock_factor, &u16SendClockFactor);
+                            hf_pn_io_gating_cycle, &u16GatingCycle);
         /* PTCPTimeoutFactor 16 enum */
         offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                             hf_pn_io_ptcp_timeout_factor, &u16PTCPTimeoutFactor);
@@ -9012,7 +11687,7 @@ dissect_PDSyncData_block(tvbuff_t *tvb, int offset,
 
         proto_item_append_text(item, ": Interval:%u-%u, PLLWin:%u, Send:%u, Clock:%u",
             u32ReservedIntervalBegin, u32ReservedIntervalEnd,
-            u32PLLWindow, u32SyncSendFactor, u16SendClockFactor);
+            u32PLLWindow, u32SyncSendFactor, u16GatingCycle);
         break;
     default:
         expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
@@ -9219,7 +11894,7 @@ dissect_PDIRFrameData_block(tvbuff_t *tvb, int offset,
                                       hf_pn_io_rx_port, &u8RXPort);
         /* FrameDetails */
         sub_item = proto_tree_add_item(ir_frame_data_tree, hf_pn_io_frame_details, tvb, offset, 1, ENC_BIG_ENDIAN);
-        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_frame_defails);
+        sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_frame_details);
         dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
                              hf_pn_io_frame_details_sync_frame, &u8FrameDetails);
         dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
@@ -9546,6 +12221,8 @@ dissect_ARProperties(tvbuff_t *tvb, int offset,
     wmem_map_insert(pnio_time_aware_frame_map, GUINT_TO_POINTER(pinfo->num), GUINT_TO_POINTER(isTimeAware));
 
     dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
+                        hf_pn_io_ar_properties_reject_dcp_set_request, &u32ARProperties);
+    dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
                         hf_pn_io_ar_properties_reserved, &u32ARProperties);
     dissect_dcerpc_uint32(tvb, offset, pinfo, sub_tree, drep,
                         hf_pn_io_ar_properties_achnowledge_companion_ar, &u32ARProperties);
@@ -9726,7 +12403,7 @@ dissect_ARData_block(tvbuff_t *tvb, int offset,
                 offset++;
 
                 offset = dissect_dcerpc_uint16(tvb, offset, pinfo, iocr_tree, drep,
-                                hf_pn_io_cminitiator_udprtport, &u16UDPRTPort);
+                                hf_pn_io_initiator_udprtport, &u16UDPRTPort);
                 offset = dissect_dcerpc_uint16(tvb, offset, pinfo, iocr_tree, drep,
                                 hf_pn_io_cmresponder_udprtport, &u16UDPRTPort);
 
@@ -9791,7 +12468,7 @@ dissect_ARData_block(tvbuff_t *tvb, int offset,
             /* RemoteAlarmReference */
             offset = dissect_dcerpc_uint16(tvb, offset, pinfo, ar_tree, drep, hf_pn_io_remotealarmref, &u16RemoteAlarmReference);
             /* InitiatorUDPRTPort*/
-            offset = dissect_dcerpc_uint16(tvb, offset, pinfo, ar_tree, drep, hf_pn_io_cminitiator_udprtport, &u16UDPRTPort);
+            offset = dissect_dcerpc_uint16(tvb, offset, pinfo, ar_tree, drep, hf_pn_io_initiator_udprtport, &u16UDPRTPort);
             /* ResponderUDPRTPort*/
             offset = dissect_dcerpc_uint16(tvb, offset, pinfo, ar_tree, drep, hf_pn_io_cmresponder_udprtport, &u16UDPRTPort);
             /* CMInitiatorStationName*/
@@ -10034,7 +12711,7 @@ dissect_FSHello_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_fs_hello_delay, &u32FSHelloDelay);
 
     proto_item_append_text(item, ": Mode:%s, Interval:%ums, Retry:%u, Delay:%ums",
-        val_to_str(u32FSHelloMode, pn_io_fs_hello_mode_vals, "0x%x"),
+        val_to_str(pinfo->pool, u32FSHelloMode, pn_io_fs_hello_mode_vals, "0x%x"),
         u32FSHelloInterval, u32FSHelloRetry, u32FSHelloDelay);
 
     return offset;
@@ -10066,7 +12743,7 @@ dissect_FSParameter_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_fs_parameter_uuid, &FSParameterUUID);
 
     proto_item_append_text(item, ": Mode:%s",
-        val_to_str(u32FSParameterMode, pn_io_fs_parameter_mode_vals, "0x%x"));
+        val_to_str(pinfo->pool, u32FSParameterMode, pn_io_fs_parameter_mode_vals, "0x%x"));
 
     return offset;
 }
@@ -10960,7 +13637,7 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
     {
         dissect_dcerpc_uuid_t(tvb, offset, pinfo, tree, drep, hf_pn_io_ar_uuid, &aruuid);
 
-        sub_item = proto_tree_add_item(tree, hf_pn_io_ar_uuid, tvb, offset, 16, ENC_NA);
+        sub_item = proto_tree_add_item(tree, hf_pn_io_ar_uuid, tvb, offset, 16, ENC_BIG_ENDIAN);
         sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_ar_info);
 
         proto_tree_add_item(sub_tree, hf_pn_io_ar_discriminator, tvb, offset, 6, ENC_NA);
@@ -11030,7 +13707,7 @@ dissect_ARBlockReq_block(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_cminitiator_activitytimeoutfactor, &u16TimeoutFactor);   /* XXX - special values */
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                        hf_pn_io_cminitiator_udprtport, &u16UDPRTPort);
+                        hf_pn_io_initiator_udprtport, &u16UDPRTPort);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_station_name_length, &u16NameLength);
 
@@ -11100,7 +13777,7 @@ dissect_ARBlockRes_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_cmresponder_udprtport, &u16UDPRTPort);
 
     proto_item_append_text(item, ": %s, Session:%u, MAC:%02x:%02x:%02x:%02x:%02x:%02x, Port:0x%x",
-        val_to_str(u16ARType, pn_io_ar_type, "0x%x"),
+        val_to_str(pinfo->pool, u16ARType, pn_io_ar_type, "0x%x"),
         u16SessionKey,
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
         u16UDPRTPort);
@@ -11127,7 +13804,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
     uint16_t    u16LT;
     uint16_t    u16DataLength;
     uint16_t    u16FrameID;
-    uint16_t    u16SendClockFactor;
+    uint16_t    u16GatingCycle;
     uint16_t    u16ReductionRatio;
     uint16_t    u16Phase;
     uint16_t    u16Sequence;
@@ -11187,7 +13864,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_frame_id, &u16FrameID);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                        hf_pn_io_send_clock_factor, &u16SendClockFactor);
+                        hf_pn_io_gating_cycle, &u16GatingCycle);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_reduction_ratio, &u16ReductionRatio);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
@@ -11228,9 +13905,9 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_number_of_apis, &u16NumberOfAPIs);
 
     proto_item_append_text(item, ": %s, Ref:0x%x, Len:%u, FrameID:0x%x, Clock:%u, Ratio:%u, Phase:%u APIs:%u",
-        val_to_str(u16IOCRType, pn_io_iocr_type, "0x%x"),
+        val_to_str(pinfo->pool, u16IOCRType, pn_io_iocr_type, "0x%x"),
         u16IOCRReference, u16DataLength, u16FrameID,
-        u16SendClockFactor, u16ReductionRatio, u16Phase, u16NumberOfAPIs);
+        u16GatingCycle, u16ReductionRatio, u16Phase, u16NumberOfAPIs);
 
     while (u16NumberOfAPIs--) {
         api_item = proto_tree_add_item(tree, hf_pn_io_api_tree, tvb, offset, 0, ENC_NA);
@@ -11493,7 +14170,7 @@ dissect_AlarmCRBlockReq_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_alarmcr_tagheaderlow, &u16AlarmCRTagHeaderLow);
 
     proto_item_append_text(item, ": %s, LT:0x%x, TFactor:%u, Retries:%u, Ref:0x%x, Len:%u Tag:0x%x/0x%x",
-        val_to_str(u16AlarmCRType, pn_io_alarmcr_type, "0x%x"),
+        val_to_str(pinfo->pool, u16AlarmCRType, pn_io_alarmcr_type, "0x%x"),
         u16LT, u16RTATimeoutFactor, u16RTARetries, u16LocalAlarmReference, u16MaxAlarmDataLength,
         u16AlarmCRTagHeaderHigh, u16AlarmCRTagHeaderLow);
 
@@ -11535,7 +14212,7 @@ dissect_AlarmCRBlockRes_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_maxalarmdatalength, &u16MaxAlarmDataLength);
 
     proto_item_append_text(item, ": %s, Ref:0x%04x, MaxDataLen:%u",
-        val_to_str(u16AlarmCRType, pn_io_alarmcr_type, "0x%x"),
+        val_to_str(pinfo->pool, u16AlarmCRType, pn_io_alarmcr_type, "0x%x"),
         u16LocalAlarmReference, u16MaxAlarmDataLength);
 
     if (ar != NULL) {
@@ -11566,7 +14243,7 @@ dissect_ARServerBlock(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_station_name_length, &u16NameLength);
 
-    proto_tree_add_item (tree, hf_pn_io_cminitiator_station_name, tvb, offset, u16NameLength, ENC_ASCII);
+    proto_tree_add_item (tree, hf_pn_io_cmresponder_station_name, tvb, offset, u16NameLength, ENC_ASCII);
     offset += u16NameLength;
     /* Padding to next 4 byte alignment in this block */
     u16padding = u16BodyLength - (2 + u16NameLength);
@@ -11603,7 +14280,7 @@ dissect_IOCRBlockRes_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_frame_id, &u16FrameID);
 
     proto_item_append_text(item, ": %s, Ref:0x%04x, FrameID:0x%04x",
-        val_to_str(u16IOCRType, pn_io_iocr_type, "0x%x"),
+        val_to_str(pinfo->pool, u16IOCRType, pn_io_iocr_type, "0x%x"),
         u16IOCRReference, u16FrameID);
 
     if (ar != NULL) {
@@ -11931,6 +14608,109 @@ dissect_RSInfoBlock_block(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+/* dissect ARAlgorithmInfoBlock */
+static int
+dissect_ARAlgorithmInfoBlock_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item, uint8_t* drep,
+    uint8_t u8BlockVersionHigh, uint8_t u8BlockVersionLow, uint16_t u16BodyLength _U_)
+{
+    uint16_t     u16SecurityCapabilityUsage;
+    uint16_t     u16SecurityCapabilityAlgorithm;
+
+    proto_item*     rtc_item;
+    proto_tree*     rtc_tree;
+
+    proto_item*     rta_item;
+    proto_tree*     rta_tree;
+
+    proto_item*     rpc_item;
+    proto_tree*     rpc_tree;
+
+    proto_item*     derivation_item;
+    proto_tree*     derivation_tree;
+
+    proto_item*     agreement_item;
+    proto_tree*     agreement_tree;
+
+    proto_item*     signature_item;
+    proto_tree*     signature_tree;
+
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* Padding */
+    offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+    /* Padding */
+    offset = dissect_pn_padding(tvb, offset, pinfo, tree, 1);
+
+    /* RTCAlgorithm */
+    rtc_item = proto_tree_add_item(tree, hf_pn_io_rtc_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    rtc_tree = proto_item_add_subtree(rtc_item, ett_pn_io_rtc_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, rtc_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rtc_tree, drep, hf_pn_io_security_capability_algorithm_symmetric_ao, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    /* RTAAlgorithm */
+    rta_item = proto_tree_add_item(tree, hf_pn_io_rta_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    rta_tree = proto_item_add_subtree(rta_item, ett_pn_io_rta_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep, hf_pn_io_security_capability_algorithm_symmetric_ao, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    /* RPCAlgorithm */
+    rpc_item = proto_tree_add_item(tree, hf_pn_io_rpc_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    rpc_tree = proto_item_add_subtree(rpc_item, ett_pn_io_rpc_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, rpc_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rpc_tree, drep, hf_pn_io_security_capability_algorithm_symmetric_ao, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    /* DerivationAlgorithm */
+    derivation_item = proto_tree_add_item(tree, hf_pn_io_derivation_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    derivation_tree = proto_item_add_subtree(derivation_item, ett_pn_io_derivation_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, derivation_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, derivation_tree, drep, hf_pn_io_security_capability_algorithm_key_derivation_function, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    /* AgreementAlgorithm */
+    agreement_item = proto_tree_add_item(tree, hf_pn_io_agreement_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    agreement_tree = proto_item_add_subtree(agreement_item, ett_pn_io_agreement_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, agreement_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, agreement_tree, drep, hf_pn_io_security_capability_algorithm_key_agreement_function, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    /* SignatureAlgorithm */
+    signature_item = proto_tree_add_item(tree, hf_pn_io_signature_algorithm, tvb, offset, 2, ENC_BIG_ENDIAN);
+    signature_tree = proto_item_add_subtree(signature_item, ett_pn_io_signature_algorithm);
+
+    dissect_dcerpc_uint16(tvb, offset, pinfo, signature_tree, drep, hf_pn_io_security_capability_usage, &u16SecurityCapabilityUsage);
+    u16SecurityCapabilityUsage &= 0xF;
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, signature_tree, drep, hf_pn_io_security_capability_algorithm_digital_signature_function, &u16SecurityCapabilityAlgorithm);
+    u16SecurityCapabilityAlgorithm >>= 8;
+
+    return offset;
+
+}
+
 /* dissect the PDIRSubframeData block  0x022a */
 static int
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -12052,7 +14832,7 @@ dissect_DataDescription(tvbuff_t *tvb, int offset,
                     hf_pn_io_length_iops, &u8LengthIOPS);
 
     proto_item_append_text(sub_item, ": %s, SubmoduleDataLength: %u, LengthIOCS: %u, u8LengthIOPS: %u",
-        val_to_str(u16DataDescription, pn_io_data_description, "(0x%x)"),
+        val_to_str(pinfo->pool, u16DataDescription, pn_io_data_description, "(0x%x)"),
         u16SubmoduleDataLength, u8LengthIOCS, u8LengthIOPS);
     proto_item_set_len(sub_item, offset - u32SubStart);
 
@@ -12237,62 +15017,21 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
     proto_tree *submodule_tree;
     uint32_t    u32SubStart;
 
-    /* Variable for the search of gsd file */
-    const char vendorIdStr[] = "VendorID=\"";
-    const char deviceIdStr[] = "DeviceID=\"";
-    const char moduleStr[] = "ModuleIdentNumber=\"";
-    const char subModuleStr[] = "SubmoduleIdentNumber=\"";
-    const char profisafeStr[] = "PROFIsafeSupported=\"true\"";
-    const char fParameterStr[] = "<F_ParameterRecordDataItem";
-    const char fParameterIndexStr[] = "Index=";
-    const char moduleNameInfo[] = "<Name";
-    const char moduleValueInfo[] = "Value=\"";
-
-    uint16_t searchVendorID = 0;
-    uint16_t searchDeviceID = 0;
-    bool vendorMatch;
-    bool deviceMatch;
     conversation_t *conversation;
     stationInfo    *station_info = NULL;
     ioDataObject   *io_data_object = NULL; /* Used to transfer data to fct. "dissect_DataDescription()" */
 
-    /* Variable for the search of GSD-file */
-    uint32_t read_vendor_id;
-    uint32_t read_device_id;
-    uint32_t read_module_id;
-    uint32_t read_submodule_id;
-    bool gsdmlFoundFlag;
-    char    tmp_moduletext[MAX_NAMELENGTH];
-    char    *convertStr;      /* GSD-file search */
-    char    *pch;             /* helppointer, to save temp. the found Networkpath of GSD-file */
-    char    *puffer;          /* used for fgets() during GSD-file search */
-    char    *temp;            /* used for fgets() during GSD-file search */
-    char    *diropen = NULL;  /* saves the final networkpath to open for GSD-files */
-    GDir    *dir;
-    FILE    *fp = NULL;       /* filepointer */
-    const char *filename;    /* saves the found GSD-file name */
+    /* Value from GSD file lookup */
+    gsd_dev_value_t *value = NULL;
 
     ARUUIDFrame       *current_aruuid_frame = NULL;
     uint32_t           current_aruuid = 0;
-
-    /* Helppointer initial */
-    convertStr = (char*)wmem_alloc(pinfo->pool, MAX_NAMELENGTH);
-    convertStr[0] = '\0';
-    pch = (char*)wmem_alloc(pinfo->pool, MAX_LINE_LENGTH);
-    pch[0] = '\0';
-    puffer = (char*)wmem_alloc(pinfo->pool, MAX_LINE_LENGTH);
-    puffer[0] = '\0';
-    temp = (char*)wmem_alloc(pinfo->pool, MAX_LINE_LENGTH);
-    temp[0] = '\0';
 
     /* Initial */
     io_data_object = wmem_new0(wmem_file_scope(), ioDataObject);
     io_data_object->profisafeSupported = false;
     io_data_object->moduleNameStr = (char*)wmem_alloc(wmem_file_scope(), MAX_NAMELENGTH);
     (void) g_strlcpy(io_data_object->moduleNameStr, "Unknown", MAX_NAMELENGTH);
-    vendorMatch = false;
-    deviceMatch = false;
-    gsdmlFoundFlag = false;
 
 
     if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
@@ -12330,78 +15069,19 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
         station_info->gsdFound = false;
         station_info->gsdPathLength = false;
 
-        /* Set searchVendorID and searchDeviceID for GSDfile search */
-        searchVendorID = station_info->u16Vendor_id;
-        searchDeviceID = station_info->u16Device_id;
+        const gsd_dev_key_t search_key = {.vendor_id = station_info->u16Vendor_id,
+                                          .device_id = station_info->u16Device_id};
 
         /* Use the given GSD-file networkpath of the PNIO-Preference */
         if(pnio_ps_networkpath[0] != '\0') {   /* check the length of the given networkpath (array overflow protection) */
             station_info->gsdPathLength = true;
 
-            if ((dir = g_dir_open(pnio_ps_networkpath, 0, NULL)) != NULL) {
-                /* Find all GSD-files within directory */
-                while ((filename = g_dir_read_name(dir)) != NULL) {
-
-                    /* ---- complete the path to open a GSD-file ---- */
-                    diropen = wmem_strdup_printf(pinfo->pool, "%s" G_DIR_SEPARATOR_S "%s", pnio_ps_networkpath, filename);
-
-                    /* ---- Open the found GSD-file  ---- */
-                    fp = ws_fopen(diropen, "r");
-
-                    if(fp != NULL) {
-                        /* ---- Get VendorID & DeviceID ---- */
-                        while(pn_fgets(puffer, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL) {
-                            /* ----- VendorID ------ */
-                            if((strstr(puffer, vendorIdStr)) != NULL) {
-                                memset (convertStr, 0, sizeof(*convertStr));
-                                pch = strstr(puffer, vendorIdStr);
-                                if (pch!= NULL && sscanf(pch, "VendorID=\"%199[^\"]", convertStr) == 1) {
-                                    read_vendor_id = (uint32_t) strtoul (convertStr, NULL, 0);
-
-                                    if(read_vendor_id == searchVendorID) {
-                                        vendorMatch = true;        /* found correct VendorID */
-                                    }
-                                }
-                            }
-
-                            /* ----- DeviceID ------ */
-                            if((strstr(puffer, deviceIdStr)) != NULL) {
-                                memset(convertStr, 0, sizeof(*convertStr));
-                                pch = strstr(puffer, deviceIdStr);
-                                if (pch != NULL && sscanf(pch, "DeviceID=\"%199[^\"]", convertStr) == 1) {
-                                    read_device_id = (uint32_t)strtoul(convertStr, NULL, 0);
-
-                                    if(read_device_id == searchDeviceID) {
-                                        deviceMatch = true;        /* found correct DeviceID */
-                                    }
-                                }
-                            }
-                        }
-
-                        fclose(fp);
-                        fp = NULL;
-
-                        if(vendorMatch && deviceMatch) {
-                            break;        /* Found correct GSD-file! -> Break the searchloop */
-                        }
-                        else {
-                            /* Couldn't find the correct GSD-file to the corresponding device */
-                            vendorMatch = false;
-                            deviceMatch = false;
-                            gsdmlFoundFlag = false;
-                            diropen = "";           /* reset array for next search */
-                        }
-                    }
-                }
-
-                g_dir_close(dir);
-            }
+            value = wmem_map_lookup(pnio_gsd_device_map, &search_key);
 
             /* ---- Found the correct GSD-file -> set Flag and save the completed path ---- */
-            if(vendorMatch && deviceMatch) {
-                gsdmlFoundFlag = true;
+            if (value) {
                 station_info->gsdFound = true;
-                station_info->gsdLocation = wmem_strdup(wmem_file_scope(), diropen);
+                station_info->gsdLocation = wmem_strdup(wmem_file_scope(), value->filename);
             }
             else {
                 /* Copy searchpath to array for a detailed output message in cyclic data dissection */
@@ -12504,108 +15184,17 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
             io_data_object->fParameterIndexNr = 0;
             io_data_object->profisafeSupported = false;
 
-            if (diropen != NULL) {
-                fp = ws_fopen(diropen, "r");
-            }
-            else {
-                fp = NULL;
-            }
-            if(fp != NULL && gsdmlFoundFlag) {
-                fseek(fp, 0, SEEK_SET);
-
-                /* Find Indexnumber for fParameter */
-                while(pn_fgets(temp, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL) {
-                    if((strstr(temp, fParameterStr)) != NULL) {
-                        memset (convertStr, 0, sizeof(*convertStr));
-
-                        pch = strstr(temp, fParameterIndexStr);
-                        if (pch != NULL && sscanf(pch, "Index=\"%199[^\"]", convertStr) == 1) {
-                            io_data_object->fParameterIndexNr = (uint32_t)strtoul(convertStr, NULL, 0);
-                        }
-                        break;    /* found Indexnumber -> break search loop */
-                    }
+            if (value != NULL) {
+                gsm_dev_module_t *module = wmem_map_lookup(value->modules, GUINT_TO_POINTER(io_data_object->moduleIdentNr));
+                if (module) {
+                    io_data_object->amountInGSDML = module->amountInGSDML;
+                    io_data_object->moduleNameStr = module->text;
                 }
-
-                memset (temp, 0, sizeof(*temp));
-                fseek(fp, 0, SEEK_SET);                /* Set filepointer to the beginning */
-
-                while(pn_fgets(temp, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL) {
-                    if((strstr(temp, moduleStr)) != NULL) {                         /* find the String "ModuleIdentNumber=" */
-                        memset (convertStr, 0, sizeof(*convertStr));
-                        pch = strstr(temp, moduleStr);                              /* search for "ModuleIdentNumber=\"" within GSD-file */
-                        if (pch != NULL && sscanf(pch, "ModuleIdentNumber=\"%199[^\"]", convertStr) == 1) {  /* Change format of Value string-->numeric string */
-                            read_module_id = (uint32_t)strtoul(convertStr, NULL, 0);     /* Change numeric string --> unsigned long; read_module_id contains the Value of the ModuleIdentNumber */
-
-                            /* If the found ModuleID matches with the wanted ModuleID, search for the Submodule and break */
-                            if (read_module_id == io_data_object->moduleIdentNr) {
-                                ++io_data_object->amountInGSDML;    /* Save the amount of same (!) Module- & SubmoduleIdentNr in one GSD-file */
-
-                                while(pn_fgets(temp, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL) {
-                                    if((strstr(temp, moduleNameInfo)) != NULL) {                    /* find the String "<Name" for the TextID */
-                                        long filePosRecord;
-
-                                        if (sscanf(temp, "%*s TextId=\"%199[^\"]", tmp_moduletext) != 1)        /* saves the correct TextId for the next searchloop */
-                                            break;
-
-                                        filePosRecord = ftell(fp);            /* save the current position of the filepointer (Offset) */
-                                        /* ftell() may return -1 for error, don't move fp in this case */
-                                        if (filePosRecord >= 0) {
-                                            while (pn_fgets(temp, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL && io_data_object->amountInGSDML == 1) {
-                                                /* Find a String with the saved TextID and with a fitting value for it in the same line. This value is the name of the Module! */
-                                                if(((strstr(temp, tmp_moduletext)) != NULL) && ((strstr(temp, moduleValueInfo)) != NULL)) {
-                                                    pch = strstr(temp, moduleValueInfo);
-                                                    if (pch != NULL && sscanf(pch, "Value=\"%199[^\"]", io_data_object->moduleNameStr) == 1)
-                                                        break;    /* Found the name of the module */
-                                                }
-                                            }
-
-                                            fseek(fp, filePosRecord, SEEK_SET);    /* set filepointer to the correct TextID */
-                                        }
-                                    }
-
-                                    /* Search for Submoduleidentnumber in GSD-file */
-                                    if((strstr(temp, subModuleStr)) != NULL) {
-                                        memset (convertStr, 0, sizeof(*convertStr));
-                                        pch = strstr(temp, subModuleStr);
-                                        if (pch != NULL && sscanf(pch, "SubmoduleIdentNumber=\"%199[^\"]", convertStr) == 1) {
-                                            read_submodule_id = (uint32_t) strtoul (convertStr, NULL, 0);    /* read_submodule_id contains the Value of the SubModuleIdentNumber */
-
-                                            /* Find "PROFIsafeSupported" flag of the module in GSD-file */
-                                            if(read_submodule_id == io_data_object->subModuleIdentNr) {
-                                                if((strstr(temp, profisafeStr)) != NULL) {
-                                                    io_data_object->profisafeSupported = true;   /* flag is in the same line as SubmoduleIdentNr */
-                                                    break;
-                                                }
-                                                else {    /* flag is not in the same line as Submoduleidentnumber -> search for it */
-                                                    while(pn_fgets(temp, MAX_LINE_LENGTH, fp, pinfo->pool) != NULL) {
-                                                        if((strstr(temp, profisafeStr)) != NULL) {
-                                                            io_data_object->profisafeSupported = true;
-                                                            break;    /* Found the PROFIsafeSupported flag of the module */
-                                                        }
-
-                                                        else if((strstr(temp, ">")) != NULL) {
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                break;    /* Found the PROFIsafe Module */
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                gsm_dev_submodule_t *submodule = wmem_map_lookup(value->submodules, GUINT_TO_POINTER(io_data_object->subModuleIdentNr));
+                if (submodule) {
+                    io_data_object->profisafeSupported = submodule->profisafe;
+                    io_data_object->fParameterIndexNr = submodule->f_parameter_index;
                 }
-
-                fclose(fp);
-                fp = NULL;
-            }
-
-            if(fp != NULL)
-            {
-                fclose(fp);
-                fp = NULL;
             }
 
             switch (u16SubmoduleProperties & 0x03) {
@@ -12723,7 +15312,7 @@ dissect_ModuleDiffBlock_block(tvbuff_t *tvb, int offset,
 
             proto_item_append_text(module_item, ": Slot 0x%x, Ident: 0x%x State: %s Submodules: %u",
                 u16SlotNr, u32ModuleIdentNumber,
-                val_to_str(u16ModuleState, pn_io_module_state, "(0x%x)"),
+                val_to_str(pinfo->pool, u16ModuleState, pn_io_module_state, "(0x%x)"),
                 u16NumberOfSubmodules);
 
 
@@ -12887,7 +15476,7 @@ dissect_CommunityName_block(tvbuff_t *tvb, int offset,
     offset += 1;
 
     /* community Name */
-    proto_tree_add_item(sub_tree, hf_pn_io_snmp_community_name, tvb, offset, u8CommunityNameLength, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(sub_tree, hf_pn_io_snmp_community_name, tvb, offset, u8CommunityNameLength, ENC_ASCII);
 
     proto_item_append_text(sub_item, ": %s",
         tvb_get_string_enc(pinfo->pool, tvb, offset, u8CommunityNameLength, ENC_ASCII|ENC_NA));
@@ -12924,6 +15513,25 @@ dissect_CIMSNMPAdjust_block(tvbuff_t *tvb, int offset,
 
     return offset;
 }
+
+/* CIMSNMPReal */
+static int
+dissect_CIMSNMPReal_block(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, proto_item* item _U_, guint8* drep, guint8 u8BlockVersionHigh, guint8 u8BlockVersionLow)
+{
+    if (u8BlockVersionHigh != 1 || u8BlockVersionLow != 0) {
+        expert_add_info_format(pinfo, item, &ei_pn_io_block_version,
+            "Block version %u.%u not implemented yet!", u8BlockVersionHigh, u8BlockVersionLow);
+        return offset;
+    }
+
+    /* SNMPControl */
+    proto_tree_add_item(tree, hf_pn_io_snmp_control, tvb, offset, 2, DREP_ENC_INTEGER(drep));
+    offset += 2;
+
+    return offset;
+}
+
 
 /* dissect the MultipleBlockHeader block */
 static int
@@ -13245,17 +15853,32 @@ dissect_block(tvbuff_t *tvb, int offset,
                         hf_pn_io_block_type, &u16BlockType);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, header_tree, drep,
                         hf_pn_io_block_length, &u16BlockLength);
+
+    if ((u16BlockType == 0x0000) && (u16BlockLength == 0x0000))
+    {
+        if (sub_item != NULL)
+            proto_item_set_hidden(sub_item);
+        return -1;
+    }
+
     offset = dissect_dcerpc_uint8(tvb, offset, pinfo, header_tree, drep,
                         hf_pn_io_block_version_high, &u8BlockVersionHigh);
     offset = dissect_dcerpc_uint8(tvb, offset, pinfo, header_tree, drep,
                         hf_pn_io_block_version_low, &u8BlockVersionLow);
 
+    if (try_val_to_str(u16BlockType, pn_io_block_type) == NULL)
+    {
+        if (sub_item != NULL)
+            proto_item_set_hidden(sub_item);
+        return -1;
+    }
+
     proto_item_append_text(header_item, ": Type=%s, Length=%u(+4), Version=%u.%u",
-        val_to_str(u16BlockType, pn_io_block_type, "Unknown (0x%04x)"),
+        val_to_str(pinfo->pool, u16BlockType, pn_io_block_type, "Unknown (0x%04x)"),
         u16BlockLength, u8BlockVersionHigh, u8BlockVersionLow);
 
     proto_item_set_text(sub_item, "%s",
-        val_to_str(u16BlockType, pn_io_block_type, "Unknown (0x%04x)"));
+        val_to_str(pinfo->pool, u16BlockType, pn_io_block_type, "Unknown (0x%04x)"));
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ", %s",
         val_to_str_const(u16BlockType, pn_io_block_type, "Unknown"));
@@ -13266,9 +15889,9 @@ dissect_block(tvbuff_t *tvb, int offset,
     remainingBytes = tvb_reported_length_remaining(tvb, offset);
     if (remainingBytes < 0)
         remainingBytes = 0;
-    if (remainingBytes +2 < u16BodyLength)
+    if (remainingBytes +2 < u16BlockLength)
     {
-        proto_item_append_text(sub_item, " Block_Length: %d greater than remaining Bytes, trying with Blocklen = remaining (%d)", u16BodyLength, remainingBytes);
+        proto_item_append_text(sub_item, " Block_Length: %d greater than remaining Bytes, trying with Blocklen = remaining (%d)", u16BlockLength, remainingBytes);
         u16BodyLength = remainingBytes;
     }
     increment_dissection_depth(pinfo);
@@ -13393,6 +16016,9 @@ dissect_block(tvbuff_t *tvb, int offset,
     case(0x010C):
         dissect_RSInfoBlock_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
         break;
+    case(0x010D):
+        dissect_ARAlgorithmInfoBlock_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
+        break;
     case(0x0110):
     case(0x0111):
     case(0x0112):
@@ -13410,7 +16036,12 @@ dissect_block(tvbuff_t *tvb, int offset,
     case(0x0119):
         dissect_SubmoduleListBlock(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength, ar);
         break;
-
+    case(0x011A):
+        dissect_SecurityRequest_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
+        break;
+    case (0x011B):
+        dissect_ARUUID_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
     case(0x0200): /* PDPortDataCheck */
         dissect_PDPortData_Check_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow,
             u16BodyLength);
@@ -13577,52 +16208,58 @@ dissect_block(tvbuff_t *tvb, int offset,
         dissect_Neighbors_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0270):
-        dissect_TSNNetworkControlDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMNetConfDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
         break;
     case(0x0271):
-        dissect_TSNNetworkControlDataAdjust_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMNetConfDataAdjust_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
         break;
     case(0x0272):
-        dissect_TSNDomainPortConfig_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationPortStatus_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0273):
-        dissect_TSNDomainQueueConfig_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationQueueConfig_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0274):
-        dissect_TSNTimeData_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_NMEDomainTimeData_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0275):
-        dissect_TSNStreamPathDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, false);
+        dissect_CIMNetConfStreamPathDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, FALSE);
         break;
     case(0x0276):
-        dissect_TSNSyncTreeData_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMNetConfSyncTreeData_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0277):
-        dissect_TSNUploadNetworkAttributes_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMNetConfUploadNetworkAttributes_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0278):
-        dissect_TSNForwardingDelay_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationForwardingDelay_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0279):
-        dissect_TSNExpectedNetworkAttributes_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMNetConfExpectedNetworkAttributes_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x027A):
-        dissect_TSNStreamPathDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, true);
-    break;
+        dissect_CIMNetConfStreamPathDataReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, TRUE);
+	break;
     case(0x027B):
-        dissect_TSNDomainPortIngressRateLimiter_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationPortIngressRateLimiter_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x027C):
-        dissect_TSNDomainQueueRateLimiter_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationEgressRateLimiter_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x027D):
-        dissect_TSNPortID_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationPortCapabilities_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x027E):
-        dissect_TSNExpectedNeighbor_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
+        dissect_CIMStationExpectedNeighbor_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
-    case(0x0300):
+    case(0x027F):
+        dissect_NMEDomainConfigReal_block(tvb, offset, pinfo, sub_tree, sub_item, u8BlockVersionHigh, u8BlockVersionLow);
+        break;
+    case(0x300):
         dissect_CIMSNMPAdjust_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
+        break;
+    case(0x302):
+        dissect_CIMSNMPReal_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow);
         break;
     case(0x0400):
         dissect_MultipleBlockHeader_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
@@ -13710,6 +16347,9 @@ dissect_block(tvbuff_t *tvb, int offset,
     case(0x8118):
         dissect_ControlPlugOrConnect_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, ar, u16BlockType);
         break;
+    case(0x811A):
+        dissect_SecurityResponse_block(tvb, offset, pinfo, sub_tree, sub_item, drep, u8BlockVersionHigh, u8BlockVersionLow, u16BodyLength);
+        break;
     default:
         dissect_pn_undecoded(tvb, offset, pinfo, sub_tree, u16BodyLength);
     }
@@ -13753,7 +16393,11 @@ dissect_blocks(tvbuff_t *tvb, int offset,
 
 
     while (tvb_captured_length(tvb) > (unsigned) offset) {
-        offset = dissect_block(tvb, offset, pinfo, tree, drep, &u16Index, &u32RecDataLen, &ar);
+        int result = dissect_block(tvb, offset, pinfo, tree, drep, &u16Index, &u32RecDataLen, &ar);
+        if (result > 0)
+            offset = result;
+        else
+            return offset;
         u16Index++;
     }
 
@@ -13956,6 +16600,7 @@ dissect_ProfiDriveParameterRequest(tvbuff_t *tvb, int offset,
         for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
             uint8_t format;
             uint8_t no_of_vals;
+            uint8_t org_no_of_vals;
             proto_item *sub_item;
             proto_tree *sub_tree;
 
@@ -13970,11 +16615,14 @@ dissect_ProfiDriveParameterRequest(tvbuff_t *tvb, int offset,
 
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
                 val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
+            org_no_of_vals = no_of_vals;
 
             while (no_of_vals--)
             {
                 offset = dissect_profidrive_value(tvb, offset, pinfo, sub_tree, drep, format);
             }
+
+            offset = adjust_profidrive_padding(tvb, offset, pinfo, sub_tree, format, org_no_of_vals);
         }
     }
 
@@ -14015,6 +16663,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
         for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
             uint8_t format;
             uint8_t no_of_vals;
+            uint8_t org_no_of_vals;
             proto_item *sub_item;
             proto_tree *sub_tree;
 
@@ -14030,10 +16679,14 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
                 val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
 
+            org_no_of_vals = no_of_vals;
+
             while (no_of_vals--)
             {
                 offset = dissect_profidrive_value(tvb, offset, pinfo, sub_tree, drep, format);
             }
+
+            offset = adjust_profidrive_padding(tvb, offset, pinfo, sub_tree, format, org_no_of_vals);
         }
     }
 
@@ -14045,6 +16698,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
          for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
             uint8_t format;
             uint8_t no_of_vals;
+            uint8_t org_no_of_vals;
             uint16_t value16;
             proto_item *sub_item;
             proto_tree *sub_tree;
@@ -14089,9 +16743,11 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
                     }
                 }
             }else{
+                org_no_of_vals = no_of_vals;
                 while (no_of_vals--){
                     offset = dissect_profidrive_value(tvb, offset, pinfo, sub_tree, drep, format);
                 }
+                offset = adjust_profidrive_padding(tvb, offset, pinfo, sub_tree, format, org_no_of_vals);
             }
         }
     }
@@ -14197,11 +16853,6 @@ dissect_RecordDataRead(tvbuff_t *tvb, int offset,
     case(0x8052):   /* PDInterfaceMrpDataAdjust for one subslot */
     case(0x8053):   /* PDPortMrpDataAdjust for one subslot */
     case(0x8054):   /* PDPortMrpDataReal for one subslot */
-    case(0x80F0):   /* TSNNetworkControlDataReal */
-    case(0x80F2):   /* TSNSyncTreeData */
-    case(0x80F3):   /* TSNUploadNetworkAttributes */
-    case(0x80F4):   /* TSNExpectedNetworkAttributes */
-    case(0x80F5):   /* TSNNetworkControlDataAdjust */
     case(0x8060):   /* PDPortFODataReal for one subslot */
     case(0x8061):   /* PDPortFODataCheck for one subslot */
     case(0x8062):   /* PDPortFODataAdjust for one subslot */
@@ -14213,9 +16864,14 @@ dissect_RecordDataRead(tvbuff_t *tvb, int offset,
     case(0x80A0):   /* PROFIenergy ServiceRecord */
     case(0x80AF):   /* PE_EntityStatusData for one subslot */
     case(0x80CF):   /* RS_AdjustObserver */
-
+    case(0x80F0):   /* CIMNetConfDataReal */
+    case(0x80F2):   /* CIMNetConfSyncTreeData */
+    case(0x80F3):   /* CIMNetConfUploadNetworkAttributes */
+    case(0x80F4):   /* CIMNetConfExpectedNetworkAttributes */
+    case(0x80F5):   /* CIMNetConfDataAdjust */
     case(0x8200):   /* CIMSNMPAdjust */
 
+    case(0x8201):   /* CIMSNMPReal */
     case(0xaff0):   /* I&M0 */
     case(0xaff1):   /* I&M1 */
     case(0xaff2):   /* I&M2 */
@@ -14682,6 +17338,7 @@ dissect_RecordDataWrite(tvbuff_t *tvb, int offset,
     case(0x80B0):   /* CombinedObjectContainer*/
     case(0x80CF):   /* RS_AdjustObserver */
     case(0x8200):   /* CIMSNMPAdjust */
+    case(0x8201):   /* CIMSNMPReal */
     case(0xaff1):   /* I&M1 */
     case(0xaff2):   /* I&M2 */
     case(0xaff3):   /* I&M3 */
@@ -14857,6 +17514,10 @@ dissect_rsi_blocks(tvbuff_t* tvb, int offset,
             offset = dissect_IODWriteReq(tvb, offset, pinfo, tree, drep, &ar, recursion_count);
         else if (type == PDU_TYPE_RSP)
             offset = dissect_IODWriteRes(tvb, offset, pinfo, tree, drep);
+        break;
+    case(0xA): // SecurityAssociationControl request or response
+    //    offset = dissect_SecurityAssociationControl(tvb, offset, pinfo, tree, drep);
+        offset = dissect_blocks(tvb, offset, pinfo, tree, drep);
         break;
     default:
         col_append_str(pinfo->cinfo, COL_INFO, "Reserved");
@@ -15037,6 +17698,134 @@ dissect_PNIO_RTA(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+static int
+dissect_PNIO_RTA_with_security(tvbuff_t* tvb, int offset,
+    packet_info* pinfo, proto_tree* tree, uint8_t* drep)
+{
+    uint8_t      u8PDUType;
+    uint8_t      u8PDUVersion;
+    uint8_t      u8WindowSize;
+    uint8_t      u8Tack;
+    uint8_t      u8ProtectionMode;
+    uint8_t      u8InformationReserved;
+    uint16_t     u16AlarmDstEndpoint;
+    uint16_t     u16AlarmSrcEndpoint;
+    uint16_t     u16SendSeqNum;
+    uint16_t     u16AckSeqNum;
+    uint16_t     u16VarPartLen;
+    int         start_offset = offset;
+    uint16_t     u16Index = 0;
+    uint16_t     u16LengthSecurityData;
+    uint32_t     u32RecDataLen;
+    pnio_ar_t* ar = NULL;
+
+
+    proto_item* rta_item;
+    proto_tree* rta_tree;
+
+    proto_item* sub_item;
+    proto_tree* sub_tree;
+
+    proto_item* security_item;
+    proto_tree* security_tree;
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "PNIO-ALsec");
+
+    rta_item = proto_tree_add_protocol_format(tree, proto_pn_io, tvb, offset, tvb_captured_length(tvb),
+        "PROFINET IO Alarm with security");
+    rta_tree = proto_item_add_subtree(rta_item, ett_pn_io_rta);
+
+    /* SecurityMetaData block */
+    security_item = proto_tree_add_item(rta_tree, hf_pn_io_security, tvb, offset, 8, ENC_NA);
+    security_tree = proto_item_add_subtree(security_item, ett_pn_io_security);
+
+    proto_tree* information_tree = proto_item_add_subtree(security_item, ett_pn_io_security);
+
+    dissect_dcerpc_uint8(tvb, offset, pinfo, information_tree, drep, hf_pn_io_security_information_protection_mode, &u8ProtectionMode);
+    u8ProtectionMode &= 0x01;
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, information_tree, drep, hf_pn_io_security_information_reserved, &u8InformationReserved);
+    u8InformationReserved >>= 1;
+
+    offset = dissect_SecurityMetaData_block(tvb, offset, pinfo, security_item, security_tree, drep);
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep,
+        hf_pn_io_alarm_dst_endpoint, &u16AlarmDstEndpoint);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep,
+        hf_pn_io_alarm_src_endpoint, &u16AlarmSrcEndpoint);
+
+    col_append_fstr(pinfo->cinfo, COL_INFO, ", Src: 0x%x, Dst: 0x%x",
+        u16AlarmSrcEndpoint, u16AlarmDstEndpoint);
+
+    /* PDU type */
+    sub_item = proto_tree_add_item(rta_tree, hf_pn_io_pdu_type, tvb, offset, 1, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_pdu_type);
+    dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
+        hf_pn_io_pdu_type_type, &u8PDUType);
+    u8PDUType &= 0x0F;
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
+        hf_pn_io_pdu_type_version, &u8PDUVersion);
+    u8PDUVersion >>= 4;
+    proto_item_append_text(sub_item, ", Type: %s, Version: %u",
+        val_to_str_const(u8PDUType, pn_io_pdu_type, "Unknown"),
+        u8PDUVersion);
+
+    /* additional flags */
+    sub_item = proto_tree_add_item(rta_tree, hf_pn_io_add_flags, tvb, offset, 1, ENC_NA);
+    sub_tree = proto_item_add_subtree(sub_item, ett_pn_io_add_flags);
+    dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
+        hf_pn_io_window_size, &u8WindowSize);
+    u8WindowSize &= 0x0F;
+    offset = dissect_dcerpc_uint8(tvb, offset, pinfo, sub_tree, drep,
+        hf_pn_io_tack, &u8Tack);
+    u8Tack >>= 4;
+    proto_item_append_text(sub_item, ", Window Size: %u, Tack: %u",
+        u8WindowSize, u8Tack);
+
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep,
+        hf_pn_io_send_seq_num, &u16SendSeqNum);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep,
+        hf_pn_io_ack_seq_num, &u16AckSeqNum);
+    offset = dissect_dcerpc_uint16(tvb, offset, pinfo, rta_tree, drep,
+        hf_pn_io_var_part_len, &u16VarPartLen);
+
+    switch (u8PDUType & 0x0F) {
+    case(1):    /* Data-RTA */
+        col_append_str(pinfo->cinfo, COL_INFO, ", Data-RTA");
+        offset = dissect_block(tvb, offset, pinfo, rta_tree, drep, &u16Index, &u32RecDataLen, &ar);
+        break;
+    case(2):    /* NACK-RTA */
+        col_append_str(pinfo->cinfo, COL_INFO, ", NACK-RTA");
+        /* no additional data */
+        break;
+    case(3):    /* ACK-RTA */
+        col_append_str(pinfo->cinfo, COL_INFO, ", ACK-RTA");
+        /* no additional data */
+        break;
+    case(4):    /* ERR-RTA */
+        col_append_str(pinfo->cinfo, COL_INFO, ", ERR-RTA");
+        offset = dissect_PNIO_status(tvb, offset, pinfo, rta_tree, drep);
+        break;
+    default:
+        offset = dissect_pn_undecoded(tvb, offset, pinfo, tree, tvb_captured_length(tvb));
+    }
+
+    if (u8ProtectionMode == 0x00)
+        offset = dissect_SecurityChecksum(tvb, offset, rta_tree);
+    else if (u8ProtectionMode == 0x01)
+    {
+        u16LengthSecurityData = tvb_captured_length_remaining(tvb, offset);
+        proto_tree_add_item(rta_tree, hf_pn_io_security_data, tvb, offset, u16LengthSecurityData, ENC_NA);
+        proto_item* security_data_item = proto_tree_add_protocol_format(rta_tree, proto_pn_io, tvb, offset, u16LengthSecurityData,
+            "PROFINET IO Secure Data");
+        proto_item_set_hidden(security_data_item);
+        offset += u16LengthSecurityData;
+    }
+
+    proto_item_set_len(rta_item, offset - start_offset);
+
+    return offset;
+
+}
 
 /* possibly dissect a PN-IO related PN-RT packet */
 static bool
@@ -15050,6 +17839,9 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     heur_dtbl_entry_t *hdtbl_entry;
     conversation_t* conversation;
     uint8_t isTimeAware = false;
+    uint8_t   u8ProtectionMode;
+    uint16_t  u16SecurityLength;
+    int       security_data = 0;
 
     /*
      * In case the packet is a protocol encoded in the basic PNIO transport stream,
@@ -15071,8 +17863,20 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     if (((u16FrameID >= 0x0100 && u16FrameID <= 0x06FF) || /* RTC3 non redundant */
         (u16FrameID >= 0x0700 && u16FrameID <= 0x0fff)) && /* RTC3 redundant */
         !isTimeAware) {
-        dissect_CSF_SDU_heur(tvb, pinfo, tree, data);
-        return true;
+            u8ProtectionMode = tvb_get_uint8(tvb, 0);
+            u8ProtectionMode &= 0x01;
+            u16SecurityLength = tvb_get_uint16(tvb, 6, ENC_BIG_ENDIAN);
+
+            if (u8ProtectionMode == 0x01)
+                security_data = tvb_captured_length_remaining(tvb, 8) - 16; /* Exclude SecurityChecksum, which is encrypted */
+            else if (u8ProtectionMode == 0x00)
+                security_data = tvb_captured_length_remaining(tvb, 8) + 4; /* Include cyclic status fields */
+
+            if (u16SecurityLength == security_data)
+                dissect_RTC3_with_security(tvb, 0, pinfo, tree, drep, data);
+            else
+                dissect_CSF_SDU_heur(tvb, pinfo, tree, data);
+            return true;
     }
 
     /* is this a PNIO class stream data packet? */
@@ -15095,8 +17899,47 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* is this a PNIO class 1 data packet? */
     /* frame id must be in valid range (cyclic Real-Time, class=1) and
      * first byte (CBA version field) has to be != 0x11 */
-    if (u16FrameID >= 0x8000 && u16FrameID < 0xbfff) {
-        dissect_PNIO_C_SDU_RTC1(tvb, 0, pinfo, tree, drep, u16FrameID);
+    /* if it is a PNIO class 1 data packet, is it secured? */
+    /* SecurityLength in SecurityMetaData must match with the length of the security
+     * data to consider as a PNIO class 1 data packet with security */
+    if (u16FrameID >= 0x8000 && u16FrameID < 0xbbff) {
+        u8ProtectionMode = tvb_get_uint8(tvb, 0);
+        u8ProtectionMode &= 0x01;
+        u16SecurityLength = tvb_get_uint16(tvb, 6, ENC_BIG_ENDIAN);
+
+        if (u8ProtectionMode == 0x01)
+            security_data = tvb_captured_length_remaining(tvb, 8) - 16; /* Exclude SecurityChecksum, which is encrypted */
+        else if (u8ProtectionMode == 0x00)
+            security_data = tvb_captured_length_remaining(tvb, 8) + 4; /* Include cyclic status fields */
+
+        extract_pnio_objects_withoutAR(pinfo);
+        if (u16SecurityLength == security_data)
+            dissect_PNIO_RTC1_with_security(tvb, 0, pinfo, tree, drep, u16FrameID);
+        else
+            dissect_PNIO_C_SDU_RTC1(tvb, 0, pinfo, tree, drep, u16FrameID);
+        return true;
+    }
+
+    /* is this a PNIO class 1 data packet? */
+    /* frame id must be in valid range (cyclic Real-Time, class=1, multicast) and
+     * first byte (CBA version field) has to be != 0x11 */
+     /* if it is a PNIO class 1 data packet, is it secured? */
+     /* SecurityLength in SecurityMetaData must match with the length of the security
+      * data to consider as a PNIO class 1 data packet with security */
+    if (u16FrameID >= 0xbc00 && u16FrameID < 0xbfff) {
+        u8ProtectionMode = tvb_get_uint8(tvb, 0);
+        u8ProtectionMode &= 0x01;
+        u16SecurityLength = tvb_get_uint16(tvb, 6, ENC_BIG_ENDIAN);
+
+        if (u8ProtectionMode == 0x01)
+            security_data = tvb_captured_length_remaining(tvb, 8) - 16; /* Exclude SecurityChecksum, which is encrypted */
+        else if (u8ProtectionMode == 0x00)
+            security_data = tvb_captured_length_remaining(tvb, 8) + 4; /* Include cyclic status fields */
+
+        if (u16SecurityLength == security_data)
+            dissect_PNIO_RTC1_with_security(tvb, 0, pinfo, tree, drep, u16FrameID);
+        else
+            dissect_PNIO_C_SDU_RTC1(tvb, 0, pinfo, tree, drep, u16FrameID);
         return true;
     }
 
@@ -15104,6 +17947,7 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* frame id must be in valid range (cyclic Real-Time, class=1, legacy) and
      * first byte (CBA version field) has to be != 0x11 */
     if (u16FrameID >= 0xc000 && u16FrameID < 0xfbff) {
+        extract_pnio_objects_withoutAR(pinfo);
         dissect_PNIO_C_SDU_RTC1(tvb, 0, pinfo, tree, drep, u16FrameID);
         return true;
     }
@@ -15127,6 +17971,26 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* is this a Remote Service Interface (RSI) packet*/
     if (u16FrameID == 0xfe02) {
         dissect_PNIO_RSI(tvb, 0, pinfo, tree, drep);
+        return true;
+    }
+    /* is this a PNIO high priority alarm packet? */
+    if (u16FrameID == 0xfc41) {
+        col_set_str(pinfo->cinfo, COL_INFO, "Alarm High");
+
+        dissect_PNIO_RTA_with_security(tvb, 0, pinfo, tree, drep);
+        return true;
+    }
+
+    if (u16FrameID == 0xfe41) {
+        col_set_str(pinfo->cinfo, COL_INFO, "Alarm Low");
+
+        dissect_PNIO_RTA_with_security(tvb, 0, pinfo, tree, drep);
+        return true;
+    }
+
+    /* is this a Remote Service Interface (RSI) packet with security? */
+    if (u16FrameID == 0xfe42) {
+        dissect_PNIO_RSI_with_security(tvb, 0, pinfo, tree, drep);
         return true;
     }
 
@@ -15240,11 +18104,20 @@ pnio_cleanup(void) {
     pnio_ars = NULL;
 }
 
+static void
+pnio_shutdown(void) {
+    if (pnio_pref_scope) {
+        wmem_destroy_allocator(pnio_pref_scope);
+        pnio_pref_scope = NULL;
+    }
+}
 
 static void
 pnio_setup(void) {
     aruuid_frame_setup_list = wmem_list_new(wmem_file_scope());
-    pnio_time_aware_frame_map = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
+    conversation_address_list = wmem_list_new(wmem_file_scope());
+    stateflag = wmem_alloc0(wmem_file_scope(), sizeof(uint8_t));
+    *stateflag = 0;
 }
 
 
@@ -15354,7 +18227,12 @@ proto_register_pn_io (void)
     },
     { &hf_pn_io_ar_properties_reserved,
       { "Reserved", "pn_io.ar_properties.reserved",
-        FT_UINT32, BASE_HEX, NULL, 0x0FFFF000,
+        FT_UINT32, BASE_HEX, NULL, 0x07FFF000,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_ar_properties_reject_dcp_set_request,
+      { "RejectDCPsetRequests", "pn_io.ar_properties.reject_dcp_set_request",
+        FT_UINT32, BASE_HEX, VALS(pn_io_arproperties_reject_dcp_set_request), 0x08000000,
         NULL, HFILL }
     },
     { &hf_pn_io_ar_properties_time_aware_system,
@@ -15403,9 +18281,9 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },  /* XXX - special values */
-    { &hf_pn_io_cminitiator_udprtport,
-      { "CMInitiatorUDPRTPort", "pn_io.cminitiator_udprtport",
-        FT_UINT16, BASE_HEX, NULL, 0x0,
+    { &hf_pn_io_initiator_udprtport,
+      { "InitiatorUDPRTPort", "pn_io.initiator_udprtport",
+        FT_UINT16, BASE_PT_UDP, NULL, 0x0,
         NULL, HFILL }
     },  /* XXX - special values */
     { &hf_pn_io_station_name_length,
@@ -15415,6 +18293,11 @@ proto_register_pn_io (void)
     },
     { &hf_pn_io_cminitiator_station_name,
       { "CMInitiatorStationName", "pn_io.cminitiator_station_name",
+        FT_STRING, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_cmresponder_station_name,
+      { "CMResponderStationName", "pn_io.cmresponder_station_name",
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
@@ -15430,7 +18313,7 @@ proto_register_pn_io (void)
     },
     { &hf_pn_io_cmresponder_udprtport,
       { "CMResponderUDPRTPort", "pn_io.cmresponder_udprtport",
-        FT_UINT16, BASE_HEX, NULL, 0x0,
+        FT_UINT16, BASE_PT_UDP, NULL, 0x0,
         NULL, HFILL }
     },  /* XXX - special values */
     { &hf_pn_io_number_of_iocrs,
@@ -15633,8 +18516,8 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_send_clock_factor,
-      { "SendClockFactor", "pn_io.send_clock_factor",
+    { &hf_pn_io_gating_cycle,
+      { "GatingCycle", "pn_io.gating_cycle",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     }, /* XXX - special values */
@@ -16707,283 +19590,333 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_DEC_HEX, VALS(pn_io_preamble_length), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_max_supported_record_size,
-     { "MaxSupportedRecordSize", "pn_io.tsn_upload_network_attributes.max_supported_record_size",
-       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_max_supported_record_size_vals), 0x0,
+    { &hf_pn_io_cim_net_conf_upload_network_attributes_number_of_entries,
+      { "CIMNetConfUploadNetworkAttributesNumberOfEntries", "pn_io.cim_net_conf_upload_network_attributes.number_of_entries",
+         FT_UINT16, BASE_DEC, NULL, 0x0,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_cim_net_max_supported_record_size,
+     { "MaxSupportedRecordSize", "pn_io.cim_net_conf_upload_network_attributes.max_supported_record_size",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_net_max_supported_record_size_vals), 0x0,
        NULL, HFILL }
     },
-    { &hf_pn_io_tsn_transfer_time_tx,
-     { "TransferTimeTX", "pn_io.tsn_upload_network_attributes.transfer_time_tx",
-       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_transfer_time_tx_vals), 0x0,
+    { &hf_pn_io_traffic_class_translate_entry,
+     { "TrafficClassTranslateEntry", "pn_io.traffic_class_translate_entry",
+       FT_UINT32, BASE_HEX, NULL, 0x0,
        NULL, HFILL }
     },
-    { &hf_pn_io_tsn_transfer_time_rx,
-     { "TransferTimeRX", "pn_io.tsn_upload_network_attributes.transfer_time_rx",
-       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_transfer_time_rx_vals), 0x0,
+    { &hf_pn_io_traffic_class_translate_entry_vid,
+     { "TrafficClassTranslateEntry.VID", "pn_io.traffic_class_translate_entry_vid",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_traffic_class_translate_entry_vid_vals), 0x00003FFF,
        NULL, HFILL }
     },
-    { &hf_pn_io_tsn_number_of_queues,
-    { "NumberOfQueues", "pn_io.tsn_port_id_block.number_of_queues",
-      FT_UINT8, BASE_HEX, VALS(pn_io_tsn_number_of_queues_vals), 0x0,
+    { &hf_pn_io_traffic_class_translate_entry_reserved1,
+     { "TrafficClassTranslateEntry.Reserved1", "pn_io.traffic_class_translate_entry_reserved1",
+       FT_UINT32, BASE_HEX, NULL, 0xC000,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_traffic_class_translate_entry_pcp,
+     { "TrafficClassTranslateEntry.PCP", "pn_io.traffic_class_translate_entry_pcp",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_traffic_class_translate_entry_pcp_vals), 0x00070000,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_traffic_class_translate_entry_reserved2,
+     { "TrafficClassTranslateEntry.Reserved2", "pn_io.traffic_class_translate_entry_reserved2",
+       FT_UINT32, BASE_HEX , NULL, 0xFFF80000,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_net_transfer_time_tx,
+     { "TransferTimeTX", "pn_io.cim_net_conf_upload_network_attributes.transfer_time_tx",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_net_transfer_time_tx_vals), 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_net_transfer_time_rx,
+     { "TransferTimeRX", "pn_io.cim_net_conf_upload_network_attributes.transfer_time_rx",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_net_transfer_time_rx_vals), 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_number_of_queues,
+    { "NumberOfQueues", "pn_io.cim_station_port_capabilities_block.number_of_queues",
+      FT_UINT8, BASE_HEX, VALS(pn_io_cim_number_of_queues_vals), 0x0,
       NULL, HFILL }
     },
-    { &hf_pn_io_tsn_forwarding_delay_block_number_of_entries,
-      { "TSNForwardingDelayBlockNumberOfEntries", "pn_io.tsn_forward_delaying_block.number_of_entries",
+    { &hf_pn_io_cim_station_forwarding_delay_block_number_of_entries,
+      { "CIMStationForwardingDelayBlockNumberOfEntries", "pn_io.cim_station_forward_delaying_block.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-  { &hf_pn_io_tsn_port_id_block_number_of_entries,
-      { "TSNPortIDBlockNumberOfEntries", "pn_io.tsn_port_id_block.number_of_entries",
+  { &hf_pn_io_cim_station_port_capabilities_block_number_of_entries,
+      { "CIMStationPortCapabilitiesBlockNumberOfEntries", "pn_io.cim_station_port_capabilities_block.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_expected_neighbor_block_number_of_entries,
-      { "TSNExpectedNeighborBlockNumberOfEntries", "pn_io.tsn_expected_neighbor_block.number_of_entries",
+    { &hf_pn_io_cim_station_expected_neighbor_block_number_of_entries,
+      { "CIMStationExpectedNeighborBlockNumberOfEntries", "pn_io.cim_station_expected_neighbor_block.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_port_capabilities_time_aware,
-       { "TSNPortCapabilities.TimeAware", "pn_io.tsn_port_capabilities.time_aware",
-         FT_UINT8, BASE_HEX, VALS(pn_io_tsn_port_capabilities_time_aware_vals), 0x01,
-         NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_port_capabilities_preemption,
-       { "TSNPortCapabilities.Preemption", "pn_io.tsn_port_capabilities.preemption",
-         FT_UINT8, BASE_HEX, VALS(pn_io_tsn_port_capabilities_preemption_vals), 0x02,
-         NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_port_capabilities_queue_masking,
-       { "TSNPortCapabilities.QueueMasking", "pn_io.tsn_port_capabilities.queue_masking",
-         FT_UINT8, BASE_HEX, VALS(pn_io_tsn_port_capabilities_queue_masking_vals), 0x04,
-         NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_port_capabilities_reserved,
-      { "TSNPortCapabilities.Reserved", "pn_io.tsn_port_capabilities_reserved",
-         FT_UINT8, BASE_HEX, NULL, 0xF8,
-         NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_forwarding_group,
-     { "ForwardingGroup", "pn_io.tsn_port_id_block.forwarding_group",
-       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_forwarding_group_vals), 0x0,
-       NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_forwarding_group_ingress,
-     { "ForwardingGroupIngress", "pn_io.tsn_port_id_block.forwarding_group_ingress",
-       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_forwarding_group_vals), 0x0,
-       NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_forwarding_group_egress,
-     { "ForwardingGroupEgress", "pn_io.tsn_port_id_block.forwarding_group_egress",
-       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_forwarding_group_vals), 0x0,
-       NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_stream_class,
-      { "StreamClass", "pn_io.tsn_forwarding_delay_entry.stream_class",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_stream_class_vals), 0x0,
-        NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_dependent_forwarding_delay,
-     { "DependentForwardDelay", "pn_io.tsn_forwarding_delay_entry.dependent_forwarding_delay",
-       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_dependent_forwarding_delay_vals), 0x0,
-       NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_independent_forwarding_delay,
-     { "IndependentForwardDelay", "pn_io.tsn_forwarding_delay_entry.independent_forwarding_delay",
-       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_independent_forwarding_delay_vals), 0x0,
-       NULL, HFILL }
-    },
-    { &hf_pn_io_tsn_nme_parameter_uuid,
-      { "NMEParameterUUID", "pn_io.tsn_nme_parameter_uuid",
+    { &hf_pn_io_cim_expected_network_attributes_uuid,
+      { "CIMExpectedNetworkAttributesUUID", "pn_io.cim_expected_network_attributes_uuid",
         FT_GUID, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config,
-      { "TSNDomainVIDConfig", "pn_io.tsn_domain_vid_config",
-        FT_NONE, BASE_NONE, NULL, 0x0,
+    { &hf_pn_io_port_capabilities_time_aware,
+       { "PortCapabilities.TimeAware", "pn_io.port_capabilities.time_aware",
+         FT_UINT8, BASE_HEX, VALS(pn_io_port_capabilities_time_aware_vals), 0x01,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_port_capabilities_preemption,
+       { "PortCapabilities.Preemption", "pn_io.port_capabilities.preemption",
+         FT_UINT8, BASE_HEX, VALS(pn_io_port_capabilities_preemption_vals), 0x02,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_port_capabilities_queue_masking,
+       { "PortCapabilities.QueueMasking", "pn_io.port_capabilities.queue_masking",
+         FT_UINT8, BASE_HEX, VALS(pn_io_port_capabilities_queue_masking_vals), 0x04,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_port_capabilities_reserved,
+      { "PortCapabilities.Reserved", "pn_io.port_capabilities_reserved",
+         FT_UINT8, BASE_HEX, NULL, 0xF8,
+         NULL, HFILL }
+    },
+    { &hf_pn_io_cim_station_forwarding_group,
+     { "ForwardingGroup", "pn_io.cim_station_port_capabilities_block.forwarding_group",
+       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_station_forwarding_group_vals), 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_station_forwarding_group_ingress,
+     { "ForwardingGroupIngress", "pn_io.cim_station_port_capabilities_block.forwarding_group_ingress",
+       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_station_forwarding_group_vals), 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_station_forwarding_group_egress,
+     { "ForwardingGroupEgress", "pn_io.cim_station_port_capabilities_block.forwarding_group_egress",
+       FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_station_forwarding_group_vals), 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_net_stream_class,
+      { "StreamClass", "pn_io.cim_forwarding_delay_entry.stream_class",
+        FT_UINT16, BASE_HEX, VALS(pn_io_cim_net_stream_class_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_stream_high_vid,
-      { "TSNDomainVIDConfig.StreamHighVID", "pn_io.tsn_domain_vid_config.stream_high_vid",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_cim_forwarding_delay_entry,
+     { "ForwardingDelay", "pn_io.cim_forwarding_delay_entry",
+       FT_UINT32, BASE_HEX, NULL, 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_forwarding_delay_independent,
+     { "ForwardingDelay.Independent", "pn_io.cim_forwarding_delay_entry.forwarding_delay_independent",
+       FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_cim_forwarding_delay_independent_vals), 0x000FFFFF,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_forwarding_delay_reserved,
+     { "ForwardingDelay.Reserved", "pn_io.cim_forwarding_delay_entry.forwarding_delay_reserved",
+       FT_UINT32, BASE_HEX, NULL, 0x0FF00000,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_forwarding_delay_dependent,
+     { "ForwardingDelay.Dependent", "pn_io.cim_forwarding_delay_entry.forwarding_delay_dependent",
+       FT_UINT32, BASE_HEX , VALS(pn_io_cim_forwarding_delay_dependent_vals), 0xF0000000,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_cim_ingress_port_slot_nr,
+     { "IngressPortSlotNumber", "pn_io.cim_ingress_port.slot_nr",
+       FT_UINT16, BASE_HEX, NULL, 0x0,
+       NULL, HFILL }
+    },
+    { &hf_pn_io_nme_parameter_uuid,
+      { "NMEParameterUUID", "pn_io.nme_parameter_uuid",
+        FT_GUID, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_stream_high_red_vid,
-      { "TSNDomainVIDConfig.StreamHighRedVID", "pn_io.tsn_domain_vid_config.stream_high_red_vid",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config,
+    { "NMEDomainVIDConfig", "pn_io.nme_domain_vid_config",
+      FT_NONE, BASE_NONE, NULL, 0x0,
+      NULL, HFILL }
+    },
+    { &hf_pn_io_nme_domain_vid_config_stream_high_vid,
+      { "NMEDomainVIDConfig.StreamHighVID", "pn_io.nme_domain_vid_config.stream_high_vid",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_stream_low_vid,
-      { "TSNDomainVIDConfig.StreamLowVID", "pn_io.tsn_domain_vid_config.stream_low_vid",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_stream_high_red_vid,
+      { "NMEDomainVIDConfig.StreamHighRedVID", "pn_io.nme_domain_vid_config.stream_high_red_vid",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_stream_low_red_vid,
-      { "TSNDomainVIDConfig.StreamLowRedVID", "pn_io.tsn_domain_vid_config.stream_low_red_vid",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_stream_low_vid,
+      { "NMEDomainVIDConfig.StreamLowVID", "pn_io.nme_domain_vid_config.stream_low_vid",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_non_stream_vid,
-      { "TSNDomainVIDConfig.NonStreamVID", "pn_io.tsn_domain_vid_config.non_stream_vid",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_stream_low_red_vid,
+      { "NMEDomainVIDConfig.StreamLowRedVID", "pn_io.nme_domain_vid_config.stream_low_red_vid",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_non_stream_vid_B,
-      { "TSNDomainVIDConfig.NonStreamVIDB", "pn_io.tsn_domain_vid_config.non_stream_vid_B",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_non_stream_vid,
+      { "NMEDomainVIDConfig.NonStreamVID", "pn_io.nme_domain_vid_config.non_stream_vid",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_non_stream_vid_C,
-      { "TSNDomainVIDConfig.NonStreamVIDC", "pn_io.tsn_domain_vid_config.non_stream_vid_C",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_non_stream_vid_B,
+      { "NMEDomainVIDConfig.NonStreamVIDB", "pn_io.nme_domain_vid_config.non_stream_vid_B",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_non_stream_vid_D,
-      { "TSNDomainVIDConfig.NonStreamVIDD", "pn_io.tsn_domain_vid_config.non_stream_vid_D",
-        FT_UINT16, BASE_HEX, VALS(pn_io_tsn_domain_vid_config_vals), 0x0,
+    { &hf_pn_io_nme_domain_vid_config_non_stream_vid_C,
+      { "NMEDomainVIDConfig.NonStreamVIDC", "pn_io.nme_domain_vid_config.non_stream_vid_C",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_vid_config_reserved,
-      { "TSNDomainVIDConfig.Reserved", "pn_io.tsn_domain_vid_config.reserved",
+    { &hf_pn_io_nme_domain_vid_config_non_stream_vid_D,
+      { "NMEDomainVIDConfig.NonStreamVIDD", "pn_io.nme_domain_vid_config.non_stream_vid_D",
+        FT_UINT16, BASE_HEX, VALS(pn_io_nme_domain_vid_config_vals), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_nme_domain_vid_config_reserved,
+      { "NMEDomainVIDConfig.Reserved", "pn_io.nme_domain_vid_config.reserved",
         FT_UINT32, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_domain_port_config_entries,
-      { "TSNDomainPortConfig.NumberOfEntries", "pn_io.tsn_domain_port_config.number_of_entries",
+    { &hf_pn_io_number_of_cim_station_port_status_entries,
+      { "CIMStationPortStatus.NumberOfEntries", "pn_io.cim_station_port_status.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_time_data_block_entries,
-      { "TSNTimeDataBlock.NumberOfEntries", "pn_io.tsn_time_data_block.number_of_entries",
+    { &hf_pn_io_number_of_nme_domain_time_data_block_entries,
+      { "NMEDomainTimeDataBlock.NumberOfEntries", "pn_io.nme_domain_time_data_block.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_domain_queue_rate_limiter_entries,
-      { "TSNDomainQueueRateLimiter.NumberOfEntries", "pn_io.tsn_domain_queue_rate_limiter.number_of_entries",
+    { &hf_pn_io_number_of_port_queue_egress_rate_limiter_entries,
+      { "PortQueueEgressRateLimiter.NumberOfEntries", "pn_io.port_queue_egress_rate_limiter.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_domain_port_ingress_rate_limiter_entries,
-      { "TSNDomainPortIngressRateLimiter.NumberOfEntries", "pn_io.tsn_domain_port_ingress_limiter.number_of_entries",
+    { &hf_pn_io_number_of_port_ingress_rate_limiter_entries,
+      { "PortIngressRateLimiter.NumberOfEntries", "pn_io.port_ingress_rate_limiter.number_of_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_config,
-      { "TSNDomainPortConfig", "pn_io.tsn_domain_port_config",
+    { &hf_pn_io_cim_station_port_status,
+      { "CIMStationPortStatus", "pn_io.cim_station_port_status",
         FT_UINT8, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_config_preemption_enabled,
-      { "TSNDomainPortConfig.PreemptionEnabled", "pn_io.tsn_domain_port_config.preemption_enabled",
-        FT_UINT8, BASE_HEX, VALS(pn_io_tsn_domain_port_config_preemption_enabled_vals), 0x01,
+    { &hf_pn_io_cim_station_port_status_preemption_status,
+      { "CIMStationPortStatus.PreemptionStatus", "pn_io.cim_station_port_status.preemption_status",
+        FT_UINT8, BASE_HEX, VALS(pn_io_cim_station_port_status_preemption_status_vals), 0x01,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_config_boundary_port_config,
-      { "TSNDomainPortConfig.BoundaryPortConfig", "pn_io.tsn_domain_port_config.boundary_port_config",
-        FT_UINT8, BASE_HEX, VALS(pn_io_tsn_domain_port_config_boundary_port_config_vals), 0x0E,
+    { &hf_pn_io_cim_station_port_status_boundary_port_status,
+      { "CIMStationPortStatus.BoundaryPortStatus", "pn_io.cim_station_port_status.boundary_port_status",
+        FT_UINT8, BASE_HEX, VALS(pn_io_cim_station_port_status_boundary_port_status_vals), 0x0E,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_config_reserved,
-      { "TSNDomainPortConfig.Reserved", "pn_io.tsn_domain_port_config.reserved",
+    { &hf_pn_io_cim_station_port_status_reserved,
+      { "CIMStationPortStatus.Reserved", "pn_io.cim_station_port_status.reserved",
         FT_UINT8, BASE_HEX, NULL, 0xF0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_ingress_rate_limiter,
-      { "TSNDomainPortIngressRateLimiter", "pn_io.tsn_domain_port_ingress_rate_limiter",
+    { &hf_pn_io_port_ingress_rate_limiter,
+      { "PortIngressRateLimiter", "pn_io.port_ingress_rate_limiter",
          FT_UINT64, BASE_HEX, NULL, 0x0,
          NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_ingress_rate_limiter_cir,
-      { "TSNDomainPortIngressRateLimiter.Cir", "pn_io.tsn_domain_port_ingress_rate_limiter.cir",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_port_ingress_rate_limiter_cir), 0x000000000000FFFF,
+    { &hf_pn_io_port_ingress_rate_limiter_cir,
+      { "PortIngressRateLimiter.Cir", "pn_io.port_ingress_rate_limiter.cir",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_ingress_rate_limiter_cir), 0x000000000000FFFF,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_ingress_rate_limiter_cbs,
-      { "TSNDomainPortIngressRateLimiter.Cbs", "pn_io.tsn_domain_port_ingress_rate_limiter.cbs",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_port_ingress_rate_limiter_cbs), 0x00000000FFFF0000,
+    { &hf_pn_io_port_ingress_rate_limiter_cbs,
+      { "PortIngressRateLimiter.Cbs", "pn_io.port_ingress_rate_limiter.cbs",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_ingress_rate_limiter_cbs), 0x00000000FFFF0000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_ingress_rate_limiter_envelope,
-      { "TSNDomainPortIngressRateLimiter.Envelope", "pn_io.tsn_domain_port_ingress_rate_limiter.envelope",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_port_ingress_rate_limiter_envelope), 0x0000FFFF00000000,
+    { &hf_pn_io_port_ingress_rate_limiter_envelope,
+      { "PortIngressRateLimiter.Envelope", "pn_io.port_ingress_rate_limiter.envelope",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_ingress_rate_limiter_envelope), 0x0000FFFF00000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_ingress_rate_limiter_rank,
-      { "TSNDomainPortIngressRateLimiter.Rank", "pn_io.tsn_domain_port_ingress_rate_limiter.rank",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_port_ingress_rate_limiter_rank), 0xFFFF000000000000,
+    { &hf_pn_io_port_ingress_rate_limiter_rank,
+      { "PortIngressRateLimiter.Rank", "pn_io.port_ingress_rate_limiter.rank",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_ingress_rate_limiter_rank), 0xFFFF000000000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter,
-      { "TSNDomainQueueRateLimiter", "pn_io.tsn_domain_port_queue_rate_limiter",
+    { &hf_pn_io_port_queue_egress_rate_limiter,
+      { "PortQueueEgressRateLimiter", "pn_io.port_queue_egress_rate_limiter",
         FT_UINT64, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_cir,
-      { "TSNDomainQueueRateLimiter.Cir", "pn_io.tsn_domain_port_queue_rate_limiter.cir",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_cir), 0x000000000000FFFF,
+    { &hf_pn_io_port_queue_egress_rate_limiter_cir,
+      { "PortQueueEgressRateLimiter.Cir", "pn_io.port_queue_egress_rate_limiter.cir",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_cir), 0x000000000000FFFF,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_cbs,
-      { "TSNDomainQueueRateLimiter.Cbs", "pn_io.tsn_domain_port_queue_rate_limiter.cbs",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_cbs), 0x00000000FFFF0000,
+    { &hf_pn_io_port_queue_egress_rate_limiter_cbs,
+      { "PortQueueEgressRateLimiter.Cbs", "pn_io.port_queue_egress_rate_limiter.cbs",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_cbs), 0x00000000FFFF0000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_envelope,
-      { "TSNDomainQueueRateLimiter.Envelope", "pn_io.tsn_domain_port_queue_rate_limiter.envelope",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_envelope), 0x000000FF00000000,
+    { &hf_pn_io_port_queue_egress_rate_limiter_envelope,
+      { "PortQueueEgressRateLimiter.Envelope", "pn_io.port_queue_egress_rate_limiter.envelope",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_envelope), 0x000000FF00000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_rank,
-      { "TSNDomainQueueRateLimiter.Rank", "pn_io.tsn_domain_port_queue_rate_limiter.rank",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_rank), 0x0000FF0000000000,
+    { &hf_pn_io_port_queue_egress_rate_limiter_rank,
+      { "PortQueueEgressRateLimiter.Rank", "pn_io.port_queue_egress_rate_limiter.rank",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_rank), 0x0000FF0000000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_queue_id,
-      { "TSNDomainQueueRateLimiter.QueueID", "pn_io.tsn_domain_port_queue_rate_limiter.queue_id",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_queue_id), 0x00FF000000000000,
+    { &hf_pn_io_port_queue_egress_rate_limiter_queue_id,
+      { "PortQueueEgressRateLimiter.QueueID", "pn_io.port_queue_egress_rate_limiter.queue_id",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_queue_id), 0x00FF000000000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_rate_limiter_reserved,
-      { "TSNDomainQueueRateLimiter.Reserved", "pn_io.tsn_domain_port_queue_rate_limiter.reserved",
-        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_rate_limiter_reserved), 0xFF00000000000000,
+    { &hf_pn_io_port_queue_egress_rate_limiter_reserved,
+      { "PortQueueEgressRateLimiter.Reserved", "pn_io.port_queue_egress_rate_limiter.reserved",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_port_queue_egress_rate_limiter_reserved), 0xFF00000000000000,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_domain_queue_config_entries,
-      { "TSNDomainQueueConfig.NumberOfEntries", "pn_io.tsn_domain_queue_config.number_of_entries",
-        FT_UINT16, BASE_DEC, NULL, 0x0,
-        NULL, HFILL }
+    { &hf_pn_io_number_of_nme_domain_queue_config_entries,
+    { "NMEDomainQueueConfig.NumberOfEntries", "pn_io.nme_domain_queue_config.number_of_entries",
+      FT_UINT16, BASE_DEC, NULL, 0x0,
+      NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config,
-      { "TSNDomainQueueConfig", "pn_io.tsn_domain_queue_config",
+    { &hf_pn_io_nme_domain_queue_config,
+      { "NMEDomainQueueConfig", "pn_io.nme_domain_queue_config",
         FT_UINT64, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_queue_id,
-        { "TSNDomainQueueConfig.QueueID", "pn_io.tsn_domain_queue_config.queue_id",
+    { &hf_pn_io_nme_domain_queue_config_queue_id,
+        { "NMEDomainQueueConfig.QueueID", "pn_io.nme_domain_queue_config.queue_id",
           FT_UINT64, BASE_HEX, NULL, 0xF,
           NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_tci_pcp,
-        { "TSNDomainQueueConfig.TciPcp", "pn_io.tsn_domain_queue_config.tci_pcp",
+    { &hf_pn_io_nme_domain_queue_config_tci_pcp,
+        { "NMEDomainQueueConfig.TciPcp", "pn_io.nme_domain_queue_config.tci_pcp",
           FT_UINT64, BASE_HEX, NULL, 0x70,
           NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_shaper,
-        { "TSNDomainQueueConfig.Shaper", "pn_io.tsn_domain_queue_config.shaper",
-          FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_queue_config_shaper), 0x3F80,
+    { &hf_pn_io_nme_domain_queue_config_shaper,
+        { "NMEDomainQueueConfig.Shaper", "pn_io.nme_domain_queue_config.shaper",
+          FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_nme_domain_queue_config_shaper), 0x3F80,
           NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_preemption_mode,
-        { "TSNDomainQueueConfig.PreemptionMode", "pn_io.tsn_domain_queue_config.preemption_mode",
+    { &hf_pn_io_nme_domain_queue_config_preemption_mode,
+        { "NMEDomainQueueConfig.PreemptionMode", "pn_io.nme_domain_queue_config.preemption_mode",
           FT_UINT64, BASE_HEX, NULL, 0xC000,
           NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_unmask_time_offset,
-      { "TSNDomainQueueConfig.UnmaskTimeOffset", "pn_io.tsn_domain_queue_config.unmask_time_offset",
+    { &hf_pn_io_nme_domain_queue_config_unmask_time_offset,
+      { "NMEDomainQueueConfig.UnmaskTimeOffset", "pn_io.nme_domain_queue_config.unmask_time_offset",
         FT_UINT64, BASE_HEX, NULL, 0xFFFFFF0000,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_queue_config_mask_time_offset,
-      { "TSNDomainQueueConfig.MaskTimeOffset", "pn_io.tsn_domain_queue_config.mask_time_offset",
+    { &hf_pn_io_nme_domain_queue_config_mask_time_offset,
+      { "NMEDomainQueueConfig.MaskTimeOffset", "pn_io.nme_domain_queue_config.mask_time_offset",
         FT_UINT64, BASE_HEX, NULL, 0xFFFFFF0000000000,
         NULL, HFILL }
     },
@@ -17042,60 +19975,110 @@ proto_register_pn_io (void)
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_nme_name_uuid,
-      { "TSNNMENameUUID", "pn_io.tsn_nme_name_uuid",
+    { &hf_pn_io_nme_name_uuid,
+      { "NMENameUUID", "pn_io.nme_name_uuid",
         FT_GUID, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_nme_name_length,
-      { "TSNNMENameLength", "pn_io.tsn_nme_name_length",
+    { &hf_pn_io_nme_name_address,
+      { "NMENameAddress", "pn_io.nme_name_address",
+        FT_UINT8, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_nme_name_address_subtype,
+      { "NMENameAddressSubtype", "pn_io.nme_name_address_subtype",
+        FT_UINT8, BASE_HEX, VALS(pn_io_nme_name_address_subtype), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_nme_name_length,
+      { "NMENameLength", "pn_io.nme_name_length",
         FT_UINT16, BASE_DEC_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_nme_name,
-      { "TSNNMEName", "pn_io.tsn_nme_name",
+    { &hf_pn_io_nme_name,
+      { "NMEName", "pn_io.nme_name",
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_uuid,
-      { "TSNDomainUUID", "pn_io.tsn_domain_uuid",
+    { &hf_pn_io_nme_domain_uuid,
+      { "NMEDomainUUID", "pn_io.nme_domain_uuid",
         FT_GUID, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_name_length,
-      { "TSNDomainNameLength", "pn_io.tsn_domain_name_length",
+    { &hf_pn_io_nme_domain_name_length,
+      { "NMEDomainNameLength", "pn_io.nme_domain_name_length",
         FT_UINT16, BASE_DEC_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_name,
-      { "TSNDomainName", "pn_io.tsn_domain_name",
+    { &hf_pn_io_nme_domain_name,
+      { "NMEDomainName", "pn_io.nme_domain_name",
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_fdb_command,
-      { "FDBCommand", "pn_io.tsn_fdb_command",
-        FT_UINT8, BASE_HEX, VALS(pn_io_tsn_fdb_command), 0x0,
+    { &hf_pn_io_min_ipg_breaking_point,
+      { "MinIPGBreakingPoint", "pn_io.min_ipg_breaking_point",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_min_ipg_breaking_point), 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_dst_add,
-      { "DestinationAddress", "pn_io.tsn_dst_add",
+    { &hf_pn_io_min_ipg_frame_size,
+      { "MinIPGFrameSize", "pn_io.min_ipg_frame_size",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_min_ipg_frame_size), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_frame_send_offset_deviation,
+      { "FrameSendOffsetDeviation", "pn_io.frame_send_offset_deviation",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_frame_send_offset_deviation), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_supported_burst_size,
+      { "SupportedBurstSize", "pn_io.supported_burst_size",
+        FT_UINT32, BASE_HEX, NULL , 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_supported_burst_size_frames,
+      { "SupportedBurstSize.Frames", "pn_io.supported_burst_size_frames",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_supported_burst_size_frames), 0xFFFF,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_supported_burst_size_octets,
+      { "SupportedBurstSize.Octets", "pn_io.supported_burst_size_octets",
+        FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_supported_burst_size_octets), 0xFFFF0000,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_cim_fdb_command,
+      { "FDBCommand", "pn_io.cim_fdb_command",
+        FT_UINT8, BASE_HEX, VALS(pn_io_cim_fdb_command), 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_cim_dst_add,
+      { "DestinationAddress", "pn_io.cim_dst_add",
         FT_ETHER, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_number_of_tsn_domain_sync_tree_entries,
-      { "NumberOfEntries", "pn_io.tsn_domain_sync_tree_entries",
+    { &hf_pn_io_number_of_nme_domain_sync_tree_entries,
+      { "NumberOfEntries", "pn_io.nme_domain_sync_tree_entries",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_port_id,
-      { "TSNDomainPortID", "pn_io.tsn_domain_port_id",
+    { &hf_pn_io_cim_station_element_id,
+      { "CIMStationElementID", "pn_io.cim_station_element_id",
         FT_NONE, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_tsn_domain_sync_port_role,
-      { "SyncPortRole", "pn_io.tsn_domain_sync_port_rule",
-        FT_UINT8,BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_tsn_domain_sync_port_role_vals), 0x0,
+    { &hf_pn_io_cim_sync_tree_data_uuid,
+      { "CIMSyncTreeDataUUID", "pn_io.cim_sync_tree_data_uuid",
+        FT_GUID, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
+    },
+    { &hf_pn_io_cim_stream_collection_uuid,
+      { "CIMStreamCollectionUUID", "pn_io.cim_stream_collection_uuid",
+        FT_GUID, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_nme_domain_sync_port_role,
+    { "SyncPortRole", "pn_io.nme_domain_sync_port_rule",
+      FT_UINT8,BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_nme_domain_sync_port_role_vals), 0x0,
+      NULL, HFILL }
     },
     { &hf_pn_io_mau_type,
       { "MAUType", "pn_io.mau_type",
@@ -18729,6 +21712,192 @@ proto_register_pn_io (void)
        FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_pe_operational_mode), 0x0,
        NULL, HFILL }
     },
+    { &hf_pn_io_security,
+    { "PN RTA with Security", "pn_io.security",
+        FT_NONE, BASE_NONE, NULL, 0x0,
+        "", HFILL }
+    },
+    { &hf_pn_io_security_information,
+    { "SecurityInformation", "pn_io.security_information",
+        FT_UINT8, BASE_HEX, NULL, 0x0,
+        "", HFILL }
+    },
+    { &hf_pn_io_security_information_protection_mode,
+    { "SecurityInformation.ProtectionMode", "pn_io.security_information.protection_mode",
+        FT_UINT8, BASE_HEX, VALS(pn_io_security_information_protection_mode), 0x01,
+        "", HFILL }
+    },
+    { &hf_pn_io_security_information_reserved,
+    { "SecurityInformation.Reserved", "pn_io.security_information.reserved",
+        FT_UINT8, BASE_HEX, NULL, 0xFE,
+        "", HFILL }
+    },
+    { &hf_pn_io_security_operation,
+    { "SecurityOperation", "pn_io.security_operation",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_operation), 0xFFFF,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_features,
+    { "SecurityFeatures", "pn_io.security_features",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_features_key_pair_generation,
+    { "SecurityFeatures.KeyPairGeneration", "pn_io.security_features.key_pair_generation",
+        FT_UINT16, BASE_HEX, VALS(pn_io_security_features_key_pair_generation), 0x1,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_features_reserved,
+    { "SecurityFeatures.Reserved", "pn_io.security_features.reserved",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_rtc_algorithm,
+    { "RTCAlgorithm", "pn_io.rtc_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_rta_algorithm,
+    { "RTAAlgorithm", "pn_io.rta_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_rpc_algorithm,
+    { "RPCAlgorithm", "pn_io.rpc_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_derivation_algorithm,
+    { "DerivationAlgorithm", "pn_io.derivation_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_agreement_algorithm,
+    { "AgreementAlgorithm", "pn_io.agreement_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_signature_algorithm,
+    { "SignatureAlgorithm", "pn_io.signature_algorithm",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability,
+    { "SecurityCapability", "pn_io.security_capability",
+        FT_UINT16, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_usage,
+    { "SecurityCapability.Usage", "pn_io.security_capability.usage",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_usage), 0x00FF,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_symmetric_ao,
+    { "SecurityCapability.Algorithm.SymmetricAuthenticationOnly", "pn_io.security_capability.algorithm.symmetric_authentication_only",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_algorithm_symmetric_ao), 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_symmetric_ae,
+    { "SecurityCapability.Algorithm.SymmetricAuthenticationEncryption", "pn_io.security_capability.algorithm.symmetric_authentication_encryption",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_algorithm_symmetric_ae), 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_key_derivation_function,
+    { "SecurityCapability.Algorithm.KeyDerivationFunction", "pn_io.security_capability.algorithm.key_derivation_function",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_algorithm_key_derivation_function), 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_key_agreement_function,
+    { "SecurityCapability.Algorithm.KeyAgreementFunction", "pn_io.security_capability.algorithm.key_agreement_function",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_algorithm_key_agreement_function), 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_digital_signature_function,
+    { "SecurityCapability.Algorithm.DigitalSignatureFunction", "pn_io.security_capability.algorithm.digital_signature_function",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_capability_algorithm_digital_signature_function), 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_capability_algorithm_reserved,
+    { "SecurityCapability.Algorithm.Reserved", "pn_io.security_capability.algorithm.reserved",
+        FT_UINT16, BASE_HEX, NULL, 0xFF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_configuration_parameters,
+    { "SecurityConfigurationParameters", "pn_io.security_configuration_parameters",
+        FT_UINT64, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_mode,
+    { "SecurityConfigurationParameters.SecurityMode", "pn_io.security_configuration_parameters.security_mode",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_security_mode), 0x0000000000000003,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_certificate_validity_period_check,
+    { "SecurityConfigurationParameters.CertificateVelidityPeriodCheck", "pn_io.security_configuration_parameters.certificate_validity_period_check",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_certificate_validity_period_check), 0x000000000000000C,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_configuration_parameters_reserved1,
+    { "SecurityConfigurationParameters.Reserved1", "pn_io.security_configuration_parameters.reserved1",
+        FT_UINT64, BASE_HEX, NULL, 0x00000000000000F0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_sack_degradation_threshold,
+    { "SecurityConfigurationParameters.SACKDegredationThreshold", "pn_io.security_configuration_parameters.SACKDegredationThreshold",
+        FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_sack_degradation_threshold), 0x000000000000FF00,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_configuration_parameters_reserved2,
+    {  "SecurityConfigurationParameters.Reserved2", "pn_io.security_configuration_parameters.reserved2",
+        FT_UINT64, BASE_HEX, NULL, 0xFFFFFFFFFFFF0000,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_security_data,
+    {   "SecurityData", "pn_io.security_data",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL
+    }
+    },
+    { &hf_pn_io_credential_id,
+    { "CredentialID", "pn_io.credential_id",
+        FT_UINT32, BASE_HEX, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_credential_id_credential_type,
+    { "CredentialID.CredentialType", "pn_io.credential_id.credential_type",
+        FT_UINT32, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_credential_id_credential_type), 0x00000003,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_credential_id_reserved,
+    { "CredentialID.Reserved", "pn_io.credential_id.reserved",
+        FT_UINT32, BASE_HEX, NULL, 0xFFFFFFFC,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_private_key_length,
+        { "PrivateKeyLength", "pn_io.private_key_length",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_private_key,
+    { "PrivateKey", "pn_io.private_key",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_certificate_length,
+    { "CertificateLength", "pn_io.certificate_length",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_certificate,
+    { "Certificate", "pn_io.certificate",
+        FT_BYTES, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_number_of_entries,
+    { "NumberOfEntries", "pn_io.number_of_entries",
+        FT_UINT16, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_number_of_entries), 0x0,
+        NULL, HFILL }
+    },
     { &hf_pn_io_snmp_control,
     { "SNMPControl", "pn_io.snmp_control",
         FT_UINT16, BASE_HEX, VALS(pn_io_snmp_control), 0x0,
@@ -18753,6 +21922,21 @@ proto_register_pn_io (void)
     { "SNMP read write community name", "pn_io.snmp_write_community_name",
         FT_NONE, BASE_NONE, NULL, 0x0,
         NULL, HFILL }
+    },
+    { &hf_pn_io_certification_request_length,
+    { "Certification Request Length", "pn_io.certification_request_length",
+        FT_UINT16, BASE_DEC | BASE_RANGE_STRING, RVALS(pn_io_number_of_octets), 0xFFFF,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_certification_request,
+    { "Certification Request", "pn_io.certification_request",
+        FT_STRING, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_eap_data,
+        { "EAP Message", "pn_io.eap.data",
+          FT_BYTES, BASE_NONE, NULL, 0x00,
+          NULL, HFILL }
     },
     };
 
@@ -18795,7 +21979,7 @@ proto_register_pn_io (void)
         &ett_pn_io_ir_rx_phase,
         &ett_pn_io_subframe_data,
         &ett_pn_io_SFIOCRProperties,
-        &ett_pn_io_frame_defails,
+        &ett_pn_io_frame_details,
         &ett_pn_io_profisafe_f_parameter,
         &ett_pn_io_profisafe_f_parameter_prm_flag1,
         &ett_pn_io_profisafe_f_parameter_prm_flag2,
@@ -18823,6 +22007,18 @@ proto_register_pn_io (void)
         &ett_pn_io_line_delay,
         &ett_pn_io_counter_status,
         &ett_pn_io_dcp_boundary,
+        &ett_pn_io_credential_id,
+        &ett_pn_io_security,
+        &ett_pn_io_security_configuration_parameters,
+        &ett_pn_io_security_features,
+        &ett_pn_io_security_capability,
+        &ett_pn_io_rtc_algorithm,
+        &ett_pn_io_rta_algorithm,
+        &ett_pn_io_rpc_algorithm,
+        &ett_pn_io_derivation_algorithm,
+        &ett_pn_io_agreement_algorithm,
+        &ett_pn_io_signature_algorithm,
+        &ett_pn_io_eap,
         &ett_pn_io_peer_to_peer_boundary,
         &ett_pn_io_mau_type_extension,
         &ett_pn_io_pe_service_request,
@@ -18834,13 +22030,17 @@ proto_register_pn_io (void)
         &ett_pn_io_pe_measurement_value,
         &ett_pn_io_pe_operational_mode,
         &ett_pn_io_neighbor,
-        &ett_pn_io_tsn_domain_vid_config,
-        &ett_pn_io_tsn_domain_port_config,
-        &ett_pn_io_tsn_domain_queue_config,
-        &ett_pn_io_tsn_domain_port_ingress_rate_limiter,
-        &ett_pn_io_tsn_domain_queue_rate_limiter,
+		&ett_pn_io_nme_domain_vid_config,
+        &ett_pn_io_nme_name_address,
+        &ett_pn_io_traffic_class_translate_entry,
+        &ett_pn_io_cim_station_port_status,
+        &ett_pn_io_cim_forwarding_delay_entry,
+        &ett_pn_io_supported_burst_size,
+        &ett_pn_io_nme_domain_queue_config,
+        &ett_pn_io_port_ingress_rate_limiter,
+        &ett_pn_io_port_queue_egress_rate_limiter,
         &ett_pn_io_time_sync_properties,
-        &ett_pn_io_tsn_domain_port_id,
+		&ett_pn_io_cim_station_element_id,
         &ett_pn_io_snmp_command_name
     };
 
@@ -18880,7 +22080,7 @@ proto_register_pn_io (void)
     expert_register_field_array(expert_pn_io, ei, array_length(ei));
 
     /* Register preferences */
-    pnio_module = prefs_register_protocol(proto_pn_io, NULL);
+    pnio_module = prefs_register_protocol(proto_pn_io, pnio_load_gsd_files);
     prefs_register_bool_preference(pnio_module, "pnio_ps_selection",
         "Enable detailed PROFIsafe dissection",
         "Whether the PNIO dissector is allowed to use detailed PROFIsafe dissection of cyclic data frames",
@@ -18889,6 +22089,12 @@ proto_register_pn_io (void)
         "Folder containing GSD files",     /* Title */
         "Place GSD files in this folder.", /* Description */
         &pnio_ps_networkpath);             /* Variable in which to save the GSD file folder path */
+    prefs_register_filename_preference(pnio_module, "pnio_configpath",
+        "Config file for manual extraction",
+        "Choose a config XML file",
+        &pnio_configpath, false);
+    prefs_register_enum_preference(pnio_module, "pnio_gsd_parsing_option",
+        "Method of parsing the GSD", "Choose heuristic or manual method to extract GSD", &extract_method, pnio_method_enum, false);
 
     /* subdissector code */
     register_dissector("pn_io", dissect_PNIO, proto_pn_io);
@@ -18901,10 +22107,12 @@ proto_register_pn_io (void)
     init_pn_rsi(proto_pn_io);
 
     /* Init functions of PNIO protocol */
+    pnio_time_aware_frame_map = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
     register_init_routine(pnio_setup);
 
     /* Cleanup functions of PNIO protocol */
     register_cleanup_routine(pnio_cleanup);
+    register_shutdown_routine(pnio_shutdown);
 
     register_conversation_filter("pn_io", "PN-IO AR", pn_io_ar_conv_valid, pn_io_ar_conv_filter, NULL);
     register_conversation_filter("pn_io", "PN-IO AR (with data)", pn_io_ar_conv_valid, pn_io_ar_conv_data_filter, NULL);
@@ -18914,6 +22122,9 @@ proto_register_pn_io (void)
 void
 proto_reg_handoff_pn_io (void)
 {
+    // find and add eap dissector
+    eap_handle = find_dissector_add_dependency("eap", proto_pn_io);
+
     /* Register the protocols as dcerpc */
     dcerpc_init_uuid (proto_pn_io_device, ett_pn_io, &uuid_pn_io_device, ver_pn_io_device, pn_io_dissectors, hf_pn_io_opnum);
     dcerpc_init_uuid (proto_pn_io_controller, ett_pn_io, &uuid_pn_io_controller, ver_pn_io_controller, pn_io_dissectors, hf_pn_io_opnum);

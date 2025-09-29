@@ -25,7 +25,7 @@
 
 #include "wsutil/nstime.h"
 #include "tvbuff.h"
-#include "value_string.h"
+#include <wsutil/value_string.h>
 #include "packet_info.h"
 #include "ftypes/ftypes.h"
 #include "register.h"
@@ -65,6 +65,9 @@ struct expert_field;
 
 /** Something to satisfy checkAPIs when you have a pointer to a value_string_ext (e.g., one built with value_string_ext_new()) */
 #define VALS_EXT_PTR(x) (cast_same(value_string_ext*, (x)))
+
+/** Make a const time_value_string[] look like a _value_string pointer, used to set header_field_info.strings */
+#define TIME_VALS(x)     (cast_same(const struct _time_value_string*, (x)))
 
 /** Make a const true_false_string[] look like a _true_false_string pointer, used to set header_field_info.strings */
 #define TFS(x)      (cast_same(const struct true_false_string*, (x)))
@@ -518,7 +521,7 @@ void proto_report_dissector_bug(const char *format, ...)
 
 /* Encodings for BCD strings
  * Depending if the BCD string has even or odd number of digits
- * we may need to strip of the last digit/High nibble
+ * we may need to strip off the last digit/High nibble.
  */
 #define ENC_BCD_ODD_NUM_DIG     0x00010000
 #define ENC_BCD_SKIP_FIRST      0x00020000
@@ -861,13 +864,13 @@ typedef struct
 #define FI_LITTLE_ENDIAN        0x00000008
 /** The protocol field value is in big endian */
 #define FI_BIG_ENDIAN           0x00000010
-/** Field value start from nth bit (values from 0x20 - 0x100) */
-#define FI_BITS_OFFSET(n)       (((n) & 7) << 5)
-/** Field value takes n bits (values from 0x100 - 0x4000) */
+/** Field value start from nth bit (values from 0x20 - 0x1000) */
+#define FI_BITS_OFFSET(n)       (((n) & 63) << 5)
+/** Field value takes n bits (values from 0x1000 - 0x40000) */
 /* if 0, it means that field takes fi->length * 8 */
-#define FI_BITS_SIZE(n)         (((n) & 63) << 8)
+#define FI_BITS_SIZE(n)         (((n) & 63) << 12)
 /** The protocol field value is a varint */
-#define FI_VARINT               0x00004000
+#define FI_VARINT               0x00040000
 
 /** convenience macro to get field_info.flags */
 #define FI_GET_FLAG(fi, flag)   ((fi) ? ((fi)->flags & (flag)) : 0)
@@ -884,8 +887,8 @@ typedef struct
         (fi)->flags = (fi)->flags & ~(flag); \
     } while(0)
 
-#define FI_GET_BITS_OFFSET(fi) (FI_GET_FLAG(fi, FI_BITS_OFFSET(7)) >> 5)
-#define FI_GET_BITS_SIZE(fi)   (FI_GET_FLAG(fi, FI_BITS_SIZE(63)) >> 8)
+#define FI_GET_BITS_OFFSET(fi) (FI_GET_FLAG(fi, FI_BITS_OFFSET(63)) >> 5)
+#define FI_GET_BITS_SIZE(fi)   (FI_GET_FLAG(fi, FI_BITS_SIZE(63)) >> 12)
 
 /** One of these exists for the entire protocol tree. Each proto_node
  * in the protocol tree points to the same copy. */
@@ -895,6 +898,7 @@ typedef struct {
     bool                 fake_protocols;
     unsigned             count;
     struct _packet_info *pinfo;
+    tvbuff_t            *idle_count_ds_tvb;
     int                  max_start;
     unsigned             start_idle_count;
 } tree_data_t;
@@ -973,8 +977,8 @@ typedef proto_node proto_item;
 #define PI_DISSECTOR_BUG        0x11000000
 
 /*
- * add more, see
- *    https://gitlab.com/wireshark/wireshark/-/wikis/Development/ExpertInfo
+ * add more, see WSDG: 9.3. How to add an expert item:
+ *    https://www.wireshark.org/docs/wsdg_html/#ChDissectExpertInfo
  */
 
 /** Retrieve the field_info from a proto_node */
@@ -1006,7 +1010,7 @@ typedef proto_node proto_item;
  * @param ti The item to check. May be NULL.
  * @return true if the item is hidden, false otherwise.
  */
-static inline bool proto_item_is_hidden(proto_item *ti) {
+static inline bool proto_item_is_hidden(const proto_item *ti) {
     if (ti && PITEM_FINFO(ti)) {
         return FI_GET_FLAG(PITEM_FINFO(ti), FI_HIDDEN);
     }
@@ -1040,7 +1044,8 @@ static inline void proto_item_set_visible(proto_item *ti) {
  * @param ti The item to check. May be NULL.
  * @return true if the item is generated, false otherwise.
  */
-static inline bool proto_item_is_generated(proto_item *ti) {
+static inline bool proto_item_is_generated(const proto_item *ti)
+{
     if (ti) {
         return FI_GET_FLAG(PITEM_FINFO(ti), FI_GENERATED);
     }
@@ -1063,7 +1068,8 @@ static inline void proto_item_set_generated(proto_item *ti) {
  * @param ti The item to check. May be NULL.
  * @return true if the item is a URL, false otherwise.
  */
-static inline bool proto_item_is_url(proto_item *ti) {
+static inline bool proto_item_is_url(const proto_item *ti)
+{
     if (ti) {
         return FI_GET_FLAG(PITEM_FINFO(ti), FI_URL);
     }
@@ -1101,6 +1107,21 @@ void proto_init(GSList *register_all_plugin_protocols_list,
 
 /** Frees memory used by proto routines. Called at program shutdown */
 extern void proto_cleanup(void);
+
+typedef void (*proto_execute_in_directory_func)(void* param);
+
+/** Execute a function for a protocol in a specific directory.
+ * This will change the current working directory, then execute
+ * the function and then restore the current working directory to
+ * its previous value.  This is intended to be called during protocol
+ * initialization (i.e. not thread safe)
+ *
+ * @param dir The new current working directory
+ * @param func Function to be called once the directory has been successfully changed
+ * @param param Optional parameter to be passed into the handling function
+ */
+WS_DLL_PUBLIC void proto_execute_in_directory(const char* dir, proto_execute_in_directory_func func, void* param);
+
 
 /** This function takes a tree and a protocol id as parameter and
     will return true/false for whether the protocol or any of the filterable
@@ -2655,6 +2676,13 @@ proto_deregister_field (const int parent, int hf_id);
 WS_DLL_PUBLIC void
 proto_add_deregistered_data (void *data);
 
+/** Deregister all registered fields of a protocol that match a prefix.
+ @param parent the protocol handle from proto_register_protocol()
+ @prefix a prefix to select which fields to deregister
+*/
+WS_DLL_PUBLIC void
+proto_deregister_all_fields_with_prefix(const int parent, const gchar *prefix);
+
 /** Add a memory slice to be freed when deregistered fields are freed.
  @param block_size the size of the block
  @param mem_block a pointer to the block to free */
@@ -2668,7 +2696,12 @@ proto_add_deregistered_slice (size_t block_size, void *mem_block);
 WS_DLL_PUBLIC void
 proto_free_field_strings (ftenum_t field_type, unsigned int field_display, const void *field_strings);
 
-/** Free fields deregistered in proto_deregister_field(). */
+/** Free fields deregistered in proto_deregister_field().
+ @note Dissectors should not call this function (including in preference
+ callbacks) because something might hold a reference to a field. This will
+ be automatically called when it is safe to do so. If there is other data
+ that needs to be freed along with the fields, e.g. a dynamically allocated
+ array of hf_id pointers, add it with proto_add_deregistered_data. */
 WS_DLL_PUBLIC void
 proto_free_deregistered_fields (void);
 
@@ -2844,6 +2877,15 @@ WS_DLL_PUBLIC bool proto_is_frame_protocol(const wmem_list_t *layers, const char
  * @return string of layer names
  */
 WS_DLL_PUBLIC char * proto_list_layers(const packet_info *pinfo);
+
+/** Retrieve the layer number for a given protocol, i.e. the number of
+ * times a dissector for that protocol has been called for the current
+ * frame.
+ * @param pinfo Pointer to packet info
+ * @param proto_id protocol id (0-indexed)
+ * @return The layer number for proto_id in the current frame.
+ */
+WS_DLL_PUBLIC uint8_t proto_get_layer_num(const packet_info *pinfo, const int proto_id);
 
 /** Mark protocol with the given item number as disabled by default.
  @param proto_id protocol id (0-indexed) */
@@ -3548,11 +3590,6 @@ proto_custom_set(proto_tree* tree, GSList *field_id,
  @return allocated display filter string.  Needs to be freed with g_free(...) */
 char *
 proto_custom_get_filter(struct epan_dissect *edt, GSList *field_id, int occurrence);
-
-/** @} */
-
-const char *
-hfinfo_char_value_format_display(int display, char buf[7], uint32_t value);
 
 #ifdef __cplusplus
 }

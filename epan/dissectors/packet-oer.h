@@ -61,7 +61,7 @@ WS_DLL_PUBLIC uint32_t dissect_oer_IA5String(tvbuff_t *tvb, uint32_t offset, asn
 
 //WS_DLL_PUBLIC uint32_t dissect_oer_BMPString(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, bool has_extension);
 
-extern uint32_t dissect_oer_UTF8String(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, bool has_extension);
+WS_DLL_PUBLIC uint32_t dissect_oer_UTF8String(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, bool has_extension);
 
 //extern uint32_t dissect_oer_object_descriptor(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, tvbuff_t **value_tvb);
 
@@ -80,6 +80,8 @@ WS_DLL_PUBLIC uint32_t dissect_oer_object_identifier(tvbuff_t *tvb, uint32_t off
 WS_DLL_PUBLIC uint32_t dissect_oer_boolean(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, bool *bool_val);
 
 WS_DLL_PUBLIC uint32_t dissect_oer_integer(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int32_t *value);
+
+WS_DLL_PUBLIC uint32_t dissect_oer_integer_64b(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int64_t *value);
 
 WS_DLL_PUBLIC uint32_t dissect_oer_constrained_integer(tvbuff_t *tvb, uint32_t offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int64_t min, int64_t max, uint32_t *value, bool has_extension);
 

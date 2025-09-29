@@ -863,7 +863,7 @@ static const value_string context_id_type[] = {
 };
 #endif
 
-/* the following value_strings are used to build defalut packages.
+/* the following value_strings are used to build default packages.
    To add additional detail to a package, build a register a h248_package_t structure
  */
 
@@ -1650,7 +1650,7 @@ void h248_register_package(h248_package_t* pkg, pkg_reg_action reg_action) {
     bool pkg_default = false;
     int j = 0, idx = 0, i = 0, k = 0;
     if (! packages) {
-        /* no packaegs are yet registerd so create tree and add default packages to tree
+        /* no packages are yet registered so create tree and add default packages to tree
          */
         packages = wmem_tree_new(wmem_epan_scope()); /* init tree if no entries */
         while (base_package_name_vals[i].strptr != NULL) {

@@ -49,17 +49,17 @@ def check_lua_script(cmd_tshark, features, dirs, capture_file, test_env):
 
 @pytest.fixture
 def check_lua_script_verify(check_lua_script, result_file):
-    def check_lua_script_verify_real(lua_script, cap_file, check_stage_1=False, heur_regmode=None):
+    def check_lua_script_verify_real(lua_script, cap_file, check_stage_1=False, heur_regmode=None, conv_regmode=None):
         # First run tshark with the dissector script.
-        if heur_regmode is None:
-            tshark_proc = check_lua_script(lua_script, cap_file, check_stage_1,
-                '-V'
-            )
-        else:
-            tshark_proc = check_lua_script(lua_script, cap_file, check_stage_1,
-                '-V',
-                '-X', 'lua_script1:heur_regmode={}'.format(heur_regmode)
-            )
+        optargs = []
+
+        if heur_regmode is not None:
+            optargs += ['-X', 'lua_script1:heur_regmode={}'.format(heur_regmode)]
+
+        if conv_regmode is not None:
+            optargs += ['-X', 'lua_script1:conv_regmode={}'.format(conv_regmode)]
+
+        tshark_proc = check_lua_script(lua_script, cap_file, check_stage_1, '-V', *optargs)
 
         # then dump tshark's output to a verification file.
         verify_file = result_file('testin.txt')
@@ -118,17 +118,29 @@ class TestWslua:
 
     # Mode_1, mode_2, and mode_3, and fpm were all under wslua_step_dissector_test
     # in the Bash version.
-    def test_wslua_dissector_mode_1(self, check_lua_script_verify):
-        '''wslua dissector functions, mode 1'''
+    def test_wslua_heur_dissector_mode_1(self, check_lua_script_verify):
+        '''wslua heuristic dissector functions, mode 1'''
         check_lua_script_verify('dissector.lua', dns_port_pcap)
 
-    def test_wslua_dissector_mode_2(self, check_lua_script_verify):
-        '''wslua dissector functions, mode 2'''
+    def test_wslua_heur_dissector_mode_2(self, check_lua_script_verify):
+        '''wslua heuristic dissector functions, mode 2'''
         check_lua_script_verify('dissector.lua', dns_port_pcap, heur_regmode=2)
 
-    def test_wslua_dissector_mode_3(self, check_lua_script_verify):
-        '''wslua dissector functions, mode 3'''
+    def test_wslua_heur_dissector_mode_3(self, check_lua_script_verify):
+        '''wslua heuristic dissector functions, mode 3'''
         check_lua_script_verify('dissector.lua', dns_port_pcap, heur_regmode=3)
+
+    def test_wslua_conv_dissector_mode_1(self, check_lua_script_verify):
+        '''wslua conversation dissector functions, mode 1'''
+        check_lua_script_verify('dissector.lua', dns_port_pcap)
+
+    def test_wslua_conv_dissector_mode_2(self, check_lua_script_verify):
+        '''wslua conversation dissector functions, mode 2'''
+        check_lua_script_verify('dissector.lua', dns_port_pcap, conv_regmode=2)
+
+    def test_wslua_conv_dissector_mode_3(self, check_lua_script_verify):
+        '''wslua conversation dissector functions, mode 3'''
+        check_lua_script_verify('dissector.lua', dns_port_pcap, conv_regmode=3)
 
     def test_wslua_dissector_fpm(self, check_lua_script):
         '''wslua dissector functions, fpm'''
@@ -310,6 +322,14 @@ class TestWslua:
     def test_wslua_add_packet_field(self, check_lua_script):
         '''wslua add_packet_field'''
         check_lua_script('add_packet_field.lua', dns_port_pcap, True)
+
+    def test_wslua_conversation(self, check_lua_script):
+        '''wslua conversation'''
+        check_lua_script('conversation.lua', dns_port_pcap, True)
+
+    def test_wslua_gcrypt(self, check_lua_script):
+        '''wslua gcrypt'''
+        check_lua_script('gcrypt.lua', empty_pcap, True)
 
 class TestWsluaUnicode:
     def test_wslua_unicode(self, cmd_tshark, features, dirs, capture_file, unicode_env):

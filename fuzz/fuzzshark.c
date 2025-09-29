@@ -25,6 +25,8 @@
 #include <ui/failure_message.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/ws_getopt.h>
 #include <wsutil/wslog.h>
 #include <wsutil/version_info.h>
 
@@ -82,7 +84,11 @@ fuzzshark_epan_new(void)
 		fuzzshark_get_frame_ts,
 		NULL,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
 	};
 
 	return epan_new(NULL, &funcs);
@@ -129,7 +135,7 @@ fuzz_prefs_apply(void)
 }
 
 static int
-fuzz_init(int argc _U_, char **argv)
+fuzz_init(int argc, char **argv)
 {
 	char                *configuration_init_error;
 
@@ -138,6 +144,10 @@ fuzz_init(int argc _U_, char **argv)
 	e_prefs             *prefs_p;
 	int                  ret = EXIT_SUCCESS;
 	size_t               i;
+	static const struct ws_option long_options[] = {
+		LONGOPT_WSLOG
+		{0, 0, 0, 0 }
+	};
 
 	const char *fuzz_target =
 #if defined(FUZZ_DISSECTOR_TARGET)
@@ -218,7 +228,7 @@ fuzz_init(int argc _U_, char **argv)
 	ws_log_init(vcmdarg_err);
 
 	/* Early logging command-line initialization. */
-	ws_log_parse_args(&argc, argv, vcmdarg_err, LOG_ARGS_NOEXIT);
+	ws_log_parse_args(&argc, argv, "v", long_options, vcmdarg_err, LOG_ARGS_NOEXIT);
 
 	ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -342,22 +352,25 @@ LLVMFuzzerTestOneInput(const uint8_t *buf, size_t real_len)
 	wtap_rec rec;
 	frame_data fdlocal;
 
-	memset(&rec, 0, sizeof(rec));
+	wtap_rec_init(&rec, len);
 
-	rec.rec_type = REC_TYPE_PACKET;
+	/* wtap_setup_packet_rec(&rec, WTAP_ENCAP_ETHERNET); */
+	wtap_setup_packet_rec(&rec, INT16_MAX);
 	rec.rec_header.packet_header.caplen = len;
 	rec.rec_header.packet_header.len = len;
 
-	/* whdr.pkt_encap = WTAP_ENCAP_ETHERNET; */
-	rec.rec_header.packet_header.pkt_encap = INT16_MAX;
 	rec.presence_flags = WTAP_HAS_TS | WTAP_HAS_CAP_LEN; /* most common flags... */
+
+	ws_buffer_append(&rec.data, buf, real_len);
 
 	frame_data_init(&fdlocal, ++framenum, &rec, /* offset */ 0, /* cum_bytes */ 0);
 	/* frame_data_set_before_dissect() not needed */
-	epan_dissect_run(edt, WTAP_FILE_TYPE_SUBTYPE_UNKNOWN, &rec, buf, &fdlocal, NULL /* &fuzz_cinfo */);
+	epan_dissect_run(edt, WTAP_FILE_TYPE_SUBTYPE_UNKNOWN, &rec, &fdlocal, NULL /* &fuzz_cinfo */);
 	frame_data_destroy(&fdlocal);
 
 	epan_dissect_reset(edt);
+
+	wtap_rec_cleanup(&rec);
 	return 0;
 }
 
@@ -368,13 +381,7 @@ LLVMFuzzerTestOneInput(const uint8_t *buf, size_t real_len)
 int
 LLVMFuzzerInitialize(int *argc, char ***argv)
 {
-	int ret;
-
-	ret = fuzz_init(*argc, *argv);
-	if (ret != 0)
-		exit(ret);
-
-	return 0;
+	return fuzz_init(*argc, *argv);
 }
 
 /*

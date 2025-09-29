@@ -13,7 +13,7 @@
 
 #include "ws_symbol_export.h"
 
-#include <epan/value_string.h>
+#include <wsutil/value_string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -668,6 +668,10 @@ extern "C" {
 
 #ifndef ETHERTYPE_EXEH
 #define ETHERTYPE_EXEH			0xE555	/* EXos internal Extra Header */
+#endif
+
+#ifndef ETHERTYPE_ATMF
+#define ETHERTYPE_ATMF			0xFBAE  /* Allied Telesis Autonomous Management Framework frames */
 #endif
 
 #ifndef ETHERTYPE_ATRL

@@ -207,7 +207,7 @@ dissect_error(tvbuff_t *tvb,
     const char *errstr;
 
     *error = tvb_get_ntohl(tvb, offset);
-    errstr = val_to_str(*error, vxi11_core_error_vals, "Error %d");
+    errstr = val_to_str(pinfo->pool, *error, vxi11_core_error_vals, "Error %d");
 
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_error, offset);
 
@@ -218,7 +218,7 @@ dissect_error(tvbuff_t *tvb,
 }
 
 static int
-dissect_flags(tvbuff_t *tvb, int offset, proto_tree *tree)
+dissect_flags(tvbuff_t *tvb, packet_info* pinfo, int offset, proto_tree *tree)
 {
     if (tree)
     {
@@ -238,7 +238,7 @@ dissect_flags(tvbuff_t *tvb, int offset, proto_tree *tree)
 
             if (flags != 0)
             {
-                wmem_strbuf_t *strbuf = wmem_strbuf_create(wmem_packet_scope());
+                wmem_strbuf_t *strbuf = wmem_strbuf_create(pinfo->pool);
 
                 if (flags & VXI11_CORE_FLAG_WAITLOCK)
                 {
@@ -263,7 +263,7 @@ dissect_flags(tvbuff_t *tvb, int offset, proto_tree *tree)
 }
 
 static int
-dissect_reason(tvbuff_t *tvb, int offset, proto_tree *tree)
+dissect_reason(tvbuff_t *tvb, packet_info* pinfo, int offset, proto_tree *tree)
 {
     if (tree)
     {
@@ -283,7 +283,7 @@ dissect_reason(tvbuff_t *tvb, int offset, proto_tree *tree)
 
             if (reason != 0)
             {
-                wmem_strbuf_t *strbuf = wmem_strbuf_create(wmem_packet_scope());
+                wmem_strbuf_t *strbuf = wmem_strbuf_create(pinfo->pool);
 
                 if (reason & VXI11_CORE_REASON_REQCNT)
                 {
@@ -320,7 +320,7 @@ dissect_create_link_parms(tvbuff_t *tvb,
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_client_id, offset);
     offset = dissect_rpc_bool(tvb, tree, hf_vxi11_core_lock_device, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
-    offset = dissect_rpc_string(tvb, tree, hf_vxi11_core_device, offset, &str);
+    offset = dissect_rpc_string(tvb, pinfo, tree, hf_vxi11_core_device, offset, &str);
 
     proto_item_append_text(tree, " (Create_LinkParms) %s", str);
     col_append_fstr(pinfo->cinfo, COL_INFO, " %s", str);
@@ -355,10 +355,10 @@ dissect_create_link_resp(tvbuff_t *tvb,
 
 static int
 dissect_device_SRQ_parms(tvbuff_t *tvb,
-                         packet_info *pinfo _U_,
+                         packet_info *pinfo,
                          proto_tree *tree, void* data _U_)
 {
-    int offset = dissect_rpc_opaque_data(tvb, 0, tree, NULL, hf_vxi11_intr_handle, false, 0, false, NULL, NULL);
+    int offset = dissect_rpc_opaque_data(tvb, 0, tree, pinfo, hf_vxi11_intr_handle, false, 0, false, NULL, NULL);
 
     proto_item_append_text(tree, " (Device_SrqParms)");
 
@@ -377,17 +377,17 @@ dissect_device_docmd_parms(tvbuff_t *tvb,
     lid    = tvb_get_ntohl(tvb, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lid, offset);
 
-    offset = dissect_flags(tvb, offset, tree);
+    offset = dissect_flags(tvb, pinfo, offset, tree);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_io_timeout, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
 
     cmd    = tvb_get_ntohl(tvb, offset);
-    cmdstr = val_to_str(cmd, vxi11_core_cmd_vals, "Unknown(0x%x)");
+    cmdstr = val_to_str(pinfo->pool, cmd, vxi11_core_cmd_vals, "Unknown(0x%x)");
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_cmd, offset);
 
     offset = dissect_rpc_bool(tvb, tree, hf_vxi11_core_network_order, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_size, offset);
-    offset = dissect_rpc_opaque_data(tvb, offset, tree, NULL, hf_vxi11_core_data, false, 0, false, NULL, NULL);
+    offset = dissect_rpc_opaque_data(tvb, offset, tree, pinfo, hf_vxi11_core_data, false, 0, false, NULL, NULL);
 
     proto_item_append_text(tree, " (Device_DocmdParms) LID=%d CMD=%s", lid, cmdstr);
     col_append_fstr(pinfo->cinfo, COL_INFO, " LID=%d CMD=%s", lid, cmdstr);
@@ -404,7 +404,7 @@ dissect_device_docmd_resp(tvbuff_t *tvb,
     int offset = 0;
 
     offset = dissect_error(tvb, offset, pinfo, tree, "Device_DocmdResp", &error);
-    offset = dissect_rpc_opaque_data(tvb, offset, tree, NULL, hf_vxi11_core_data, false, 0, false, NULL, NULL);
+    offset = dissect_rpc_opaque_data(tvb, offset, tree, pinfo, hf_vxi11_core_data, false, 0, false, NULL, NULL);
 
     return offset;
 }
@@ -419,7 +419,7 @@ dissect_device_enable_SRQ_parms(tvbuff_t *tvb,
 
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lid, offset);
     offset = dissect_rpc_bool(tvb, tree, hf_vxi11_core_enable, offset);
-    offset = dissect_rpc_opaque_data(tvb, offset, tree, NULL, hf_vxi11_core_handle, false, 0, false, NULL, NULL);
+    offset = dissect_rpc_opaque_data(tvb, offset, tree, pinfo, hf_vxi11_core_handle, false, 0, false, NULL, NULL);
 
     proto_item_append_text(tree, " (Device_EnableSrqParms) LID=%d", lid);
     col_append_fstr(pinfo->cinfo, COL_INFO, " LID=%d", lid);
@@ -446,7 +446,7 @@ dissect_device_generic_parms(tvbuff_t *tvb,
     uint32_t lid = tvb_get_ntohl(tvb, offset);
 
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lid, offset);
-    offset = dissect_flags(tvb, offset, tree);
+    offset = dissect_flags(tvb, pinfo, offset, tree);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_io_timeout, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
 
@@ -481,7 +481,7 @@ dissect_device_lock_parms(tvbuff_t *tvb,
     uint32_t lid = tvb_get_ntohl(tvb, offset);
 
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lid, offset);
-    offset = dissect_flags(tvb, offset, tree);
+    offset = dissect_flags(tvb, pinfo, offset, tree);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
 
     proto_item_append_text(tree, " (Device_LockParms) LID=%d", lid);
@@ -502,7 +502,7 @@ dissect_device_read_parms(tvbuff_t *tvb,
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_size, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_io_timeout, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
-    offset = dissect_flags(tvb, offset, tree);
+    offset = dissect_flags(tvb, pinfo, offset, tree);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_term_char, offset);
 
     proto_item_append_text(tree, " (Device_ReadParms) LID=%d", lid);
@@ -521,14 +521,14 @@ dissect_device_read_resp(tvbuff_t *tvb,
     uint32_t datalength = 0;
 
     offset = dissect_error(tvb, offset, pinfo, tree, "Device_ReadResp", &error);
-    offset = dissect_reason(tvb, offset, tree);
+    offset = dissect_reason(tvb, pinfo, offset, tree);
 
     datalength = tvb_get_ntohl( tvb, offset);
     if(MAX_DATA_SHOW_SIZE <=datalength)
         datalength = MAX_DATA_SHOW_SIZE;
     col_append_fstr( pinfo->cinfo, COL_INFO," %s",tvb_format_text(pinfo->pool, tvb, offset+4,(uint32_t) datalength));
 
-    offset = dissect_rpc_opaque_data(tvb, offset, tree, NULL, hf_vxi11_core_data, false, 0, false, NULL, NULL);
+    offset = dissect_rpc_opaque_data(tvb, offset, tree, pinfo, hf_vxi11_core_data, false, 0, false, NULL, NULL);
 
     return offset;
 }
@@ -592,7 +592,7 @@ dissect_device_write_parms(tvbuff_t *tvb,
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lid, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_io_timeout, offset);
     offset = dissect_rpc_uint32(tvb, tree, hf_vxi11_core_lock_timeout, offset);
-    offset = dissect_flags(tvb, offset, tree);
+    offset = dissect_flags(tvb, pinfo, offset, tree);
     col_append_fstr(pinfo->cinfo, COL_INFO, " LID=%d", lid);
 
     datalength = tvb_get_ntohl( tvb, offset);
@@ -600,7 +600,7 @@ dissect_device_write_parms(tvbuff_t *tvb,
         datalength = MAX_DATA_SHOW_SIZE;
     col_append_fstr( pinfo->cinfo, COL_INFO," %s",tvb_format_text(pinfo->pool, tvb, offset+4,(uint32_t) datalength));
 
-    offset = dissect_rpc_opaque_data(tvb, offset, tree, NULL, hf_vxi11_core_data, false, 0, false, NULL, NULL);
+    offset = dissect_rpc_opaque_data(tvb, offset, tree, pinfo, hf_vxi11_core_data, false, 0, false, NULL, NULL);
     proto_item_append_text(tree, " (Device_WriteParms) LID=%d", lid);
 
     return offset;

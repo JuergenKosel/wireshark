@@ -8,7 +8,7 @@
  * Copyright 1998 Gerald Combs
  *
  * The TIFF 6 specification can be found at:
- * https://www.adobe.io/content/dam/udp/en/open/standards/tiff/TIFF6.pdf
+ * https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -16,6 +16,7 @@
 #include "config.h"
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <epan/tfs.h>
 #include <wsutil/array.h>
 
 void proto_reg_handoff_tiff(void);
@@ -451,12 +452,6 @@ static const value_string tiff_gray_response_unit_names[] = {
     { 3, "Thousandths" },
     { 4, "Ten-thousandths" },
     { 5, "Hundred-thousandths" },
-    { 0, NULL },
-};
-
-static const value_string tiff_allow_uncompressed_names[] = {
-    { 0, "Not Allowed" },
-    { 1, "Allowed" },
     { 0, NULL },
 };
 
@@ -1053,7 +1048,7 @@ proto_register_tiff(void)
         },
         { &hf_tiff_t6_allow_uncompresed,
             { "Allow Uncompressed", "tiff.t6.allow_uncompressed",
-            FT_UINT32, BASE_HEX, VALS(tiff_allow_uncompressed_names),
+            FT_BOOLEAN, 32, TFS(&tfs_allowed_not_allowed),
             0x00000002, NULL, HFILL }
         },
         { &hf_tiff_resolution_unit,

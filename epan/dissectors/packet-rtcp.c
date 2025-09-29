@@ -62,17 +62,20 @@
 #include <epan/packet.h>
 #include <epan/unit_strings.h>
 
-#include <wsutil/array.h>
-#include "packet-rtcp.h"
-#include "packet-rtp.h"
-#include "packet-gsm_a_common.h"
-
 #include <epan/conversation.h>
 
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/to_str.h>
 #include <epan/proto_data.h>
+
+#include <wsutil/array.h>
+#include <wsutil/ws_roundup.h>
+#include <wsutil/ws_padding_to.h>
+
+#include "packet-rtcp.h"
+#include "packet-rtp.h"
+#include "packet-gsm_a_common.h"
 
 void proto_register_rtcp(void);
 void proto_reg_handoff_rtcp(void);
@@ -209,6 +212,7 @@ static const value_string rtcp_sdes_type_vals[] =
 #define RTCP_XR_PR_LOSS_RLE 10
 #define RTCP_XR_MC_ACQ      11
 #define RTCP_XR_IDMS        12
+#define RTCP_XR_DISCARD_RLE 25
 
 static const value_string rtcp_xr_type_vals[] =
 {
@@ -224,6 +228,7 @@ static const value_string rtcp_xr_type_vals[] =
     { RTCP_XR_PR_LOSS_RLE,  "Post-repair Loss RLE Report Block" },
     { RTCP_XR_MC_ACQ,       "Multicast Acquisition Report Block" },
     { RTCP_XR_IDMS,         "Inter-destination Media Synchronization Block" }, /* [https://www.etsi.org/deliver/etsi_ts/183000_183099/183063/][ETSI 183 063][Miguel_Angel_Reina_Ortega] */
+    { RTCP_XR_DISCARD_RLE,  "Discard Run Length Encoding Report Block" },
     { 0, NULL}
 };
 
@@ -626,6 +631,7 @@ static int hf_rtcp_app_mux_localmuxport;
 static int hf_rtcp_xr_block_type;
 static int hf_rtcp_xr_block_specific;
 static int hf_rtcp_xr_block_length;
+static int hf_rtcp_xr_drle_e;
 static int hf_rtcp_xr_thinning;
 static int hf_rtcp_xr_voip_metrics_burst_density;
 static int hf_rtcp_xr_voip_metrics_gap_density;
@@ -815,7 +821,15 @@ static int hf_rtcp_app_data_padding;
 static int hf_rtcp_mcptt_priority;
 static int hf_rtcp_mcptt_duration;
 static int hf_rtcp_mcptt_user_id;
-static int hf_rtcp_mcptt_floor_ind;
+static int hf_rtcp_mcptt_floor_ind_normal;
+static int hf_rtcp_mcptt_floor_ind_broadcast;
+static int hf_rtcp_mcptt_floor_ind_system;
+static int hf_rtcp_mcptt_floor_ind_emergency;
+static int hf_rtcp_mcptt_floor_ind_imminent_peril;
+static int hf_rtcp_mcptt_floor_ind_queueing_supported;
+static int hf_rtcp_mcptt_floor_ind_dual_floor;
+static int hf_rtcp_mcptt_floor_ind_temp_group;
+static int hf_rtcp_mcptt_floor_ind_multi_talker;
 static int hf_rtcp_mcptt_rej_cause;
 static int hf_rtcp_mcptt_rej_cause_floor_deny;
 static int hf_rtcp_mcptt_rej_cause_floor_revoke;
@@ -834,6 +848,7 @@ static int hf_rtcp_mcptt_participant_ref;
 static int hf_rtcp_mcptt_ssrc;
 static int hf_rtcp_mcptt_num_users;
 static int hf_rtcp_mcptt_user_id_len;
+static int hf_rtcp_spare8;
 static int hf_rtcp_spare16;
 static int hf_rtcp_mcptt_num_ssrc;
 static int hf_rtcp_mcptt_func_alias;
@@ -851,6 +866,7 @@ static int hf_rtcp_mcptt_long;
 static int hf_rtcp_mcptt_msg_type;
 static int hf_rtcp_mcptt_num_loc;
 static int hf_rtcp_mcptt_str;
+static int hf_rtcp_mcptt_floor_ind;
 static int hf_rtcp_mccp_len;
 static int hf_rtcp_mccp_field_id;
 static int hf_rtcp_mcptt_group_id;
@@ -903,6 +919,7 @@ static int ett_rtcp_mcpt;
 static int ett_rtcp_mcptt_participant_ref;
 static int ett_rtcp_mcptt_eci;
 static int ett_rtcp_mccp_tmgi;
+static int ett_rtcp_mcptt_floor_ind;
 
 static expert_field ei_rtcp_not_final_padding;
 static expert_field ei_rtcp_bye_reason_not_padded;
@@ -1000,16 +1017,16 @@ void srtcp_add_address( packet_info *pinfo,
      * Check if the ip address and port combination is not
      * already registered as a conversation.
      */
-    p_conv = find_conversation( setup_frame_number, addr, &null_addr, CONVERSATION_UDP, port, other_port,
-                                NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
+    p_conv = find_conversation_strat_xtd(pinfo, setup_frame_number, addr, &null_addr, CONVERSATION_UDP, port, other_port,
+                                         NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
 
     /*
      * If not, create a new conversation.
      */
     if ( ! p_conv ) {
-        p_conv = conversation_new( setup_frame_number, addr, &null_addr, CONVERSATION_UDP,
-                                   (uint32_t)port, (uint32_t)other_port,
-                                   NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
+        p_conv = conversation_new_strat_xtd(pinfo, setup_frame_number, addr, &null_addr,
+            CONVERSATION_UDP, (uint32_t)port, (uint32_t)other_port,
+            NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
     }
 
     /* Set dissector */
@@ -1074,10 +1091,14 @@ dissect_rtcp_heur( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
        use of non-compound RTCP packets in some circumstances.)
        - allow BYE because this happens anyway
        - allow APP because TBCP ("PoC1") packets aren't compound...
-       - allow PSFB for MS */
+       - allow RTPFB for feedback
+       - allow PSFB for MS
+       - allow XR for status reports
+     */
     if (!((packet_type == RTCP_SR)  || (packet_type == RTCP_RR) ||
           (packet_type == RTCP_BYE) || (packet_type == RTCP_APP) ||
-          (packet_type == RTCP_PSFB)))
+          (packet_type == RTCP_RTPFB) || (packet_type == RTCP_PSFB) ||
+          (packet_type == RTCP_XR)))
     {
         return false;
     }
@@ -1191,7 +1212,7 @@ dissect_rtcp_rtpfb_tmmbr_tmmbn_fci( tvbuff_t *tvb, int offset, proto_tree *rtcp_
     proto_tree_add_string_format_value( fci_tree, hf_rtcp_rtpfb_tmbbr_fci_bitrate, tvb, offset, 3, "", "%u*2^%u", mantissa, exp);
     offset += 3;
     /* Overhead */
-    proto_tree_add_item( fci_tree, hf_rtcp_rtpfb_tmbbr_fci_measuredoverhead, tvb, offset, 1, ENC_BIG_ENDIAN );
+    proto_tree_add_item( fci_tree, hf_rtcp_rtpfb_tmbbr_fci_measuredoverhead, tvb, offset, 2, ENC_BIG_ENDIAN );
     offset += 1;
 
     if (top_item != NULL) {
@@ -1276,7 +1297,9 @@ dissect_rtcp_rtpfb_ccfb_fci( tvbuff_t *tvb, int offset, packet_info *pinfo, prot
     proto_tree_add_item( media_source_ssrc_tree, hf_rtcp_rtpfb_ccfb_beginseq, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    const uint16_t num_of_reported_pkts = tvb_get_uint16( tvb, offset, ENC_BIG_ENDIAN) + 1;
+    /* Calculate number of reports for "the range begin_seq up to, but not including, begin_seq+num_reports" */
+    /* https://www.rfc-editor.org/errata/eid8166 */
+    const uint16_t num_of_reported_pkts = tvb_get_uint16( tvb, offset, ENC_BIG_ENDIAN);
     proto_tree_add_uint_format( media_source_ssrc_tree, hf_rtcp_rtpfb_ccfb_numreports, tvb, offset, 2,
                                 num_of_reported_pkts, "Number of metric blocks: %" PRIu16, num_of_reported_pkts);
 
@@ -2110,10 +2133,12 @@ dissect_rtcp_app_poc1(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
     unsigned      sdes_type;
     proto_tree* PoC1_tree;
     proto_item* PoC1_item;
-    int padding;
+    unsigned padding;
+    char* str_rtcp_subtype;
 
-    proto_item_append_text(subtype_item, " %s", val_to_str(rtcp_subtype, rtcp_app_poc1_floor_cnt_type_vals, "unknown (%u)"));
-    col_add_fstr(pinfo->cinfo, COL_INFO, "(PoC1) %s", val_to_str(rtcp_subtype, rtcp_app_poc1_floor_cnt_type_vals, "unknown (%u)"));
+    str_rtcp_subtype = val_to_str(pinfo->pool, rtcp_subtype, rtcp_app_poc1_floor_cnt_type_vals, "unknown (%u)");
+    proto_item_append_text(subtype_item, " %s", str_rtcp_subtype);
+    col_add_fstr(pinfo->cinfo, COL_INFO, "(PoC1) %s", str_rtcp_subtype);
     offset += 4;
     packet_len -= 4;
     if (packet_len == 0)
@@ -2335,10 +2360,7 @@ dissect_rtcp_app_poc1(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
             }
 
             /* Move onto next 4-byte boundary */
-            if (offset % 4) {
-                int padding2 = (4 - (offset % 4));
-                offset += padding2;
-            }
+            offset = WS_ROUNDUP_4(offset);
         }
 
         /* Participants (optional) */
@@ -2575,11 +2597,7 @@ dissect_rtcp_app_poc1(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
         break;
     }
 
-    padding = 0;
-    if (offset % 4) {
-        padding = (4 - (offset % 4));
-    }
-
+    padding = WS_PADDING_TO_4(offset);
     if (padding) {
         proto_tree_add_item(PoC1_tree, hf_rtcp_app_data_padding, tvb, offset, padding, ENC_BIG_ENDIAN);
         offset += padding;
@@ -2588,19 +2606,6 @@ dissect_rtcp_app_poc1(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
 
     return offset;
 }
-
-static const value_string mcptt_floor_ind_vals[] = {
-    { 0x0080, "Multi-talker" },
-    { 0x0100, "Temporary group call" },
-    { 0x0200, "Dual floor" },
-    { 0x0400, "Queueing supported" },
-    { 0x0800, "Imminent peril call" },
-    { 0x1000, "Emergency call" },
-    { 0x2000, "System call" },
-    { 0x4000, "Broadcast group call" },
-    { 0x8000, "Normal call" },
-    { 0, NULL },
-};
 
 static const value_string rtcp_mcptt_rej_cause_floor_deny_vals[] = {
     { 0x1, "Another MCPTT client has permission" },
@@ -2650,10 +2655,9 @@ static const value_string rtcp_mcptt_loc_type_vals[] = {
 };
 
 static int
-dissect_rtcp_mcptt_location_ie(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree* tree, uint32_t mcptt_fld_len)
+dissect_rtcp_mcptt_location_ie(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree* tree)
 {
     uint32_t loc_type;
-    int start_offset = offset;
     static int * const ECGI_flags[] = {
         &hf_rtcp_mcptt_enodebid,
         &hf_rtcp_mcptt_cellid,
@@ -2680,7 +2684,7 @@ dissect_rtcp_mcptt_location_ie(tvbuff_t* tvb, packet_info* pinfo, int offset, pr
         /* ECGI - 56 bits = MCC + MNC + ECI*/
         dissect_e212_mcc_mnc_wmem_packet_str(tvb, pinfo, tree, offset, E212_ECGI, true);
         offset += 3;
-        proto_tree_add_item(tree, hf_rtcp_mcptt_tac, tvb, offset, 2, ENC_NA);
+        proto_tree_add_item(tree, hf_rtcp_mcptt_tac, tvb, offset, 2, ENC_BIG_ENDIAN);
         offset += 2;
         break;
     case 3:
@@ -2712,10 +2716,6 @@ dissect_rtcp_mcptt_location_ie(tvbuff_t* tvb, packet_info* pinfo, int offset, pr
         proto_tree_add_expert(tree, pinfo, &ei_rtcp_mcptt_location_type, tvb, offset-1, 1);
         break;
     }
-    if ((unsigned)(offset - start_offset) != mcptt_fld_len) {
-        proto_tree_add_item(tree, hf_rtcp_app_data_padding, tvb, offset, offset - start_offset, ENC_BIG_ENDIAN);
-        offset += (offset - start_offset);
-    }
 
     return offset;
 }
@@ -2728,11 +2728,12 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
 
     proto_tree* sub_tree;
     uint32_t mcptt_fld_id, mcptt_fld_len;
+    char* str_rtcp_subtype;
 
-    col_add_fstr(pinfo->cinfo, COL_INFO, "(MCPT) %s",
-        val_to_str(rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)"));
+    str_rtcp_subtype = val_to_str(pinfo->pool, rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)");
 
-    proto_item_append_text(subtype_item, " %s", val_to_str(rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)"));
+    col_add_fstr(pinfo->cinfo, COL_INFO, "(MCPT) %s", str_rtcp_subtype);
+    proto_item_append_text(subtype_item, " %s", str_rtcp_subtype);
 
     sub_tree = proto_tree_add_subtree(tree, tvb, offset, packet_len, ett_rtcp_mcpt, NULL,
         "Mission Critical Push To Talk(MCPTT)");
@@ -2744,14 +2745,15 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
     }
 
     if (tvb_ascii_isprint(tvb, offset, packet_len - 3)) {
-        proto_tree_add_item(tree, hf_rtcp_mcptt_str, tvb, offset, packet_len, ENC_ASCII | ENC_NA);
+        proto_tree_add_item(tree, hf_rtcp_mcptt_str, tvb, offset, packet_len, ENC_ASCII);
         proto_tree_add_expert(sub_tree, pinfo, &ei_rtcp_appl_non_conformant, tvb, offset, packet_len);
         return offset + packet_len;
     }
 
     while (packet_len > 0) {
         proto_item* ti;
-        int len_len, padding = 0;
+        unsigned len_len;
+        unsigned padding;
         int start_offset = offset;
         /* Field ID 8 bits*/
         ti = proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_fld_id, tvb, offset, 1, ENC_BIG_ENDIAN, &mcptt_fld_id);
@@ -2769,9 +2771,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
         proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_fld_len, tvb, offset, len_len, ENC_BIG_ENDIAN, &mcptt_fld_len);
         offset += len_len;
 
-        if ((1 + len_len + mcptt_fld_len) % 4) {
-            padding = (4 - ((1 + len_len + mcptt_fld_len) % 4));
-        }
+        padding = WS_PADDING_TO_4(1 + len_len + mcptt_fld_len);
         if (mcptt_fld_len != 0) {
             /* Field Value */
             switch (mcptt_fld_id) {
@@ -2812,7 +2812,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                     break;
                 }
                 /* Reject Phrase */
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_rej_phrase, tvb, offset, mcptt_fld_len - 2, ENC_UTF_8 | ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_rej_phrase, tvb, offset, mcptt_fld_len - 2, ENC_UTF_8);
                 offset += (mcptt_fld_len - 2);
                 break;
             }
@@ -2826,7 +2826,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
             case 4:
             case 106:
                 /* Granted Party's Identity */
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_granted_partys_id, tvb, offset, mcptt_fld_len, ENC_UTF_8 | ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_granted_partys_id, tvb, offset, mcptt_fld_len, ENC_UTF_8);
                 offset += mcptt_fld_len;
                 break;
             case 5:
@@ -2836,7 +2836,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 break;
             case 6:
                 /* User ID */
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_user_id, tvb, offset, mcptt_fld_len, ENC_UTF_8 | ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_user_id, tvb, offset, mcptt_fld_len, ENC_UTF_8);
                 offset += mcptt_fld_len;
                 break;
             case 7:
@@ -2851,7 +2851,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 break;
             case 9:
                 /* Queued User ID */
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_queued_user_id, tvb, offset, mcptt_fld_len, ENC_UTF_8 | ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_queued_user_id, tvb, offset, mcptt_fld_len, ENC_UTF_8);
                 offset += mcptt_fld_len;
                 break;
             case 10:
@@ -2871,11 +2871,11 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_part_type_len, tvb, offset, 1, ENC_BIG_ENDIAN, &fld_len);
                 offset += 1;
                 rem_len -= 1;
-                int part_type_padding = (4 - (fld_len % 4));
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_participant_type, tvb, offset, fld_len, ENC_UTF_8 | ENC_NA);
+                unsigned part_type_padding = WS_PADDING_TO_4(fld_len);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_participant_type, tvb, offset, fld_len, ENC_UTF_8);
                 offset += fld_len;
                 rem_len -= fld_len;
-                if(part_type_padding > 0){
+                if(part_type_padding != 0){
                     uint32_t data;
                     proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_app_data_padding, tvb, offset, part_type_padding, ENC_BIG_ENDIAN, &data);
                     if (data != 0) {
@@ -2901,16 +2901,25 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 /* Message Type */
                 proto_tree_add_item(sub_tree, hf_rtcp_mcptt_msg_type, tvb, offset, 1, ENC_NA);
                 offset += 1;
-                proto_tree_add_item(sub_tree, hf_rtcp_spare16, tvb, offset, 1, ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_spare8, tvb, offset, 1, ENC_NA);
                 offset += 1;
                 break;
             case 13:
             {
-                /* Floor Indicator */
-                uint32_t floor_ind;
-                proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_floor_ind, tvb, offset, 2, ENC_BIG_ENDIAN, &floor_ind);
-                col_append_fstr(pinfo->cinfo, COL_INFO, " - %s",
-                    val_to_str_const(floor_ind, mcptt_floor_ind_vals, "Unknown"));
+                /* Floor Indicator TS 24.380 V 18.6.0 */
+                static int* const floor_ind_flags[] = {
+                    &hf_rtcp_mcptt_floor_ind_normal,
+                    &hf_rtcp_mcptt_floor_ind_broadcast,
+                    &hf_rtcp_mcptt_floor_ind_system,
+                    &hf_rtcp_mcptt_floor_ind_emergency,
+                    &hf_rtcp_mcptt_floor_ind_imminent_peril,
+                    &hf_rtcp_mcptt_floor_ind_queueing_supported,
+                    &hf_rtcp_mcptt_floor_ind_dual_floor,
+                    &hf_rtcp_mcptt_floor_ind_temp_group,
+                    &hf_rtcp_mcptt_floor_ind_multi_talker,
+                    NULL
+                };
+                proto_tree_add_bitmask(sub_tree, tvb, offset, hf_rtcp_mcptt_floor_ind, ett_rtcp_mcptt_floor_ind, floor_ind_flags, ENC_BIG_ENDIAN);
                 offset += 2;
                 break;
             }
@@ -2931,7 +2940,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 while (num_users > 0) {
                     proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_user_id_len, tvb, offset, 1, ENC_BIG_ENDIAN, &user_id_len);
                     offset += 1;
-                    proto_tree_add_item(sub_tree, hf_rtcp_mcptt_user_id, tvb, offset, user_id_len, ENC_UTF_8 | ENC_NA);
+                    proto_tree_add_item(sub_tree, hf_rtcp_mcptt_user_id, tvb, offset, user_id_len, ENC_UTF_8);
                     offset += user_id_len;
                     num_users--;
                 }
@@ -2944,8 +2953,8 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 /* Number of SSRCs*/
                 proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_num_ssrc, tvb, offset, 1, ENC_BIG_ENDIAN, &num_ssrc);
                 offset += 1;
-                proto_tree_add_item(sub_tree, hf_rtcp_spare16, tvb, offset, 2, ENC_BIG_ENDIAN);
-                offset += 2;
+                proto_tree_add_item(sub_tree, hf_rtcp_spare8, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
 
                 while (num_ssrc > 0) {
                     proto_tree_add_item(sub_tree, hf_rtcp_mcptt_ssrc, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -2956,7 +2965,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
             }
             case 17:
                 /* Functional Alias */
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_func_alias, tvb, offset, mcptt_fld_len, ENC_UTF_8 | ENC_NA);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_func_alias, tvb, offset, mcptt_fld_len, ENC_UTF_8);
                 offset += mcptt_fld_len;
                 break;
 
@@ -2970,7 +2979,7 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 while (num_fas > 0) {
                     proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_fa_len, tvb, offset, 1, ENC_BIG_ENDIAN, &fa_len);
                     offset += 1;
-                    proto_tree_add_item(sub_tree, hf_rtcp_mcptt_func_alias, tvb, offset, fa_len, ENC_UTF_8 | ENC_NA);
+                    proto_tree_add_item(sub_tree, hf_rtcp_mcptt_func_alias, tvb, offset, fa_len, ENC_UTF_8);
                     offset += fa_len;
                     num_fas--;
                 }
@@ -2979,18 +2988,18 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
 
             case 19:
                 /* Location */
-                offset = dissect_rtcp_mcptt_location_ie(tvb, pinfo, offset, sub_tree, mcptt_fld_len);
+                offset = dissect_rtcp_mcptt_location_ie(tvb, pinfo, offset, sub_tree);
                 break;
             case 20:
                 /* List of Locations */
             {
                 uint32_t num_loc;
-                /* Number of SSRCs*/
+                /* Number of Locations*/
                 proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_num_loc, tvb, offset, 1, ENC_BIG_ENDIAN, &num_loc);
                 offset += 1;
 
                 while (num_loc > 0) {
-                    offset = dissect_rtcp_mcptt_location_ie(tvb, pinfo, offset, sub_tree, mcptt_fld_len);
+                    offset = dissect_rtcp_mcptt_location_ie(tvb, pinfo, offset, sub_tree);
                     num_loc--;
                 }
                 break;
@@ -3035,11 +3044,12 @@ dissect_rtcp_app_mccp(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
     proto_tree* sub_tree;
     uint32_t mccp_fld_id, mccp_fld_len;
     int total_packet_length;
+    char* str_rtcp_subtype;
 
-    col_add_fstr(pinfo->cinfo, COL_INFO, "(MCCP) %s",
-        val_to_str(rtcp_subtype, rtcp_mccp_subtype_vals, "unknown (%u)"));
+    str_rtcp_subtype = val_to_str(pinfo->pool, rtcp_subtype, rtcp_mccp_subtype_vals, "unknown (%u)");
 
-    proto_item_append_text(subtype_item, " %s", val_to_str(rtcp_subtype, rtcp_mccp_subtype_vals, "unknown (%u)"));
+    col_add_fstr(pinfo->cinfo, COL_INFO, "(MCCP) %s", str_rtcp_subtype);
+    proto_item_append_text(subtype_item, " %s", str_rtcp_subtype);
 
     if (packet_len <= 0) {
         total_packet_length = tvb_reported_length_remaining(tvb, offset);
@@ -3061,7 +3071,7 @@ dissect_rtcp_app_mccp(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
 
     while (packet_len > 0) {
         proto_item* ti;
-        int padding = 0;
+        unsigned padding;
         int start_offset = offset;
 
         /* Each MBMS subchannel control specific field consists of an 8-bit <Field ID> item,
@@ -3074,9 +3084,7 @@ dissect_rtcp_app_mccp(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
         proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mccp_len, tvb, offset, 1, ENC_BIG_ENDIAN, &mccp_fld_len);
         offset += 1;
         packet_len -= 1;
-        if ((2 + mccp_fld_len) % 4) {
-            padding = (4 - ((2 + mccp_fld_len) % 4));
-        }
+        padding = WS_PADDING_TO_4(2 + mccp_fld_len);
         switch (mccp_fld_id) {
         case 0:
         {
@@ -3128,7 +3136,7 @@ dissect_rtcp_app_mccp(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
             break;
         case 3:
             /* MCPTT Group ID */
-            proto_tree_add_item(sub_tree, hf_rtcp_mcptt_group_id, tvb, offset, mccp_fld_len, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(sub_tree, hf_rtcp_mcptt_group_id, tvb, offset, mccp_fld_len, ENC_UTF_8);
             offset += mccp_fld_len;
             break;
         default:
@@ -3143,6 +3151,9 @@ dissect_rtcp_app_mccp(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
         }
         packet_len -= offset - start_offset;
         if (packet_len >= 4) {
+            /*
+             * XXX - what is this?  Where is it specified?
+             */
             uint32_t dword;
             if (mccp_fld_len % 4) {
                 dword = tvb_get_ntohl(tvb, offset);
@@ -3263,7 +3274,7 @@ dissect_rtcp_app( tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *tree
                     packet_len -= tvb_get_uint8(tvb, offset + packet_len - 1);
                 }
                 if (tvb_ascii_isprint(tvb, offset, packet_len)) {
-                    proto_tree_add_item(tree, hf_rtcp_app_data_str, tvb, offset, packet_len, ENC_ASCII | ENC_NA);
+                    proto_tree_add_item(tree, hf_rtcp_app_data_str, tvb, offset, packet_len, ENC_ASCII);
                 } else {
                     proto_tree_add_item(tree, hf_rtcp_app_data, tvb, offset, packet_len, ENC_NA);
                 }
@@ -3284,7 +3295,7 @@ dissect_rtcp_app( tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *tree
             packet_len -= tvb_get_uint8(tvb, offset + packet_len - 1);
         }
         if (tvb_ascii_isprint(tvb, offset, packet_len)) {
-            proto_tree_add_item(tree, hf_rtcp_app_data_str, tvb, offset, packet_len, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_rtcp_app_data_str, tvb, offset, packet_len, ENC_ASCII);
         } else {
             proto_tree_add_item(tree, hf_rtcp_app_data, tvb, offset, packet_len, ENC_NA);
         }
@@ -3323,13 +3334,11 @@ dissect_rtcp_bye( tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tre
     }
 
     /* BYE packet padded out if string didn't fit in previous word */
-    if (offset % 4)
+    unsigned pad_size = WS_PADDING_TO_4(offset);
+    if (pad_size)
     {
-        int pad_size = (4 - (offset % 4));
-        int i;
-
         /* Check padding */
-        for (i = 0; i < pad_size; i++)
+        for (unsigned i = 0; i < pad_size; i++)
         {
             if ((!(tvb_offset_exists(tvb, offset + i))) ||
                 (tvb_get_uint8(tvb, offset + i) != 0))
@@ -3467,6 +3476,9 @@ static void parse_xr_type_specific_field(tvbuff_t *tvb, int offset, unsigned blo
     };
 
     switch (block_type) {
+        case RTCP_XR_DISCARD_RLE:
+            proto_tree_add_item(tree, hf_rtcp_xr_drle_e, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* FALLTHROUGH */
         case RTCP_XR_LOSS_RLE:
         case RTCP_XR_DUP_RLE:
         case RTCP_XR_PKT_RXTIMES:
@@ -3818,7 +3830,8 @@ dissect_rtcp_xr(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree,
         }
 
         case RTCP_XR_LOSS_RLE:
-        case RTCP_XR_DUP_RLE: {
+        case RTCP_XR_DUP_RLE:
+        case RTCP_XR_DISCARD_RLE: {
             /* 8 bytes of fixed header */
             int count = 0, skip = 8;
             proto_tree *chunks_tree;
@@ -4344,7 +4357,7 @@ void show_setup_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     {
         conversation_t *p_conv;
         /* First time, get info from conversation */
-        p_conv = find_conversation(pinfo->num, &pinfo->net_dst, &pinfo->net_src,
+        p_conv = find_conversation_strat_xtd(pinfo, pinfo->num, &pinfo->net_dst, &pinfo->net_src,
                                    conversation_pt_to_conversation_type(pinfo->ptype),
                                    pinfo->destport, pinfo->srcport, NO_ADDR_B);
 
@@ -4422,16 +4435,16 @@ static void remember_outgoing_sr(packet_info *pinfo, uint32_t lsr)
     /* First time, get info from conversation.
        Even though we think of this as an outgoing packet being sent,
        we store the time as being received by the destination. */
-    p_conv = find_conversation(pinfo->num, &pinfo->net_dst, &pinfo->net_src,
+    p_conv = find_conversation_strat_xtd(pinfo, pinfo->num, &pinfo->net_dst, &pinfo->net_src,
                                conversation_pt_to_conversation_type(pinfo->ptype),
                                pinfo->destport, pinfo->srcport, NO_ADDR_B);
 
     /* If the conversation doesn't exist, create it now. */
     if (!p_conv)
     {
-        p_conv = conversation_new(pinfo->num, &pinfo->net_dst, &pinfo->net_src, CONVERSATION_UDP,
-                                  pinfo->destport, pinfo->srcport,
-                                  NO_ADDR2);
+        p_conv = conversation_new_strat_xtd(pinfo, pinfo->num, &pinfo->net_dst, &pinfo->net_src,
+            CONVERSATION_UDP, pinfo->destport, pinfo->srcport,
+            NO_ADDR2);
         if (!p_conv)
         {
             /* Give up if can't create it */
@@ -4514,7 +4527,7 @@ static void calculate_roundtrip_delay(tvbuff_t *tvb, packet_info *pinfo,
     /********************************************************************/
     /* Look for captured timestamp of last SR in conversation of sender */
     /* of this packet                                                   */
-    p_conv = find_conversation(pinfo->num, &pinfo->net_src, &pinfo->net_dst,
+    p_conv = find_conversation_strat_xtd(pinfo, pinfo->num, &pinfo->net_src, &pinfo->net_dst,
                                conversation_pt_to_conversation_type(pinfo->ptype),
                                pinfo->srcport, pinfo->destport, NO_ADDR_B);
     if (!p_conv)
@@ -4697,7 +4710,7 @@ dissect_rtcp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
      */
 
     /* first see if this conversation is encrypted SRTP, and if so do not try to dissect the payload(s) */
-    p_conv = find_conversation(pinfo->num, &pinfo->net_src, &pinfo->net_dst,
+    p_conv = find_conversation_strat_xtd(pinfo, pinfo->num, &pinfo->net_src, &pinfo->net_dst,
                                conversation_pt_to_conversation_type(pinfo->ptype),
                                pinfo->srcport, pinfo->destport, NO_ADDR_B);
     if (p_conv)
@@ -4878,10 +4891,10 @@ dissect_rtcp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                 if (srtcp_encrypted) { /* rest of the payload is encrypted - do not try to dissect hf_rtcp_encrypted*/
                     proto_tree_add_item(rtcp_tree, hf_rtcp_encrypted, tvb, offset, -1, ENC_NA);
                     if (preferences_application_specific_encoding == RTCP_APP_MCPTT) {
-                        col_add_fstr(pinfo->cinfo, COL_INFO, "(MCPT) %s",
-                            val_to_str(rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)"));
+                        char* str = val_to_str(pinfo->pool, rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)");
 
-                        proto_item_append_text(subtype_item, " %s", val_to_str(rtcp_subtype, rtcp_mcpt_subtype_vals, "unknown (%u)"));
+                        col_add_fstr(pinfo->cinfo, COL_INFO, "(MCPT) %s", str);
+                        proto_item_append_text(subtype_item, " %s", str);
                     }
 
                     return tvb_reported_length(tvb);
@@ -6405,6 +6418,18 @@ proto_register_rtcp(void)
                 BASE_DEC,
                                 NULL,
                 0x0F,
+                NULL, HFILL
+            }
+        },
+        {
+            &hf_rtcp_xr_drle_e,
+            {
+                "Early bit",
+                "rtcp.xr.drle.e",
+                FT_BOOLEAN,
+                8,
+                NULL,
+                0x10,
                 NULL, HFILL
             }
         },
@@ -8197,9 +8222,49 @@ proto_register_rtcp(void)
             FT_UINT16, BASE_DEC | BASE_UNIT_STRING, UNS(& units_second_seconds), 0x0,
             NULL, HFILL }
         },
-        { &hf_rtcp_mcptt_floor_ind,
-            { "Floor Indicator", "rtcp.app_data.mcptt.floor_ind",
-            FT_UINT16, BASE_DEC, VALS(mcptt_floor_ind_vals), 0x0,
+        { &hf_rtcp_mcptt_floor_ind_normal,
+            { "Normal call", "rtcp.app_data.mcptt.floor_ind.normal",
+            FT_BOOLEAN, 16, NULL, 0x8000,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_broadcast,
+            { "Broadcast group call", "rtcp.app_data.mcptt.floor_ind.broadcast",
+            FT_BOOLEAN, 16, NULL, 0x4000,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_system,
+            { "System call", "rtcp.app_data.mcptt.floor_ind.system",
+            FT_BOOLEAN, 16, NULL, 0x2000,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_emergency,
+            { "Emergency call", "rtcp.app_data.mcptt.floor_ind.emergency",
+            FT_BOOLEAN, 16, NULL, 0x1000,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_imminent_peril,
+            { "Imminent peril call", "rtcp.app_data.mcptt.floor_ind.imminent_peril",
+            FT_BOOLEAN, 16, NULL, 0x0800,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_queueing_supported,
+            { "Queueing supported", "rtcp.app_data.mcptt.floor_ind.queueing_supported",
+            FT_BOOLEAN, 16, NULL, 0x0400,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_dual_floor,
+            { "Dual floor", "rtcp.app_data.mcptt.floor_ind.dual_floor",
+            FT_BOOLEAN, 16, NULL, 0x0200,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_temp_group,
+            { "Temporary group call", "rtcp.app_data.mcptt.floor_ind.temp_group",
+            FT_BOOLEAN, 16, NULL, 0x0100,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind_multi_talker,
+            { "Multi-talker", "rtcp.app_data.mcptt.floor_ind.multi_talker",
+            FT_BOOLEAN, 16, NULL, 0x0080,
             NULL, HFILL }
         },
         { &hf_rtcp_mcptt_rej_cause,
@@ -8292,6 +8357,11 @@ proto_register_rtcp(void)
             FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_rtcp_spare8,
+            { "Spare", "rtcp.spare8",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_rtcp_spare16,
             { "Spare", "rtcp.spare16",
             FT_UINT16, BASE_DEC, NULL, 0x0,
@@ -8375,6 +8445,11 @@ proto_register_rtcp(void)
         { &hf_rtcp_mcptt_str,
             { "String", "rtcp.app_data.mcptt.str",
             FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_rtcp_mcptt_floor_ind,
+            { "Floor Indication", "rtcp.app_data.mcptt.floor_ind",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_rtcp_mccp_len,
@@ -8478,6 +8553,7 @@ proto_register_rtcp(void)
         &ett_rtcp_mcpt,
         &ett_rtcp_mcptt_participant_ref,
         &ett_rtcp_mcptt_eci,
+        &ett_rtcp_mcptt_floor_ind,
         &ett_rtcp_mccp_tmgi
     };
 

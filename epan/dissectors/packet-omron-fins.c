@@ -9,8 +9,11 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
- * Reference for OMRON-FINS W227_E1_02_FINS_Command_Reference_Manual
- * Hopefully google will find it for you.
+ * Reference:
+ *
+ *     OMRON FINS Commands Reference Manual, W227-E1-2
+ *
+ *     https://www.myomron.com/downloads/1.Manuals/Networks/W227E12_FINS_Commands_Reference_Manual.pdf
  *
  * Special thanks to the guys who wrote the README.developer: it's great.
  *
@@ -3403,7 +3406,7 @@ dissect_omron_fins_tcp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "OMRON");
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "FINS/TCP : %s",
-                 val_to_str(tcp_command, tcp_command_cv, "Unknown (%d)"));
+                 val_to_str(pinfo->pool, tcp_command, tcp_command_cv, "Unknown (%d)"));
 
     if (tree) {
         ti = proto_tree_add_item(tree, proto_omron_fins, tvb, 0, -1, ENC_NA);

@@ -223,7 +223,7 @@ dissect_ppdu(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, st
 
 	/*  set up type of PPDU */
 	col_add_str(pinfo->cinfo, COL_INFO,
-		    val_to_str_ext(session->spdu_type, &ses_vals_ext, "Unknown PPDU type (0x%02x)"));
+		    val_to_str_ext(pinfo->pool, session->spdu_type, &ses_vals_ext, "Unknown PPDU type (0x%02x)"));
 
 	asn1_ctx.private_data = session;
 
@@ -277,7 +277,7 @@ dissect_pres(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	if (!tvb_bytes_exist(tvb, 0, 4)) {
 		if (session && session->spdu_type != SES_MAJOR_SYNC_POINT) {
 			proto_tree_add_item(parent_tree, hf_pres_user_data, tvb, offset,
-					    tvb_reported_length_remaining(tvb,offset), ENC_NA);
+					tvb_reported_length_remaining(tvb,offset), ENC_BIG_ENDIAN);
 			return 0;  /* no, it isn't a presentation PDU */
 		}
 	}
@@ -318,7 +318,7 @@ dissect_pres(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 			call_ber_oid_callback (oid, tvb, offset, pinfo, parent_tree, session);
 		} else {
 			proto_tree_add_item(parent_tree, hf_pres_user_data, tvb, offset,
-					    tvb_reported_length_remaining(tvb,offset), ENC_NA);
+			                    tvb_reported_length_remaining(tvb,offset), ENC_BIG_ENDIAN);
 		}
 		return tvb_captured_length(tvb);
 	}

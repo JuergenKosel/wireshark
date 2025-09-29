@@ -337,6 +337,7 @@ sub is_proto_dup_allowed {
 	if (($_[0] eq "fcs") && (index($_[1], "fcsmask") >= 0)) {return 1;}
 	if (($_[0] eq "fmp") && (index($_[1], "fmp") >= 0)) {return 1;}
 	if (($_[0] eq "fr") && (index($_[1], "frame_relay") >= 0)) {return 1;}
+	if (($_[0] eq "http") && (index($_[1], "http2_") >= 0)) {return 1;}
 	if (($_[0] eq "lustre") && (index($_[1], "lustre_") >= 0)) {return 1;}
 	if (($_[0] eq "mac") && (index($_[1], "macd") >= 0)) {return 1;}
 	if (($_[0] eq "mac") && (index($_[1], "macis") >= 0)) {return 1;}
@@ -387,12 +388,14 @@ sub is_from_other_protocol_allowed {
 	# XXX - may be faster to hash this (note 1-many relationship)?
 	if (($proto_filename eq "packet-atalk.c") && (index($_[0], "llc") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-awdl.c") && (index($_[0], "llc") >= 0)) {return 1;}
+	if (($proto_filename eq "packet-bblog.c") && (index($_[0], "bblog") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-bpdu.c") && (index($_[0], "mstp") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-bssap.c") && (index($_[0], "bsap") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-caneth.c") && (index($_[0], "can") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-cimetrics.c") && (index($_[0], "llc") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-cipsafety.c") && (index($_[0], "cip") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-cipsafety.c") && (index($_[0], "enip") >= 0)) {return 1;}
+	if (($proto_filename eq "packet-darwin.c") && (index($_[0], "darwin") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-dcerpc-netlogon.c") && (index($_[0], "ntlmssp") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-dcom-oxid.c") && (index($_[0], "dcom") >= 0)) {return 1;}
 	if (($proto_filename eq "packet-dvb-data-mpe.c") && (index($_[0], "mpeg_sect") >= 0)) {return 1;}

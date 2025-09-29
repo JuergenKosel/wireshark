@@ -316,7 +316,7 @@ static expert_field ei_sctp_tsn_retransmitted;
 static expert_field ei_sctp_sack_chunk_gap_block_malformed;
 static expert_field ei_sctp_sack_chunk_number_tsns_gap_acked_100;
 
-WS_DLL_PUBLIC_DEF const value_string chunk_type_values[] = {
+static const value_string chunk_type_values[] = {
   { SCTP_DATA_CHUNK_ID,              "DATA" },
   { SCTP_INIT_CHUNK_ID,              "INIT" },
   { SCTP_INIT_ACK_CHUNK_ID,          "INIT_ACK" },
@@ -1412,13 +1412,13 @@ dissect_heartbeat_info_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_
 #define IPV4_ADDRESS_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
-dissect_ipv4_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item, bool dissecting_init_init_ack_chunk)
+dissect_ipv4_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item, bool dissecting_init_init_ack_chunk)
 {
   if (parameter_tree) {
     proto_tree_add_item(parameter_tree, hf_ipv4_address, parameter_tvb, IPV4_ADDRESS_OFFSET, IPV4_ADDRESS_LENGTH, ENC_BIG_ENDIAN);
-    proto_item_append_text(parameter_item, " (Address: %s)", tvb_ip_to_str(wmem_packet_scope(), parameter_tvb, IPV4_ADDRESS_OFFSET));
+    proto_item_append_text(parameter_item, " (Address: %s)", tvb_ip_to_str(pinfo->pool, parameter_tvb, IPV4_ADDRESS_OFFSET));
     if (additional_item)
-        proto_item_append_text(additional_item, "%s", tvb_ip_to_str(wmem_packet_scope(), parameter_tvb, IPV4_ADDRESS_OFFSET));
+        proto_item_append_text(additional_item, "%s", tvb_ip_to_str(pinfo->pool, parameter_tvb, IPV4_ADDRESS_OFFSET));
   }
   if (dissecting_init_init_ack_chunk) {
     if (sctp_info.number_of_tvbs < MAXIMUM_NUMBER_OF_TVBS)
@@ -1432,13 +1432,13 @@ dissect_ipv4_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, prot
 #define IPV6_ADDRESS_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
-dissect_ipv6_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item, bool dissecting_init_init_ack_chunk)
+dissect_ipv6_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item, bool dissecting_init_init_ack_chunk)
 {
   if (parameter_tree) {
     proto_tree_add_item(parameter_tree, hf_ipv6_address, parameter_tvb, IPV6_ADDRESS_OFFSET, IPV6_ADDRESS_LENGTH, ENC_NA);
-    proto_item_append_text(parameter_item, " (Address: %s)", tvb_ip6_to_str(wmem_packet_scope(), parameter_tvb, IPV6_ADDRESS_OFFSET));
+    proto_item_append_text(parameter_item, " (Address: %s)", tvb_ip6_to_str(pinfo->pool, parameter_tvb, IPV6_ADDRESS_OFFSET));
     if (additional_item)
-      proto_item_append_text(additional_item, "%s", tvb_ip6_to_str(wmem_packet_scope(), parameter_tvb, IPV6_ADDRESS_OFFSET));
+      proto_item_append_text(additional_item, "%s", tvb_ip6_to_str(pinfo->pool, parameter_tvb, IPV6_ADDRESS_OFFSET));
   }
   if (dissecting_init_init_ack_chunk) {
     if (sctp_info.number_of_tvbs < MAXIMUM_NUMBER_OF_TVBS)
@@ -1482,13 +1482,13 @@ dissect_cookie_preservative_parameter(tvbuff_t *parameter_tvb, proto_tree *param
 #define HOSTNAME_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
-dissect_hostname_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item)
+dissect_hostname_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item)
 {
   char *hostname;
   uint16_t hostname_length;
 
   hostname_length = tvb_get_ntohs(parameter_tvb, PARAMETER_LENGTH_OFFSET) - PARAMETER_HEADER_LENGTH;
-  proto_tree_add_item_ret_display_string(parameter_tree, hf_hostname, parameter_tvb, HOSTNAME_OFFSET, hostname_length, ENC_ASCII, wmem_packet_scope(), &hostname);
+  proto_tree_add_item_ret_display_string(parameter_tree, hf_hostname, parameter_tvb, HOSTNAME_OFFSET, hostname_length, ENC_ASCII, pinfo->pool, &hostname);
   if (hostname_length > 1) {
     proto_item_append_text(parameter_item, " (Hostname: %s)", hostname);
     if (additional_item != NULL) {
@@ -1998,22 +1998,22 @@ dissect_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo,
     dissect_heartbeat_info_parameter(parameter_tvb, parameter_tree, parameter_item);
     break;
   case IPV4ADDRESS_PARAMETER_ID:
-    dissect_ipv4_parameter(parameter_tvb, parameter_tree, parameter_item, additional_item, dissecting_init_init_ack_chunk);
+    dissect_ipv4_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item, additional_item, dissecting_init_init_ack_chunk);
     break;
   case IPV6ADDRESS_PARAMETER_ID:
-    dissect_ipv6_parameter(parameter_tvb, parameter_tree, parameter_item, additional_item, dissecting_init_init_ack_chunk);
+    dissect_ipv6_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item, additional_item, dissecting_init_init_ack_chunk);
     break;
   case STATE_COOKIE_PARAMETER_ID:
     dissect_state_cookie_parameter(parameter_tvb, parameter_tree, parameter_item);
     break;
   case UNREC_PARA_PARAMETER_ID:
-    dissect_unrecognized_parameters_parameter(parameter_tvb, pinfo,  parameter_tree);
+    dissect_unrecognized_parameters_parameter(parameter_tvb, pinfo, parameter_tree);
     break;
   case COOKIE_PRESERVATIVE_PARAMETER_ID:
     dissect_cookie_preservative_parameter(parameter_tvb, parameter_tree, parameter_item);
     break;
   case HOSTNAME_ADDRESS_PARAMETER_ID:
-    dissect_hostname_parameter(parameter_tvb, parameter_tree, parameter_item, additional_item);
+    dissect_hostname_parameter(parameter_tvb, pinfo, parameter_tree, parameter_item, additional_item);
     break;
   case SUPPORTED_ADDRESS_TYPES_PARAMETER_ID:
     dissect_supported_address_types_parameter(parameter_tvb, parameter_tree, parameter_item);
@@ -3350,7 +3350,7 @@ export_sctp_data_chunk(packet_info *pinfo, tvbuff_t *tvb, uint32_t payload_proto
   } else if (pinfo->srcport != 0) {
     exp_pdu_data = create_exp_pdu_table(pinfo, tvb, "sctp.port", pinfo->srcport);
   } else {
-    /* do not export anything when none of the above fileds are available */
+    /* do not export anything when none of the above fields are available */
     return;
   }
 
@@ -5301,7 +5301,7 @@ proto_register_sctp(void)
                          "Dissect upper layer protocols",
                          "Dissect upper layer protocols",
                          &enable_ulp_dissection);
-  prefs_register_uat_preference_qt(sctp_module, "statistics_chunk_types",
+  prefs_register_uat_preference(sctp_module, "statistics_chunk_types",
                          "Select the chunk types for the statistics dialog",
                          "Select the chunk types for the statistics dialog",
                          chunk_types_uat);
@@ -5336,6 +5336,8 @@ proto_register_sctp(void)
         sctp_assoc_hash, sctp_assoc_equal);
   assoc_info_half_map = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(),
         sctp_assoc_half_hash, sctp_assoc_half_equal);
+
+  register_external_value_string("chunk_type_values", chunk_type_values);
 }
 
 void

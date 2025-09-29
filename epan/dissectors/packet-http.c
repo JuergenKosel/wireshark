@@ -276,6 +276,13 @@ static bool http_decompress_body = true;
  */
 static bool http_check_ascii_headers = false;
 
+/*
+ * Try heuristic sub-dissectors for HTTP message bodies before
+ * sub-dissectors registered to the Content-Type, aka "MIME sniffing".
+ * Disabled by default, per RFC 9110.
+ */
+static bool http_try_heuristic_first;
+
 /* Simple Service Discovery Protocol
  * SSDP is implemented atop HTTP (yes, it really *does* run over UDP).
  * SSDP is the discovery protocol of Universal Plug and Play
@@ -351,6 +358,9 @@ typedef struct {
 	/* request or response streaming reassembly data */
 	http_streaming_reassembly_data_t* req_streaming_reassembly_data;
 	http_streaming_reassembly_data_t* res_streaming_reassembly_data;
+	/* request and response headers */
+	wmem_map_t *request_headers;
+	wmem_map_t *response_headers;
 } http_req_res_private_data_t;
 
  typedef struct _request_trans_t {
@@ -379,7 +389,8 @@ static bool process_header(tvbuff_t *tvb, int offset, int next_offset,
 			   const unsigned char *line, int linelen, int colon_offset,
 			   packet_info *pinfo, proto_tree *tree,
 			   headers_t *eh_ptr, http_conv_t *conv_data,
-			   media_container_type_t http_type, wmem_map_t *header_value_map, bool streaming_chunk_mode);
+			   media_container_type_t http_type, wmem_map_t *header_value_map,
+			   wmem_allocator_t *header_value_map_allocator, bool streaming_chunk_mode);
 static int find_header_hf_value(tvbuff_t *tvb, int offset, unsigned header_len);
 static bool check_auth_ntlmssp(proto_item *hdr_item, tvbuff_t *tvb,
 				   packet_info *pinfo, char *value);
@@ -709,13 +720,13 @@ http_stats_tree_init(stats_tree* st)
 
 /* HTTP/Packet Counter stats packet function */
 static tap_packet_status
-http_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* edt _U_, const void* p, tap_flags_t flags _U_)
+http_stats_tree_packet(stats_tree* st, packet_info* pinfo, epan_dissect_t* edt _U_, const void* p, tap_flags_t flags _U_)
 {
 	const http_info_value_t* v = (const http_info_value_t*)p;
 	unsigned i = v->response_code;
 	int resp_grp;
 	const char *resp_str;
-	char str[64];
+	char* str;
 
 	tick_stat_node(st, st_str_packets, 0, false);
 
@@ -744,8 +755,8 @@ http_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_, epan_dissect_t* e
 
 		tick_stat_node(st, resp_str, st_node_responses, false);
 
-		snprintf(str, sizeof(str), "%u %s", i,
-			   val_to_str(i, vals_http_status_code, "Unknown (%d)"));
+		str = wmem_strdup_printf(pinfo->pool, "%u %s", i,
+			   val_to_str(pinfo->pool, i, vals_http_status_code, "Unknown (%d)"));
 		tick_stat_node(st, str, resp_grp, false);
 	} else if (v->request_method) {
 		stats_tree_tick_pivot(st,st_node_requests,v->request_method);
@@ -876,7 +887,7 @@ http_seq_stats_tick_request(stats_tree* st, const char* arg_full_uri, int refere
 	}
 }
 
-static char*
+char*
 determine_http_location_target(wmem_allocator_t *scope, const char *base_url, const char * location_url)
 {
 	/* Resolving a base URI + relative URI to an absolute URI ("Relative Resolution")
@@ -1170,6 +1181,33 @@ push_res(http_conv_t *conv_data, packet_info *pinfo)
 	return req_res;
 }
 
+dissector_handle_t
+http_upgrade_dissector(const char *protocol) {
+	return dissector_get_string_handle(upgrade_subdissector_table, protocol);
+}
+
+static const char *
+http_get_header_value(packet_info* pinfo, const char *name, bool the_other_direction) {
+	conversation_t* conv = find_or_create_conversation(pinfo);
+	const http_conv_t *conv_data = (http_conv_t *)conversation_get_proto_data(conv, proto_http);
+	if (conv_data) {
+		const http_req_res_t *req_res = conv_data->req_res_tail;
+		if (req_res && req_res->private_data) {
+			const http_req_res_private_data_t *private = (http_req_res_private_data_t *)req_res->private_data;
+			if (private) {
+				wmem_map_t *headers = (conv_data->server_port == pinfo->destport && the_other_direction) || (
+					                      conv_data->server_port == pinfo->srcport && !the_other_direction)
+					                      ? private->response_headers
+					                      : private->request_headers;
+				if (headers) {
+					return wmem_map_lookup(headers, name);
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
 static int
 dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		     proto_tree *tree, http_conv_t *conv_data,
@@ -1210,6 +1248,37 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	wmem_map_t* header_value_map = NULL;
 	int 		chunk_offset = 0;
 	wmem_map_t	*chunk_map = NULL;
+	wmem_allocator_t *header_value_map_allocator = NULL;
+
+	/*
+	 * Originally this dissector only saved the header information (both in
+	 * headers and header_value_map) in pinfo->pool scoped data, passing it
+	 * to the (reassembled, if necessary) body contained in the message.
+	 *
+	 * Some protocols use the chunked transfer method to streaming data;
+	 * the headers are not repeated before each chunk but some dissectors
+	 * want the headers when dissecting each chunk (instead of saving the
+	 * headers themselves when called for the first chunk.) So in that
+	 * case the headers are saved in file scoped memory.
+	 *
+	 * Other protocols use the HTTP Upgrade mechanism; at least the first
+	 * frame for the upgrade protocol (which is likely after the response
+	 * that confirms the upgrade) will need a copy of the headers (likely
+	 * the response header and probably the request as well.) In that case
+	 * we also need to save the headers in file scoped memory.
+	 *
+	 * The current implementation saves the headers in file scoped memory
+	 * for all request/response pairs (but not for stray headers outside
+	 * of a request/response pair, often in fuzzed data.) It probably only
+	 * needs to do so for the above two cases, which could mean initially
+	 * allocating a map in pinfo->pool scope and then copying its contents
+	 * to file scope after an Upgrade header is found in order to prevent
+	 * memory consumption from growing over time for captures with HTTP
+	 * that does *not* use Upgrade or streaming chunked transfer method.
+	 * (For HTTP Upgrade both the request and response should have Upgrade
+	 * headers.)
+	 */
+
 	/*
 	 * For supporting dissecting chunked data in streaming reassembly mode.
 	 *
@@ -1542,6 +1611,7 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			handle = streaming_reassembly_data->streaming_handle;
 			content_info = streaming_reassembly_data->content_info;
 			header_value_map = (wmem_map_t*) content_info->data;
+			header_value_map_allocator = wmem_file_scope();
 		}
 	}
 
@@ -1552,7 +1622,10 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		DISSECTOR_ASSERT_HINT(header_value_map == NULL, "The header_value_map variable should be NULL while headers is NULL.");
 
 		headers = wmem_new0((streaming_chunk_mode ? wmem_file_scope() : pinfo->pool), headers_t);
-		header_value_map = wmem_map_new((streaming_chunk_mode ? wmem_file_scope() : pinfo->pool), g_str_hash, g_str_equal);
+		if (streaming_chunk_mode) {
+			header_value_map_allocator = wmem_file_scope();
+			header_value_map = wmem_map_new(header_value_map_allocator, g_str_hash, g_str_equal);
+		}
 	}
 
 	if (streaming_chunk_mode && begin_with_chunk) {
@@ -1726,15 +1799,29 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				    offset, next_offset - offset, ett_http_request, &hdr_item, text);
 
 			if (!PINFO_FD_VISITED(pinfo)) {
+				if (header_value_map_allocator != wmem_file_scope()) {
+					/*
+					 * If we already have a header_value_map allocated
+					 * with pinfo->pool scope, that means we saw a
+					 * field-line followed by a start line in the same
+					 * message; that's bogus, so we shouldn't need to
+					 * worry about passing the previous "headers" to a
+					 * next dissector, so it's okay to drop the map.
+					 */
+					header_value_map_allocator = wmem_file_scope();
+					header_value_map = wmem_map_new(header_value_map_allocator, g_str_hash, g_str_equal);
+				}
 				if (http_type == MEDIA_CONTAINER_HTTP_REQUEST) {
 					curr = push_req(conv_data, pinfo);
 					curr->request_method = wmem_strdup(wmem_file_scope(), stat_info->request_method);
 					prv_data = curr->private_data;
 					prv_data->req_fwd_flow = direction;
+					prv_data->request_headers = header_value_map;
 				} else if (http_type == MEDIA_CONTAINER_HTTP_RESPONSE) {
 					curr = push_res(conv_data, pinfo);
 					prv_data = curr->private_data;
 					prv_data->req_fwd_flow = -direction;
+					prv_data->response_headers = header_value_map;
 				}
 			}
 			if (reqresp_dissector) {
@@ -1745,9 +1832,28 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			/*
 			 * Header.
 			 */
+			if (header_value_map == NULL && conv_data->req_res_tail) {
+				prv_data = (http_req_res_private_data_t*)conv_data->req_res_tail->private_data;
+				if (prv_data) {
+					header_value_map_allocator = wmem_file_scope();
+					if (prv_data->req_fwd_flow == direction) {
+						header_value_map = prv_data->request_headers;
+					} else {
+						header_value_map = prv_data->response_headers;
+					}
+				}
+			}
+			if (header_value_map == NULL) {
+				/*
+				 * We are seeing a header but have not tracked request or response, so we don't know
+				 * direction of this header, so not going to keep track of it
+				 */
+				header_value_map_allocator = pinfo->pool;
+				header_value_map = wmem_map_new(header_value_map_allocator, g_str_hash, g_str_equal);
+			}
 			bool good_header = process_header(tvb, offset, next_offset, line, linelen,
-			    colon_offset, pinfo, http_tree, headers, conv_data,
-			    http_type, header_value_map, streaming_chunk_mode);
+			    colon_offset, pinfo, http_tree, headers, conv_data, http_type, header_value_map,
+			    header_value_map_allocator, streaming_chunk_mode);
 			if (http_check_ascii_headers && !good_header) {
 				/*
 				 * Line is not a good HTTP header.
@@ -2040,6 +2146,9 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		content_info = wmem_new0(pinfo->pool, media_content_info_t);
 		content_info->media_str = headers->content_type_parameters;
 		content_info->type = http_type;
+		if (header_value_map == NULL) {
+			header_value_map = wmem_map_new(pinfo->pool, g_str_hash, g_str_equal);
+		}
 		content_info->data = header_value_map;
 	}
 
@@ -2322,15 +2431,47 @@ dissecting_body:
 
 		/*
 		 * Do subdissector checks.
-		 *
-		 * First, if we have a Content-Type value, check whether
+		 */
+
+		/*
+		 * Is MIME sniffing enabled?
+		 */
+		if (http_try_heuristic_first) {
+			/*
+			 * Try the heuristic subdissectors.
+			 */
+			uint16_t save_can_desegment = pinfo->can_desegment;
+			if (!(is_request_or_reply || streaming_chunk_mode)) {
+				/* If this isn't a request or reply, and we're not
+				 * in streaming chunk mode, then we didn't try to
+				 * desegment the body. (We think this is file data
+				 * in the middle of a connection.) Allow the heuristic
+				 * dissectors to desegment, if possible.
+				 */
+				pinfo->can_desegment = pinfo->saved_can_desegment;
+			}
+			dissected = dissector_try_heuristic(heur_subdissector_list,
+							    next_tvb, pinfo, tree, &hdtbl_entry, content_info);
+			pinfo->can_desegment = save_can_desegment;
+
+			if (dissected) {
+				/*
+				 * The subdissector dissected the body.
+				 * Fix up the top-level item so that it doesn't
+				 * include the stuff for that protocol.
+				 */
+				if (ti != NULL)
+					proto_item_set_len(ti, offset);
+				goto body_dissected;
+			}
+		}
+
+		/* First, if we have a Content-Type value, check whether
 		 * there's a subdissector for that media type.
 		 */
 		if (headers->content_type != NULL && handle == NULL) {
 			/*
-			 * We didn't find any subdissector that
-			 * registered for the port, and we have a
-			 * Content-Type value.  Is there any subdissector
+			 * We have a Content-Type value.  Is there any subdissector
 			 * for that content type?
 			 */
 
@@ -2401,7 +2542,7 @@ dissecting_body:
 				expert_add_info(pinfo, http_tree, &ei_http_subdissector_failed);
 		}
 
-		if (!dissected) {
+		if (!dissected && !http_try_heuristic_first) {
 			/*
 			 * We don't have a subdissector or we have one and it did not
 			 * dissect the payload - try the heuristic subdissectors.
@@ -2470,15 +2611,7 @@ dissecting_body:
 		 * with 101 Switching Protocols. See RFC 7230 Section 6.7.
 		 */
 		if (headers->upgrade && curr->response_code == 101) {
-			next_handle = dissector_get_string_handle(upgrade_subdissector_table, headers->upgrade);
-			if (!next_handle) {
-				char *slash_pos = strchr(headers->upgrade, '/');
-				if (slash_pos) {
-					/* Try again without version suffix. */
-					next_handle = dissector_get_string_handle(upgrade_subdissector_table,
-							wmem_strndup(pinfo->pool, headers->upgrade, slash_pos - headers->upgrade));
-				}
-			}
+			next_handle = http_upgrade_dissector(headers->upgrade);
 			server_acked = true;
 		}
 
@@ -2488,6 +2621,11 @@ dissecting_body:
 			conv_data->next_handle = next_handle;
 			copy_address_wmem(wmem_file_scope(), &conv_data->server_addr, &pinfo->src);
 			conv_data->server_port = pinfo->srcport;
+			/* Prepare structure for upgrade protocol data */
+			conv_data->upgrade_info = wmem_new0(wmem_file_scope(), http_upgrade_info_t);
+			conv_data->upgrade_info->server_port = pinfo->destport;
+			conv_data->upgrade_info->http_version = 1;
+			conv_data->upgrade_info->get_header_value = http_get_header_value;
 		}
 	}
 
@@ -2627,7 +2765,7 @@ basic_response_dissector(packet_info *pinfo, tvbuff_t *tvb, proto_tree *tree,
 			    stat_info->response_code);
 
 	r_ti = proto_tree_add_string(tree, hf_http_response_code_desc,
-		tvb, offset, 3, val_to_str(stat_info->response_code,
+		tvb, offset, 3, val_to_str(pinfo->pool, stat_info->response_code,
 		vals_http_status_code, "Unknown (%d)"));
 
 	proto_item_set_generated(r_ti);
@@ -2833,16 +2971,31 @@ chunked_encoding_dissector(tvbuff_t **tvb_ptr, packet_info *pinfo,
 }
 
 static bool
-conversation_dissector_is_http(conversation_t *conv, uint32_t frame_num)
+http_conversation_is_connect(conversation_t *conv, uint32_t frame_num)
 {
-	dissector_handle_t conv_handle;
-
-	if (conv == NULL)
+	if (!conv) {
 		return false;
-	conv_handle = conversation_get_dissector(conv, frame_num);
-	return conv_handle == http_handle ||
-	       conv_handle == http_tcp_handle ||
-	       conv_handle == http_sctp_handle;
+	}
+
+	http_conv_t *conv_data = (http_conv_t *)conversation_get_proto_data(conv, proto_http);
+	if (conv_data) {
+		http_req_res_t *curr_req_res = conv_data->req_res_tail;
+		/* Any 2xx (Successful) response indicates the sender will
+		 * switch to tunnel mode immediately after the response header
+		 * section. */
+		if(frame_num >= conv_data->startframe &&
+		   curr_req_res &&
+		   curr_req_res->response_code >= 200 &&
+		   curr_req_res->response_code < 300 &&
+		   curr_req_res->request_method &&
+		   strncmp(curr_req_res->request_method, "CONNECT", 7) == 0 &&
+		   curr_req_res->request_uri) {
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* Call a subdissector to handle HTTP CONNECT's traffic */
@@ -2852,6 +3005,8 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 {
 	uint32_t *ptr = NULL;
 	uint32_t uri_port, saved_port, srcport, destport;
+	address uri_addr, saved_addr;
+	address *addrp;
 	char **strings; /* An array for splitting the request URI into hostname and port */
 	proto_item *item;
 	proto_tree *proxy_tree;
@@ -2880,32 +3035,46 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 			proto_item_set_generated(item);
 		}
 
+		/* Set the port and address to the proxied ones so that
+		 * decode_tcp_ports doesn't call the current conversation
+		 * dissector (we must set the address if the URI port is the
+		 * same), and other functions that retrieve conversation data
+		 * or set the conversation dissector don't affect the original
+		 * conversation but the proxied one.
+		 */
 		uri_port = (int)strtol(strings[1], NULL, 10); /* Convert string to a base-10 integer */
 
+		/* Just use the string as a string address. */
+		set_address(&uri_addr, AT_STRINGZ, (int)strlen(strings[0]) + 1, strings[0]);
+		/* We may get stuck in a recursion loop if we let decode_tcp_ports() call us.
+		 * So, if the conversation that would be called also is CONNECT,
+		 * call the data dissector directly instead. The CONNECT method
+		 * is blind forwarding of data and consumes no payload itself
+		 * here, so infinite loops are possible. (Strictly, to avoid a
+		 * loop we must only assure that the same 5-tuple isn't reused,
+		 * which would take more work to check.)
+		 */
 		if (!from_server) {
 			srcport = pinfo->srcport;
 			destport = uri_port;
+			conv = find_conversation(pinfo->num, &pinfo->src, &uri_addr, CONVERSATION_TCP, srcport, destport, 0);
 		} else {
 			srcport = uri_port;
 			destport = pinfo->destport;
+			conv = find_conversation(pinfo->num, &uri_addr, &pinfo->dst, CONVERSATION_TCP, srcport, destport, 0);
 		}
 
-		conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, CONVERSATION_TCP, srcport, destport, 0);
-
-		/* We may get stuck in a recursion loop if we let process_tcp_payload() call us.
-		 * So, if the port in the URI is one we're registered for or we have set up a
-		 * conversation (e.g., one we detected heuristically or via Decode-As) call the data
-		 * dissector directly.
-		 */
-		if (value_is_in_range(http_tcp_range, uri_port) ||
-		    conversation_dissector_is_http(conv, pinfo->num)) {
+		if (http_conversation_is_connect(conv, pinfo->num)) {
 			call_data_dissector(tvb, pinfo, tree);
 		} else {
 			/* set pinfo->{src/dst port} and call the TCP sub-dissector lookup */
-			if (!from_server)
+			if (!from_server) {
 				ptr = &pinfo->destport;
-			else
+				addrp = &pinfo->src;
+			} else {
 				ptr = &pinfo->srcport;
+				addrp = &pinfo->dst;
+			}
 
 			/* Increase pinfo->can_desegment because we are traversing
 			 * http and want to preserve desegmentation functionality for
@@ -2914,12 +3083,15 @@ http_payload_subdissector(tvbuff_t *tvb, proto_tree *tree,
 			if( pinfo->can_desegment>0 )
 				pinfo->can_desegment++;
 
+			copy_address_shallow(&saved_addr, addrp);
+			copy_address_shallow(addrp, &uri_addr);
 			saved_port = *ptr;
 			*ptr = uri_port;
 			decode_tcp_ports(tvb, 0, pinfo, tree,
 				pinfo->srcport, pinfo->destport, NULL,
 				(struct tcpinfo *)data);
 			*ptr = saved_port;
+			copy_address_shallow(addrp, &saved_addr);
 		}
 	}
 }
@@ -3368,7 +3540,7 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 	       const unsigned char *line, int linelen, int colon_offset,
 	       packet_info *pinfo, proto_tree *tree, headers_t *eh_ptr,
 	       http_conv_t *conv_data, media_container_type_t http_type, wmem_map_t *header_value_map,
-	       bool streaming_chunk_mode)
+	       wmem_allocator_t *header_value_map_allocator, bool streaming_chunk_mode)
 {
 	int len;
 	int line_end_offset;
@@ -3466,18 +3638,16 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 	 * has value_bytes_len bytes in it.
 	 */
 	value_bytes_len = line_end_offset - value_offset;
-	value_bytes = (char *)wmem_alloc((scope ? scope : pinfo->pool), value_bytes_len+1);
+	value_bytes = (char *)wmem_alloc(PINFO_FD_VISITED(pinfo) ? pinfo->pool : header_value_map_allocator, value_bytes_len+1);
 	memcpy(value_bytes, &line[value_offset - offset], value_bytes_len);
 	value_bytes[value_bytes_len] = '\0';
 	value = tvb_get_string_enc(pinfo->pool, tvb, value_offset, value_bytes_len, ENC_ASCII);
 	/* The length of the value might change after UTF-8 sanitization */
 	value_len = (int)strlen(value);
 
-	if (scope == pinfo->pool) {
-		wmem_map_insert(header_value_map, header_name, value_bytes);
-	} else if (scope) { /* (!PINFO_FD_VISITED(pinfo) && streaming_chunk_mode) */
-		wmem_map_insert(header_value_map, wmem_strdup(scope, header_name), value_bytes);
-	} /* else skip while (PINFO_FD_VISITED(pinfo) && streaming_chunk_mode) */
+	if (!PINFO_FD_VISITED(pinfo)) { /* Record header if packet was not visited yet */
+		wmem_map_insert(header_value_map, wmem_strdup(header_value_map_allocator, header_name), value_bytes);
+	}
 
 	if (hf_index == -1) {
 		/*
@@ -3739,21 +3909,9 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 
 					/* finally add cookie to tree */
 					proto_tree_add_item(cookie_tree, hf_http_cookie_pair,
-						tvb, value_offset + f, part_len, ENC_NA|ENC_ASCII);
+						tvb, value_offset + f, part_len, ENC_ASCII);
 					f += part_len;
 				}
-			}
-			break;
-
-		case HDR_WEBSOCKET_PROTOCOL:
-			if (http_type == MEDIA_CONTAINER_HTTP_RESPONSE) {
-				conv_data->websocket_protocol = wmem_strndup(wmem_file_scope(), value, value_len);
-			}
-			break;
-
-		case HDR_WEBSOCKET_EXTENSIONS:
-			if (http_type == MEDIA_CONTAINER_HTTP_RESPONSE) {
-				conv_data->websocket_extensions = wmem_strndup(wmem_file_scope(), value, value_len);
 			}
 			break;
 
@@ -3861,7 +4019,7 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 				ws_strtou64(pos, &pos, &first_range_num);
 			}
 			/* req_list is used for req/resp matching and the deletion (and freeing) of matching
-			*  requests and any orphans that preceed them. A GSList is used instead of a wmem map
+			*  requests and any orphans that precede them. A GSList is used instead of a wmem map
 			*  because there are rarely more than 10 requests in the list."
 			*/
 			if (first_range_num > 0) {
@@ -3875,7 +4033,7 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 				 * found (the data does not, but the list node
 				 * does.) A wmem_list would prevent that.
 				 */
-				conv_data->req_list = g_slist_append(conv_data->req_list, GUINT_TO_POINTER(req_trans));
+				conv_data->req_list = g_slist_append(conv_data->req_list, req_trans);
 				curr_req_res->req_has_range = true;
 			}
 			}
@@ -3923,7 +4081,7 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 
 				/* Get the position of the matching request if any in the reqs_table.
 				* This is used to remove and free the matching request, and the unmatched
-				* requests (orphans) that preceed it.
+				* requests (orphans) that precede it.
 				* XXX - There is *NO* guarantee that there is
 				* a perfectly matching request, see 15.3.7:
 				* "However, a server might want to send only a
@@ -4307,7 +4465,9 @@ dissect_http_on_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 			if (pinfo->can_desegment > 0)
 				pinfo->can_desegment++;
 			if (conv_data->next_handle) {
-				call_dissector_only(conv_data->next_handle, tvb_new_subset_remaining(tvb, offset), pinfo, tree, NULL);
+				conv_data->upgrade_info->from_server = pinfo->srcport == conv_data->server_port && addresses_equal(
+					                                       &pinfo->src, &conv_data->server_addr);
+				call_dissector_only(conv_data->next_handle, tvb_new_subset_remaining(tvb, offset), pinfo, tree, conv_data->upgrade_info);
 			} else {
 				call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo, tree);
 			}
@@ -4361,13 +4521,7 @@ dissect_http_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 	 * Check if this is proxied connection and if so, hand of dissection to the
 	 * payload-dissector.
 	 * Response code 200 means "OK" and strncmp() == 0 means the strings match exactly */
-	http_req_res_t *curr_req_res = conv_data->req_res_tail;
-	if(pinfo->num >= conv_data->startframe &&
-	   curr_req_res &&
-	   curr_req_res->response_code == 200 &&
-	   curr_req_res->request_method &&
-	   strncmp(curr_req_res->request_method, "CONNECT", 7) == 0 &&
-	   curr_req_res->request_uri) {
+	if(http_conversation_is_connect(conversation, pinfo->num)) {
 		if (conv_data->startframe == 0 && !PINFO_FD_VISITED(pinfo)) {
 			conv_data->startframe = pinfo->num;
 			conv_data->startoffset = 0;
@@ -4888,6 +5042,12 @@ proto_register_http(void)
 	    "Whether to treat non-ASCII in headers as non-HTTP data "
 	    "and allow other dissectors to process it",
 	    &http_check_ascii_headers);
+	prefs_register_bool_preference(http_module, "try_heuristic_first",
+	    "Try heuristic sub-dissectors first",
+	    "Try to decode HTTP bodies using heuristic sub-dissector "
+	    "(aka MIME sniffing) before using a sub-dissector registered "
+	    "to the Content-Type header or a specific port",
+	    &http_try_heuristic_first);
 	prefs_register_obsolete_preference(http_module, "tcp_alternate_port");
 
 	range_convert_str(wmem_epan_scope(), &global_http_tls_range, TLS_DEFAULT_RANGE, 65535);
@@ -4960,6 +5120,7 @@ proto_register_http(void)
 	/* exclude "=", separating key and value should be done separately */
 	ws_mempbrk_compile(&pbrk_sub_delims, "!$&'()*+,;");
 
+	register_external_value_string("vals_http_status_code", vals_http_status_code);
 }
 
 /*

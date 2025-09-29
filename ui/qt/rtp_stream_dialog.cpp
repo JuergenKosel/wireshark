@@ -13,7 +13,6 @@
 #include "file.h"
 
 #include "epan/addr_resolv.h"
-#include <epan/rtp_pt.h>
 
 #include <wsutil/utf8_entities.h>
 
@@ -318,7 +317,7 @@ RtpStreamDialog *RtpStreamDialog::openRtpStreamDialog(QWidget &parent, CaptureFi
 }
 
 RtpStreamDialog::RtpStreamDialog(QWidget &parent, CaptureFile &cf) :
-    WiresharkDialog(parent, cf),
+    RtpBaseDialog(parent, cf),
     ui(new Ui::RtpStreamDialog),
     need_redraw_(false)
 {
@@ -388,7 +387,7 @@ RtpStreamDialog::RtpStreamDialog(QWidget &parent, CaptureFile &cf) :
     register_tap_listener_rtpstream(&tapinfo_, NULL, show_tap_registration_error);
     if (cap_file_.isValid() && cap_file_.capFile()->dfilter) {
         // Activate display filter checking
-        tapinfo_.apply_display_filter = true;
+        rtpstream_set_apply_display_filter(&tapinfo_, true);
         ui->displayFilterCheckBox->setChecked(true);
     }
 
@@ -396,8 +395,6 @@ RtpStreamDialog::RtpStreamDialog(QWidget &parent, CaptureFile &cf) :
             this, &RtpStreamDialog::displayFilterCheckBoxToggled);
     connect(this, SIGNAL(updateFilter(QString, bool)),
             &parent, SLOT(filterPackets(QString, bool)));
-    connect(&parent, SIGNAL(displayFilterSuccess(bool)),
-            this, SLOT(displayFilterSuccess(bool)));
     connect(this, SIGNAL(rtpPlayerDialogReplaceRtpStreams(QVector<rtpstream_id_t *>)),
             &parent, SLOT(rtpPlayerDialogReplaceRtpStreams(QVector<rtpstream_id_t *>)));
     connect(this, SIGNAL(rtpPlayerDialogAddRtpStreams(QVector<rtpstream_id_t *>)),
@@ -949,7 +946,7 @@ void RtpStreamDialog::displayFilterCheckBoxToggled(bool checked)
         return;
     }
 
-    tapinfo_.apply_display_filter = checked;
+    rtpstream_set_apply_display_filter(&tapinfo_, checked);
 
     cap_file_.retapPackets();
 }
@@ -1036,13 +1033,6 @@ void RtpStreamDialog::rtpAnalysisRemove()
     if (ui->streamTreeWidget->selectedItems().count() < 1) return;
 
     emit rtpAnalysisDialogRemoveRtpStreams(getSelectedRtpIds());
-}
-
-void RtpStreamDialog::displayFilterSuccess(bool success)
-{
-    if (success && ui->displayFilterCheckBox->isChecked()) {
-        cap_file_.retapPackets();
-    }
 }
 
 void RtpStreamDialog::invertSelection()

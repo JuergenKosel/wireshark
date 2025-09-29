@@ -3,7 +3,7 @@
  * Binary Log File (BLF) file format from Vector Informatik decoder
  * for the Wiretap library.
  *
- * Copyright (c) 2021-2024 by Dr. Lars Voelker <lars.voelker@technica-engineering.de>
+ * Copyright (c) 2021-2025 by Dr. Lars Völker <lars.voelker@technica-engineering.de>
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -262,7 +262,7 @@ typedef struct blf_canfdmessage {
 #define BLF_CANFDMESSAGE64_FLAG_EDL                 0x001000
 #define BLF_CANFDMESSAGE64_FLAG_BRS                 0x002000
 #define BLF_CANFDMESSAGE64_FLAG_ESI                 0x004000
-#define BLF_CANFDMESSAGE64_FLAG_BURST               0x200000
+#define BLF_CANFDMESSAGE64_FLAG_BURST               0x020000
 
 typedef struct blf_canfdmessage64 {
     uint8_t  channel;
@@ -350,6 +350,58 @@ typedef struct blf_canfderror64 {
     uint16_t reserved2;
 } blf_canfderror64_t;
 
+
+/* CAN-XL */
+
+#define BLF_CANXLCHANNELFRAME_FLAG_REMOTE_FRAME 0x10
+#define BLF_CANXLCHANNELFRAME_FLAG_SRR          0x200
+#define BLF_CANXLCHANNELFRAME_FLAG_FDF          0x1000
+#define BLF_CANXLCHANNELFRAME_FLAG_BRS          0x2000
+#define BLF_CANXLCHANNELFRAME_FLAG_ESI          0x4000
+#define BLF_CANXLCHANNELFRAME_FLAG_XLF          0x400000
+#define BLF_CANXLCHANNELFRAME_FLAG_RRS          0x800000
+#define BLF_CANXLCHANNELFRAME_FLAG_SEC          0x1000000
+
+typedef struct blf_canxlchannelframe {
+    uint8_t  channel;
+    uint8_t  tx_count;
+    uint8_t  dir;
+    uint8_t  res1;
+    uint32_t frameLength_in_ns;
+
+    uint16_t bitCount;
+    uint16_t res2;
+    uint32_t frameIdentifier;
+
+    uint8_t  serviceDataUnitType;
+    uint8_t  res3;
+    uint16_t dlc;
+    uint16_t dataLength;
+    uint16_t stuffBitCount;
+
+    uint16_t prefaceCRC;
+    uint8_t  virtualControllerAreaNetChannelID;
+    uint8_t  res4;
+    uint32_t acceptanceField;
+
+    uint8_t  stuffCount;
+    uint8_t  res5;
+    uint16_t res6;
+    uint32_t crc;
+
+    uint32_t timeOffsetBrsNs;
+    uint32_t timeOffsetCrcDelNs;
+
+    uint32_t flags;
+    uint32_t reserved;
+
+    uint64_t arbitrationDataBitTimingConfig;
+    uint64_t arbitrationDataHwChannelSettings;
+    uint64_t fdPhaseBitTimingConfig;
+    uint64_t fdPhaseHwChannelSettings;
+    uint64_t xlPhaseBitTimingConfig;
+    uint64_t xlPhaseHwChannelSettings;
+} blf_canxlchannelframe_t;
 
 /* see https://bitbucket.org/tobylorenz/vector_blf/src/master/src/Vector/BLF/FlexRayData.h */
 
@@ -684,6 +736,15 @@ typedef struct blf_apptext {
 #define BLF_APPTEXT_XML_CHANNELS    0x02
 #define BLF_APPTEXT_XML_IDENTITY    0x03
 
+#define BLF_APPTEXT_TAG_DISS_ETHSTATUS      "blf-ethernetstatus-obj"
+#define BLF_APPTEXT_TAG_DISS_ETHPHYSTATUS   "blf-ethernetphystate-obj"
+#define BLF_APPTEXT_TAG_DISS_DEFAULT        "data-text-lines"
+#define BLF_APPTEXT_COL_PROT_TEXT           "BLF App text"
+#define BLF_APPTEXT_COL_INFO_TEXT           "Metadata"
+#define BLF_APPTEXT_COL_INFO_TEXT_GENERAL   "Metadata: General"
+#define BLF_APPTEXT_COL_INFO_TEXT_CHANNELS  "Metadata: Channels"
+#define BLF_APPTEXT_COL_INFO_TEXT_IDENTITY  "Metadata: Identity"
+
 #define BLF_BUSTYPE_CAN 1
 #define BLF_BUSTYPE_LIN 5
 #define BLF_BUSTYPE_MOST 6
@@ -764,6 +825,7 @@ typedef struct blf_ethernet_phystate {
 #define BLF_OBJTYPE_MOST_CTRL                    23
 #define BLF_OBJTYPE_MOST_LIGHTLOCK               24
 #define BLF_OBJTYPE_MOST_STATISTIC               25
+
 #define BLF_OBJTYPE_FLEXRAY_DATA                 29
 #define BLF_OBJTYPE_FLEXRAY_SYNC                 30
 #define BLF_OBJTYPE_CAN_DRIVER_ERROR             31
@@ -787,6 +849,7 @@ typedef struct blf_ethernet_phystate {
 #define BLF_OBJTYPE_FLEXRAY_STARTCYCLE           49
 #define BLF_OBJTYPE_FLEXRAY_RCVMESSAGE           50
 #define BLF_OBJTYPE_REALTIMECLOCK                51
+
 #define BLF_OBJTYPE_LIN_STATISTIC                54
 #define BLF_OBJTYPE_J1708_MESSAGE                55
 #define BLF_OBJTYPE_J1708_VIRTUAL_MSG            56
@@ -838,8 +901,10 @@ typedef struct blf_ethernet_phystate {
 #define BLF_OBJTYPE_ETHERNET_RX_ERROR           102
 #define BLF_OBJTYPE_ETHERNET_STATUS             103
 #define BLF_OBJTYPE_CAN_FD_ERROR_64             104
+
 #define BLF_OBJTYPE_AFDX_STATUS                 106
 #define BLF_OBJTYPE_AFDX_BUS_STATISTIC          107
+
 #define BLF_OBJTYPE_AFDX_ERROR_EVENT            109
 #define BLF_OBJTYPE_A429_ERROR                  110
 #define BLF_OBJTYPE_A429_STATUS                 111
@@ -865,6 +930,14 @@ typedef struct blf_ethernet_phystate {
 #define BLF_OBJTYPE_ATTRIBUTE_EVENT             131
 #define BLF_OBJTYPE_DISTRIBUTED_OBJECT_CHANGE   132
 #define BLF_OBJTYPE_ETHERNET_PHY_STATE          133
+#define BLF_OBJTYPE_MACSEC_STATUS               134
+
+#define BLF_OBJTYPE_10BASET1S_STATUS            136
+#define BLF_OBJTYPE_10BASET1S_STATISTIC         137
+#define BLF_OBJTYPE_TUNNEL_PROTO_DECODER_EVENT  138
+#define BLF_OBJTYPE_CAN_XL_CHANNEL_FRAME        139
+#define BLF_OBJTYPE_CAN_XL_CHANNEL_ERRORFRAME   140
+
 
 #endif
 

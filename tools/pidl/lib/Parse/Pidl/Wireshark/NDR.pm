@@ -651,18 +651,18 @@ sub Function($$$)
 	} elsif ($fn->{RETURN_TYPE} eq "NTSTATUS") {
 		$self->pidl_code("offset = dissect_ntstatus(tvb, offset, pinfo, tree, di, drep, hf\_$ifname\_status, &status);\n");
 		$self->pidl_code("if (status != 0)");
-		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(status, &NT_errors_ext, \"Unknown NT status 0x%08x\"));\n");
+		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(pinfo->pool, status, &NT_errors_ext, \"Unknown NT status 0x%08x\"));\n");
 		$return_types{$ifname}->{"status"} = ["NTSTATUS", "NT Error"];
 	} elsif ($fn->{RETURN_TYPE} eq "WERROR") {
 		$self->pidl_code("offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep, hf\_$ifname\_werror, &status);\n");
 		$self->pidl_code("if (status != 0)");
-		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(status, &WERR_errors_ext, \"Unknown DOS error 0x%08x\"));\n");
+		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(pinfo->pool, status, &WERR_errors_ext, \"Unknown DOS error 0x%08x\"));\n");
 
 		$return_types{$ifname}->{"werror"} = ["WERROR", "Windows Error"];
 	} elsif ($fn->{RETURN_TYPE} eq "HRESULT") {
 		$self->pidl_code("offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep, hf\_$ifname\_hresult, &status);\n");
 		$self->pidl_code("if (status != 0)");
-		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(status, &HRES_errors_ext, \"Unknown HRES error 0x%08x\"));\n");
+		$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Error: %s\", val_to_str_ext(pinfo->pool, status, &HRES_errors_ext, \"Unknown HRES error 0x%08x\"));\n");
 		$return_types{$ifname}->{"hresult"} = ["HRESULT", "HRES Windows Error"];
 	} elsif (my $type = getType($fn->{RETURN_TYPE})) {
 		if ($type->{DATA}->{TYPE} eq "ENUM") {
@@ -670,7 +670,7 @@ sub Function($$$)
 
 			$self->pidl_code("offset = $return_dissect(tvb, offset, pinfo, tree, di, drep, hf\_$ifname\_$fn->{RETURN_TYPE}_status, &status);");
 			$self->pidl_code("if (status != 0)");
-			$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Status: %s\", val_to_str(status, $ifname\_$fn->{RETURN_TYPE}\_vals, \"Unknown " . $fn->{RETURN_TYPE} . " error 0x%08x\"));\n");
+			$self->pidl_code("\tcol_append_fstr(pinfo->cinfo, COL_INFO, \", Status: %s\", val_to_str(pinfo->pool, status, $ifname\_$fn->{RETURN_TYPE}\_vals, \"Unknown " . $fn->{RETURN_TYPE} . " error 0x%08x\"));\n");
 			$return_types{$ifname}->{$fn->{RETURN_TYPE}."_status"} = [$fn->{RETURN_TYPE}, $fn->{RETURN_TYPE}];
 		} elsif ($type->{DATA}->{TYPE} eq "SCALAR") {
 			$self->pidl_code("offset = dissect_ndr_$fn->{RETURN_TYPE}(tvb, offset, pinfo, tree, di, drep, hf\_$ifname\_$fn->{RETURN_TYPE}_status, &status);");
@@ -975,6 +975,16 @@ sub RegisterInterface($$)
 
 		$self->pidl_code("proto_register_field_array(proto_dcerpc_$x->{NAME}, hf, array_length (hf));");
 		$self->pidl_code("proto_register_subtree_array(ett, array_length(ett));");
+
+		# SAMR dissector used to have a preference that is no longer supported
+		# Generate the obsolence here instead of making all registered DCE/RPC protocols check for it at runtime
+		if ($x->{NAME} eq "samr") {
+		    $self->deindent;
+		    $self->pidl_code("");
+		    $self->indent;
+		    $self->pidl_code("module_t* $x->{NAME}_module = prefs_register_protocol_obsolete(proto_dcerpc_$x->{NAME});");
+		    $self->pidl_code("prefs_register_obsolete_preference($x->{NAME}_module, \"nt_password\");");
+		}
 	} else {
 		$self->pidl_code("proto_dcerpc = proto_get_id_by_filter_name(\"dcerpc\");");
 		$self->pidl_code("proto_register_field_array(proto_dcerpc, hf, array_length(hf));");

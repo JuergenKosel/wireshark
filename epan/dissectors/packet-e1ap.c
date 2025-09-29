@@ -5,7 +5,7 @@
 
 /* packet-e1ap.c
  * Routines for E-UTRAN E1 Application Protocol (E1AP) packet dissection
- * Copyright 2018-2024, Pascal Quantin <pascal@wireshark.org>
+ * Copyright 2018-2025, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -13,7 +13,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 37.483 V18.2.0 (2024-06)
+ * References: 3GPP TS 37.483 V18.5.0 (2025-06)
  */
 
 #include "config.h"
@@ -2088,7 +2088,7 @@ dissect_e1ap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
   if (tree) {
     proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s",
-                           val_to_str_ext(e1ap_data->protocol_ie_id, &e1ap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
+                           val_to_str_ext(actx->pinfo->pool, e1ap_data->protocol_ie_id, &e1ap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
   }
 
   return offset;
@@ -4823,7 +4823,7 @@ dissect_e1ap_T_startTimeStamp_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -4840,7 +4840,7 @@ dissect_e1ap_T_endTimeStamp_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -4962,7 +4962,7 @@ dissect_e1ap_T_startTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -4979,7 +4979,7 @@ dissect_e1ap_T_endTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -10743,7 +10743,7 @@ dissect_e1ap_TNL_AvailableCapacityIndicator(tvbuff_t *tvb _U_, int offset _U_, a
 static int
 dissect_e1ap_Periodicity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 640000U, NULL, true);
+                                                            0U, 640000U, NULL, true);
 
   return offset;
 }
@@ -15024,7 +15024,7 @@ dissect_e1ap_tcp_pdu(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* 
 {
   tvbuff_t *new_tvb;
 
-  proto_tree_add_item(tree, hf_e1ap_tcp_pdu_len, tvb, 0, 4, ENC_NA);
+  proto_tree_add_item(tree, hf_e1ap_tcp_pdu_len, tvb, 0, 4, ENC_BIG_ENDIAN);
   new_tvb = tvb_new_subset_remaining(tvb, 4);
 
   return dissect_e1ap(new_tvb, pinfo, tree, data);

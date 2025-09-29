@@ -43,7 +43,7 @@
 #include <wsutil/ws_assert.h>
 
 
-static const char* idb_merge_mode_strings[] = {
+static const char* const idb_merge_mode_strings[] = {
     /* IDB_MERGE_MODE_NONE */
     "none",
     /* IDB_MERGE_MODE_ALL_SAME */
@@ -88,7 +88,6 @@ cleanup_in_file(merge_in_file_t *in_file)
     in_file->idb_index_map = NULL;
 
     wtap_rec_cleanup(&in_file->rec);
-    ws_buffer_free(&in_file->frame_buffer);
 }
 
 static void
@@ -237,8 +236,7 @@ merge_open_in_files(unsigned in_file_count, const char *const *in_file_names,
             *err_fileno = i;
             return 0;
         }
-        wtap_rec_init(&files[i].rec);
-        ws_buffer_init(&files[i].frame_buffer, 1514);
+        wtap_rec_init(&files[i].rec, 1514);
         files[i].size = size;
         files[i].idb_index_map = g_array_new(false, false, sizeof(unsigned));
 
@@ -367,8 +365,7 @@ merge_read_packet(int in_file_count, merge_in_file_t in_files[],
              * No packet available, and we haven't seen an error or EOF yet,
              * so try to read the next packet.
              */
-            if (!wtap_read(in_files[i].wth, &in_files[i].rec,
-                           &in_files[i].frame_buffer, err, err_info,
+            if (!wtap_read(in_files[i].wth, &in_files[i].rec, err, err_info,
                            &data_offset)) {
                 if (*err != 0) {
                     in_files[i].state = GOT_ERROR;
@@ -453,8 +450,7 @@ merge_append_read_packet(int in_file_count, merge_in_file_t in_files[],
     for (i = 0; i < in_file_count; i++) {
         if (in_files[i].state == AT_EOF)
             continue; /* This file is already at EOF */
-        if (wtap_read(in_files[i].wth, &in_files[i].rec,
-                      &in_files[i].frame_buffer, err, err_info,
+        if (wtap_read(in_files[i].wth, &in_files[i].rec, err, err_info,
                       &data_offset))
             break; /* We have a packet */
         if (*err != 0) {
@@ -525,7 +521,9 @@ create_shb_header(const merge_in_file_t *in_files, const unsigned in_file_count,
      */
     opt_str = g_string_free(comment_gstr, FALSE);
     /* XXX: We probably want to prepend (insert at index 0) instead? */
-    wtap_block_add_string_option_owned(shb_hdr, OPT_COMMENT, opt_str);
+    if (wtap_block_add_string_option_owned(shb_hdr, OPT_COMMENT, opt_str) != WTAP_OPTTYPE_SUCCESS) {
+        g_free(opt_str);
+    }
     /*
      * XXX - and how do we preserve all the OPT_SHB_HARDWARE, OPT_SHB_OS,
      * and OPT_SHB_USERAPPL values from all the previous files?
@@ -618,16 +616,27 @@ is_duplicate_idb(const wtap_block_t idb1, const wtap_block_t idb2)
         }
     }
 
-    /* XXX - what do to if we have only one value? */
-    have_idb1_value = (wtap_block_get_uint8_option_value(idb1, OPT_IDB_TSRESOL, &idb1_if_tsresol) == WTAP_OPTTYPE_SUCCESS);
-    have_idb2_value = (wtap_block_get_uint8_option_value(idb2, OPT_IDB_TSRESOL, &idb2_if_tsresol) == WTAP_OPTTYPE_SUCCESS);
-    if (have_idb1_value && have_idb2_value) {
-        ws_debug("idb1_if_tsresol == idb2_if_tsresol: %s",
-                     (idb1_if_tsresol == idb2_if_tsresol) ? "true":"false");
-        if (idb1_if_tsresol != idb2_if_tsresol) {
-            ws_debug("returning false");
-            return false;
-        }
+    /* if_tsresol not present is treated as 6. Presumably if two IDBs are
+     * otherwise the same but one has an explict if_tsresol of 6 and one
+     * has no if_tsresol, those are the same. (Wiretap or some other library
+     * might remove a TSRESOL option with value 6 when exporting packets as
+     * it's unnecessary.)
+     */
+    if (wtap_block_get_uint8_option_value(idb1, OPT_IDB_TSRESOL, &idb1_if_tsresol) != WTAP_OPTTYPE_SUCCESS) {
+        idb1_if_tsresol = 6;
+    }
+    if (wtap_block_get_uint8_option_value(idb2, OPT_IDB_TSRESOL, &idb2_if_tsresol) != WTAP_OPTTYPE_SUCCESS) {
+        idb2_if_tsresol = 6;
+    }
+    ws_debug("idb1_if_tsresol == idb2_if_tsresol: %s",
+                 (idb1_if_tsresol == idb2_if_tsresol) ? "true":"false");
+    if (idb1_if_tsresol != idb2_if_tsresol) {
+        /*
+         * Probably not the same interface, and we can't combine them
+         * in any case.
+         */
+        ws_debug("returning false");
+        return false;
     }
 
     /* XXX - what do to if we have only one value? */
@@ -1034,7 +1043,6 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
     merge_in_file_t    *in_file;
     int                 count = 0;
     bool                stop_flag = false;
-    wtap_rec *rec,      snap_rec;
 
     for (;;) {
         *err = 0;
@@ -1085,8 +1093,6 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
             break;
         }
 
-        rec = &in_file->rec;
-
         if (wtap_file_type_subtype_supports_block(file_type,
                                                   WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
             if (!process_new_idbs(pdh, in_files, in_file_count, mode, idb_inf, err, err_info)) {
@@ -1095,25 +1101,12 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
             }
         }
 
-        switch (rec->rec_type) {
-
-        case REC_TYPE_PACKET:
-            if (rec->presence_flags & WTAP_HAS_CAP_LEN) {
-                if (snaplen != 0 &&
-                    rec->rec_header.packet_header.caplen > snaplen) {
-                    /*
-                     * The dumper will only write up to caplen bytes out,
-                     * so we only need to change that value, instead of
-                     * cloning the whole packet with fewer bytes.
-                     *
-                     * XXX: but do we need to change the IDBs' snap_len?
-                     */
-                    snap_rec = *rec;
-                    snap_rec.rec_header.packet_header.caplen = snaplen;
-                    rec = &snap_rec;
-                }
-            }
-            break;
+        /*
+         * Do we have a snapshot length?
+         */
+        if (snaplen != 0) {
+            /* Yes - apply it. */
+            wtap_rec_apply_snapshot(&in_file->rec, snaplen);
         }
 
         /*
@@ -1131,8 +1124,8 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
              * now, we hardcode that, but we need to figure
              * out a more general way to handle this.
              */
-            if (rec->rec_type == REC_TYPE_PACKET) {
-                if (!map_rec_interface_id(rec, in_file)) {
+            if (in_file->rec.rec_type == REC_TYPE_PACKET) {
+                if (!map_rec_interface_id(&in_file->rec, in_file)) {
                     status = MERGE_ERR_BAD_PHDR_INTERFACE_ID;
                     break;
                 }
@@ -1159,12 +1152,11 @@ merge_process_packets(wtap_dumper *pdh, const int file_type,
             }
         }
 
-        if (!wtap_dump(pdh, rec, ws_buffer_start_ptr(&in_file->frame_buffer),
-                       err, err_info)) {
+        if (!wtap_dump(pdh, &in_file->rec, err, err_info)) {
             status = MERGE_ERR_CANT_WRITE_OUTFILE;
             break;
         }
-        wtap_rec_reset(rec);
+        wtap_rec_reset(&in_file->rec);
     }
 
     if (cb)
@@ -1263,6 +1255,7 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
     char               *err_info = NULL;
     unsigned            err_fileno = 0;
     uint32_t            err_framenum = 0;
+    const char         *current_out_filename = NULL;
     merge_result        status = MERGE_OK;
     wtap_dumper        *pdh;
     GArray             *shb_hdrs = NULL;
@@ -1373,6 +1366,9 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
                                           pfx ? pfx : "mergecap", file_type,
                                           compression_type, &params, &err,
                                           &err_info);
+            /* Make sure we don't free temp_filename before printing any error
+             * with it. */
+            current_out_filename = temp_filename;
             if (pdh) {
                 g_ptr_array_add(temp_files, temp_filename);
             }
@@ -1380,12 +1376,15 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
             pdh = wtap_dump_open_tempfile(out_filename, out_filenamep, pfx, file_type,
                                           compression_type, &params, &err,
                                           &err_info);
+            current_out_filename = *out_filenamep;
         } else if (out_filename) {
             pdh = wtap_dump_open(out_filename, file_type, compression_type,
                                  &params, &err, &err_info);
+            current_out_filename = out_filename;
         } else {
             pdh = wtap_dump_open_stdout(file_type, compression_type, &params,
                                         &err, &err_info);
+            current_out_filename = "-";
         }
         if (pdh == NULL) {
             merge_close_in_files(open_file_count, in_files);
@@ -1398,10 +1397,10 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
             if (dsb_combined) {
                 g_array_free(dsb_combined, true);
             }
+            report_cfile_dump_open_failure(current_out_filename, err, err_info, file_type);
             if (temp_files) {
                 g_ptr_array_free(temp_files, true);
             }
-            report_cfile_dump_open_failure(out_filename, err, err_info, file_type);
             return false;
         }
 
@@ -1442,7 +1441,7 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
                 break;
 
             case MERGE_ERR_CANT_OPEN_OUTFILE:
-                report_cfile_dump_open_failure(out_filename, err, err_info, file_type);
+                report_cfile_dump_open_failure(current_out_filename, err, err_info, file_type);
                 break;
 
             case MERGE_ERR_CANT_READ_INFILE:
@@ -1455,12 +1454,12 @@ merge_files_common(const char* out_filename, /* filename in normal output mode,
                 break;
 
             case MERGE_ERR_CANT_WRITE_OUTFILE:
-                report_cfile_write_failure(in_filenames[err_fileno], out_filename,
+                report_cfile_write_failure(in_filenames[err_fileno], current_out_filename,
                         err, err_info, err_framenum, file_type);
                 break;
 
             case MERGE_ERR_CANT_CLOSE_OUTFILE:
-                report_cfile_close_failure(out_filename, err, err_info);
+                report_cfile_close_failure(current_out_filename, err, err_info);
                 break;
 
             default:

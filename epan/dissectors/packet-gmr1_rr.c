@@ -1626,7 +1626,7 @@ static const value_string gmr1_msg_rr_strings[] = {
 	 * XXX - [3] 11.4.1 - Table 11.1 ([3] is ETSI TS 101 376-4-8
 	 * V3.1.1, which is GMR-1 3G 44.008) has 0x3e meaning both
 	 * "Extended Immediate Assignment" and "Immediate Assignment Type 2"
-	 * and has 0x3b meaning both "Immediate Asignment Reject Type 2"
+	 * and has 0x3b meaning both "Immediate Assignment Reject Type 2"
 	 * and "Extended Imm. Assignment Reject".
 	 *
 	 * [3] makes some references to [1] ([1] is ETSI TS 101 376-4-8
@@ -1878,7 +1878,7 @@ dissect_gmr1_ccch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 		pd = oct[1] & 0x0f;
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, "(%s) ",
-		val_to_str(pd, gmr1_pd_short_vals, "Unknown (%u)"));
+		val_to_str(pinfo->pool, pd, gmr1_pd_short_vals, "Unknown (%u)"));
 
 	if (pd != GMR1_PD_RR)
 		goto err;	/* CCCH is only RR */

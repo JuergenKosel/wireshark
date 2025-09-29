@@ -194,7 +194,7 @@ We currently offer the following types of precompiled packages as part of each o
   It is the most popular installation method on Windows.
 
 * Windows https://portableapps.com/[PortableApps] .paf.exe file.
-  This is a self-contained package that can be run from anywere, either standalone or under the PortableApps.com Platform.
+  This is a self-contained package that can be run from anywhere, either standalone or under the PortableApps.com Platform.
 
 * Windows .msi installer.
   This installs Wireshark using Microsoft’s https://docs.microsoft.com/en-us/windows/win32/msi/installer-database[Installer Database], created using the https://wixtoolset.org/[WiX toolset].
@@ -272,7 +272,7 @@ Release packages are built on the following platforms:
 
 * Windows 11 Arm64, Visual Studio 2022
 
-* Ubuntu 22.04 x64, gcc
+* Ubuntu 24.04 x64, gcc and clang
 
 * macOS x64, clang
 

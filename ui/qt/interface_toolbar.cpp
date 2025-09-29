@@ -317,6 +317,13 @@ QWidget *InterfaceToolbar::createString(iface_toolbar_control *control)
 
 void InterfaceToolbar::setWidgetValue(QWidget *widget, int command, QByteArray payload)
 {
+    // The QString(const QByteArray&) constructor will implicitly convert
+    // payload to a QString. In Qt5 this truncates at the first '\0'.
+    // (So string array payloads must be split first before converting.)
+    // In Qt6 those are converted to UTF-16 U+0000. (So convert then split is OK.)
+    // Other functions, like QComboBox::findData(), take a QVariant.
+    // In Qt5 QVariants from QStrings and QByteArrays compare equal if the
+    // QByteArray would convert to the same string; in Qt6 they don't.
     if (QComboBox *combobox = qobject_cast<QComboBox *>(widget))
     {
         combobox->blockSignals(true);
@@ -334,8 +341,8 @@ void InterfaceToolbar::setWidgetValue(QWidget *widget, int command, QByteArray p
 
             case commandControlAdd:
             {
-                QString value;
-                QString display;
+                QByteArray value;
+                QByteArray display;
                 if (payload.contains('\0'))
                 {
                     // The payload contains "value\0display"
@@ -512,7 +519,13 @@ void InterfaceToolbar::setInterfaceValue(QString ifname, QWidget *widget, int nu
             {
                 interface_[ifname].log_dialog[num]->appendText(payload);
             }
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+            DIAG_OFF(stringop-overread)
+#endif
             interface_[ifname].log_text[num].append(payload);
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+            DIAG_ON(stringop-overread)
+#endif
         }
     }
     else if (widget->property(interface_role_property).toInt() == INTERFACE_ROLE_CONTROL)

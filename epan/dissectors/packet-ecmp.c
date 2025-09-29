@@ -1009,7 +1009,7 @@ static int add_command_codes(packet_info* pinfo, int offset, tvbuff_t *tvb, prot
 	const char* command_str;
 	uint8_t command = tvb_get_uint8(tvb, offset);
 	*command_value = command & 0x7F;
-	command_str = val_to_str(*command_value, command_vals, "Unknown Type (0x%02x)");
+	command_str = val_to_str(pinfo->pool, *command_value, command_vals, "Unknown Type (0x%02x)");
 
 	/*display command subtree*/
 	ecmp_command_tree = proto_tree_add_subtree_format(ecmp_tree, tvb, offset, 1, ett_ecmp_command, NULL, "Request Response Code: %s", command_str);
@@ -1283,7 +1283,7 @@ static int get_data_type(packet_info* pinfo, int offset, uint8_t data_type, tvbu
 		offset+= 7;
 		break;
 	case 30: /*display string ID*/
-		proto_tree_add_item(ecmp_current_tree, hf_ecmp_string_id, tvb, offset, 2, ENC_NA|ENC_ASCII);
+		proto_tree_add_item(ecmp_current_tree, hf_ecmp_string_id, tvb, offset, 2, ENC_ASCII);
 		offset++;
 		break;
 	case 32: /*display (ECMP) string*/
@@ -1548,7 +1548,7 @@ static void get_object_info_response(packet_info* pinfo, int offset, tvbuff_t *t
 				case 6:
 					/*display Units- ID string */
 					offset++;
-					proto_tree_add_item(ecmp_parameter_response_tree, hf_ecmp_string_id, tvb, offset, 2, ENC_NA|ENC_ASCII);
+					proto_tree_add_item(ecmp_parameter_response_tree, hf_ecmp_string_id, tvb, offset, 2, ENC_ASCII);
 					offset++;
 					break;
 				case 7:
@@ -3042,7 +3042,7 @@ static int dissect_ecmp_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	/* Information displayed in the Info column*/
 	col_add_fstr(pinfo->cinfo, COL_INFO, "%s, %s. Transaction ID: %d",
-					val_to_str(command_value, command_vals, "Unknown Type:0x%02x"),
+					val_to_str(pinfo->pool, command_value, command_vals, "Unknown Type:0x%02x"),
 					tfs_get_string((type_value & 0x80) >> 7, &tfs_response_request),
 					transaction_id_value);
 

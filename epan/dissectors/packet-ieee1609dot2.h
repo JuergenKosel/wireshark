@@ -77,6 +77,10 @@ typedef enum _Psid_enum {
   psid_infrastructure_to_vehicle_information_service = 139,
   psid_traffic_light_control_requests_service = 140,
   psid_geonetworking_management_communications = 141,
+  psid_cooperative_automation_message = 142,
+  psid_v2x_based_fee_collection = 143,
+  psid_sensor_sharing_service = 144,
+  psid_maneuver_coordination_service = 145,
   psid_certificate_revocation_list_application = 256,
   psid_traffic_light_control_status_service = 637,
   psid_collective_perception_service = 639,
@@ -89,6 +93,10 @@ typedef enum _Psid_enum {
   psid_sra_private_applications_0x204085 = 2113669,
   psid_sra_private_applications_0x204086 = 2113670,
   psid_sra_private_applications_0x204087 = 2113671,
+  psid_traffic_signal_priority_status = 2113685,
+  psid_traffic_signal_request = 2113686,
+  psid_map_distribution = 2113687,
+  psid_road_weather_applications = 2113689,
   psid_ipv6_routing = 270549118
 } Psid_enum;
 
@@ -103,7 +111,7 @@ typedef enum _Psid_enum {
 WS_DLL_PUBLIC
 void ieee1609dot2_set_next_default_psid(packet_info *pinfo, uint32_t psid);
 
-WS_DLL_PUBLIC const val64_string ieee1609dot2_Psid_vals[];
+extern const val64_string ieee1609dot2_Psid_vals[];
 
 #endif /* _IEEE1609DOT2_H_ */
 

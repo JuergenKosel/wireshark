@@ -1,6 +1,6 @@
 /* packet-f1ap.c
  * Routines for E-UTRAN F1 Application Protocol (F1AP) packet dissection
- * Copyright 2018-2024, Pascal Quantin <pascal@wireshark.org>
+ * Copyright 2018-2025, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.473 V18.3.0 (2024-09)
+ * References: 3GPP TS 38.473 V18.6.0 (2025-06)
  */
 
 #include "config.h"
@@ -356,6 +356,7 @@ struct f1ap_tap_t {
 #define MTYPE_BROADCAST_TRANSPORT_RESOURCE_REQUEST         155
 #define MTYPE_DU_CU_ACCESS_AND_MOBILITY_INDICATION         156
 #define MTYPE_SRS_INFORMATION_RESERVATION_NOTIFICATION     157
+#define MTYPE_CU_DU_MOBILITY_INITIATION_REQUEST            158
 
 static const value_string mtype_names[] = {
     { MTYPE_RESET,     "Reset" },
@@ -515,6 +516,7 @@ static const value_string mtype_names[] = {
     { MTYPE_BROADCAST_TRANSPORT_RESOURCE_REQUEST, "BroadcastTransportResourceRequest" },
     { MTYPE_DU_CU_ACCESS_AND_MOBILITY_INDICATION, "DUCUAccessAndMobilityIndication" },
     { MTYPE_SRS_INFORMATION_RESERVATION_NOTIFICATION, "SRSInformationReservationNotification" },
+    { MTYPE_CU_DU_MOBILITY_INITIATION_REQUEST, "CUDUMobilityInitiationRequest" },
     { 0,  NULL }
 };
 static value_string_ext mtype_names_ext = VALUE_STRING_EXT_INIT(mtype_names);
@@ -543,6 +545,7 @@ typedef struct {
 /* Global variables */
 static dissector_handle_t f1ap_handle;
 static dissector_handle_t nr_rrc_ul_ccch_handle;
+static dissector_handle_t nr_rrc_ul_ccch1_handle;
 static dissector_handle_t nr_rrc_dl_ccch_handle;
 static dissector_handle_t nr_rrc_ul_dcch_handle;
 static dissector_handle_t nr_pdcp_handle;
@@ -692,14 +695,14 @@ f1ap_stats_tree_init(stats_tree *st)
 }
 
 static tap_packet_status
-f1ap_stats_tree_packet(stats_tree* st, packet_info* pinfo _U_,
+f1ap_stats_tree_packet(stats_tree* st, packet_info* pinfo,
                        epan_dissect_t* edt _U_ , const void* p, tap_flags_t flags _U_)
 {
     const struct f1ap_tap_t *pi = (const struct f1ap_tap_t *) p;
 
     tick_stat_node(st, st_str_packets, 0, false);
     stats_tree_tick_pivot(st, st_node_packet_types,
-                          val_to_str_ext(pi->f1ap_mtype, &mtype_names_ext,
+                          val_to_str_ext(pinfo->pool, pi->f1ap_mtype, &mtype_names_ext,
                                          "Unknown packet type (%d)"));
     return TAP_PACKET_REDRAW;
 }
@@ -979,6 +982,7 @@ proto_reg_handoff_f1ap(void)
   dissector_add_uint_with_preference("sctp.port", SCTP_PORT_F1AP, f1ap_handle);
   dissector_add_uint("sctp.ppi", F1AP_PROTOCOL_ID, f1ap_handle);
   nr_rrc_ul_ccch_handle = find_dissector_add_dependency("nr-rrc.ul.ccch", proto_f1ap);
+  nr_rrc_ul_ccch1_handle = find_dissector_add_dependency("nr-rrc.ul.ccch1", proto_f1ap);
   nr_rrc_dl_ccch_handle = find_dissector_add_dependency("nr-rrc.dl.ccch", proto_f1ap);
   nr_rrc_ul_dcch_handle = find_dissector_add_dependency("nr-rrc.ul.dcch", proto_f1ap);
   nr_pdcp_handle = find_dissector_add_dependency("pdcp-nr", proto_f1ap);

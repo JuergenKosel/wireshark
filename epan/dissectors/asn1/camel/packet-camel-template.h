@@ -50,8 +50,6 @@ WS_DLL_PUBLIC const value_string camel_opr_code_strings[];
 
 #define CAMELSRT_SMS_INITIALDP 9
 
-WS_DLL_PUBLIC const value_string  camelSRTtype_naming[];
-
 /** If we have a request message and its response,
    (eg: ApplyCharging, ApplyChargingReport)
    the frames numbers are stored in this structure */
@@ -121,7 +119,5 @@ void camelsrt_call_matching(tvbuff_t *tvb,
 			    packet_info * pinfo _U_,
 			    proto_tree *tree,
 			    struct camelsrt_info_t * p_camel_info);
-
-WS_DLL_PUBLIC bool gcamel_StatSRT;
 
 #endif  /* PACKET_camel_H */

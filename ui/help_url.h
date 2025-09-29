@@ -26,11 +26,11 @@ typedef enum {
     TOPIC_ACTION_NONE,
 
     /* pages online at www.wireshark.org */
-    ONLINEPAGE_HOME,
-    ONLINEPAGE_WIKI,
+    ONLINEPAGE_WIRESHARK_HOME,
+    ONLINEPAGE_WIRESHARK_WIKI,
     ONLINEPAGE_USERGUIDE,
     ONLINEPAGE_FAQ,
-    ONLINEPAGE_DOWNLOAD,
+    ONLINEPAGE_WIRESHARK_DOWNLOAD,
     ONLINEPAGE_DOCS,
     ONLINEPAGE_SAMPLE_FILES,
     ONLINEPAGE_CAPTURE_SETUP,
@@ -39,6 +39,11 @@ typedef enum {
     ONLINEPAGE_SECURITY,
     ONLINEPAGE_ASK,
     ONLINEPAGE_DFILTER_REF,
+
+    /* pages online at stratoshark.org */
+    ONLINEPAGE_STRATOSHARK_HOME,
+    ONLINEPAGE_STRATOSHARK_WIKI,
+    ONLINEPAGE_STRATOSHARK_DOWNLOAD,
 
     /* local manual pages */
     LOCALPAGE_MAN_WIRESHARK = 100,
@@ -54,7 +59,8 @@ typedef enum {
     LOCALPAGE_MAN_TSHARK,
 
     /* Release Notes */
-    LOCALPAGE_RELEASE_NOTES,
+    LOCALPAGE_WIRESHARK_RELEASE_NOTES,
+    LOCALPAGE_STRATOSHARK_RELEASE_NOTES,
 
     /* help pages (textfiles or HTML User's Guide) */
     HELP_CONTENT = 200,
@@ -113,7 +119,8 @@ typedef enum {
     HELP_NEW_PACKET_DIALOG,
     HELP_IAX2_ANALYSIS_DIALOG,
     HELP_TELEPHONY_RTP_PLAYER_DIALOG,
-    HELP_STAT_FLOW_GRAPH
+    HELP_STAT_FLOW_GRAPH,
+    HELP_STATS_PLOT_DIALOG
 } topic_action_e;
 
 /** Given a page in the Wireshark User's Guide return its URL. Returns a

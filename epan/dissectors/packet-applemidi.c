@@ -117,7 +117,7 @@ dissect_applemidi_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
 
 	col_set_str( pinfo->cinfo, COL_PROTOCOL, APPLEMIDI_DISSECTOR_SHORTNAME );
 
-	col_add_str( pinfo->cinfo, COL_INFO, val_to_str( command, applemidi_commands, applemidi_unknown_command ) );
+	col_add_str( pinfo->cinfo, COL_INFO, val_to_str(pinfo->pool, command, applemidi_commands, applemidi_unknown_command ) );
 
 	ti = proto_tree_add_item( tree, proto_applemidi, tvb, 0, -1, ENC_NA  );
 	applemidi_tree = proto_item_add_subtree( ti, ett_applemidi );
@@ -227,7 +227,7 @@ test_applemidi(tvbuff_t *tvb, uint16_t *command_p, bool conversation_established
 
 	*command_p = tvb_get_ntohs( tvb, 2 );
 
-	/* If the conversation is establised (one prior packet with a valid known command)
+	/* If the conversation is established (one prior packet with a valid known command)
 	 * we won't check the commands anymore - this way we still show new commands
 	 * Apple might introduce as "unknown" instead of punting to RTP-dissector */
 	if ( conversation_established ) {

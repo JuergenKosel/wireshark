@@ -201,9 +201,9 @@ fp_add_hmac (tvbuff_t *tvb, proto_tree *tree, int offset) {
   eid = ((eid & 0x00C0) >> 6) + ((eid & 0xFC00) >> 8);
   proto_tree_add_uint(tree, hf_eid, tvb, offset, FP_BF_LEN, eid);
 
-  proto_tree_add_item (tree, hf_ul, tvb, offset, FP_BF_LEN, ENC_NA);
-  proto_tree_add_item (tree, hf_ig, tvb, offset, FP_BF_LEN, ENC_NA);
-  proto_tree_add_item (tree, hf_ooodl, tvb, offset, FP_BF_LEN, ENC_NA);
+  proto_tree_add_item (tree, hf_ul, tvb, offset, FP_BF_LEN, ENC_BIG_ENDIAN);
+  proto_tree_add_item (tree, hf_ig, tvb, offset, FP_BF_LEN, ENC_BIG_ENDIAN);
+  proto_tree_add_item (tree, hf_ooodl, tvb, offset, FP_BF_LEN, ENC_BIG_ENDIAN);
   proto_tree_add_item (tree, hf_swid, tvb, offset, FP_BF_LEN, ENC_BIG_ENDIAN);
   offset += FP_BF_LEN;
 
@@ -324,8 +324,8 @@ dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hea
   case ETHERTYPE_VLAN:
       proto_tree_add_item(fp_tree, hf_fp_1ad_etype, tvb, offset, 2, ENC_BIG_ENDIAN);
       offset += 2;
-      proto_tree_add_item(fp_tree, hf_fp_1ad_priority, tvb, offset, 2, ENC_NA);
-      proto_tree_add_item(fp_tree, hf_fp_1ad_cfi, tvb, offset, 2, ENC_NA);
+      proto_tree_add_item(fp_tree, hf_fp_1ad_priority, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item(fp_tree, hf_fp_1ad_cfi, tvb, offset, 2, ENC_BIG_ENDIAN);
       proto_tree_add_item(fp_tree, hf_fp_1ad_svid, tvb, offset, 2, ENC_BIG_ENDIAN);
       offset += 2;
       proto_tree_add_item(fp_tree, hf_fp_etype, tvb, offset, 2, ENC_BIG_ENDIAN);

@@ -126,11 +126,25 @@ class DefinedSymbols:
     def addDefinedSymbol(self, symbol, line):
         self.global_symbols[symbol] = line
 
+    def isSymbolInContents(self, contents, symbol):
+        if not contents:
+            return False
+        # Check that string appears
+        idx = contents.find(symbol)
+        if idx == -1:
+            return False
+        else:
+            # Look for in context.  In particular don't want to match if there is
+            # longer symbol with symbol as a prefix..
+            p = re.compile(r'[\s\*\()]' + symbol + r'[\(\s\[;]+', re.MULTILINE)
+            m = p.search(contents, re.MULTILINE)
+            return m is not None
+
     # Check if a given symbol is mentioned in headers
     def mentionedInHeaders(self, symbol):
-        if self.header_file_contents:
-             if self.header_file_contents.find(symbol) != -1:
-                return True
+        if self.isSymbolInContents(self.header_file_contents, symbol):
+            return True
+
         # Also check some of the 'common' header files that don't match the dissector file name.
         # TODO: could cache the contents of these files?
         common_mismatched_headers = [ os.path.join('epan', 'dissectors', 'packet-ncp-int.h'),
@@ -146,7 +160,7 @@ class DefinedSymbols:
             try:
                 f = open(hf)
                 contents = f.read()
-                if contents.find(symbol) != -1:
+                if self.isSymbolInContents(contents, symbol):
                     return True
             except EnvironmentError:
                 pass
@@ -161,7 +175,7 @@ class DefinedSymbols:
                 fun = self.global_symbols[f]
                 print(self.filename, '' if not self.from_generated_file else '(GENERATED)',
                       '(' + fun + ')',
-                      'is not referred to so could be static?', '(declared in header)' if mentioned_in_header else '')
+                      'is not referred to so could be static?', '(declared in header but not referred to)' if mentioned_in_header else '')
                 issues_found += 1
 
 
@@ -305,6 +319,9 @@ else:
     # Find all dissector files from folder.
     files = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'),
                                        include_generated=True)
+
+# Ensure that all source files exist (i.e., cope with deletes/renames)
+files = [ f for f in files if os.path.exists(f) ]
 
 
 # If scanning a subset of files, list them here.

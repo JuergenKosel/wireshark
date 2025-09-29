@@ -33,7 +33,7 @@ typedef struct _tmp_pdu_data {
 
 typedef struct _gogkey {
 	char* key;
-	mate_cfg_gop* cfg;
+	const mate_cfg_gop* cfg;
 } gogkey;
 
 
@@ -47,79 +47,46 @@ static int* dbg_gop = &zero;
 static int* dbg_gog = &zero;
 static FILE* dbg_facility;
 
-static gboolean destroy_mate_pdus(void *k _U_, void *v, void *p _U_) {
-	mate_pdu* pdu = (mate_pdu*) v;
+static void free_mate_pdu(mate_pdu *pdu)
+{
 	if (pdu->avpl) delete_avpl(pdu->avpl,true);
 	g_slice_free(mate_max_size, (mate_max_size *)pdu);
-	return TRUE;
 }
 
-static gboolean destroy_mate_gops(void *k _U_, void *v, void *p _U_) {
-	mate_gop* gop = (mate_gop*) v;
-
+static void free_mate_gop(mate_gop *gop)
+{
+	g_free(gop->gop_key);
 	if (gop->avpl) delete_avpl(gop->avpl,true);
-
-	if (gop->gop_key) {
-		if (g_hash_table_lookup(gop->cfg->gop_index,gop->gop_key) == gop) {
-			g_hash_table_remove(gop->cfg->gop_index,gop->gop_key);
-		}
-
-		g_free(gop->gop_key);
-	}
-
-	g_slice_free(mate_max_size,(mate_max_size*)gop);
-
-	return TRUE;
+	g_slice_free(mate_max_size, (mate_max_size *)gop);
 }
 
+static void gog_remove_keys(mate_gog* gog);
 
-static void gog_remove_keys (mate_gog* gog);
-
-static gboolean destroy_mate_gogs(void *k _U_, void *v, void *p _U_) {
-	mate_gog* gog = (mate_gog*) v;
-
+static void free_mate_gog(mate_gog *gog)
+{
+	gog_remove_keys(gog);
+	g_ptr_array_unref(gog->gog_keys);
 	if (gog->avpl) delete_avpl(gog->avpl,true);
+	g_slice_free(mate_max_size, (mate_max_size *)gog);
+}
 
-	if (gog->gog_keys) {
-		gog_remove_keys(gog);
-		g_ptr_array_free(gog->gog_keys, true);
+static void free_gop_rd(gopcfg_runtime_data* gop_rd)
+{
+	g_hash_table_destroy(gop_rd->gop_index);
+	g_hash_table_destroy(gop_rd->gog_index);
+	g_free(gop_rd);
+}
+
+static gopcfg_runtime_data* get_gopcfg_rd(const mate_cfg_gop* cfg)
+{
+	gopcfg_runtime_data* gop_rd = g_hash_table_lookup(rd->gopcfg_rd, cfg);
+	if (!gop_rd) {
+		gop_rd = g_new0(gopcfg_runtime_data, 1);
+		gop_rd->gop_index = g_hash_table_new(g_str_hash, g_str_equal);
+		gop_rd->gog_index = g_hash_table_new(g_str_hash, g_str_equal);
+		g_hash_table_insert(rd->gopcfg_rd, (void*)cfg, gop_rd);
 	}
-
-	g_slice_free(mate_max_size,(mate_max_size*)gog);
-
-	return TRUE;
-}
-
-static gboolean return_true(void *k _U_, void *v _U_, void *p _U_) {
-	return TRUE;
-}
-
-static void destroy_pdus_in_cfg(void *k _U_, void *v, void *p _U_) {
-	mate_cfg_pdu* c = (mate_cfg_pdu *)v;
-	g_hash_table_foreach_remove(c->items,destroy_mate_pdus,NULL);
-	c->last_id = 0;
-}
-
-
-static void destroy_gops_in_cfg(void *k _U_, void *v, void *p _U_) {
-	mate_cfg_gop* c = (mate_cfg_gop *)v;
-
-	g_hash_table_foreach_remove(c->gop_index,return_true,NULL);
-	g_hash_table_destroy(c->gop_index);
-	c->gop_index = g_hash_table_new(g_str_hash,g_str_equal);
-
-	g_hash_table_foreach_remove(c->gog_index,return_true,NULL);
-	g_hash_table_destroy(c->gog_index);
-	c->gog_index = g_hash_table_new(g_str_hash,g_str_equal);
-
-	g_hash_table_foreach_remove(c->items,destroy_mate_gops,NULL);
-	c->last_id = 0;
-}
-
-static void destroy_gogs_in_cfg(void *k _U_, void *v, void *p _U_) {
-	mate_cfg_gog* c = (mate_cfg_gog *)v;
-	g_hash_table_foreach_remove(c->items,destroy_mate_gogs,NULL);
-	c->last_id = 0;
+	return gop_rd;
 }
 
 void initialize_mate_runtime(mate_config* mc) {
@@ -129,19 +96,24 @@ void initialize_mate_runtime(mate_config* mc) {
 	if (mc) {
 		if (rd == NULL ) {
 			rd = g_new(mate_runtime_data, 1);
+			rd->frames = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)g_ptr_array_unref);
+			rd->gops = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)free_mate_gop);
+			rd->gogs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)free_mate_gog);
+			rd->pdu_last_ids = g_hash_table_new(g_direct_hash, g_direct_equal);
+			rd->gopcfg_rd = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)free_gop_rd);
+			rd->gog_last_ids = g_hash_table_new(g_direct_hash, g_direct_equal);
 		} else {
-			g_hash_table_foreach(mc->pducfgs,destroy_pdus_in_cfg,NULL);
-			g_hash_table_foreach(mc->gopcfgs,destroy_gops_in_cfg,NULL);
-			g_hash_table_foreach(mc->gogcfgs,destroy_gogs_in_cfg,NULL);
-
-			g_hash_table_destroy(rd->frames);
+			g_hash_table_remove_all(rd->frames);
+			g_hash_table_remove_all(rd->gops);
+			g_hash_table_remove_all(rd->gogs);
+			g_hash_table_remove_all(rd->pdu_last_ids);
+			g_hash_table_remove_all(rd->gopcfg_rd);
+			g_hash_table_remove_all(rd->gog_last_ids);
 		}
 
 		rd->current_items = 0;
 		rd->now = -1.0f;
 		rd->highest_analyzed_frame = 0;
-		rd->frames = g_hash_table_new(g_direct_hash,g_direct_equal);
-
 
 		/*mc->dbg_gop_lvl = 5;
 		mc->dbg_gog_lvl = 5;
@@ -160,10 +132,11 @@ void initialize_mate_runtime(mate_config* mc) {
 }
 
 
-static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, char* key) {
+static mate_gop* new_gop(const mate_cfg_gop* cfg, mate_pdu* pdu, char* key) {
 	mate_gop* gop = (mate_gop*)g_slice_new(mate_max_size);
 
-	gop->id = ++(cfg->last_id);
+	gopcfg_runtime_data* gop_rd = get_gopcfg_rd(cfg);
+	gop->id = ++(gop_rd->last_id);
 	gop->cfg = cfg;
 
 	dbg_print(dbg_gop, 1, dbg_facility, "new_gop: %s: ``%s:%d''", key, gop->cfg->name, gop->id);
@@ -196,7 +169,8 @@ static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, char* key) {
 	pdu->is_start = true;
 	pdu->time_in_gop = 0.0f;
 
-	g_hash_table_insert(cfg->gop_index,gop->gop_key,gop);
+	g_hash_table_add(rd->gops, gop);
+	g_hash_table_insert(gop_rd->gop_index,gop->gop_key,gop);
 	return gop;
 }
 
@@ -224,9 +198,10 @@ static void adopt_gop(mate_gog* gog, mate_gop* gop) {
 
 }
 
-static mate_gog* new_gog(mate_cfg_gog* cfg, mate_gop* gop) {
+static mate_gog* new_gog(const mate_cfg_gog* cfg, mate_gop* gop) {
 	mate_gog* gog = (mate_gog*)g_slice_new(mate_max_size);
-	gog->id = ++(cfg->last_id);
+	gog->id = GPOINTER_TO_UINT(g_hash_table_lookup(rd->gog_last_ids, cfg)) + 1;
+	g_hash_table_replace(rd->gog_last_ids, (void *)cfg, GUINT_TO_POINTER(gog->id));
 	gog->cfg = cfg;
 
 	dbg_print (dbg_gog,1,dbg_facility,"new_gog: %s:%u for %s:%u",gog->cfg->name,gog->id,gop->cfg->name,gop->id);
@@ -252,6 +227,7 @@ static mate_gog* new_gog(mate_cfg_gog* cfg, mate_gop* gop) {
 
 	adopt_gop(gog,gop);
 
+	g_hash_table_add(rd->gogs, gog);
 	return gog;
 }
 
@@ -276,14 +252,15 @@ static void apply_extras(AVPL* from, AVPL* to,  AVPL* extras) {
 	}
 }
 
-static void gog_remove_keys (mate_gog* gog) {
+static void gog_remove_keys(mate_gog* gog) {
 	gogkey* gog_key;
 
 	while (gog->gog_keys->len) {
 		gog_key = (gogkey *)g_ptr_array_remove_index_fast(gog->gog_keys,0);
 
-		if (g_hash_table_lookup(gog_key->cfg->gog_index,gog_key->key) == gog) {
-			g_hash_table_remove(gog_key->cfg->gog_index,gog_key->key);
+		gopcfg_runtime_data* gop_rd = get_gopcfg_rd(gog_key->cfg);
+		if (g_hash_table_lookup(gop_rd->gog_index,gog_key->key) == gog) {
+			g_hash_table_remove(gop_rd->gog_index,gog_key->key);
 		}
 
 		g_free(gog_key->key);
@@ -295,7 +272,7 @@ static void gog_remove_keys (mate_gog* gog) {
 static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 	LoAL* gog_keys = NULL;
 	AVPL* curr_gogkey = NULL;
-	mate_cfg_gop* gop_cfg = NULL;
+	const mate_cfg_gop* gop_cfg = NULL;
 	void* cookie = NULL;
 	AVPL* gogkey_match = NULL;
 	mate_gog* gog = gop->gog;
@@ -322,7 +299,7 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 		gog_keys = gog->cfg->keys;
 
 		while (( curr_gogkey = get_next_avpl(gog_keys,&cookie) )) {
-			gop_cfg = (mate_cfg_gop *)g_hash_table_lookup(mc->gopcfgs,curr_gogkey->name);
+			gop_cfg = (const mate_cfg_gop *)g_hash_table_lookup(mc->gopcfgs,curr_gogkey->name);
 
 			if (( gogkey_match = new_avpl_pairs_match(gop_cfg->name, gog->avpl, curr_gogkey, true, false) )) {
 
@@ -333,7 +310,8 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 
 				gog_key->cfg = gop_cfg;
 
-				if (g_hash_table_lookup(gop_cfg->gog_index,gog_key->key)) {
+				gopcfg_runtime_data* gop_rd = get_gopcfg_rd(gop_cfg);
+				if (g_hash_table_lookup(gop_rd->gog_index,gog_key->key)) {
 					g_free(gog_key->key);
 					g_free(gog_key);
 					gog_key = NULL;
@@ -346,7 +324,7 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 				} else {
 					dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: new key for gog=%s:%d : %s",gog->cfg->name,gog->id,gog_key->key);
 					g_ptr_array_add(gog->gog_keys,gog_key);
-					g_hash_table_insert(gog_key->cfg->gog_index,gog_key->key,gog);
+					g_hash_table_insert(gop_rd->gog_index,gog_key->key,gog);
 				}
 
 			}
@@ -364,13 +342,14 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 }
 
 static void analyze_gop(mate_config* mc, mate_gop* gop) {
-	mate_cfg_gog* cfg = NULL;
+	const mate_cfg_gog* cfg = NULL;
 	LoAL* gog_keys = NULL;
 	AVPL* curr_gogkey = NULL;
 	void* cookie = NULL;
 	AVPL* gogkey_match = NULL;
 	mate_gog* gog = NULL;
 	char* key = NULL;
+	gopcfg_runtime_data* gop_rd = get_gopcfg_rd(gop->cfg);
 
 	if ( ! gop->gog  ) {
 		/* no gog, let's either find one or create it if due */
@@ -394,7 +373,7 @@ static void analyze_gop(mate_config* mc, mate_gop* gop) {
 
 				dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got gogkey_match: %s",key);
 
-				if (( gog = (mate_gog *)g_hash_table_lookup(gop->cfg->gog_index,key) )) {
+				if (( gog = (mate_gog *)g_hash_table_lookup(gop_rd->gog_index,key) )) {
 					dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got already a matching gog: %s:%d",gog->cfg->name,gog->id);
 
 					if (gog->num_of_counting_gops == gog->num_of_released_gops && gog->expiration < rd->now) {
@@ -415,7 +394,7 @@ static void analyze_gop(mate_config* mc, mate_gop* gop) {
 				} else {
 					dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: no such gog in hash, let's create a new %s",curr_gogkey->name);
 
-					cfg = (mate_cfg_gog *)g_hash_table_lookup(mc->gogcfgs,curr_gogkey->name);
+					cfg = (const mate_cfg_gog *)g_hash_table_lookup(mc->gogcfgs,curr_gogkey->name);
 
 					if (cfg) {
 						gog = new_gog(cfg,gop);
@@ -453,7 +432,7 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 	return a g_boolean to tell we've destroyed the pdu when the pdu is unnassigned
 	destroy the unassigned pdu
 	*/
-	mate_cfg_gop* cfg = NULL;
+	const mate_cfg_gop* cfg = NULL;
 	mate_gop* gop = NULL;
 	char* gop_key;
 	char* orig_gop_key = NULL;
@@ -470,13 +449,15 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 
 	dbg_print (dbg_gop,1,dbg_facility,"analyze_pdu: %s",pdu->cfg->name);
 
-	if (! (cfg = (mate_cfg_gop *)g_hash_table_lookup(mc->gops_by_pduname,pdu->cfg->name)) )
+	if (! (cfg = (const mate_cfg_gop *)g_hash_table_lookup(mc->gops_by_pduname,pdu->cfg->name)) )
 		return;
+
+	gopcfg_runtime_data* gop_rd = get_gopcfg_rd(cfg);
 
 	if ((gopkey_match = new_avpl_pairs_match("gop_key_match", pdu->avpl, cfg->key, true, true))) {
 		gop_key = avpl_to_str(gopkey_match);
 
-		g_hash_table_lookup_extended(cfg->gop_index,(const void *)gop_key,(void * *)&orig_gop_key,(void * *)&gop);
+		g_hash_table_lookup_extended(gop_rd->gop_index,(const void *)gop_key,(void * *)&orig_gop_key,(void * *)&gop);
 
 		if ( gop ) {
 			g_free(gop_key);
@@ -506,10 +487,10 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 					if ( gop->released ) {
 						dbg_print (dbg_gop,3,dbg_facility,"analyze_pdu: start on released gop, let's create a new gop");
 
-						g_hash_table_remove(cfg->gop_index,gop_key);
+						g_hash_table_remove(gop_rd->gop_index,gop_key);
 						gop->gop_key = NULL;
 						gop = new_gop(cfg,pdu,gop_key);
-						g_hash_table_insert(cfg->gop_index,gop_key,gop);
+						g_hash_table_insert(gop_rd->gop_index,gop_key,gop);
 					} else {
 						dbg_print (dbg_gop,1,dbg_facility,"analyze_pdu: duplicate start on gop");
 					}
@@ -543,9 +524,9 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 						if (( gogkey_match = new_avpl_pairs_match(cfg->name, gopkey_match, curr_gogkey, true, false) )) {
 							gogkey_str = avpl_to_str(gogkey_match);
 
-							if (g_hash_table_lookup(cfg->gog_index,gogkey_str)) {
+							if (g_hash_table_lookup(gop_rd->gog_index,gogkey_str)) {
 								gop = new_gop(cfg,pdu,gop_key);
-								g_hash_table_insert(cfg->gop_index,gop_key,gop);
+								g_hash_table_insert(gop_rd->gop_index,gop_key,gop);
 								delete_avpl(gogkey_match,false);
 								g_free(gogkey_str);
 								break;
@@ -576,6 +557,7 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 					gop = new_gop(cfg,pdu,gop_key);
 				} else {
 					g_free(gop_key);
+					delete_avpl(gopkey_match, true);
 					return;
 				}
 
@@ -763,7 +745,7 @@ static void get_pdu_fields(void *k, void *v, void *p) {
 	}
 }
 
-static mate_pdu* new_pdu(mate_cfg_pdu* cfg, uint32_t framenum, field_info* proto, proto_tree* tree) {
+static mate_pdu* new_pdu(const mate_cfg_pdu* cfg, uint32_t framenum, field_info* proto, proto_tree* tree) {
 	mate_pdu* pdu = (mate_pdu*)g_slice_new(mate_max_size);
 	field_info* cfi;
 	GPtrArray* ptrs;
@@ -780,13 +762,13 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, uint32_t framenum, field_info* proto
 
 	dbg_print (dbg_pdu,1,dbg_facility,"new_pdu: type=%s framenum=%i",cfg->name,framenum);
 
-	pdu->id = ++(cfg->last_id);
+	pdu->id = GPOINTER_TO_UINT(g_hash_table_lookup(rd->pdu_last_ids, cfg)) + 1;
+	g_hash_table_replace(rd->pdu_last_ids, (void *)cfg, GUINT_TO_POINTER(pdu->id));
 	pdu->cfg = cfg;
 
 	pdu->avpl = new_avpl(cfg->name);
 
 	pdu->frame = framenum;
-	pdu->next_in_frame = NULL;
 	pdu->rel_time = rd->now;
 
 	pdu->gop = NULL;
@@ -895,14 +877,14 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, uint32_t framenum, field_info* proto
 
 
 extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* tree) {
-	mate_cfg_pdu* cfg;
+	const mate_cfg_pdu* cfg;
 	GPtrArray* protos;
 	field_info* proto;
 	unsigned i,j;
 	AVPL* criterium_match;
 
 	mate_pdu* pdu = NULL;
-	mate_pdu* last = NULL;
+	GPtrArray* pdus = NULL;
 
 	rd->now = nstime_to_sec(&pinfo->rel_ts);
 
@@ -913,7 +895,7 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 			if (i == 0) {
                 dbg_print (dbg_pdu,4,dbg_facility,"\nmate_analyze_frame: frame: %i",pinfo->num);
             }
-			cfg = (mate_cfg_pdu *)g_ptr_array_index(mc->pducfglist,i);
+			cfg = (const mate_cfg_pdu *)g_ptr_array_index(mc->pducfglist,i);
 
 			dbg_print (dbg_pdu,4,dbg_facility,"mate_analyze_frame: trying to extract: %s",cfg->name);
 			protos = proto_get_finfo_ptr_array(tree, cfg->hfid_proto);
@@ -960,13 +942,11 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 						pdu->avpl = NULL;
 					}
 
-					if (!last) {
-						g_hash_table_insert(rd->frames,GINT_TO_POINTER(pinfo->num),pdu);
-						last = pdu;
-					} else {
-						last->next_in_frame = pdu;
-						last = pdu;
+					if (!pdus) {
+						pdus = g_ptr_array_new_with_free_func((GDestroyNotify)free_mate_pdu);
+						g_hash_table_replace(rd->frames, GINT_TO_POINTER(pinfo->num), pdus);
 					}
+					g_ptr_array_add(pdus, pdu);
 
 				}
 
@@ -978,24 +958,11 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 	}
 }
 
-extern mate_pdu* mate_get_pdus(uint32_t framenum) {
+extern GPtrArray* mate_get_pdus(uint32_t framenum) {
 
 	if (rd) {
-		return (mate_pdu*) g_hash_table_lookup(rd->frames,GUINT_TO_POINTER(framenum));
+		return (GPtrArray*) g_hash_table_lookup(rd->frames,GUINT_TO_POINTER(framenum));
 	} else {
 		return NULL;
 	}
 }
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local variables:
- * c-basic-offset: 8
- * tab-width: 8
- * indent-tabs-mode: t
- * End:
- *
- * vi: set shiftwidth=8 tabstop=8 noexpandtab:
- * :indentSize=8:tabSize=8:noTabs=false:
- */

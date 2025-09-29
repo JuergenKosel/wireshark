@@ -834,7 +834,7 @@ static int sna_fid_to_str_buf(const address *addr, char *buf, int buf_len _U_)
 
 	case 2:
 		addrdata = (const uint8_t *)addr->data;
-		word_to_hex(buf, pntoh16(&addrdata[0]));
+		word_to_hex(buf, pntohu16(&addrdata[0]));
 		buf[4] = '\0';
 		break;
 
@@ -2054,7 +2054,7 @@ dissect_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	/* Summary information */
 	col_add_str(pinfo->cinfo, COL_INFO,
-		    val_to_str(th_fid, sna_th_fid_vals, "Unknown FID: %01x"));
+		    val_to_str(pinfo->pool, th_fid, sna_th_fid_vals, "Unknown FID: %01x"));
 
 	if (tree) {
 		/* --- TH --- */

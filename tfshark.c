@@ -111,10 +111,9 @@ static output_fields_t* output_fields;
 /* The line separator used between packets, changeable via the -S option */
 static const char *separator = "";
 
-static bool process_file(capture_file *, int, int64_t);
+static bool process_file(capture_file *);
 static bool process_packet_single_pass(capture_file *cf,
-        epan_dissect_t *edt, int64_t offset, wtap_rec *rec,
-        const unsigned char *pd);
+        epan_dissect_t *edt, int64_t offset, wtap_rec *rec);
 static void show_print_file_io_error(int err);
 static bool write_preamble(capture_file *cf);
 static bool print_packet(capture_file *cf, epan_dissect_t *edt);
@@ -264,6 +263,7 @@ main(int argc, char *argv[])
     static const struct ws_option long_options[] = {
         {"help", ws_no_argument, NULL, 'h'},
         {"version", ws_no_argument, NULL, 'v'},
+        LONGOPT_WSLOG
         {0, 0, 0, 0 }
     };
     bool                 arg_error = false;
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
     ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -747,8 +747,12 @@ main(int argc, char *argv[])
                     goto clean_exit;
                 }
                 break;
-            default:
             case '?':        /* Bad flag - print usage message */
+            default:
+                /* wslog arguments are okay */
+                if (ws_log_is_wslog_arg(opt))
+                    break;
+
                 print_usage(stderr);
                 exit_status = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
@@ -863,6 +867,7 @@ main(int argc, char *argv[])
         }
     }
     cfile.dfcode = dfcode;
+    tap_load_main_filter(dfcode);
 
     if (print_packet_info) {
         /* If we're printing as text or PostScript, we have
@@ -912,12 +917,15 @@ main(int argc, char *argv[])
        have registered its field array so we can have a tap filter
        with one of MATE's late-registered fields as part of the
        filter. */
-    start_requested_stats();
+    if (!start_requested_stats()) {
+        exit_status = WS_EXIT_INVALID_OPTION;
+        goto clean_exit;
+    }
 
     /* Process the packets in the file */
     TRY {
         /* XXX - for now there is only 1 packet */
-        success = process_file(&cfile, 1, 0);
+        success = process_file(&cfile);
     }
     CATCH(OutOfMemoryError) {
         fprintf(stderr,
@@ -972,7 +980,11 @@ tfshark_epan_new(capture_file *cf)
     static const struct packet_provider_funcs funcs = {
         /* XXX - there should be no need for time stamps */
         cap_file_provider_get_frame_ts,
+        cap_file_provider_get_start_ts,
         no_interface_name,
+        NULL,
+        NULL,
+        NULL,
         NULL,
         NULL,
     };
@@ -982,8 +994,7 @@ tfshark_epan_new(capture_file *cf)
 
 static bool
 process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
-        int64_t offset, wtap_rec *rec,
-        const unsigned char *pd)
+        int64_t offset, wtap_rec *rec)
 {
     frame_data     fdlocal;
     uint32_t       framenum;
@@ -1009,10 +1020,6 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
         if (cf->rfcode)
             epan_dissect_prime_with_dfilter(edt, cf->rfcode);
 
-        /* This is the first pass, so prime the epan_dissect_t with the
-           hfids postdissectors want on the first pass. */
-        prime_epan_dissect_with_postdissector_wanted_hfids(edt);
-
         frame_data_set_before_dissect(&fdlocal, &cf->elapsed_time,
                 &cf->provider.ref, cf->provider.prev_dis);
         if (cf->provider.ref == &fdlocal) {
@@ -1020,9 +1027,7 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
             cf->provider.ref = &ref_frame;
         }
 
-        epan_dissect_file_run(edt, rec,
-                pd,
-                &fdlocal, NULL);
+        epan_dissect_file_run(edt, rec,  &fdlocal, NULL);
 
         /* Run the read filter if we have one. */
         if (cf->rfcode)
@@ -1056,8 +1061,7 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
 
 static bool
 process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
-        frame_data *fdata, wtap_rec *rec,
-        Buffer *buf)
+        frame_data *fdata, wtap_rec *rec)
 {
     column_info    *cinfo;
     bool            passed;
@@ -1076,10 +1080,6 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
            filter. */
         if (cf->dfcode)
             epan_dissect_prime_with_dfilter(edt, cf->dfcode);
-
-        /* This is the first and only pass, so prime the epan_dissect_t
-           with the hfids postdissectors want on the first pass. */
-        prime_epan_dissect_with_postdissector_wanted_hfids(edt);
 
         col_custom_prime_edt(edt, &cf->cinfo);
 
@@ -1101,8 +1101,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
             cf->provider.ref = &ref_frame;
         }
 
-        epan_dissect_file_run_with_taps(edt, rec,
-                ws_buffer_start_ptr(buf), fdata, cinfo);
+        epan_dissect_file_run_with_taps(edt, rec, fdata, cinfo);
 
         /* Run the read/display filter if we have one. */
         if (cf->dfcode)
@@ -1138,88 +1137,83 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
     return passed || fdata->dependent_of_displayed;
 }
 
+/*
+ * XXX - this routine doesn't read in files larger than UINT_MAX bytes;
+ * it would need to loop over the file.
+ *
+ * But if we read the entire file in, that might, for sufficiently
+ * large files, eat up address space or other resources (especially
+ * on 32-bit platforms).
+ */
 static bool
-local_wtap_read(capture_file *cf, wtap_rec *file_rec _U_, int *err, char **err_info _U_, int64_t *data_offset _U_, uint8_t** data_buffer)
+full_file_read(capture_file *cf, wtap_rec *rec, int *err, char **err_info)
 {
-    /* int bytes_read; */
-    int64_t packet_size = wtap_file_size(cf->provider.wth, err);
+    int64_t file_size;
+    int packet_size = 0;
+    const int block_size = 1024 * 1024;
 
-    *data_buffer = (uint8_t*)g_malloc((size_t)packet_size);
-    /* bytes_read =*/ file_read(*data_buffer, (unsigned int)packet_size, cf->provider.wth->fh);
-
-#if 0 /* no more filetap */
-    if (bytes_read < 0) {
-        *err = file_error(cf->provider.wth->fh, err_info);
-        if (*err == 0)
-            *err = FTAP_ERR_SHORT_READ;
+    if ((file_size = wtap_file_size(cf->provider.wth, err)) == -1)
         return false;
-    } else if (bytes_read == 0) {
-        /* Done with file, no error */
-        return false;
-    }
 
-
-    /* XXX - SET FRAME SIZE EQUAL TO TOTAL FILE SIZE */
-    file_rec->rec_header.packet_header.caplen = (uint32_t)packet_size;
-    file_rec->rec_header.packet_header.len = (uint32_t)packet_size;
-
-    /*
-     * Set the packet encapsulation to the file's encapsulation
-     * value; if that's not WTAP_ENCAP_PER_PACKET, it's the
-     * right answer (and means that the read routine for this
-     * capture file type doesn't have to set it), and if it
-     * *is* WTAP_ENCAP_PER_PACKET, the caller needs to set it
-     * anyway.
-     */
-    wth->rec.rec_header.packet_header.pkt_encap = wth->file_encap;
-
-    if (!wth->subtype_read(wth, err, err_info, data_offset)) {
+    if (file_size > INT_MAX) {
         /*
-         * If we didn't get an error indication, we read
-         * the last packet.  See if there's any deferred
-         * error, as might, for example, occur if we're
-         * reading a compressed file, and we got an error
-         * reading compressed data from the file, but
-         * got enough compressed data to decompress the
-         * last packet of the file.
+         * Avoid allocating space for an immensely-large file.
          */
-        if (*err == 0)
-            *err = file_error(wth->fh, err_info);
-        return false;    /* failure */
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = ws_strdup_printf("File is %" PRId64 " bytes in size, bigger than maximum of %u",
+                file_size, INT_MAX);
+        return false;
     }
 
     /*
-     * It makes no sense for the captured data length to be bigger
-     * than the actual data length.
+     * Compressed files might expand to a larger size than the actual file
+     * size. Try to read the full size and then read in smaller increments
+     * to avoid frequent memory reallocations.
      */
-    if (wth->rec.rec_header.packet_header.caplen > wth->rec.rec_header.packet_header.len)
-        wth->rec.rec_header.packet_header.caplen = wth->rec.rec_header.packet_header.len;
+    int buffer_size = block_size * (1 + (int)file_size / block_size);
+    for (;;) {
+        if (buffer_size <= 0) {
+            *err = WTAP_ERR_BAD_FILE;
+            *err_info = ws_strdup_printf("%s: Uncompressed file is bigger than maximum of %u",
+                    wtap_encap_name(cf->provider.wth->file_encap), INT_MAX);
+            return false;
+        }
+        ws_buffer_assure_space(&rec->data, buffer_size);
+        int nread = file_read(ws_buffer_start_ptr(&rec->data) + packet_size, buffer_size - packet_size, cf->provider.wth->fh);
+        if (nread < 0) {
+            *err = file_error(cf->provider.wth->fh, err_info);
+            if (*err == 0)
+                *err = WTAP_ERR_BAD_FILE;
+            return false;
+        }
+        packet_size += nread;
+        if (packet_size != buffer_size) {
+            /* EOF */
+            break;
+        }
+        buffer_size += block_size;
+    }
 
-    /*
-     * Make sure that it's not WTAP_ENCAP_PER_PACKET, as that
-     * probably means the file has that encapsulation type
-     * but the read routine didn't set this packet's
-     * encapsulation type.
-     */
-    ws_assert(wth->rec.rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
-#endif
+    wtap_setup_packet_rec(rec, cf->provider.wth->file_encap);
+    rec->presence_flags = 0; /* yes, we have no bananas^Wtime stamp */
+    rec->ts.secs = 0;
+    rec->ts.nsecs = 0;
+    rec->rec_header.packet_header.caplen = packet_size;
+    rec->rec_header.packet_header.len = packet_size;
 
-    return true; /* success */
+    return true;
 }
 
 static bool
-process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
+process_file(capture_file *cf)
 {
     uint32_t     framenum;
     int          err;
     char        *err_info = NULL;
-    int64_t      data_offset = 0;
     bool         filtering_tap_listeners;
     unsigned     tap_flags;
-    Buffer       buf;
     epan_dissect_t *edt = NULL;
     wtap_rec     file_rec;
-    uint8_t* raw_data;
 
     if (print_packet_info) {
         if (!write_preamble(cf)) {
@@ -1235,7 +1229,7 @@ process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
     /* Get the union of the flags for all tap listeners. */
     tap_flags = union_of_tap_listener_flags();
 
-    wtap_rec_init(&file_rec);
+    wtap_rec_init(&file_rec, 1514);
 
     /* XXX - TEMPORARY HACK TO ELF DISSECTOR */
     file_rec.rec_header.packet_header.pkt_encap = 1234;
@@ -1265,20 +1259,11 @@ process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
                so it's not going to be "visible". */
             edt = epan_dissect_new(cf->epan, create_proto_tree, false);
         }
-        while (local_wtap_read(cf, &file_rec, &err, &err_info, &data_offset, &raw_data)) {
-            if (process_packet_first_pass(cf, edt, data_offset, &file_rec, raw_data)) {
 
-                /* Stop reading if we have the maximum number of packets;
-                 * When the -c option has not been used, max_packet_count
-                 * starts at 0, which practically means, never stop reading.
-                 * (unless we roll over max_packet_count ?)
-                 */
-                if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
-                    err = 0; /* This is not an error */
-                    break;
-                }
-            }
-        }
+        /* XXX - check for failure and report it */
+        full_file_read(cf, &file_rec, &err, &err_info);
+        /* XXX - check return value? */
+        process_packet_first_pass(cf, edt, 0, &file_rec);
 
         if (edt) {
             epan_dissect_free(edt);
@@ -1296,7 +1281,6 @@ process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
 
         cf->provider.prev_dis = NULL;
         cf->provider.prev_cap = NULL;
-        ws_buffer_init(&buf, 1514);
 
         if (do_dissection) {
             bool create_proto_tree;
@@ -1327,23 +1311,14 @@ process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
 
         for (framenum = 1; err == 0 && framenum <= cf->count; framenum++) {
             fdata = frame_data_sequence_find(cf->provider.frames, framenum);
-#if 0
-            if (wtap_seek_read(cf->provider.wth, fdata->file_off,
-                        &buf, fdata->cap_len, &err, &err_info)) {
-                process_packet_second_pass(cf, edt, fdata, &cf->rec, &buf, tap_flags);
-            }
-#else
-            if (!process_packet_second_pass(cf, edt, fdata, &cf->rec, &buf))
+            if (!process_packet_second_pass(cf, edt, fdata, &file_rec))
                 return false;
-#endif
         }
 
         if (edt) {
             epan_dissect_free(edt);
             edt = NULL;
         }
-
-        ws_buffer_free(&buf);
     }
     else {
         framenum = 0;
@@ -1383,24 +1358,10 @@ process_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
             edt = epan_dissect_new(cf->epan, create_proto_tree, print_packet_info && print_details);
         }
 
-        while (local_wtap_read(cf, &file_rec, &err, &err_info, &data_offset, &raw_data)) {
-
-            framenum++;
-
-            if (!process_packet_single_pass(cf, edt, data_offset,
-                        &file_rec/*wtap_get_rec(cf->provider.wth)*/,
-                        raw_data))
+        /* XXX - check for failure and report it */
+        if (full_file_read(cf, &file_rec, &err, &err_info)) {
+            if (!process_packet_single_pass(cf, edt, 0, &file_rec))
                 return false;
-
-            /* Stop reading if we have the maximum number of packets;
-             * When the -c option has not been used, max_packet_count
-             * starts at 0, which practically means, never stop reading.
-             * (unless we roll over max_packet_count ?)
-             */
-            if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
-                err = 0; /* This is not an error */
-                break;
-            }
         }
 
         if (edt) {
@@ -1496,7 +1457,7 @@ out:
 
 static bool
 process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset,
-        wtap_rec *rec, const unsigned char *pd)
+        wtap_rec *rec)
 {
     frame_data      fdata;
     column_info    *cinfo;
@@ -1542,9 +1503,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
             cf->provider.ref = &ref_frame;
         }
 
-        epan_dissect_file_run_with_taps(edt, rec,
-                pd,
-                &fdata, cinfo);
+        epan_dissect_file_run_with_taps(edt, rec, &fdata, cinfo);
 
         /* Run the filter if we have it. */
         if (cf->dfcode)

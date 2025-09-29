@@ -312,6 +312,7 @@ extern "C" {
 #define WTAP_ENCAP_MDB                          223
 #define WTAP_ENCAP_EMS                          224
 #define WTAP_ENCAP_DECT_NR                      225
+#define WTAP_ENCAP_MMODULE                      226
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -325,7 +326,7 @@ extern "C" {
 #define WTAP_TSPREC_PER_PACKET -1  /* as a per-file value, means per-packet */
 /*
  * These values are the number of digits of precision after the integral part.
- * Thry're the same as WS_TSPREC values; we define them here so that
+ * They're the same as WS_TSPREC values; we define them here so that
  * tools/make-enums.py sees them.
  */
 #define WTAP_TSPREC_SEC         0
@@ -1195,6 +1196,11 @@ struct ber_phdr {
     const char *pathname;   /* Path name of file. */
 };
 
+/* File "pseudo-header" for M-Module files. */
+struct mmodule_phdr {
+     uint8_t chunktype;
+};
+
 union wtap_pseudo_header {
     struct eth_phdr     eth;
     struct dte_dce_phdr dte_dce;
@@ -1223,6 +1229,7 @@ union wtap_pseudo_header {
     struct logcat_phdr  logcat;
     struct netmon_phdr  netmon;
     struct ber_phdr     ber;
+    struct mmodule_phdr mmodule;
 };
 
 /*
@@ -1367,8 +1374,9 @@ typedef struct {
     (ll_dependent_errors))
 
 typedef struct {
-    unsigned  record_type;      /* the type of record this is - file type-specific value */
-    uint32_t  record_len;       /* length of the record */
+    int      file_type_subtype; /* the type of file this is for */
+    unsigned record_type;       /* the type of record this is - file type-specific value */
+    uint32_t record_len;        /* length of the record */
 } wtap_ft_specific_header;
 
 typedef struct {
@@ -1378,10 +1386,11 @@ typedef struct {
     /* uint32_t sentinel; */
     uint64_t  timestamp;        /* ns since epoch - XXX dup of ts */
     uint64_t  thread_id;
-    uint32_t  event_len;        /* length of the event */
-    uint32_t  event_filelen;    /* event data length in the file */
-    uint16_t  event_type;
+    uint32_t  event_len;        /* length of the event (ppm event len) */
+    uint32_t  event_data_len;   /* length of the event data (ppm event len - ppm event header len) */
     uint32_t  nparams;          /* number of parameters of the event */
+    uint32_t  flags;
+    uint16_t  event_type;
     uint16_t  cpu_id;
     /* ... Event ... */
 } wtap_syscall_header;
@@ -1391,19 +1400,10 @@ typedef struct {
 } wtap_systemd_journal_export_header;
 
 typedef struct {
-    uint32_t  length;           /* length of the record */
     uint32_t  pen;              /* private enterprise number */
+    uint32_t  length;           /* length of the Custom Data plus options */
     bool      copy_allowed;     /* CB can be written */
-    union {
-        struct nflx {
-            uint32_t  type;             /* block type */
-            uint32_t  skipped;          /* Used if type == BBLOG_TYPE_SKIPPED_BLOCK */
-        } nflx_custom_data_header;
-    } custom_data_header;
 } wtap_custom_block_header;
-
-#define BBLOG_TYPE_EVENT_BLOCK   1
-#define BBLOG_TYPE_SKIPPED_BLOCK 2
 
 /*
  * The largest nstime.secs value that can be put into an unsigned
@@ -1435,8 +1435,7 @@ typedef struct wtap_rec {
     unsigned  section_number;    /* section, within file, containing this record */
     nstime_t  ts;                /* time stamp */
     int       tsprec;            /* WTAP_TSPREC_ value for this record */
-    nstime_t  ts_rel_cap;        /* time stamp relative from capture start */
-    bool      ts_rel_cap_valid;  /* is ts_rel_cap valid and can be used? */
+    const char *rec_type_name;   /* name of this record type */
     union {
         wtap_packet_header packet_header;
         wtap_ft_specific_header ft_specific_header;
@@ -1445,14 +1444,27 @@ typedef struct wtap_rec {
         wtap_custom_block_header custom_block_header;
     } rec_header;
 
-    wtap_block_t block ;         /* packet block; holds comments and verdicts in its options */
-    bool block_was_modified; /* true if ANY aspect of the block has been modified */
+    /*
+     * XXX - some if not all of the rec_header information may belong
+     * here, or may already be here.  Eliminating rec_header in favor
+     * of this might simplify the process of adding new record/block
+     * types.  For example, some of it might belong in block->mandatory_data.
+     *
+     * It also has a type field that's somewhat equivalent to rec_type.
+     *
+     * It's null for some record types.
+     */
+    wtap_block_t block;          /* block information */
+    bool block_was_modified;     /* true if ANY aspect of the block has been modified */
 
     /*
      * We use a Buffer so that we don't have to allocate and free
      * a buffer for the options for each record.
      */
     Buffer    options_buf;       /* file-type specific data */
+
+    /* Buffer for the record data. */
+    Buffer    data;
 } wtap_rec;
 
 /*
@@ -1551,6 +1563,9 @@ typedef struct wtap_dump_params {
                                                  This array may grow since the dumper was opened and will subsequently
                                                  be written before newer packets are written in wtap_dump. */
     const GArray *mevs_growing;             /**< Meta events that will be written while writing packets, or NULL.
+                                                 This array may grow since the dumper was opened and will subsequently
+                                                 be written before newer packets are written in wtap_dump. */
+    const GArray *dpibs_growing;            /**< DPIBs that will be written while writing packets, or NULL.
                                                  This array may grow since the dumper was opened and will subsequently
                                                  be written before newer packets are written in wtap_dump. */
     bool        dont_copy_idbs;             /**< XXX - don't copy IDBs; this should eventually always be the case. */
@@ -1906,8 +1921,7 @@ void wtap_set_cb_new_secrets(wtap *wth, wtap_new_secrets_callback_t add_new_secr
  *
  * @wth a wtap * returned by a call that opened a file for reading.
  * @rec a pointer to a wtap_rec, filled in with information about the
- * record.
- * @buf a pointer to a Buffer, filled in with data from the record.
+ * record and the data from the record.
  * @param err a positive "errno" value, or a negative number indicating
  * the type of error, if the read failed.
  * @param err_info for some errors, a string giving more details of
@@ -1918,8 +1932,8 @@ void wtap_set_cb_new_secrets(wtap *wth, wtap_new_secrets_callback_t add_new_secr
  * @return true on success, false on failure.
  */
 WS_DLL_PUBLIC
-bool wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
-    char **err_info, int64_t *offset);
+bool wtap_read(wtap *wth, wtap_rec *rec, int *err, char **err_info,
+    int64_t *offset);
 
 /** Read the record at a specified offset in a capture file, filling in
  * *phdr and *buf.
@@ -1929,8 +1943,7 @@ bool wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
  * @seek_off a int64_t giving an offset value returned by a previous
  * wtap_read() call.
  * @rec a pointer to a struct wtap_rec, filled in with information
- * about the record.
- * @buf a pointer to a Buffer, filled in with data from the record.
+ * about the record and the data from the record.
  * @param err a positive "errno" value, or a negative number indicating
  * the type of error, if the read failed.
  * @param err_info for some errors, a string giving more details of
@@ -1939,11 +1952,15 @@ bool wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
  */
 WS_DLL_PUBLIC
 bool wtap_seek_read(wtap *wth, int64_t seek_off, wtap_rec *rec,
-    Buffer *buf, int *err, char **err_info);
+    int *err, char **err_info);
 
 /*** initialize a wtap_rec structure ***/
 WS_DLL_PUBLIC
-void wtap_rec_init(wtap_rec *rec);
+void wtap_rec_init(wtap_rec *rec, gsize space);
+
+/*** Apply a snapshot value ***/
+WS_DLL_PUBLIC
+void wtap_rec_apply_snapshot(wtap_rec *rec, uint32_t snaplen);
 
 /*** Re-initialize a wtap_rec structure ***/
 WS_DLL_PUBLIC
@@ -1952,6 +1969,54 @@ void wtap_rec_reset(wtap_rec *rec);
 /*** clean up a wtap_rec structure, freeing what wtap_rec_init() allocated */
 WS_DLL_PUBLIC
 void wtap_rec_cleanup(wtap_rec *rec);
+
+/**
+ * Return an error string for WTAP_ERR_UNWRITABLE_REC_TYPE.
+ */
+WS_DLL_PUBLIC
+char *wtap_unwritable_rec_type_err_string(const wtap_rec *rec);
+
+/**
+ * Set up a wtap_rec for a packet (REC_TYPE_PACKET).
+ */
+WS_DLL_PUBLIC
+void wtap_setup_packet_rec(wtap_rec *rec, int encap);
+
+/**
+ * Set up a wtap_rec for a file-type specific event
+ * (REC_TYPE_FT_SPECIFIC_EVENT);
+ */
+WS_DLL_PUBLIC
+void wtap_setup_ft_specific_event_rec(wtap_rec *rec, int file_type_subtype,
+                                      unsigned record_type);
+
+/**
+ * Set up a wtap_rec for a file-type specific report
+ * (REC_TYPE_FT_SPECIFIC_REPORT);
+ */
+WS_DLL_PUBLIC
+void wtap_setup_ft_specific_report_rec(wtap_rec *rec, int file_type_subtype,
+                                       unsigned record_type);
+
+/**
+ * Set up a wtap_rec for a system call (REC_TYPE_SYSCALL).
+ */
+WS_DLL_PUBLIC
+void wtap_setup_syscall_rec(wtap_rec *rec);
+
+/**
+ * Set up a wtap_rec for a systemd journal export entry
+ * (REC_TYPE_SYSTEMD_JOURNAL_EXPORT).
+ */
+WS_DLL_PUBLIC
+void wtap_setup_systemd_journal_export_rec(wtap_rec *rec);
+
+/**
+ * Set up a wtap_rec for a custom block (REC_TYPE_CUSTOM_BLOCK).
+ */
+WS_DLL_PUBLIC
+void wtap_setup_custom_block_rec(wtap_rec *rec, uint32_t pen,
+                                 uint32_t payload_length, bool copy_allowed);
 
 /*
  * Types of compression for a file, including "none".
@@ -1975,6 +2040,8 @@ const char *wtap_compression_type_description(wtap_compression_type compression_
 WS_DLL_PUBLIC
 const char *wtap_compression_type_extension(wtap_compression_type compression_type);
 WS_DLL_PUBLIC
+const char *wtap_compression_type_name(wtap_compression_type compression_type);
+WS_DLL_PUBLIC
 GSList *wtap_get_all_compression_type_extensions_list(void);
 WS_DLL_PUBLIC
 GSList *wtap_get_all_output_compression_type_names_list(void);
@@ -1997,6 +2064,8 @@ WS_DLL_PUBLIC
 int wtap_file_encap(wtap *wth);
 WS_DLL_PUBLIC
 int wtap_file_tsprec(wtap *wth);
+WS_DLL_PUBLIC
+const nstime_t* wtap_file_start_ts(wtap *wth);
 
 /**
  * @brief Gets number of section header blocks.
@@ -2062,6 +2131,10 @@ unsigned wtap_file_get_shb_global_interface_id(wtap *wth, unsigned shb_num, uint
  */
 WS_DLL_PUBLIC
 wtapng_iface_descriptions_t *wtap_file_get_idb_info(wtap *wth);
+
+
+WS_DLL_PUBLIC
+wtapng_dpib_lookup_info_t * wtap_file_get_dpib_lookup_info(wtap *wth);
 
 /**
  * @brief Gets next interface description.
@@ -2351,19 +2424,18 @@ WS_DLL_PUBLIC
 bool wtap_dump_add_idb(wtap_dumper *wdh, wtap_block_t idb, int *err,
      char **err_info);
 WS_DLL_PUBLIC
-bool wtap_dump(wtap_dumper *, const wtap_rec *, const uint8_t *,
-     int *err, char **err_info);
+bool wtap_dump(wtap_dumper *, const wtap_rec *, int *err, char **err_info);
 WS_DLL_PUBLIC
 bool wtap_dump_flush(wtap_dumper *, int *);
 WS_DLL_PUBLIC
-int wtap_dump_file_type_subtype(wtap_dumper *wdh);
+int wtap_dump_file_type_subtype(const wtap_dumper *wdh);
 WS_DLL_PUBLIC
-int64_t wtap_get_bytes_dumped(wtap_dumper *);
+int64_t wtap_get_bytes_dumped(const wtap_dumper *);
 WS_DLL_PUBLIC
 void wtap_set_bytes_dumped(wtap_dumper *wdh, int64_t bytes_dumped);
 struct addrinfo;
 WS_DLL_PUBLIC
-bool wtap_addrinfo_list_empty(addrinfo_lists_t *addrinfo_lists);
+bool wtap_addrinfo_list_empty(const addrinfo_lists_t *addrinfo_lists);
 WS_DLL_PUBLIC
 bool wtap_dump_set_addrinfo_list(wtap_dumper *wdh, addrinfo_lists_t *addrinfo_lists);
 WS_DLL_PUBLIC
@@ -2721,6 +2793,10 @@ void wtap_cleanup(void);
 #define WTAP_ERR_TIME_STAMP_NOT_SUPPORTED     -27
     /**< We don't support writing that record's time stamp to that
          file type  */
+
+#define WTAP_ERR_REC_MALFORMED		      -28
+	 /**< Packet being read is of a known type, but is malformed so it will be skipped.
+	     This can be used instead of WTAP_ERR_BAD_FILE to not stop reading of a file */
 
 #ifdef __cplusplus
 }

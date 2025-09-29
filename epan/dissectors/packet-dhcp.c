@@ -141,9 +141,11 @@
 #include <epan/uat.h>
 #include <epan/sminmpec.h>
 #include <epan/tfs.h>
+
 #include <wsutil/str_util.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/array.h>
+#include <wsutil/ws_padding_to.h>
 
 void proto_register_dhcp(void);
 void proto_reg_handoff_dhcp(void);
@@ -2104,7 +2106,7 @@ dhcp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 
 			case 53:
 				*dhcp_type_p =
-				    val_to_str(tvb_get_uint8(tvb, voff+2),
+				    val_to_str(pinfo->pool, tvb_get_uint8(tvb, voff+2),
 					opt53_text,
 					"Unknown Message Type (0x%02x)");
 				break;
@@ -2368,14 +2370,16 @@ dissect_dhcpopt_option_overload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 }
 
 static int
-dissect_dhcpopt_dhcp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
+dissect_dhcpopt_dhcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	uint32_t type;
+	char* str_type;
 
 	proto_tree_add_item_ret_uint(tree, hf_dhcp_option_dhcp, tvb, 0, 1, ENC_NA, &type);
 	/* Show the message type name on the Message Type option, and in the protocol root */
-	proto_item_append_text(tree, " (%s)", val_to_str(type, opt53_text, "Unknown Message Type (0x%02x)"));
-	proto_item_append_text(proto_item_get_parent(tree), " (%s)", val_to_str(type, opt53_text, "Unknown Message Type (0x%02x)"));
+	str_type = val_to_str(pinfo->pool, type, opt53_text, "Unknown Message Type (0x%02x)");
+	proto_item_append_text(tree, " (%s)", str_type);
+	proto_item_append_text(proto_item_get_parent(tree), " (%s)", str_type);
 
 	return tvb_captured_length(tvb);
 }
@@ -2545,7 +2549,7 @@ dissect_dhcpopt_user_class_information(tvbuff_t *tvb, packet_info *pinfo, proto_
 		proto_tree_add_item(tree, hf_dhcp_option77_user_class_binary_data, tvb, offset, ms_data_length, ENC_STRING);
 		offset += ms_data_length;
 		/* User Class Binary Data is padded to 4-byte boundary */
-		uint16_t padding_length = (4 - (ms_data_length % 4)) & 0x3;
+		uint16_t padding_length = WS_PADDING_TO_4(ms_data_length);
 		if (padding_length > 0) {
 			proto_tree_add_item(tree, hf_dhcp_option77_user_class_padding, tvb, offset, padding_length, ENC_NA);
 			offset += padding_length;
@@ -2683,7 +2687,7 @@ dissect_dhcpopt_client_full_domain_name(tvbuff_t *tvb, packet_info *pinfo, proto
 
 	if (length > 3) {
 		if (fqdn_flags & F_FQDN_E) {
-			get_dns_name(tvb, offset+3, length-3, offset+3, (const char **)&dns_name, &dns_name_len);
+			get_dns_name(pinfo->pool, tvb, offset+3, length-3, offset+3, (const char **)&dns_name, &dns_name_len);
 			proto_tree_add_string(tree, hf_dhcp_fqdn_name,
 				tvb, offset+3, length-3, format_text(pinfo->pool, dns_name, dns_name_len));
 		} else {
@@ -3001,7 +3005,7 @@ dissect_dhcpopt_dhcp_domain_search(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		/* use the get_dns_name method that manages all techniques of RFC 1035 (compression pointer and so on) */
-		consumedx = get_dns_name(tvb, offset,
+		consumedx = get_dns_name(pinfo->pool, tvb, offset,
 			length, 0, (const char **)&dns_name, &dns_name_len);
 		name_out = format_text(pinfo->pool, dns_name, dns_name_len);
 		proto_tree_add_string(tree, hf_dhcp_option_dhcp_dns_domain_search_list_fqdn, tvb, offset, consumedx, name_out);
@@ -3037,7 +3041,7 @@ dissect_dhcpopt_sip_servers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 		while (tvb_reported_length_remaining(tvb, offset) > 0) {
 			/* use the get_dns_name method that manages all techniques of RFC 1035 (compression pointer and so on) */
-			consumedx = get_dns_name(tvb, offset, length,
+			consumedx = get_dns_name(pinfo->pool, tvb, offset, length,
 				1 /* ignore enc */, (const char **)&dns_name, &dns_name_len);
 			name_out = format_text(pinfo->pool, dns_name, dns_name_len);
 
@@ -3276,7 +3280,7 @@ dissect_dhcpopt_rdnss(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
 	proto_tree_add_item(tree, hf_dhcp_option_rdnss_sec_dns_server, tvb, offset, 4, ENC_BIG_ENDIAN);
 	offset += 4;
 
-	get_dns_name(tvb, offset, tvb_reported_length_remaining(tvb,offset), offset, (const char **)&dns_name, &dns_name_len);
+	get_dns_name(pinfo->pool, tvb, offset, tvb_reported_length_remaining(tvb,offset), offset, (const char **)&dns_name, &dns_name_len);
 	proto_tree_add_string(tree, hf_dhcp_option_rdnss_domain, tvb, offset,
 			tvb_reported_length_remaining(tvb,offset), format_text(pinfo->pool, dns_name, dns_name_len));
 
@@ -3366,7 +3370,7 @@ dissect_dhcpopt_pcp_server(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 		offset += 1;
 		ip_list_length += 1;
 		while (((list_length - 1)%4 == 0) && (ip_list_length < list_length) && tvb_reported_length_remaining(tvb,offset) >= 4) {
-			proto_tree_add_item(tree_pcp, hf_dhcp_option_pcp_server, tvb, offset, 4, ENC_NA);
+			proto_tree_add_item(tree_pcp, hf_dhcp_option_pcp_server, tvb, offset, 4, ENC_BIG_ENDIAN);
 			offset += 4;
 			ip_list_length += 4;
 		}
@@ -3512,7 +3516,8 @@ dhcp_dhcp_decode_agent_info(packet_info *pinfo, proto_item *v_ti, proto_tree *v_
 			     int optend)
 {
 	int	    suboptoff = optoff;
-	uint8_t	    subopt, idx, vs_opt, vs_len;
+	uint8_t	    subopt, vs_opt, vs_len;
+	size_t      idx;
 	int	    subopt_len, subopt_end, datalen;
 	uint32_t	    enterprise;
 	proto_item *vti, *ti;
@@ -4142,22 +4147,22 @@ dissect_vendor_avaya_param(proto_tree *tree, packet_info *pinfo, proto_item *vti
 		proto_tree_add_string(tree, hf_dhcp_option242_avaya_httpdir, tvb, optoff, len, field + 8);
 	}
 	else if((strncmp(field, "STATIC=", 7) == 0) && ( len > 7)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_static, tvb, optoff, len, field + 7, "%s (%s)", field + 7, str_to_str(field + 7, option242_avaya_static_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_static, tvb, optoff, len, field + 7, "%s (%s)", field + 7, str_to_str_wmem(pinfo->pool, field + 7, option242_avaya_static_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "MCIPADD=", 8) == 0) && ( len > 8)) {
 		proto_tree_add_string(tree, hf_dhcp_option242_avaya_mcipadd, tvb, optoff, len, field + 8);
 	}
 	else if((strncmp(field, "DOT1X=", 6) == 0) && ( len > 6)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_dot1x, tvb, optoff, len, field + 6, "%s (%s)", field + 6, str_to_str(field + 6, option242_avaya_dot1x_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_dot1x, tvb, optoff, len, field + 6, "%s (%s)", field + 6, str_to_str_wmem(pinfo->pool, field + 6, option242_avaya_dot1x_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "ICMPDU=", 7) == 0) && ( len > 7)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_icmpdu, tvb, optoff, len, field + 7, "%s (%s)", field + 7, str_to_str(field + 7, option242_avaya_icmpdu_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_icmpdu, tvb, optoff, len, field + 7, "%s (%s)", field + 7, str_to_str_wmem(pinfo->pool, field + 7, option242_avaya_icmpdu_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "ICMPRED=", 8) == 0) && ( len > 8)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_icmpred, tvb, optoff, len, field + 8, "%s (%s)", field + 8, str_to_str(field + 8, option242_avaya_icmpred_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_icmpred, tvb, optoff, len, field + 8, "%s (%s)", field + 8, str_to_str_wmem(pinfo->pool, field + 8, option242_avaya_icmpred_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "L2Q=", 4) == 0) && ( len > 4)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_l2q, tvb, optoff, len, field + 4, "%s (%s)", field + 4, str_to_str(field + 4, option242_avaya_l2q_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_l2q, tvb, optoff, len, field + 4, "%s (%s)", field + 4, str_to_str_wmem(pinfo->pool, field + 4, option242_avaya_l2q_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "L2QVLAN=", 8) == 0) && ( len > 8)) {
 		int32_t val = -1;
@@ -4170,19 +4175,19 @@ dissect_vendor_avaya_param(proto_tree *tree, packet_info *pinfo, proto_item *vti
 			expert_add_info(pinfo, pi, &ei_dhcp_option242_avaya_l2qvlan_invalid);
 	}
 	else if((strncmp(field, "LOGLOCAL=", 9) == 0) && ( len > 9)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_loglocal, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str(field + 9, option242_avaya_loglocal_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_loglocal, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str_wmem(pinfo->pool, field + 9, option242_avaya_loglocal_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "PHY1STAT=", 9) == 0) && ( len > 9)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_phy1stat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str(field + 9, option242_avaya_phystat_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_phy1stat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str_wmem(pinfo->pool, field + 9, option242_avaya_phystat_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "PHY2STAT=", 9) == 0) && ( len > 9)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_phy2stat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str(field + 9, option242_avaya_phystat_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_phy2stat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str_wmem(pinfo->pool, field + 9, option242_avaya_phystat_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "PROCPSWD=", 9) == 0) && ( len > 9)) {
 		proto_tree_add_string(tree, hf_dhcp_option242_avaya_procpswd, tvb, optoff, len, field + 9);
 	}
 	else if((strncmp(field, "PROCSTAT=", 9) == 0) && ( len > 9)) {
-		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_procstat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str(field + 9, option242_avaya_procstat_vals, "Unknown (%s)"));
+		proto_tree_add_string_format_value(tree, hf_dhcp_option242_avaya_procstat, tvb, optoff, len, field + 9, "%s (%s)", field + 9, str_to_str_wmem(pinfo->pool, field + 9, option242_avaya_procstat_vals, "Unknown (%s)"));
 	}
 	else if((strncmp(field, "SNMPADD=", 8) == 0) && ( len > 8)) {
 		proto_tree_add_string(tree, hf_dhcp_option242_avaya_snmpadd, tvb, optoff, len, field + 8);
@@ -4784,7 +4789,7 @@ dissect_vendor_bsdp_boot_image(proto_tree *v_tree, tvbuff_t *tvb, int optoff)
 		NULL
 	};
 
-	proto_tree_add_bitmask(v_tree, tvb, optoff, hf_dhcp_option43_bsdp_boot_image_attribute, ett_dhcp_o43_bsdp_attributes_flags, dhcp_o43_bsdp_attributes_flags, ENC_NA);
+	proto_tree_add_bitmask(v_tree, tvb, optoff, hf_dhcp_option43_bsdp_boot_image_attribute, ett_dhcp_o43_bsdp_attributes_flags, dhcp_o43_bsdp_attributes_flags, ENC_BIG_ENDIAN);
 }
 
 static int
@@ -4834,7 +4839,7 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 	switch(subopt)
 	{
 		case 1:
-			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_message_type, tvb, suboptoff, subopt_len, ENC_ASCII|ENC_NA);
+			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_message_type, tvb, suboptoff, subopt_len, ENC_NA);
 			break;
 		case 2:
 			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_version, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN);
@@ -4852,30 +4857,30 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_boot_image_list_path, tvb, suboptoff, subopt_len, ENC_ASCII);
 			break;
 		case 7:
-			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_default_boot_image_id, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN|ENC_NA);
+			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_default_boot_image_id, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN);
 			o43bsdp_va_tree = proto_item_add_subtree(ti, ett_dhcp_o43_bsdp_boot_image);
 			dissect_vendor_bsdp_boot_image(o43bsdp_va_tree, tvb, suboptoff);
-			proto_tree_add_item(o43bsdp_va_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, suboptoff+2, subopt_len-2, ENC_BIG_ENDIAN|ENC_NA);
+			proto_tree_add_item(o43bsdp_va_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, suboptoff+2, subopt_len-2, ENC_BIG_ENDIAN);
 			break;
 		case 8:
-			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_selected_boot_image_id, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN|ENC_NA);
+			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_selected_boot_image_id, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN);
 			o43bsdp_vc_tree = proto_item_add_subtree(ti, ett_dhcp_o43_bsdp_boot_image);
 			dissect_vendor_bsdp_boot_image(o43bsdp_vc_tree, tvb, suboptoff);
-			proto_tree_add_item(o43bsdp_vc_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, suboptoff+2, subopt_len-2, ENC_BIG_ENDIAN|ENC_NA);
+			proto_tree_add_item(o43bsdp_vc_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, suboptoff+2, subopt_len-2, ENC_BIG_ENDIAN);
 			break;
 		case 9:
-			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_boot_image_list, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN|ENC_NA);
+			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_boot_image_list, tvb, suboptoff, subopt_len, ENC_NA);
 			attributes_len = subopt_len;
 			attributes_off = suboptoff;
 			o43bsdp_vd_tree = proto_item_add_subtree(ti, ett_dhcp_o43_bsdp_image_desc_list);
 			while (attributes_len >= 5) {
 				string_len = tvb_get_uint8(tvb, attributes_off+4);
 				if (string_len > 0) {
-					tj = proto_tree_add_item(o43bsdp_vd_tree, hf_dhcp_option43_bsdp_image_desc, tvb, attributes_off, string_len+5, ENC_BIG_ENDIAN|ENC_NA);
+					tj = proto_tree_add_item(o43bsdp_vd_tree, hf_dhcp_option43_bsdp_image_desc, tvb, attributes_off, string_len+5, ENC_NA);
 					o43bsdp_vb_tree = proto_item_add_subtree(tj, ett_dhcp_o43_bsdp_image_desc);
 					dissect_vendor_bsdp_boot_image(o43bsdp_vb_tree, tvb, attributes_off);
-					proto_tree_add_item(o43bsdp_vb_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, attributes_off+2, 2, ENC_BIG_ENDIAN|ENC_NA);
-					proto_tree_add_item(o43bsdp_vb_tree, hf_dhcp_option43_bsdp_boot_image_name_len, tvb, attributes_off+4, 1, ENC_BIG_ENDIAN|ENC_NA);
+					proto_tree_add_item(o43bsdp_vb_tree, hf_dhcp_option43_bsdp_boot_image_index, tvb, attributes_off+2, 2, ENC_BIG_ENDIAN);
+					proto_tree_add_item(o43bsdp_vb_tree, hf_dhcp_option43_bsdp_boot_image_name_len, tvb, attributes_off+4, 1, ENC_BIG_ENDIAN);
 					proto_tree_add_item(o43bsdp_vb_tree, hf_dhcp_option43_bsdp_boot_image_name, tvb, attributes_off+5, string_len, ENC_UTF_8);
 				}
 				attributes_off += 5 + string_len;
@@ -4886,7 +4891,7 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_netboot_firmware, tvb, suboptoff, subopt_len, ENC_NA);
 			break;
 		case 11:
-			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_attributes_filter_list, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN|ENC_NA);
+			ti = proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_attributes_filter_list, tvb, suboptoff, subopt_len, ENC_NA);
 			attributes_len = subopt_len;
 			attributes_off = suboptoff;
 			o43bsdp_va_tree = proto_item_add_subtree(ti, ett_dhcp_o43_bsdp_attributes);
@@ -4897,7 +4902,7 @@ dissect_vendor_bsdp_suboption(packet_info *pinfo, proto_item *v_ti, proto_tree *
 			}
 			break;
 		case 12:
-			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_message_size, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN|ENC_NA);
+			proto_tree_add_item(o43bsdp_v_tree, hf_dhcp_option43_bsdp_message_size, tvb, suboptoff, subopt_len, ENC_BIG_ENDIAN);
 			break;
 	}
 
@@ -6986,7 +6991,7 @@ dissect_packetcable_ietf_ccc(packet_info *pinfo, proto_item *v_ti, proto_tree *v
 		switch (prov_type) {
 
 		case 0:
-			get_dns_name(tvb, suboptoff, subopt_len, suboptoff, (const char **)&dns_name, &dns_name_len);
+			get_dns_name(pinfo->pool, tvb, suboptoff, subopt_len, suboptoff, (const char **)&dns_name, &dns_name_len);
 			proto_item_append_text(vti, "%s (%u byte%s)", format_text(pinfo->pool, dns_name, dns_name_len),
 					       subopt_len - 1, plurality(subopt_len, "", "s") );
 			break;
@@ -7044,7 +7049,7 @@ dissect_packetcable_ietf_ccc(packet_info *pinfo, proto_item *v_ti, proto_tree *v
 		break;
 
 	case PKT_CCC_KRB_REALM: /* String values */
-		get_dns_name(tvb, suboptoff, subopt_len, suboptoff, (const char **)&dns_name, &dns_name_len);
+		get_dns_name(pinfo->pool, tvb, suboptoff, subopt_len, suboptoff, (const char **)&dns_name, &dns_name_len);
 		proto_item_append_text(vti, "%s (%u byte%s)", format_text(pinfo->pool, dns_name, dns_name_len),
 				       subopt_len, plurality(subopt_len, "", "s") );
 		suboptoff += subopt_len;
@@ -7292,7 +7297,7 @@ dissect_dhcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	}
 	flags = tvb_get_ntohs(tvb, 10);
 	fi = proto_tree_add_bitmask(bp_tree, tvb, 10, hf_dhcp_flags,
-			       ett_dhcp_flags, dhcp_flags, ENC_NA);
+			       ett_dhcp_flags, dhcp_flags, ENC_BIG_ENDIAN);
 	proto_item_append_text(fi, " (%s)",
 	    (flags & BOOTP_BC) ? "Broadcast" : "Unicast");
 

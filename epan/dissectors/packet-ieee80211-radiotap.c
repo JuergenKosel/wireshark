@@ -713,7 +713,7 @@ static int radiotap_fcs_handling = USE_FCS_BIT;
 #define IEEE80211_RADIOTAP_F_SHORTGI	0x80
 #define IEEE80211_RADIOTAP_XCHANNEL	18
 
-/* Official specifcation:
+/* Official specification:
  *
  * http://www.radiotap.org/
  *
@@ -1113,7 +1113,7 @@ capture_radiotap(const unsigned char * pd, int offset, int len, capture_packet_i
 		return false;
 	}
 	hdr = (const struct ieee80211_radiotap_header *)pd;
-	it_len = pletoh16(&hdr->it_len);
+	it_len = pletohu16(&hdr->it_len);
 	if (!BYTES_ARE_IN_FRAME(offset, len, it_len))
 		return false;
 
@@ -1127,7 +1127,7 @@ capture_radiotap(const unsigned char * pd, int offset, int len, capture_packet_i
 		return false;
 	}
 
-	present = pletoh32(&hdr->it_present);
+	present = pletohu32(&hdr->it_present);
 	offset += (int)sizeof(struct ieee80211_radiotap_header);
 	it_len -= (int)sizeof(struct ieee80211_radiotap_header);
 
@@ -1137,7 +1137,7 @@ capture_radiotap(const unsigned char * pd, int offset, int len, capture_packet_i
 		if (!BYTES_ARE_IN_FRAME(offset, 4, it_len)) {
 			return false;
 		}
-		xpresent = pletoh32(pd + offset);
+		xpresent = pletohu32(pd + offset);
 		offset += 4;
 		it_len -= 4;
 	}
@@ -1370,7 +1370,7 @@ dissect_radiotap_he_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 	uint8_t ltf_symbol_size = 0;
 
 	/*
-	 * This is set differetly for each packet, depending on
+	 * This is set differently for each packet, depending on
 	 * which values in data3 are known.  It thus will not
 	 * work if it's static.
 	 */
@@ -1658,7 +1658,7 @@ dissect_radiotap_he_mu_info(tvbuff_t *tvb, packet_info *pinfo _U_,
 	uint16_t flags2;
 
 	/*
-	 * This is set differetly for each packet, depending on
+	 * This is set differently for each packet, depending on
 	 * which values in flags1 are known.  It thus will not
 	 * work if it's static.
 	 */
@@ -3473,7 +3473,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 	tvbuff_t  *ven_data_tvb;
 
 	/* our non-standard overrides */
-	static struct radiotap_override overrides[] = {
+	static const struct radiotap_override overrides[] = {
 		{IEEE80211_RADIOTAP_XCHANNEL, 4, 8},	/* xchannel */
 
 		/* keep last */
@@ -3552,7 +3552,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 	    ett_radiotap_present);
 
 	for (i = 0; i < n_bitmaps; i++) {
-		uint32_t bmap = pletoh32(bmap_start + 4 * i);
+		uint32_t bmap = pletohu32(bmap_start + 4 * i);
 
 		rtap_ns_offset = rtap_ns_offset_next;
 		rtap_ns_offset_next += 32;
@@ -3710,8 +3710,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 
 		offset = (int)((unsigned char *) iter.this_arg - (unsigned char *) data);
 
-		if (iter.this_arg_index == IEEE80211_RADIOTAP_VENDOR_NAMESPACE
-		    && tree && !iter.tlv_mode) {
+		if (iter.this_arg_index == IEEE80211_RADIOTAP_VENDOR_NAMESPACE) {
 			proto_tree *ven_tree;
 			proto_item *vt;
 			const char *manuf_name;
@@ -4097,7 +4096,7 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 						tvb, offset, 12, ENC_NA);
 				vht_tree = proto_item_add_subtree(it_root, ett_radiotap_vht);
 				it = proto_tree_add_item(vht_tree, hf_radiotap_vht_known,
-						tvb, offset, 2, ENC_NA);
+						tvb, offset, 2, ENC_LITTLE_ENDIAN);
 				vht_known_tree = proto_item_add_subtree(it, ett_radiotap_vht_known);
 
 				proto_tree_add_item(vht_known_tree, hf_radiotap_vht_have_stbc,
@@ -4331,23 +4330,16 @@ dissect_radiotap(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* u
 				proto_tree *unknown_tlv;
 
 				unknown_tlv = proto_tree_add_subtree(tree, tvb,
-						offset,
-						length + 4,
+						offset - 4,
+						iter.this_arg_size + 4,
 						ett_radiotap_unknown_tlv,
 						NULL, "Unknown TLV");
-				proto_tree_add_item(unknown_tlv,
-						hf_radiotap_tlv_type, tvb,
-						offset, 2, ENC_LITTLE_ENDIAN);
-				offset += 2;
-
-				proto_tree_add_item(unknown_tlv,
-						hf_radiotap_tlv_datalen, tvb,
-						offset, 2, ENC_LITTLE_ENDIAN);
-				offset += 2;
+				add_tlv_items(unknown_tlv, tvb, offset);
 
 				proto_tree_add_item(unknown_tlv,
 						hf_radiotap_unknown_tlv_data,
-						tvb, offset, length, ENC_NA);
+						tvb, offset, iter.this_arg_size,
+						ENC_NA);
 			} else {
 				proto_tree_add_item(item_tree,
 						hf_radiotap_unknown_tlv_data,
@@ -5084,7 +5076,7 @@ void proto_register_radiotap(void)
 
 		{&hf_radiotap_antenna,
 		 {"Antenna", "radiotap.antenna",
-		  FT_UINT32, BASE_DEC, NULL, 0x0,
+		  FT_UINT8, BASE_DEC, NULL, 0x0,
 		  "Antenna number this frame was sent/received over (starting at 0)", HFILL}},
 
 		{&hf_radiotap_dbm_antsignal,

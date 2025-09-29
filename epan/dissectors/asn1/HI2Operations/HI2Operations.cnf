@@ -30,6 +30,16 @@ TetraLocation
 GSMLocation/geoCoordinates/latitude geoCoordinates_latitude
 GSMLocation/geoCoordinates/longitude geoCoordinates_longitude
 
+
+#.FN_BODY APN VAL_PTR = &parameter_tvb
+  tvbuff_t *parameter_tvb=NULL;
+
+%(DEFAULT_BODY)s
+  if (!parameter_tvb)
+    return offset;
+
+  proto_tree_add_item(tree, hf_HI2Operations_apn_str, parameter_tvb, 0, tvb_captured_length(tvb), ENC_APN_STR);
+
 #.FN_HDR UUS1-Content
 
 /* Heuristic test to see if it's our content */
@@ -205,7 +215,7 @@ GSMLocation/geoCoordinates/longitude geoCoordinates_longitude
   /* IMEISV is 16 digits, but often transmitted BCD coded in 8 octets.
     Some implementations use IMEI (15 digits) instead of IMEISV */
   if (tvb_len == 8) {
-    proto_tree_add_item(tree, hf_HI2Operations_imei, tvb, offset, tvb_len, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN|ENC_NA);
+    proto_tree_add_item(tree, hf_HI2Operations_imei, tvb, offset, tvb_len, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN);
   } else {
     proto_tree_add_item(tree, hf_HI2Operations_imei, tvb, offset, tvb_len, ENC_ASCII);
   }
@@ -244,7 +254,6 @@ GSMLocation/geoCoordinates/longitude geoCoordinates_longitude
 GSMLocation/geoCoordinates/latitude ABBREV=geoCoordinates.latitude
 GSMLocation/geoCoordinates/longitude ABBREV=geoCoordinates.longitude
 IRI-Parameters/lawfulInterceptionIdentifier TYPE = FT_STRING  DISPLAY = BASE_NONE
-EPS-GTPV2-SpecificParameters/aPN TYPE = FT_STRING  DISPLAY = BASE_NONE
 EPS-GTPV2-SpecificParameters/ePSBearerIdentity TYPE = FT_UINT8  DISPLAY = BASE_DEC
 EPS-GTPV2-SpecificParameters/rATType TYPE = FT_UINT8  DISPLAY = BASE_DEC|BASE_EXT_STRING  STRINGS = &gtpv2_rat_type_vals_ext
 EPS-GTPV2-SpecificParameters/pDNType TYPE = FT_UINT8  DISPLAY = BASE_DEC|BASE_EXT_STRING  STRINGS = &gtpv2_pdn_type_vals_ext

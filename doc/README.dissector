@@ -24,7 +24,6 @@ You'll find additional dissector related information in the following README
 files:
 
 - doc/README.heuristic      - what are heuristic dissectors and how to write them
-- doc/README.plugins        - how to "pluginize" a dissector
 - doc/README.request_response_tracking - how to track req./resp. times and such
 - doc/README.wmem           - how to obtain "memory leak free" memory
 
@@ -163,10 +162,14 @@ FIELDDISPLAY    --For FT_UINT{8,16,24,32,40,48,56,64} and
                   BASE_NONE can be used in the same way as with FT_UINT8.
 
                 --For FT_FLOAT, FT_DOUBLE:
-                  BASE_NONE, BASE_DEC, BASE_HEX, BASE_EXP or BASE_CUSTOM.
+                  BASE_NONE, BASE_DEC, BASE_HEX, BASE_EXP or BASE_CUSTOM,
+                  possibly ORed with BASE_UNIT_STRING.
 
                   BASE_NONE uses BASE_DEC or BASE_EXP, similarly to the
                   %g double format for the printf() function.
+
+                --For FT_IEEE_11073_SFLOAT, FT_IEEE_11073_FLOAT:
+                  BASE_NONE, possibly ORed with BASE_UNIT_STRING.
 
                 --For FT_ABSOLUTE_TIME:
 
@@ -1030,10 +1033,15 @@ the callback function pointer. Specifically, this is defined as:
 
     void func(char *, uint64_t);
 
+For floating point values, custom_fmt_func_double_t can be used to declare
+the callback function pointer. Specifically, this is defined as:
+
+    void func(char *, double);
+
 The first argument is a pointer to a buffer of the ITEM_LABEL_LENGTH size
 and the second argument is the value to be formatted.
 
-Both custom_fmt_func_t and custom_fmt_func_64_t are defined in epan/proto.h.
+The callback function pointer types are defined in epan/proto.h.
 
 For FT_UINT16 'display' can be used to select a transport layer protocol using one
 of BASE_PT_UDP, BASE_PT_TCP, BASE_PT_DCCP or BASE_PT_SCTP. If transport name
@@ -1134,7 +1142,8 @@ Use this macro to initialize the extended value_string at compile time:
 static value_string_ext valstringname_ext = VALUE_STRING_EXT_INIT(valstringname);
 
 Extended value strings can be created at run time by calling
-   value_string_ext_new(<ptr to value_string array>,
+   value_string_ext_new(<wmem scope for the value_string, most likely wmem_epan_scope()>
+                        <ptr to value_string array>,
                         <total number of entries in the value_string_array>, /* include {0, NULL} entry */
                         <value_string_name>);
 
@@ -1161,7 +1170,8 @@ Use this macro to initialize the extended val64_string at compile time:
 static val64_string_ext val64stringname_ext = VAL64_STRING_EXT_INIT(val64stringname);
 
 Extended val64 strings can be created at run time by calling
-   val64_string_ext_new(<ptr to val64_string array>,
+   val64_string_ext_new(<wmem scope for the value_string, most likely wmem_epan_scope()>
+                        <ptr to val64_string array>,
                         <total number of entries in the val64_string_array>, /* include {0, NULL} entry */
                         <val64_string_name>);
 
@@ -1310,7 +1320,7 @@ be used as the tooltip text.
 1.5.1 Field Registration.
 
 Protocol registration is handled by creating an instance of the
-header_field_info struct (or an array of such structs), and
+hf_register_info struct (or an array of such structs), and
 calling the registration function along with the registration ID of
 the protocol that is the parent of the fields. Here is a complete example:
 
@@ -1504,9 +1514,9 @@ and ENC_BIG_ENDIAN if it is big-endian.
 
 For FT_IPv4 fields, the encoding also specifies the byte order of the
 value. In almost all cases, the encoding is in network byte order,
-hence big-endian, but in at least one protocol dissected by Wireshark,
+hence ENC_BIG_ENDIAN, but in at least one protocol dissected by Wireshark,
 at least one IPv4 address is byte-swapped, so it's in little-endian
-order.
+order, i.e. ENC_LITTLE_ENDIAN.
 
 For string fields, the encoding specifies the character set used for the
 string and the way individual code points in that character set are
@@ -2209,7 +2219,7 @@ to generate a COL_INFO line for a frame.
 val_to_str() handles the most common case:
 
     const char *
-    val_to_str(uint32_t val, const value_string *vs, const char *fmt)
+    val_to_str(wmem_allocator_t* scope, uint32_t val, const value_string *vs, const char *fmt)
 
 If the value 'val' is found in the 'value_string' table pointed to by
 'vs', 'val_to_str' will return the corresponding string; otherwise, it
@@ -2217,7 +2227,7 @@ will use 'fmt' as an 'sprintf'-style format, with 'val' as an argument,
 to generate a string, and will return a pointer to that string.
 You can use it in a call to generate a COL_INFO line for a frame such as
 
-    col_add_fstr(COL_INFO, ", %s", val_to_str(val, table, "Unknown %d"));
+    col_add_fstr(COL_INFO, ", %s", val_to_str(pinfo->pool, val, table, "Unknown %d"));
 
 If you don't need to display 'val' in your fmt string, you can use
 val_to_str_const() which just takes a string constant instead and returns it
@@ -2884,8 +2894,8 @@ upon the conversation index and values inside the request packets.
     conversation = find_or_create_conversation(pinfo);
 
     request_key.conversation = conversation->index;
-    request_key.service = pntoh16(&rxh->serviceId);
-    request_key.callnumber = pntoh32(&rxh->callNumber);
+    request_key.service = pntohu16(&rxh->serviceId);
+    request_key.callnumber = pntohu32(&rxh->callNumber);
 
     request_val = (struct afs_request_val *)g_hash_table_lookup(
         afs_request_hash, &request_key);
@@ -2897,12 +2907,86 @@ upon the conversation index and values inside the request packets.
         *new_request_key = request_key;
 
         request_val = wmem_alloc(wmem_file_scope(), sizeof(struct afs_request_val));
-        request_val -> opcode = pntoh32(&afsh->opcode);
+        request_val -> opcode = pntohu32(&afsh->opcode);
         opcode = request_val->opcode;
 
         g_hash_table_insert(afs_request_hash, new_request_key, request_val);
     }
 
+
+2.2.6 Registering your dissector for conversation filtering
+
+In cases where protocols define a conversation, you can register them through
+the UI menu of Wireshark by locating "Analyze -> Conversation Filter". This can
+reduce the task of isolating sessions and viewing them to a single click. For users
+that frequent a specific protocol in a conversation, this may save time and reduce errors.
+
+When you have a protocol to add to the UI, use the add_conversation_filter_protocol() function.
+Using this built-in function will allow you to add your dissector to a conversation, providing
+only the packets relevant to the specified protocol in a conversation.
+
+
+Example using the "example_protocol" protocol:
+    Use the add_conversation_filter_protocol() function with the conversation and your "example_protocol":
+        add_conversation_filter_protocol(example_protocol)
+
+
+
+2.2.7 Initialization and Cleanup in Dissector Plugins
+
+- proto_register_foo() should be used to register protocol fields and can
+  also perform global (once-only) initialization.
+- proto_reg_handoff_foo() is called after registration and is typically used
+  to register the dissector with heuristic or static tables.
+
+There are no built-in dissect_init() or dissect_cleanup() hooks. If your plugin
+needs to allocate temporary memory per-packet or per-frame, use the pinfo->pool
+which is an ephemeral memory pool managed by Wireshark and reset after each packet.
+
+Example:
+
+    static int proto_foo = -1;
+
+    void proto_register_foo(void) {
+        static hf_register_info hf[] = {
+            { &hf_foo_field,
+              { "Foo Field", "foo.field",
+                FT_UINT8, BASE_DEC, NULL, 0x0,
+                NULL, HFILL }
+            }
+        };
+        proto_foo = proto_register_protocol("Foo Protocol", "FOO", "foo");
+        proto_register_field_array(proto_foo, hf, array_length(hf));
+    }
+
+    void proto_reg_handoff_foo(void) {
+        dissector_handle_t foo_handle;
+
+        foo_handle = create_dissector_handle(dissect_foo, proto_foo);
+        dissector_add_uint("udp.port", FOO_PORT, foo_handle);
+    }
+
+2.2.8 Exported PDUs
+
+Wireshark supports Exported PDUs (Protocol Data Units), which allow pre-processed or extracted protocol payloads
+to be re-encapsulated and interpreted as individual packets. This is useful for cases where an external tool extracts
+sessions (e.g., VoIP, HTTP) and reinjects them into a capture for post-analysis.
+
+To handle Exported PDUs, Wireshark uses the `exported_pdu` dissector, which can wrap protocols like TCP, UDP, or any
+other payload into a new frame.
+
+An Exported PDU typically includes the following fields:
+
+- `pdu_type`: The protocol type of the encapsulated PDU.
+- `tvb`: The data buffer containing the payload.
+- `metadata`: (Optional) Custom information passed to the dissector.
+
+Plugins or dissectors can create and register exported PDUs using the internal API or by writing their data in PCAPNG
+format with `block_type` `0x00000BAD`.
+
+This mechanism improves modular analysis and allows tools to reuse Wireshark’s decoding logic.
+
+For more, see: `epan/exported_pdu.h`
 
 
 2.3 Dynamic conversation dissector registration.

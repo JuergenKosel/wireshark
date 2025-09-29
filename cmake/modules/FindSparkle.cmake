@@ -9,14 +9,15 @@
 
 include(FindPackageHandleStandardArgs)
 
+set(FETCH_ARTIFACTS_HINT "${OSX_APP_LIBPREFIX}/sparkle/")
 file(GLOB USR_LOCAL_HINT "/usr/local/Sparkle-[2-9]*/")
 file(GLOB HOMEBREW_HINT "/opt/homebrew/Caskroom/sparkle/[2-9]*/" "/usr/local/Caskroom/sparkle/[2-9]*/")
 
 find_path(SPARKLE_INCLUDE_DIR Sparkle.h
-  HINTS ${USR_LOCAL_HINT} ${HOMEBREW_HINT}
+  HINTS ${FETCH_ARTIFACTS_HINT} ${USR_LOCAL_HINT} ${HOMEBREW_HINT}
 )
 find_library(SPARKLE_LIBRARY NAMES Sparkle
-  HINTS ${USR_LOCAL_HINT} ${HOMEBREW_HINT}
+  HINTS ${FETCH_ARTIFACTS_HINT} ${USR_LOCAL_HINT} ${HOMEBREW_HINT}
 )
 
 # Sparkle doesn't appear to provide a version macro, and its Info.plist versions
@@ -46,6 +47,7 @@ if(SPARKLE_FOUND)
 else(SPARKLE_FOUND)
   set(SPARKLE_LIBRARIES )
   set(SPARKLE_INCLUDE_DIRS )
+  set(SPARKLE_VERSION 0)
 endif(SPARKLE_FOUND)
 
 mark_as_advanced(SPARKLE_INCLUDE_DIR SPARKLE_LIBRARY)

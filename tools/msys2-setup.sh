@@ -76,7 +76,6 @@ BASIC_LIST="base-devel \
 	${PACKAGE_PREFIX}-libmaxminddb \
 	${PACKAGE_PREFIX}-nghttp2 \
 	${PACKAGE_PREFIX}-nghttp3 \
-	${PACKAGE_PREFIX}-libpcap \
 	${PACKAGE_PREFIX}-libsmi \
 	${PACKAGE_PREFIX}-libssh \
 	${PACKAGE_PREFIX}-libxml2 \
@@ -99,6 +98,7 @@ BASIC_LIST="base-devel \
 	${PACKAGE_PREFIX}-speexdsp \
 	${PACKAGE_PREFIX}-toolchain \
 	${PACKAGE_PREFIX}-winsparkle \
+	${PACKAGE_PREFIX}-xxhash \
 	${PACKAGE_PREFIX}-zlib \
 	${PACKAGE_PREFIX}-zstd"
 

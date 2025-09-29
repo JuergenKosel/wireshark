@@ -22,21 +22,10 @@
 #include <epan/prefs.h>
 #include <epan/reassemble.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/zlib_compat.h>
 
 #include "packet-http.h"
 #include "packet-tcp.h"
-
-#ifdef HAVE_ZLIBNG
-#define ZLIB_PREFIX(x) zng_ ## x
-#include <zlib-ng.h>
-typedef zng_stream zlib_stream;
-#else
-#ifdef HAVE_ZLIB
-#define ZLIB_PREFIX(x) x
-#include <zlib.h>
-typedef z_stream zlib_stream;
-#endif /* HAVE_ZLIB */
-#endif
 
 /*
  * The information used comes from:
@@ -48,6 +37,7 @@ void proto_register_websocket(void);
 void proto_reg_handoff_websocket(void);
 
 static dissector_handle_t websocket_handle;
+static dissector_handle_t websocket_tcp_handle;
 static dissector_handle_t text_lines_handle;
 static dissector_handle_t json_handle;
 static dissector_handle_t sip_handle;
@@ -58,7 +48,7 @@ static dissector_handle_t sip_handle;
 #define WEBSOCKET_SIP 3
 
 /* Use key values counting down from UINT32_MAX to avoid clash with pkt_info proto_data key */
-#define OPCODE_KEY (UINT32_MAX - 0)
+#define FRAG_DATA_KEY (UINT32_MAX - 0)
 
 static int   pref_text_type             = WEBSOCKET_NONE;
 static bool pref_decompress         = true;
@@ -70,39 +60,31 @@ typedef struct {
   const char   *subprotocol;
   uint16_t      server_port;
   bool          permessage_deflate;
-#ifdef HAVE_ZLIBNG
+#ifdef USE_ZLIB_OR_ZLIBNG
   bool          permessage_deflate_ok;
   int8_t        server_wbits;
   int8_t        client_wbits;
-  zng_streamp     server_take_over_context;
-  zng_streamp     client_take_over_context;
-#else
-#ifdef HAVE_ZLIB
-  bool          permessage_deflate_ok;
-  int8_t        server_wbits;
-  int8_t        client_wbits;
-  z_streamp     server_take_over_context;
-  z_streamp     client_take_over_context;
-#endif
-#endif
+  zlib_streamp  server_take_over_context;
+  zlib_streamp  client_take_over_context;
+#endif /* USE_ZLIB_OR_ZLIBNG */
   uint32_t      frag_id;
-  bool          first_frag;
+  /* The following two parameters are only valid on the first linear pass. */
   uint8_t       first_frag_opcode;
   bool          first_frag_pmc;
+  uint8_t       http_version;
 } websocket_conv_t;
 
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
+#ifdef USE_ZLIB_OR_ZLIBNG
 typedef struct {
   uint8_t *decompr_payload;
   unsigned decompr_len;
 } websocket_packet_t;
-#endif
+#endif /* USE_ZLIB_OR_ZLIBNG */
 
 static int websocket_follow_tap;
 
 /* Initialize the protocol and registered fields */
 static int proto_websocket;
-static int proto_http;
 
 static int hf_ws_fin;
 static int hf_ws_reserved;
@@ -204,6 +186,11 @@ static const fragment_items ws_frag_items = {
     "websocket fragments"
 };
 
+typedef struct {
+  uint8_t opcode;
+  bool    pmc;
+} websocket_frag_t;
+
 static dissector_table_t port_subdissector_table;
 static dissector_table_t protocol_subdissector_table;
 static heur_dissector_list_t heur_subdissector_list;
@@ -229,7 +216,7 @@ tvb_unmasked(tvbuff_t *tvb, packet_info *pinfo, const unsigned offset, unsigned 
   return tvb_new_child_real_data(tvb, data_unmask, unmasked_length, payload_length);
 }
 
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
+#ifdef USE_ZLIB_OR_ZLIBNG
 static int8_t
 websocket_extract_wbits(const char *str)
 {
@@ -260,17 +247,10 @@ websocket_zfree(void *opaque _U_, void *addr)
 {
   wmem_free(wmem_file_scope(), addr);
 }
-#ifdef HAVE_ZLIBNG
-static zng_streamp
+static zlib_streamp
 websocket_init_z_stream_context(int8_t wbits)
 {
-  zng_streamp z_strm = wmem_new0(wmem_file_scope(), zlib_stream);
-#else
-static z_streamp
-websocket_init_z_stream_context(int8_t wbits)
-{
-  z_streamp z_strm = wmem_new0(wmem_file_scope(), zlib_stream);
-#endif
+  zlib_streamp z_strm = wmem_new0(wmem_file_scope(), zlib_stream);
   z_strm->zalloc = websocket_zalloc;
   z_strm->zfree = websocket_zfree;
 
@@ -288,11 +268,7 @@ websocket_init_z_stream_context(int8_t wbits)
  * Otherwise false is returned.
  */
 static bool
-#ifdef HAVE_ZLIBNG
-websocket_uncompress(tvbuff_t* tvb, packet_info* pinfo, zng_streamp z_strm, tvbuff_t** uncompressed_tvb, uint32_t key)
-#else
-websocket_uncompress(tvbuff_t *tvb, packet_info *pinfo, z_streamp z_strm, tvbuff_t **uncompressed_tvb, uint32_t key)
-#endif
+websocket_uncompress(tvbuff_t* tvb, packet_info* pinfo, zlib_streamp z_strm, tvbuff_t** uncompressed_tvb, uint32_t key)
 {
   /*
    * Decompression a message: append "0x00 0x00 0xff 0xff" to the end of
@@ -349,7 +325,7 @@ websocket_uncompress(tvbuff_t *tvb, packet_info *pinfo, z_streamp z_strm, tvbuff
     return false;
   }
 }
-#endif
+#endif /* USE_ZLIB_OR_ZLIBNG */
 
 static void
 dissect_websocket_control_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint8_t opcode)
@@ -388,7 +364,7 @@ dissect_websocket_control_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 }
 
 static void
-dissect_websocket_data_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *pl_tree, uint8_t opcode, websocket_conv_t *websocket_conv, int raw_offset _U_)
+dissect_websocket_data_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *pl_tree, uint8_t opcode, websocket_conv_t *websocket_conv, bool pmc _U_, int raw_offset _U_, bool from_server _U_)
 {
   proto_item         *ti;
   dissector_handle_t  handle = NULL;
@@ -406,20 +382,16 @@ dissect_websocket_data_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     handle = dissector_get_uint_handle(port_subdissector_table, websocket_conv->server_port);
   }
 
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-  if (websocket_conv->permessage_deflate_ok && websocket_conv->first_frag_pmc) {
+#ifdef USE_ZLIB_OR_ZLIBNG
+  if (websocket_conv->permessage_deflate_ok && pmc) {
     tvbuff_t   *uncompressed = NULL;
     bool        uncompress_ok = false;
 
     if (!PINFO_FD_VISITED(pinfo)) {
-#ifdef HAVE_ZLIBNG
-      zng_streamp z_strm;
-#else
-      z_streamp z_strm;
-#endif
+      zlib_streamp z_strm;
       int8_t wbits;
 
-      if (pinfo->destport == websocket_conv->server_port) {
+      if (from_server) {
         z_strm = websocket_conv->server_take_over_context;
         wbits = websocket_conv->server_wbits;
       } else {
@@ -457,7 +429,7 @@ dissect_websocket_data_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
       tvb = uncompressed;
     }
   }
-#endif
+#endif /* USE_ZLIB_OR_ZLIBNG */
 
   if (have_tap_listener(websocket_follow_tap)) {
     tap_queue_packet(websocket_follow_tap, pinfo, tvb);
@@ -530,7 +502,7 @@ websocket_parse_extensions(websocket_conv_t *websocket_conv, const char *str)
 
   websocket_conv->permessage_deflate = !!strstr(str, "permessage-deflate")
       || !!strstr(str, "x-webkit-deflate-frame");
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
+#ifdef USE_ZLIB_OR_ZLIBNG
   websocket_conv->permessage_deflate_ok = pref_decompress &&
        websocket_conv->permessage_deflate;
   if (websocket_conv->permessage_deflate_ok) {
@@ -547,11 +519,11 @@ websocket_parse_extensions(websocket_conv_t *websocket_conv, const char *str)
           websocket_init_z_stream_context(websocket_conv->client_wbits);
     }
   }
-#endif
+#endif /* USE_ZLIB_OR_ZLIBNG */
 }
 
 static void
-dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *ws_tree, uint8_t fin, uint8_t opcode, websocket_conv_t *websocket_conv, int raw_offset, unsigned masked_payload_length)
+dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *ws_tree, bool fin, uint8_t opcode, websocket_conv_t *websocket_conv, bool pmc, int raw_offset, unsigned masked_payload_length, bool from_server)
 {
   const unsigned      offset = 0, length = tvb_reported_length(tvb);
   const unsigned      capture_length = tvb_captured_length(tvb);
@@ -578,6 +550,21 @@ dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
     return;
   }
 
+  /* According to RFC 6455 5.5, control frames can be interjected in the
+   * middle of a fragmented message, can have a payload, and MUST NOT be
+   * fragmented. So we do not save the first frag opcode and pmc until now.
+   */
+
+  if (!PINFO_FD_VISITED(pinfo) && opcode != WS_CONTINUE && !fin) {
+    /* This is a first frame of a multifragment message. The first time
+     * we see this frame, store information needed for later fragments
+     * of the same message.
+     */
+
+    websocket_conv->first_frag_opcode = opcode;
+    websocket_conv->first_frag_pmc = pmc;
+  }
+
   bool save_fragmented = pinfo->fragmented;
 
   if (!fin || opcode == WS_CONTINUE) {
@@ -586,6 +573,12 @@ dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
 
     pinfo->fragmented = true;
 
+    /* XXX - The same fragment ID is used for all reassemblies on this
+     * conversation. Note this doesn't work properly if more than one
+     * reassembly for the same conversation completes in the same frame
+     * in the capture file. That should be rare in practice, though.
+     * (This is a common issue with fragment_add_seq_next.)
+     */
     frag_msg = fragment_add_seq_next(&ws_reassembly_table, tvb, offset,
               pinfo, websocket_conv->frag_id,
               NULL, tvb_captured_length_remaining(tvb, offset),
@@ -595,20 +588,25 @@ dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
       NULL, tree);
   }
 
-  if (!PINFO_FD_VISITED(pinfo) && frag_tvb) {
-    /* First time fragments fully reassembled, store opcode from first fragment */
-    p_add_proto_data(wmem_file_scope(), pinfo, proto_websocket, OPCODE_KEY,
-        GUINT_TO_POINTER(websocket_conv->first_frag_opcode));
-  }
-
   if (frag_tvb) {
     /* Fragments were fully reassembled. */
     tvb_appdata = frag_tvb;
 
-    /* Lookup opcode from first fragment */
-    unsigned first_frag_opcode = GPOINTER_TO_UINT(
-        p_get_proto_data(wmem_file_scope(),pinfo, proto_websocket, OPCODE_KEY));
-    opcode = (uint8_t)first_frag_opcode;
+    websocket_frag_t *frag_data;
+
+    if (!PINFO_FD_VISITED(pinfo)) {
+      /* First time fragments fully reassembled, store opcode from first fragment */
+      frag_data = wmem_new(wmem_file_scope(), websocket_frag_t);
+      frag_data->opcode = websocket_conv->first_frag_opcode;
+      frag_data->pmc = websocket_conv->first_frag_pmc;
+      p_add_proto_data(wmem_file_scope(), pinfo, proto_websocket, FRAG_DATA_KEY, frag_data);
+    } else {
+      /* Lookup opcode and pmc from first fragment */
+      frag_data = p_get_proto_data(wmem_file_scope(), pinfo, proto_websocket, FRAG_DATA_KEY);
+      DISSECTOR_ASSERT(frag_data);
+    }
+    opcode = frag_data->opcode;
+    pmc = frag_data->pmc;
   } else {
     /* Right now this is exactly the same, this may change when exts. are added.
     tvb_appdata = tvb_new_subset_length(tvb, offset, length);
@@ -624,25 +622,26 @@ dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
     return;
   }
 
-  dissect_websocket_data_frame(tvb_appdata, pinfo, tree, pl_tree, opcode, websocket_conv, raw_offset);
+  dissect_websocket_data_frame(tvb_appdata, pinfo, tree, pl_tree, opcode, websocket_conv, pmc, raw_offset, from_server);
   pinfo->fragmented = save_fragmented;
 }
 
 static int
-dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   static uint32_t frag_id_counter = 0;
-  proto_item   *ti, *ti_len;
-  uint8_t       fin, opcode;
-  bool          mask;
-  unsigned      short_length, payload_length;
-  unsigned      payload_offset, mask_offset;
-  proto_tree   *ws_tree;
-  const uint8_t *masking_key = NULL;
-  tvbuff_t     *tvb_payload;
-  conversation_t *conv;
+  proto_item       *ti, *ti_len;
+  uint8_t           opcode;
+  bool              mask, fin, pmc = false;
+  unsigned          short_length, payload_length;
+  unsigned          payload_offset, mask_offset;
+  proto_tree       *ws_tree;
+  const uint8_t    *masking_key = NULL;
+  tvbuff_t         *tvb_payload;
+  conversation_t   *conv;
   websocket_conv_t *websocket_conv;
 
+  const http_upgrade_info_t *http_info = (http_upgrade_info_t *)data;
   /*
    * If this is a new Websocket session, try to parse HTTP Sec-Websocket-*
    * headers once.
@@ -651,16 +650,16 @@ dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   websocket_conv = (websocket_conv_t *)conversation_get_proto_data(conv, proto_websocket);
   if (!websocket_conv) {
     websocket_conv = wmem_new0(wmem_file_scope(), websocket_conv_t);
-    websocket_conv->first_frag = true;
     websocket_conv->frag_id = ++frag_id_counter;
 
-    http_conv_t *http_conv = (http_conv_t *)conversation_get_proto_data(conv, proto_http);
-    if (http_conv) {
-      websocket_conv->subprotocol = http_conv->websocket_protocol;
-      websocket_conv->server_port = http_conv->server_port;
-      if ( http_conv->websocket_extensions) {
-        websocket_parse_extensions(websocket_conv, http_conv->websocket_extensions);
+    if (http_info) {
+      websocket_conv->subprotocol = http_info->get_header_value(pinfo, "sec-websocket-protocol", !http_info->from_server);
+      websocket_conv->server_port = http_info->server_port;
+      const char *websocket_extensions = http_info->get_header_value(pinfo, "sec-websocket-extensions", !http_info->from_server);
+      if (websocket_extensions) {
+        websocket_parse_extensions(websocket_conv, websocket_extensions);
       }
+      websocket_conv->http_version = http_info->http_version;
     } else if (pinfo->match_uint == pinfo->srcport || pinfo->match_uint == pinfo->destport) {
       /* The session was not set up by HTTP upgrade, but by Decode As.
        * Assume the matched port is the server port. */
@@ -684,9 +683,9 @@ dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     }
 
     conversation_add_proto_data(conv, proto_websocket, websocket_conv);
-  } else {
-    websocket_conv->first_frag = false;
   }
+
+  const bool from_server = http_info ? http_info->from_server : websocket_conv->server_port == pinfo->srcport;
 
   short_length = tvb_get_uint8(tvb, 1) & MASK_WS_PAYLOAD_LEN;
   mask_offset = 2;
@@ -705,32 +704,28 @@ dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   mask = (tvb_get_uint8(tvb, 1) & MASK_WS_MASK) != 0;
   payload_offset = mask_offset + (mask ? 4 : 0);
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, "WebSocket");
-  col_set_str(pinfo->cinfo, COL_INFO, "WebSocket");
+  /* HTTP/2 and HTTP/3 can carry more than one protocol in a given packet */
+  if (websocket_conv->http_version < 2) {
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "WebSocket");
+    col_set_str(pinfo->cinfo, COL_INFO, "WebSocket");
+  } else {
+    col_append_str(pinfo->cinfo, COL_INFO, ", WebSocket");
+  }
 
   ti = proto_tree_add_item(tree, proto_websocket, tvb, 0, payload_offset, ENC_NA);
   ws_tree = proto_item_add_subtree(ti, ett_ws);
 
   /* Flags */
-  proto_tree_add_item(ws_tree, hf_ws_fin, tvb, 0, 1, ENC_NA);
-  fin = (tvb_get_uint8(tvb, 0) & MASK_WS_FIN) >> 4;
+  proto_tree_add_item_ret_boolean(ws_tree, hf_ws_fin, tvb, 0, 1, ENC_NA, &fin);
   proto_tree_add_item(ws_tree, hf_ws_reserved, tvb, 0, 1, ENC_BIG_ENDIAN);
   if (websocket_conv->permessage_deflate) {
     /* RSV1 is Per-Message Compressed bit (RFC 7692). */
-    if (websocket_conv->first_frag) {
-      /* First fragment, save pmc flag needed for decompressing continuation fragments */
-      websocket_conv->first_frag_pmc = !!(tvb_get_uint8(tvb, 0) & MASK_WS_RSV1);
-    }
-    proto_tree_add_item(ws_tree, hf_ws_pmc, tvb, 0, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_boolean(ws_tree, hf_ws_pmc, tvb, 0, 1, ENC_BIG_ENDIAN, &pmc);
   }
 
   /* Opcode */
   proto_tree_add_item(ws_tree, hf_ws_opcode, tvb, 0, 1, ENC_BIG_ENDIAN);
   opcode = tvb_get_uint8(tvb, 0) & MASK_WS_OPCODE;
-  if (websocket_conv->first_frag) {
-    /* First fragment, save opcode needed when dissecting the reassembled frame */
-    websocket_conv->first_frag_opcode = opcode;
-  }
   col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str_const(opcode, ws_opcode_vals, "Unknown Opcode"));
   col_append_str(pinfo->cinfo, COL_INFO, fin ? " [FIN]" : "[FRAGMENT] ");
 
@@ -764,7 +759,7 @@ dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     } else {
       tvb_payload = tvb_new_subset_length(tvb, payload_offset, payload_length);
     }
-    dissect_websocket_payload(tvb_payload, pinfo, tree, ws_tree, fin, opcode, websocket_conv, tvb_raw_offset(tvb), (mask ? payload_length : 0));
+    dissect_websocket_payload(tvb_payload, pinfo, tree, ws_tree, fin, opcode, websocket_conv, pmc, tvb_raw_offset(tvb), (mask ? payload_length : 0), from_server);
   }
 
   return tvb_captured_length(tvb);
@@ -810,6 +805,12 @@ dissect_websocket(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
   tcp_dissect_pdus(tvb, pinfo, tree, true, 2,
                    get_websocket_frame_length, dissect_websocket_frame, data);
   return tvb_captured_length(tvb);
+}
+
+static int
+dissect_websocket_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+  return dissect_websocket(tvb, pinfo, tree, NULL);
 }
 
 static bool
@@ -859,9 +860,9 @@ dissect_websocket_heur_tcp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, 
     return false;
   }
   conversation_t* conversation = find_or_create_conversation(pinfo);
-  conversation_set_dissector(conversation, websocket_handle);
+  conversation_set_dissector(conversation, websocket_tcp_handle);
 
-  tcp_dissect_pdus(tvb, pinfo, tree, true, 2, get_websocket_frame_length, dissect_websocket_frame, data);
+  tcp_dissect_pdus(tvb, pinfo, tree, true, 2, get_websocket_frame_length, dissect_websocket_frame, NULL);
   return true;
 }
 
@@ -1068,6 +1069,7 @@ proto_register_websocket(void)
   expert_register_field_array(expert_websocket, ei, array_length(ei));
 
   websocket_handle = register_dissector("websocket", dissect_websocket, proto_websocket);
+  websocket_tcp_handle = register_dissector("websocket_tcp", dissect_websocket_tcp, proto_websocket);
 
   websocket_module = prefs_register_protocol(proto_websocket, NULL);
 
@@ -1088,16 +1090,15 @@ void
 proto_reg_handoff_websocket(void)
 {
   dissector_add_string("http.upgrade", "websocket", websocket_handle);
+  dissector_add_string("http.upgrade", "WebSocket", websocket_handle);
 
-  dissector_add_for_decode_as("tcp.port", websocket_handle);
+  dissector_add_for_decode_as("tcp.port", websocket_tcp_handle);
 
   heur_dissector_add("tcp", dissect_websocket_heur_tcp, "WebSocket Heuristic", "websocket_tcp", proto_websocket, HEURISTIC_DISABLE);
 
   text_lines_handle = find_dissector_add_dependency("data-text-lines", proto_websocket);
   json_handle = find_dissector_add_dependency("json", proto_websocket);
   sip_handle = find_dissector_add_dependency("sip", proto_websocket);
-
-  proto_http = proto_get_id_by_filter_name("http");
 }
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

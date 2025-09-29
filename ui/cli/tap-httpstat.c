@@ -17,7 +17,7 @@
 #include <glib.h>
 
 #include <epan/packet_info.h>
-#include <epan/value_string.h>
+#include <wsutil/value_string.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/dissectors/packet-http.h>
@@ -58,17 +58,18 @@ static void
 http_init_hash(httpstat_t *sp)
 {
 	int i;
+	value_string* status_codes = get_external_value_string("vals_http_status_code");
 
 	sp->hash_responses = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
 
-	for (i=0; vals_http_status_code[i].strptr; i++)
+	for (i=0; status_codes[i].strptr; i++)
 	{
 		http_response_code_t *sc = g_new (http_response_code_t, 1);
 		sc->packets = 0;
-		sc->response_code = vals_http_status_code[i].value;
-		sc->name = vals_http_status_code[i].strptr;
+		sc->response_code = status_codes[i].value;
+		sc->name = status_codes[i].strptr;
 		sc->sp = sp;
-		g_hash_table_insert(sc->sp->hash_responses, GUINT_TO_POINTER(vals_http_status_code[i].value), sc);
+		g_hash_table_insert(sc->sp->hash_responses, GUINT_TO_POINTER(status_codes[i].value), sc);
 	}
 	sp->hash_requests = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
 }
@@ -84,11 +85,7 @@ http_draw_hash_requests(char *key _U_, http_request_methode_t *data, char *forma
 static void
 http_draw_hash_responses(int * key _U_, http_response_code_t *data, char *format)
 {
-	if (data == NULL) {
-		ws_warning("No data available, key=%d\n", *key);
-		exit(EXIT_FAILURE);
-	}
-	if (data->packets == 0)
+	if ((data == NULL) || (data->packets == 0))
 		return;
 	/* "     %3d %-35s %9d packets", */
 	/* The maximum existing response code length is 32 characters */
@@ -228,7 +225,7 @@ httpstat_draw(void *psp)
 
 /* When called, this function will create a new instance of httpstat.
  */
-static void
+static bool
 httpstat_init(const char *opt_arg, void *userdata _U_)
 {
 	httpstat_t *sp;
@@ -262,10 +259,11 @@ httpstat_init(const char *opt_arg, void *userdata _U_)
 		cmdarg_err("Couldn't register http,stat tap: %s",
 			 error_string->str);
 		g_string_free(error_string, TRUE);
-		exit(1);
+		return false;
 	}
 
 	http_init_hash(sp);
+	return true;
 }
 
 static stat_tap_ui httpstat_ui = {

@@ -1,4 +1,4 @@
-TShark (Wireshark) 4.5.0 (v4.5.0rc0-1147-g31b31e100870)
+TShark (Wireshark) 4.7.0 (v4.7.0rc0-206-gc9bb74b3e72a)
 Dump and analyze network traffic.
 See https://www.wireshark.org for more information.
 
@@ -22,6 +22,7 @@ Capture interface:
   -L, --list-data-link-types
                            print list of link-layer types of iface and exit
   --list-time-stamp-types  print list of timestamp types for iface and exit
+  --no-optimize            do not optimize capture filter
 
 Capture display:
   --update-interval        interval between updates with new packets, in milliseconds (def: 100ms)
@@ -98,6 +99,8 @@ Output:
      ascii                 include ASCII dump text (-x default)
      delimit               delimit ASCII dump text with '|' characters
      noascii               exclude ASCII dump text
+     time                  include frame timestamp preamble
+     notime                do not include frame timestamp preamble (-x default)
      help                  display help for --hexdump and exit
   -T pdml|ps|psml|json|jsonraw|ek|tabs|text|fields|?
                            format of text output (def: text)
@@ -117,7 +120,7 @@ Output:
      aggregator=,|/s|<char> select comma, space, printable character as
                            aggregator
      quote=d|s|n           select double, single, no quotes for values
-  -t (a|ad|adoy|d|dd|e|r|u|ud|udoy)[.[N]]|.[N]
+  -t (a|ad|adoy|d|dd|e|r|rc|u|ud|udoy)[.[N]]|.[N]
                            output format of time stamps (def: r: rel. to first)
   -u s|hms                 output format of seconds (def: s: seconds)
   -l                       flush standard output after each packet

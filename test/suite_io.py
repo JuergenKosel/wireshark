@@ -68,9 +68,8 @@ class TestTsharkIO:
         check_io_4_packets(capture_file, result_file, cmd_tshark, cmd_capinfos, env=test_env)
 
 
+@pytest.mark.skipif(sys.byteorder != 'little', reason='Requires a little endian system')
 class TestRawsharkIO:
-    if sys.byteorder != 'little':
-        pytest.skip('Requires a little endian system')
     def test_rawshark_io_stdin(self, cmd_rawshark, capture_file, result_file, io_baseline_str, test_env):
         '''Read from stdin using Rawshark'''
         # tail -c +25 "${CAPTURE_DIR}dhcp.pcap" | $RAWSHARK -dencap:1 -R "udp.port==68" -nr - > $IO_RAWSHARK_DHCP_PCAP_TESTOUT 2> /dev/null
@@ -78,6 +77,6 @@ class TestRawsharkIO:
         capture_file = capture_file('dhcp.pcap')
         testout_file = result_file(testout_pcap)
         raw_dhcp_cmd = cat_dhcp_command('raw')
-        rawshark_cmd = '{0} | "{1}" -r - -n -dencap:1 -R "udp.port==68"'.format(raw_dhcp_cmd, cmd_rawshark)
+        rawshark_cmd = '{0} | "{1}" --log-fatal=warning -r - -n -dencap:1 -R "udp.port==68"'.format(raw_dhcp_cmd, cmd_rawshark)
         rawshark_stdout = subprocess.check_output(rawshark_cmd, shell=True, encoding='utf-8', env=test_env)
         assert rawshark_stdout == io_baseline_str

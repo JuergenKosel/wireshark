@@ -43,7 +43,7 @@
 #define HTML_GT "&gt;"
 
 static const QString default_regex_hint = ImportTextDialog::tr("Supported fields are data, dir, time, seqno");
-static const QString missing_data_hint = ImportTextDialog::tr("Missing capturing group data (use (?" HTML_LT "data" HTML_GT "(...)) )");
+static const QString missing_data_hint = ImportTextDialog::tr("Missing capturing group data (use (?<data>(…)) )");
 
 #define SETTINGS_FILE "import_hexdump.json"
 
@@ -232,6 +232,7 @@ void ImportTextDialog::applyDialogSettings()
     }
     ti_ui_->directionIndicationCheckBox->setChecked(settings["hexdump.hasDirection"].toBool());
     ti_ui_->asciiIdentificationCheckBox->setChecked(settings["hexdump.identifyAscii"].toBool());
+    ti_ui_->littleEndianCheckBox->setChecked(settings["hexdump.littleEndian"].toBool());
 
     // Regular Expression
     ti_ui_->regexTextEdit->setText(settings["regex.format"].toString());
@@ -325,6 +326,7 @@ void ImportTextDialog::storeDialogSettings()
     }
     settings["hexdump.hasDirection"] = ti_ui_->directionIndicationCheckBox->isChecked();
     settings["hexdump.identifyAscii"] = ti_ui_->asciiIdentificationCheckBox->isChecked();
+    settings["hexdump.littleEndian"] = ti_ui_->littleEndianCheckBox->isChecked();
 
     // Regular Expression
     settings["regex.format"] = ti_ui_->regexTextEdit->toPlainText();
@@ -682,6 +684,7 @@ void ImportTextDialog::on_modeTabWidget_currentChanged(int index) {
         memset(&import_info_.hexdump, 0, sizeof(import_info_.hexdump));
         on_directionIndicationCheckBox_toggled(ti_ui_->directionIndicationCheckBox->isChecked());
         on_asciiIdentificationCheckBox_toggled(ti_ui_->asciiIdentificationCheckBox->isChecked());
+        on_littleEndianCheckBox_toggled(ti_ui_->littleEndianCheckBox->isChecked());
         enableFieldWidgets(false, true);
         break;
       case 1:
@@ -715,6 +718,11 @@ void ImportTextDialog::on_directionIndicationCheckBox_toggled(bool checked)
 void ImportTextDialog::on_asciiIdentificationCheckBox_toggled(bool checked)
 {
     import_info_.hexdump.identify_ascii = checked;
+}
+
+void ImportTextDialog::on_littleEndianCheckBox_toggled(bool checked)
+{
+    import_info_.hexdump.little_endian = checked;
 }
 
 /*******************************************************************************
@@ -770,6 +778,20 @@ void ImportTextDialog::on_dataEncodingComboBox_currentIndexChanged(int index)
     {
         // data_encoding_ok = true;
         import_info_.regex.encoding = (enum data_encoding) val.toUInt();
+        /* The hex decode table ignores ':' as whitespace, so it's in the hint
+         * here. As written, this allows it in all sorts of locations, rather
+         * than a more precise regex. As \s matches vertical whitespace too,
+         * using this hint can wrap onto the next line and match times as bytes,
+         * ignoring any ':'.
+         *
+         * In many situations a user might want to use \h instead. A tradeoff
+         * of the flexibility of regex is determining what hint works for most
+         * users.
+         *
+         * XXX - ':' is also present in the hint for octal below, even though
+         * the octal table doesn't ignore it. Should it be added there? Should
+         * the hex and octal tables ignore other byte separators as well?
+         */
         switch (import_info_.regex.encoding) {
           case ENCODING_PLAIN_HEX:
             ti_ui_->encodingRegexExample->setText(HINT_BEGIN "(?" HTML_LT "data" HTML_GT "[0-9a-fA-F:\\s]+)" HINT_END);

@@ -9,12 +9,15 @@
 
 ADD_CUSTOM_CMAKE_INCLUDE()
 
+project(Asn1 NONE)
+
 set(ASN1_SRC_DIRS
 	lix2
 	HI2Operations
 	acp133
 	acse
 	ain
+	akp
 	ansi_map
 	ansi_tcap
 	atn-cm
@@ -67,6 +70,7 @@ set(ASN1_SRC_DIRS
 	kpm-v2
 	lcsap
 	ldap
+	llc-v1
 	lnpdqp
 	logotypecertextn
 	lpp
@@ -92,13 +96,13 @@ set(ASN1_SRC_DIRS
 	p7
 	p772
 	pcap
-	pkcs1
 	pkcs10
 	pkcs12
 	pkinit
 	pkix1explicit
 	pkix1implicit
 	pkixac
+	pkixalgs
 	pkixproxy
 	pkixqualified
 	pkixtsp
@@ -117,6 +121,8 @@ set(ASN1_SRC_DIRS
 	s1ap
 	sabp
 	sbc-ap
+	sgp22
+	sgp32
 	smrse
 	snmp
 	spnego

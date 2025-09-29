@@ -37,6 +37,12 @@ bool nstime_is_zero(const nstime_t *nstime)
     return nstime->secs == 0 && nstime->nsecs == 0;
 }
 
+/* is the given nstime_t currently negative? */
+bool nstime_is_negative(const nstime_t *nstime)
+{
+    return nstime->secs < 0 || nstime->nsecs < 0;
+}
+
 /* set the given nstime_t to (0,maxint) to mark it as "unset"
  * That way we can find the first frame even when a timestamp
  * is zero (fix for bug 1056)
@@ -149,9 +155,26 @@ int nstime_cmp (const nstime_t *a, const nstime_t *b )
         }
     }
     if (a->secs == b->secs) {
-        return a->nsecs - b->nsecs;
+        if (a->nsecs == b->nsecs) {
+            return 0;
+        } else {
+            return a->nsecs > b->nsecs ? 1 : -1;
+        }
     } else {
-        return (int) (a->secs - b->secs);
+        return a->secs > b->secs ? 1 : -1;
+#if 0
+        /* The old behavior, in the common case, returned the difference in
+         * seconds, which could overflow. That was never promised, but if it
+         * is desired, a way to handle it with C23 checked arithmetic could be
+         * (ignoring hypothetical platforms with floating-point time_t): */
+        int ret;
+        if (ckd_sub(&ret, a->secs, b->secs)) {
+            /* We subtract b->secs, so if it's positive, there was underflow,
+             * and vice versa. */
+            ret = b->secs > 0 ? INT_MIN : INT_MAX;
+        }
+        return ret;
+#endif
     }
 }
 
@@ -180,6 +203,18 @@ double nstime_to_msec(const nstime_t *nstime)
 double nstime_to_sec(const nstime_t *nstime)
 {
     return ((double)nstime->secs + (double)nstime->nsecs/NS_PER_S);
+}
+
+void nstime_rounded(nstime_t *a, const nstime_t *b, ws_tsprec_e prec)
+{
+    nstime_t round = NSTIME_INIT_ZERO;
+    unsigned dv = NS_PER_S;
+    for (ws_tsprec_e i = WS_TSPREC_SEC; i < prec; i++) {
+        dv /= 10;
+    }
+    round.nsecs = 5 * (dv / 10);
+    nstime_sum(a, b, &round);
+    a->nsecs = (a->nsecs / dv) * dv;
 }
 
 /*

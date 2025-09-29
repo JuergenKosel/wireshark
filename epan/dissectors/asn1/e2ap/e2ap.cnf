@@ -91,11 +91,12 @@ InitiatingMessage/value initiatingMessagevalue
 UnsuccessfulOutcome/value unsuccessfulOutcome_value
 SuccessfulOutcome/value successfulOutcome_value
 
-#GlobalGNB-ID/gNB-ID globalGNB-ID_gNB-ID
-
+GlobalenGNB-ID/gNB-ID eNGNB-ID-choice
+ENGNB-ID/gNB-ID gnb-id-bit-string
+GlobalGNB-ID/gNB-ID gNB-ID-choice
+E2SM-NI-CallProcessID-Format2/callProcess-ID callProcess-ID-format2
 
 #.FIELD_ATTR
-#GlobalGNB-ID/gNB-ID       ABBREV=globalGNB_ID.gNB_ID
 
 #.FN_BODY ProtocolIE-ID VAL_PTR=&e2ap_data->protocol_ie_id
   struct e2ap_private_data *e2ap_data = e2ap_get_private_data(actx->pinfo);
@@ -104,7 +105,7 @@ SuccessfulOutcome/value successfulOutcome_value
 #.FN_FTR ProtocolIE-ID
   if (tree) {
     proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s",
-                           val_to_str_ext(e2ap_data->protocol_ie_id, &e2ap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
+                           val_to_str_ext(actx->pinfo->pool, e2ap_data->protocol_ie_id, &e2ap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
   }
 #.END
 
@@ -113,7 +114,7 @@ SuccessfulOutcome/value successfulOutcome_value
 # #.FN_BODY E2AP-PDU VAL_PTR=&value
 #   uint32_t value;
 # %(DEFAULT_BODY)s
-#   col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%%s)", val_to_str(value, e2ap_E2AP_PDU_vals, "Unknown"));
+#   col_append_fstr(actx->pinfo->cinfo, COL_INFO, " (%%s)", val_to_str(actx->pinfo->pool, value, e2ap_E2AP_PDU_vals, "Unknown"));
 
 
 
@@ -126,7 +127,7 @@ SuccessfulOutcome/value successfulOutcome_value
 #.FN_BODY ProcedureCode  VAL_PTR = &e2ap_data->procedure_code
   struct e2ap_private_data *e2ap_data = e2ap_get_private_data(actx->pinfo);
 %(DEFAULT_BODY)s
-  //col_append_fstr(actx->pinfo->cinfo, COL_INFO, "%%s", val_to_str(e2ap_data->procedure_code, e2ap_ProcedureCode_vals, "Unknown"));
+  //col_append_fstr(actx->pinfo->cinfo, COL_INFO, "%%s", val_to_str(actx->pinfo->pool, e2ap_data->procedure_code, e2ap_ProcedureCode_vals, "Unknown"));
 #.END
 
 
@@ -242,7 +243,7 @@ SuccessfulOutcome/value successfulOutcome_value
   int ts_offset = offset;
   %(DEFAULT_BODY)s
   /* Add as a generated field the timestamp decoded */
-  const char *time_str = tvb_ntp_fmt_ts_sec(tvb, (ts_offset+7)/8);
+  const char *time_str = tvb_ntp_fmt_ts_sec(actx->pinfo->pool, tvb, (ts_offset+7)/8);
   proto_item *ti = proto_tree_add_string(tree, hf_e2ap_timestamp_string, tvb, (ts_offset+7)/8, 4, time_str);
   proto_item_set_generated(ti);
 

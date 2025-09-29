@@ -24,6 +24,7 @@
 #include <wsutil/array.h>
 #include <epan/expert.h>
 #include <epan/reassemble.h>
+#include <epan/tfs.h>
 
 #include "packet-ber.h"
 #include "packet-x509if.h"
@@ -381,20 +382,6 @@ static const value_string dlms_service_error_names[] = {
     { 1, "operation-not-possible" },
     { 2, "service-not-supported" },
     { 3, "other-reason" },
-    {0, NULL}
-};
-
-/* Names of the values of the service-class bit in the Invoke-Id-And-Priority */
-static const value_string dlms_service_class_names[] = {
-    { 0, "unconfirmed" },
-    { 1, "confirmed" },
-    {0, NULL}
-};
-
-/* Names of the values of the priority bit in the Invoke-Id-And-Priority */
-static const value_string dlms_priority_names[] = {
-    { 0, "normal" },
-    { 1, "high" },
     {0, NULL}
 };
 
@@ -917,7 +904,7 @@ dlms_dissect_invoke_id_and_priority(proto_tree* tree, tvbuff_t* tvb, int offset)
     subtree = proto_tree_add_subtree(tree, tvb, offset, 1, ett_dlms_invoke_id_and_priority, NULL, "Invoke Id And Priority");
     proto_tree_add_item(subtree, hf_dlms_invoke_id, tvb, offset, 1, ENC_NA);
     proto_tree_add_item(subtree, hf_dlms_service_class, tvb, offset, 1, ENC_NA);
-    proto_tree_add_item(subtree, hf_dlms_priority, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item(subtree, hf_dlms_priority, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
     return offset;
@@ -2367,9 +2354,9 @@ void proto_register_cosem(void) {
     { &hf_dlms_invoke_id,
     { "Invoke Id", "dlms.invoke_id", FT_UINT8, BASE_DEC, NULL, 0x0f, NULL, HFILL }},
     { &hf_dlms_service_class,
-    { "Service Class", "dlms.service_class", FT_UINT8, BASE_DEC, VALS(dlms_service_class_names), 0x40, NULL, HFILL }},
+    { "Service Class", "dlms.service_class", FT_BOOLEAN, 8, TFS(&tfs_confirmed_unconfirmed), 0x40, NULL, HFILL }},
     { &hf_dlms_priority,
-    { "Priority", "dlms.priority", FT_UINT8, BASE_DEC, VALS(dlms_priority_names), 0x80, NULL, HFILL }},
+    { "Priority", "dlms.priority", FT_BOOLEAN, 32, TFS(&tfs_high_normal), 0x80, NULL, HFILL }},
     /* Long-Invoke-Id-And-Priority */
     { &hf_dlms_long_invoke_id,
     { "Long Invoke Id", "dlms.long_invoke_id", FT_UINT32, BASE_DEC, NULL, 0xffffff, NULL, HFILL }},
@@ -2378,9 +2365,9 @@ void proto_register_cosem(void) {
     { &hf_dlms_processing_option,
     { "Processing Option", "dlms.processing_option", FT_UINT32, BASE_DEC, VALS(dlms_processing_option_names), 0x20000000, NULL, HFILL }},
     { &hf_dlms_long_service_class,
-    { "Service Class", "dlms.service_class", FT_UINT32, BASE_DEC, VALS(dlms_service_class_names), 0x40000000, NULL, HFILL }},
+    { "Service Class", "dlms.service_class", FT_BOOLEAN, 32, TFS(&tfs_confirmed_unconfirmed), 0x40000000, NULL, HFILL }},
     { &hf_dlms_long_priority,
-    { "Priority", "dlms.priority", FT_UINT32, BASE_DEC, VALS(dlms_priority_names), 0x80000000, NULL, HFILL }},
+    { "Priority", "dlms.priority", FT_BOOLEAN, 32, TFS(&tfs_high_normal), 0x80000000, NULL, HFILL }},
     /* fragment_items */
     { &hf_dlms_fragments,
     { "Fragments", "dlms.fragments", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL }},
@@ -2423,6 +2410,7 @@ void proto_register_cosem(void) {
 
     static int* ett_dlms_array[] = {
             &ett_dlms,
+            &ett_dlms_hdlc,
             &ett_dlms_hdlc_format,
             &ett_dlms_hdlc_address,
             &ett_dlms_hdlc_control,

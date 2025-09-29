@@ -445,7 +445,7 @@ static void lwm2m_add_resource(lwm2m_resource_t *resource, hf_register_info *hf,
 	int *hf_id;
 
 	hf_id = g_new(int,1);
-	*hf_id = -1;
+	*hf_id = 0;
 
 	if (resource->field_name) {
 		resource_abbrev = g_strdup(resource->field_name);
@@ -459,7 +459,7 @@ static void lwm2m_add_resource(lwm2m_resource_t *resource, hf_register_info *hf,
 	}
 
 	resource->hf_id = hf_id;
-	resource->ett_id = -1;
+	resource->ett_id = 0;
 
 	hf->p_id = hf_id;
 	hf->hfinfo.name = g_strdup(resource->name);
@@ -1173,7 +1173,7 @@ void proto_register_lwm2mtlv(void)
 	                                 &lwm2m_uat_object_names,
 	                                 &num_lwm2m_uat_object_names,
 	                                 UAT_AFFECTS_DISSECTION,
-	                                 "ChLwM2MResourceNames",
+	                                 NULL,
 	                                 lwm2m_object_name_copy_cb,
 	                                 lwm2m_object_name_update_cb,
 	                                 lwm2m_object_name_free_cb,
@@ -1188,7 +1188,7 @@ void proto_register_lwm2mtlv(void)
 	                              &lwm2m_uat_resources,
 	                              &num_lwm2m_uat_resources,
 	                              UAT_AFFECTS_DISSECTION|UAT_AFFECTS_FIELDS,
-	                              "ChLwM2MResourceNames",
+	                              NULL,
 	                              lwm2m_resource_copy_cb,
 	                              lwm2m_resource_update_cb,
 	                              lwm2m_resource_free_cb,

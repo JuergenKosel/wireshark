@@ -25,6 +25,7 @@
 #include <epan/conversation.h>
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
+#include <epan/read_keytab_file.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/array.h>
 #include "packet-gssapi.h"
@@ -309,6 +310,10 @@ dissect_spnego_krb5(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 
     case KRB_TOKEN_IAKERB_PROXY:
       offset = dissect_spnego_IAKERB_HEADER(false, tvb, offset, &asn1_ctx, subtree, -1);
+      len = tvb_captured_length_remaining(tvb, offset);
+      if (len == 0) {
+        break;
+      }
       krb5_tvb = tvb_new_subset_remaining(tvb, offset);
       offset += dissect_kerberos_main(krb5_tvb, pinfo, subtree, false, NULL);
       break;
@@ -577,7 +582,7 @@ static void
 decrypt_gssapi_krb_arcfour_wrap(proto_tree *tree _U_, packet_info *pinfo, tvbuff_t *tvb, int keytype, gssapi_encrypt_info_t* gssapi_encrypt)
 {
   int ret;
-  enc_key_t *ek;
+  const enc_key_t *ek;
   int length;
   const uint8_t *original_data;
 
@@ -599,7 +604,7 @@ decrypt_gssapi_krb_arcfour_wrap(proto_tree *tree _U_, packet_info *pinfo, tvbuff
   cryptocopy=(uint8_t *)wmem_alloc(pinfo->pool, length);
   output_message_buffer=(uint8_t *)wmem_alloc(pinfo->pool, length);
 
-  for(ek=enc_key_list;ek;ek=ek->next){
+  for(ek=keytab_get_enc_key_list();ek;ek=ek->next){
     /* shortcircuit and bail out if enctypes are not matching */
     if(ek->keytype!=keytype){
       continue;
@@ -615,7 +620,7 @@ decrypt_gssapi_krb_arcfour_wrap(proto_tree *tree _U_, packet_info *pinfo, tvbuff
     ret=decrypt_arcfour(gssapi_encrypt,
                         cryptocopy,
                         output_message_buffer,
-                        ek->keyvalue,
+                        (uint8_t*)ek->keyvalue,
                         ek->keylength,
                         ek->keytype);
     if (ret >= 0) {
@@ -1258,7 +1263,7 @@ dissect_spnego_wrap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
    * object ID and a blob containing the data ...
    * XXX - is this RFC 2743's "Mechanism-Independent Token Format",
    * with the "optional" "use in non-initial tokens" being chosen.
-   * ASN1 code addet to spnego.asn to handle this.
+   * ASN1 code added to spnego.asn to handle this.
    */
 
   offset = dissect_spnego_InitialContextToken(false, tvb, offset, &asn1_ctx , subtree, -1);

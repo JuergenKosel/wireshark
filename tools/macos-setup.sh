@@ -79,7 +79,8 @@ XZ_VERSION=5.2.5
 # CMake is required to do the build - and to build some of the
 # dependencies.
 #
-CMAKE_VERSION=${CMAKE_VERSION-3.21.4}
+CMAKE_VERSION=${CMAKE_VERSION-4.1.1}
+CMAKE_SHA256=${CMAKE_SHA256-d228a1b6f9cf4a0ed5d2df1953cddd4f9be2de49f03de51a4bf06a7b1892d8b4}
 
 #
 # Ninja isn't required, as make is provided with Xcode, but it is
@@ -106,22 +107,22 @@ PKG_CONFIG_VERSION=0.29.2
 #
 # libgpg-error is required for libgcrypt.
 #
-LIBGPG_ERROR_VERSION=1.47
+LIBGPG_ERROR_VERSION=1.51
 #
 # libgcrypt is required.
 #
-LIBGCRYPT_VERSION=1.10.2
+LIBGCRYPT_VERSION=1.11.0
 #
 # libpcre2 is required.
 #
-PCRE2_VERSION=10.39
+PCRE2_VERSION=10.44
 
 #
 # One or more of the following libraries are required to build Wireshark.
 #
 # To override the version of Qt call the script with some of the variables
 # set to the new values. Setting the variable to empty will disable building
-# the toolkit and will uninstall # any version previously installed by the
+# the toolkit and will uninstall any version previously installed by the
 # script, e.g.
 # "QT_VERSION=5.10.1 ./macos-setup.sh"
 # will build and install with QT 5.10.1.
@@ -142,8 +143,8 @@ fi
 # the optional libraries are required by other optional libraries.
 #
 LIBSMI_VERSION=0.4.8
-GNUTLS_VERSION=3.8.4
-GNUTLS_SHA256=2bea4e154794f3f00180fa2a5c51fe8b005ac7a31cd58bd44cdfa7f36ebc3a9b
+GNUTLS_VERSION=3.8.10
+GNUTLS_SHA256=db7fab7cce791e7727ebbef2334301c821d79a550ec55c9ef096b610b03eb6b7
 if [ "$GNUTLS_VERSION" ]; then
     #
     # We'll be building GnuTLS, so we may need some additional libraries.
@@ -152,7 +153,7 @@ if [ "$GNUTLS_VERSION" ]; then
     #
     GNUTLS_MAJOR_VERSION="$( expr $GNUTLS_VERSION : '\([0-9][0-9]*\).*' )"
     GNUTLS_MINOR_VERSION="$( expr $GNUTLS_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*' )"
-    NETTLE_VERSION=3.9.1
+    NETTLE_VERSION=3.10.2
 
     #
     # And, in turn, Nettle requires GMP.
@@ -161,10 +162,10 @@ if [ "$GNUTLS_VERSION" ]; then
 
     #
     # And p11-kit
-    P11KIT_VERSION=0.25.3
+    P11KIT_VERSION=0.25.5
 
     # Which requires libtasn1
-    LIBTASN1_VERSION=4.19.0
+    LIBTASN1_VERSION=4.20.0
 fi
 # lua_bitop.c has been ported to 5.3 and 5.4 so use the latest release.
 # We may still need to check for compatibility issues (we'd want Lua
@@ -179,7 +180,7 @@ LIBXML2_SHA256=780157a1efdb57188ec474dca87acaee67a3a839c2525b2214d318228451809f
 LZ4_VERSION=1.10.0
 SBC_VERSION=2.0
 CARES_VERSION=1.31.0
-LIBSSH_VERSION=0.11.1
+LIBSSH_VERSION=0.11.3
 # mmdbresolve
 MAXMINDDB_VERSION=1.9.1
 NGHTTP2_VERSION=1.62.1
@@ -200,7 +201,7 @@ OPENCORE_AMR_SHA256=483eb4061088e2b34b358e47540b5d495a96cd468e361050fae615b1809d
 OPUS_VERSION=1.4
 
 # Falco libs (libsinsp and libscap) and their dependencies. Unset for now.
-#FALCO_LIBS_VERSION=0.18.1
+FALCO_LIBS_VERSION=0.18.1
 if [ "$FALCO_LIBS_VERSION" ] ; then
     FALCO_LIBS_SHA256=1812e8236c4cb51d3fe5dd066d71be99f25da7ed22d8feeeebeed09bdc26325f
     JSONCPP_VERSION=1.9.5
@@ -226,7 +227,7 @@ else
     PYTHON3_VERSION=3.12.1
 fi
 BROTLI_VERSION=1.0.9
-# minizip
+# minizip/minizipng
 MINIZIPNG_VERSION=4.0.7
 ZLIB_VERSION=1.3
 # Uncomment to enable automatic updates using Sparkle
@@ -239,7 +240,7 @@ ZLIB_VERSION=1.3
 # dependencies can become quite hairy:
 # https://github.com/Homebrew/homebrew-core/blob/master/Formula/a/asciidoctor.rb
 # Maybe we should install a JRE and use AsciidoctorJ instead?
-ASCIIDOCTOR_VERSION=${ASCIIDOCTOR_VERSION-2.0.16}
+ASCIIDOCTOR_VERSION=${ASCIIDOCTOR_VERSION-2.0.23}
 ASCIIDOCTORPDF_VERSION=${ASCIIDOCTORPDF_VERSION-1.6.1}
 # css_parser 1.13 and later require Ruby 2.7
 
@@ -248,9 +249,10 @@ CSS_PARSER_VERSION=${CSS_PARSER_VERSION-1.12.0}
 # GNU autotools.  They're not supplied with the macOS versions we
 # support, and we currently use them for minizip.
 #
-AUTOCONF_VERSION=2.71
-AUTOMAKE_VERSION=1.16.5
-LIBTOOL_VERSION=2.4.6
+M4_VERSION=1.4.19
+AUTOCONF_VERSION=2.72
+AUTOMAKE_VERSION=1.17
+LIBTOOL_VERSION=2.5.4
 
 install_curl() {
     if [ "$CURL_VERSION" ] && [ ! -f "curl-$CURL_VERSION-done" ] ; then
@@ -375,7 +377,7 @@ uninstall_pcre() {
 install_pcre2() {
     if [ "$PCRE2_VERSION" ] && [ ! -f "pcre2-$PCRE2_VERSION-done" ] ; then
         echo "Downloading, building, and installing pcre2:"
-        [ -f "pcre2-$PCRE2_VERSION.tar.bz2" ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" "https://github.com/PhilipHazel/pcre2/releases/download/pcre2-$PCRE2_VERSION/pcre2-10.39.tar.bz2"
+        [ -f "pcre2-$PCRE2_VERSION.tar.bz2" ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" "https://github.com/PhilipHazel/pcre2/releases/download/pcre2-$PCRE2_VERSION/pcre2-$PCRE2_VERSION.tar.bz2"
         $no_build && echo "Skipping installation" && return
         bzcat "pcre2-$PCRE2_VERSION.tar.bz2" | tar xf -
         cd "pcre2-$PCRE2_VERSION"
@@ -395,7 +397,7 @@ uninstall_pcre2() {
     if [ -n "$installed_pcre2_version" ] && [ -s "pcre2-$installed_pcre2_version/build_dir/install_manifest.txt" ] ; then
         echo "Uninstalling pcre2:"
         # PCRE2 10.39 installs pcre2unicode.3 twice, so this will return an error.
-        while read -r ; do $DO_RM -v "$REPLY" ; done < <(cat "pcre2-$installed_pcre2_version/build_dir/install_manifest.txt"; echo)
+        while read -r ; do $DO_RM -f -v "$REPLY" ; done < <(cat "pcre2-$installed_pcre2_version/build_dir/install_manifest.txt"; echo)
         rm "pcre2-$installed_pcre2_version-done"
 
         if [ "$#" -eq 1 ] && [ "$1" = "-r" ] ; then
@@ -407,6 +409,47 @@ uninstall_pcre2() {
         fi
 
         installed_pcre2_version=""
+    fi
+}
+
+install_m4() {
+    if [ "$M4_VERSION" -a ! -f m4-$M4_VERSION-done ] ; then
+        echo "Downloading, building and installing GNU m4..."
+        [ -f m4-$M4_VERSION.tar.xz ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" https://ftp.gnu.org/gnu/m4/m4-$M4_VERSION.tar.xz
+        $no_build && echo "Skipping installation" && return
+        xzcat m4-$M4_VERSION.tar.xz | tar xf -
+        cd m4-$M4_VERSION
+        ./configure "${CONFIGURE_OPTS[@]}"
+        make "${MAKE_BUILD_OPTS[@]}"
+        $DO_MAKE_INSTALL
+        cd ..
+        touch m4-$M4_VERSION-done
+    fi
+}
+
+uninstall_m4() {
+    if [ -n "$installed_m4_version" ] ; then
+        #
+        # autoconf depends on this, so uninstall it.
+        #
+        uninstall_autoconf "$@"
+
+        echo "Uninstalling GNU m4:"
+        cd m4-$installed_m4_version
+        $DO_MAKE_UNINSTALL
+        make distclean
+        cd ..
+        rm m4-$installed_m4_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf m4-$installed_m4_version
+            rm -rf m4-$installed_m4_version.tar.xz
+        fi
+
+        installed_m4_version=""
     fi
 }
 
@@ -631,36 +674,20 @@ install_cmake() {
         #
         case "$CMAKE_MAJOR_VERSION" in
 
-        0|1|2)
+        0|1|2|3)
             echo "CMake $CMAKE_VERSION" is too old 1>&2
             ;;
 
-        3)
+        4)
             #
             # Download the DMG and do a drag install, where "drag" means
             # "mv".
             #
-            # 3.1.1 to 3.19.1 have a Darwin-x86_64 DMG.
-            # 3.19.2 has a macos-universal DMG for 10.10 and later
-            # 3.19.3 and later have a macos-universal DMG for 10.13 and later,
-            # and a macos10.10-universal DMG for 10.10 and later.
-            #
-            if [ "$CMAKE_MINOR_VERSION" -lt 10 ]; then
-                echo "CMake $CMAKE_VERSION" is too old 1>&2
-            elif [ "$CMAKE_MINOR_VERSION" -lt 19 -o \
-                 "$CMAKE_VERSION" = 3.19.0 -o \
-                 "$CMAKE_VERSION" = 3.19.1 ]; then
-                type="Darwin-x86_64"
-            elif [ "$CMAKE_VERSION" = 3.19.2 -o \
-                 "$DARWIN_MAJOR_VERSION" -ge 17 ]; then
-                type="macos-universal"
-            else
-                type="macos10.0-universal"
-            fi
-            [ -f cmake-$CMAKE_VERSION-$type.dmg ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" https://cmake.org/files/v$CMAKE_MAJOR_MINOR_VERSION/cmake-$CMAKE_VERSION-$type.dmg
+            [ -f cmake-$CMAKE_VERSION-macos-universal.dmg ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" https://cmake.org/files/v$CMAKE_MAJOR_MINOR_VERSION/cmake-$CMAKE_VERSION-macos-universal.dmg
+            echo "$CMAKE_SHA256  cmake-$CMAKE_VERSION-macos-universal.dmg" | shasum --algorithm 256 --check
             $no_build && echo "Skipping installation" && return
-            sudo hdiutil attach cmake-$CMAKE_VERSION-$type.dmg
-            sudo ditto /Volumes/cmake-$CMAKE_VERSION-$type/CMake.app /Applications/CMake.app
+            sudo hdiutil attach cmake-$CMAKE_VERSION-macos-universal.dmg
+            sudo ditto /Volumes/cmake-$CMAKE_VERSION-macos-universal/CMake.app /Applications/CMake.app
 
             #
             # Plant the appropriate symbolic links in $installation_prefix/bin.
@@ -677,7 +704,7 @@ install_cmake() {
             do
                 sudo ln -s /Applications/CMake.app/Contents/bin/$i "$installation_prefix/bin/$i"
             done
-            sudo hdiutil detach /Volumes/cmake-$CMAKE_VERSION-$type
+            sudo hdiutil detach /Volumes/cmake-$CMAKE_VERSION-macos-universal
             ;;
 
         *)
@@ -1383,8 +1410,17 @@ install_gmp() {
         else
             LD64_FLAG=""
         fi
+        if [ "$DARWIN_PROCESSOR_ARCH" = "x86_64" ]
+        then
+            # If contemplating darwin20 or newer, refer to the last two paragraphs of
+            # https://gmplib.org/list-archives/gmp-bugs/2024-October/005539.html
+            # and either ensure that GMP is newer than 6.3.0 or run "autoreconf".
+            GMP_BUILD_OPTION="--build=nehalem-apple-darwin18"
+        else
+            GMP_BUILD_OPTION=""
+        fi
         CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS $LD64_FLAG" \
-            ./configure "${CONFIGURE_OPTS[@]}" --enable-fat
+            ./configure "${CONFIGURE_OPTS[@]}" --enable-fat "$GMP_BUILD_OPTION"
         make "${MAKE_BUILD_OPTS[@]}"
         $DO_MAKE_INSTALL
         cd ..
@@ -1878,23 +1914,33 @@ install_lz4() {
         #
         if [[ "$LZ4_VERSION" == r* ]]
         then
-            [ -f lz4-$LZ4_VERSION.tar.gz ] || curl "${CURL_LOCAL_NAME_OPTS[@]}" lz4-$LZ4_VERSION.tar.gz https://github.com/lz4/lz4/archive/$LZ4_VERSION.tar.gz
+            echo "lz4 $LZ4_VERSION" is too old 1>&2
         else
+            LZ4_MAJOR_VERSION="$( expr "$LZ4_VERSION" : '\([0-9][0-9]*\).*' )"
+            LZ4_MINOR_VERSION="$( expr "$LZ4_VERSION" : '[0-9][0-9]*\.\([0-9][0-9]*\).*' )"
             [ -f lz4-$LZ4_VERSION.tar.gz ] || curl "${CURL_LOCAL_NAME_OPTS[@]}" lz4-$LZ4_VERSION.tar.gz https://github.com/lz4/lz4/archive/v$LZ4_VERSION.tar.gz
+            $no_build && echo "Skipping installation" && return
+            gzcat lz4-$LZ4_VERSION.tar.gz | tar xf -
+            cd lz4-$LZ4_VERSION
+            #
+            # On lz4 < 1.10.0, if MOREFLAGS is set, that's added to CFLAGS (or
+            # CPPFLAGS on 1.9.4), and those are combined with LDFLAGS into
+            # FLAGS, which is used when building source files and libraries.
+            #
+            # On lz4 >= 1.10.0, user defined CFLAGS are appended the default
+            # CFLAGS, and those are combined with CPPFLAGS and LDFLAGS into
+            # ALLFLAGS, which is used when building source files and libraries.
+            #
+            if [[ "$LZ4_MAJOR_VERSION" -gt 1 ]] || [[ "$LZ4_MINOR_VERSION" -ge 10 ]]; then
+                CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" \
+                    make PREFIX="$installation_prefix" "${MAKE_BUILD_OPTS[@]}"
+            else
+                MOREFLAGS="-D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" \
+                    make PREFIX="$installation_prefix" "${MAKE_BUILD_OPTS[@]}"
+            fi
+            $DO_MAKE PREFIX="$installation_prefix" install
+            cd ..
         fi
-        $no_build && echo "Skipping installation" && return
-        gzcat lz4-$LZ4_VERSION.tar.gz | tar xf -
-        cd lz4-$LZ4_VERSION
-        #
-        # No configure script here, but it appears that if MOREFLAGS is
-        # set, that's added to CFLAGS, and those are combined with LDFLAGS
-        # and CXXFLAGS into FLAGS, which is used when building source
-        # files and libraries.
-        #
-        MOREFLAGS="-D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" \
-            make PREFIX="$installation_prefix" "${MAKE_BUILD_OPTS[@]}"
-        $DO_MAKE PREFIX="$installation_prefix" install
-        cd ..
         touch lz4-$LZ4_VERSION-done
     fi
 }
@@ -3425,6 +3471,8 @@ install_all() {
     #
     install_xz
 
+    install_m4
+
     install_autoconf
 
     install_automake
@@ -3469,11 +3517,13 @@ install_all() {
     install_gettext
 
     #
-    # GLib depends on pkg-config.
+    # GLib depends on pkg-config and libxml2.
     # By default, pkg-config depends on GLib; we break the dependency cycle
     # by configuring pkg-config to use its own internal version of GLib.
     #
     install_pkg_config
+
+    install_libxml2
 
     install_glib
 
@@ -3517,8 +3567,6 @@ install_all() {
 
     install_zlibng
 
-    install_libxml2
-
     install_lz4
 
     install_sbc
@@ -3549,9 +3597,9 @@ install_all() {
 
     install_brotli
 
-    install_minizip
-
     install_minizip_ng
+
+    install_minizip
 
     install_sparkle
 
@@ -3624,8 +3672,6 @@ uninstall_all() {
 
         uninstall_zlibng
 
-        uninstall_libxml2
-
         uninstall_lz4
 
         uninstall_sbc
@@ -3651,6 +3697,8 @@ uninstall_all() {
         uninstall_qt
 
         uninstall_glib
+
+        uninstall_libxml2
 
         uninstall_pkg_config
 
@@ -3680,6 +3728,8 @@ uninstall_all() {
         uninstall_automake
 
         uninstall_autoconf
+
+        uninstall_m4
 
         uninstall_pcre
 
@@ -4066,7 +4116,7 @@ fi
 # You need Xcode or the command-line tools installed to get the compilers (xcrun checks both).
 #
  if [ ! -x /usr/bin/xcrun ]; then
-    echo "Please install Xcode (app or command line) first (should be available on DVD or from the Mac App Store)."
+    echo "Please install Xcode (app or command line) first (should be available from the Mac App Store)."
     exit 1
 fi
 
@@ -4086,7 +4136,7 @@ if [ "$QT_VERSION" ]; then
     elif qmake --version >/dev/null 2>&1; then
         :
     else
-        echo "Please install Xcode first (should be available on DVD or from the Mac App Store)."
+        echo "Please install Xcode first (should be available from the Mac App Store)."
         echo "The command-line build tools are not sufficient to build Qt."
         echo "Alternatively build QT according to: https://gist.github.com/shoogle/750a330c851bd1a924dfe1346b0b4a08#:~:text=MacOS%2FQt%5C%20Creator-,Go%20to%20Qt%20Creator%20%3E%20Preferences%20%3E%20Build%20%26%20Run%20%3E%20Kits,for%20both%20compilers%2C%20not%20gcc%20."
         exit 1

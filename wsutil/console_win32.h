@@ -42,7 +42,7 @@ void restore_pipes(void);
 WS_DLL_PUBLIC
 void destroy_console(void);
 
-/** Set console wait. GTK+ only.
+/** Set console wait.
  * @param console_wait set/no set console wait
  */
 WS_DLL_PUBLIC
@@ -54,7 +54,7 @@ WS_DLL_PUBLIC
 bool get_console_wait(void);
 
 /** Set stdin capture.
- * @param console_wait set/no stdin_capture
+ * @param set_stdin_capture whether to enable stdin capture
  */
 WS_DLL_PUBLIC
 void set_stdin_capture(bool set_stdin_capture);

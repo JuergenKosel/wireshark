@@ -819,7 +819,7 @@ static unsigned dissect_mqtt_properties(tvbuff_t *tvb, packet_info *pinfo, proto
   ti = proto_tree_add_item(mqtt_tree, hf_property, tvb, offset, mqtt_prop_offset + mqtt_prop_len, ENC_NA);
   mqtt_prop_tree = proto_item_add_subtree(ti, ett_mqtt_property);
 
-  proto_tree_add_item(mqtt_prop_tree, hf_mqtt_property_len, tvb, offset, mqtt_prop_offset, ENC_BIG_ENDIAN);
+  proto_tree_add_item(mqtt_prop_tree, hf_mqtt_property_len, tvb, offset, mqtt_prop_offset, ENC_LITTLE_ENDIAN|ENC_VARINT_PROTOBUF);
   offset += mqtt_prop_offset;
 
   const unsigned bytes_to_read = offset + mqtt_prop_len;
@@ -985,7 +985,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   mqtt_msg_type = mqtt_fixed_hdr >> 4;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "MQTT");
-  col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", val_to_str_ext(mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
+  col_append_sep_str(pinfo->cinfo, COL_INFO, ", ", val_to_str_ext(pinfo->pool, mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
 
   /* Add the MQTT branch to the main tree */
   mqtt_ti = proto_tree_add_item(tree, proto_mqtt, tvb, 0, -1, ENC_NA);
@@ -1007,7 +1007,7 @@ static int dissect_mqtt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   mqtt_msg_len = (int) msg_len;
 
   /* Add the type to the MQTT tree item */
-  proto_item_append_text(mqtt_tree, ", %s", val_to_str_ext(mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
+  proto_item_append_text(mqtt_tree, ", %s", val_to_str_ext(pinfo->pool, mqtt_msg_type, &mqtt_msgtype_vals_ext, "Unknown (0x%02x)"));
 
   if ((mqtt_msg_type != MQTT_CONNECT) && (mqtt->runtime_proto_version == 0))
   {
@@ -1802,7 +1802,7 @@ void proto_register_mqtt(void)
                                &mqtt_message_decodes,
                                &num_mqtt_message_decodes,
                                UAT_AFFECTS_DISSECTION, /* affects dissection of packets, but not set of named fields */
-                               "ChMQTTMessageDecoding",
+                               NULL,
                                mqtt_message_decode_copy_cb,
                                mqtt_message_decode_update_cb,
                                mqtt_message_decode_free_cb,

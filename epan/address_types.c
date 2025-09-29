@@ -551,9 +551,9 @@ static int vines_addr_to_str(const address* addr, char *buf, int buf_len)
     const uint8_t *addr_data = (const uint8_t *)addr->data;
     char *bufp = buf;
 
-    bufp = dword_to_hex(bufp, pntoh32(&addr_data[0])); /* 8 bytes */
+    bufp = dword_to_hex(bufp, pntohu32(&addr_data[0])); /* 8 bytes */
     *bufp++ = '.'; /* 1 byte */
-    bufp = word_to_hex(bufp, pntoh16(&addr_data[4])); /* 4 bytes */
+    bufp = word_to_hex(bufp, pntohu16(&addr_data[4])); /* 4 bytes */
     *bufp++ = '\0'; /* NULL terminate */
 
     return (int)(bufp - buf);
@@ -632,6 +632,56 @@ static int mctp_addr_str_len(const address* addr _U_)
 static int mctp_len(void)
 {
 	return 1;
+}
+
+/******************************************************************************
+ * AT_ILNP_NID and AT_ILNP_L64
+ ******************************************************************************/
+
+static int ilnp_quarters_str_len(const address* addr _U_) {
+    return 20;
+}
+
+static int ilnp_quarters_to_str(const address* addr, char *buf, int buf_len) {
+    uint8_t* buffer = (uint8_t*)addr->data;
+
+    snprintf(buf, buf_len, "%02x%02x+%02x%02x+%02x%02x+%02x%02x",
+        buffer[0], buffer[1], buffer[2], buffer[3],
+        buffer[4], buffer[5], buffer[6], buffer[7]);
+
+    return ilnp_quarters_str_len(addr);
+}
+
+static const char* ilnp_nid_col_filter_str(const address* addr _U_, bool is_src) {
+    return is_src ? "ilnp_nid.src" : "ilnp_nid.dst";
+}
+
+static const char* ilnp_l64_col_filter_str(const address* addr _U_, bool is_src) {
+    return is_src ? "ilnp_l64.src" : "ilnp_l64.dst";
+}
+
+/******************************************************************************
+ * AT_ILNP_ILV
+ ******************************************************************************/
+
+static int ilnp_ilv_str_len(const address* addr _U_) {
+    return 40;
+}
+
+static int ilnp_ilv_to_str(const address* addr, char *buf, int buf_len) {
+    uint8_t* buffer = (uint8_t*)addr->data;
+
+    snprintf(buf, buf_len, "%02x%02x+%02x%02x+%02x%02x+%02x%02x.%02x%02x-%02x%02x-%02x%02x-%02x%02x",
+        buffer[0], buffer[1], buffer[2], buffer[3],
+        buffer[4], buffer[5], buffer[6], buffer[7],
+        buffer[8], buffer[9], buffer[10], buffer[11],
+        buffer[12], buffer[13], buffer[14], buffer[15]);
+
+    return ilnp_ilv_str_len(addr);
+}
+
+static const char* ilnp_ilv_col_filter_str(const address* addr _U_, bool is_src) {
+    return is_src ? "ilnp_ilv.src" : "ilnp_ilv.dst";
 }
 
 /******************************************************************************
@@ -823,6 +873,43 @@ void address_types_initialize(void)
         NULL,              /* addr_name_res_len */
     };
 
+    static address_type_t ilnp_nid_address = {
+        AT_ILNP_NID,                /* addr_type */
+        "AT_ILNP_NID",              /* name */
+        "ILNP Node Identifier address",    /* pretty_name */
+        ilnp_quarters_to_str,       /* addr_to_str */
+        ilnp_quarters_str_len,      /* addr_str_len */
+        NULL,                       /* addr_to_byte */
+        ilnp_nid_col_filter_str,    /* addr_col_filter */
+        NULL,                       /* addr_fixed_len */
+        NULL,                       /* addr_name_res_str */
+        NULL,                       /* addr_name_res_len */
+    };
+    static address_type_t ilnp_l64_address = {
+        AT_ILNP_L64,                /* addr_type */
+        "AT_ILNP_L64",              /* name */
+        "ILNP Locator address",     /* pretty_name */
+        ilnp_quarters_to_str,       /* addr_to_str */
+        ilnp_quarters_str_len,      /* addr_str_len */
+        NULL,                       /* addr_to_byte */
+        ilnp_l64_col_filter_str,    /* addr_col_filter */
+        NULL,                       /* addr_fixed_len */
+        NULL,                       /* addr_name_res_str */
+        NULL,                       /* addr_name_res_len */
+    };
+    static address_type_t ilnp_ilv_address = {
+        AT_ILNP_ILV,                /* addr_type */
+        "AT_ILNP_ILV",              /* name */
+        "ILNP Identifier-Locator Vector address",    /* pretty_name */
+        ilnp_ilv_to_str,            /* addr_to_str */
+        ilnp_ilv_str_len,           /* addr_str_len */
+        NULL,                       /* addr_to_byte */
+        ilnp_ilv_col_filter_str,    /* addr_col_filter */
+        NULL,                       /* addr_fixed_len */
+        NULL,                       /* addr_name_res_str */
+        NULL,                       /* addr_name_res_len */
+    };
+
     num_dissector_addr_type = 0;
 
     /* Initialize the type array.  This is mostly for handling
@@ -843,6 +930,9 @@ void address_types_initialize(void)
     address_type_register(AT_VINES, &vines_address );
     address_type_register(AT_NUMERIC, &numeric_address );
     address_type_register(AT_MCTP, &mctp_address );
+    address_type_register(AT_ILNP_NID, &ilnp_nid_address );
+    address_type_register(AT_ILNP_L64, &ilnp_l64_address );
+    address_type_register(AT_ILNP_ILV, &ilnp_ilv_address );
 }
 
 /* Given an address type id, return an address_type_t* */

@@ -8,6 +8,7 @@
 %bcond_with	toolchain_clang
 %bcond_with	ninja
 %bcond_with	ccache
+%bcond_with	stratoshark
 # In rpm 4.17.1 it's possible to define these so that
 # the one is set, the default is the inverse of the other
 %if 0%{?fedora} || 0%{?rhel} >= 9
@@ -22,7 +23,7 @@
 %bcond_with	lz4_and_snappy
 %bcond_with	spandsp
 %bcond_with	bcg729
-%bcond_with	libxml2
+%bcond_with	amrnb
 %bcond_with	nghttp2
 %bcond_with	nghttp3
 %bcond_with	sdjournal
@@ -31,6 +32,7 @@
 %bcond_with	zstd
 %bcond_with	ilbc
 %bcond_with	opus
+%bcond_with	libssh
 
 # Fedora options to use clang as the compiler
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/#compiler
@@ -52,6 +54,21 @@
 # are set.
 %global use_wireshark_group 1
 
+%if %{with stratoshark}
+# Stratoshark captures system calls locally using falcodump, which is linked
+# to libscap. libscap can capture system calls from a device (/dev/scap0) or
+# via an eBPF probe.
+%global setuid_falcodump 0
+# Requires the capabilities described at
+# https://falco.org/docs/setup/container/#docker-least-privileged-modern-ebpf
+%global setcap_falcodump 1
+
+# Set to 1 if you want a group called 'stratoshark' which users must be a member
+# of in order to run falcodump.  Only used if setuid_falcodump or setcap_falcodump
+# are set.
+%global use_stratoshark_group 1
+%endif
+
 # RPM 4.11.2 and higher errors out on double dash in versions by default.
 # Some, but not all, distros make this a warning instead; ensure that it is.
 # We override the dashes with underscores for the main wireshark RPM version,
@@ -66,7 +83,7 @@ Summary:	The world's foremost protocol analyzer
 Name:		wireshark
 Version:	@RPM_VERSION@
 Release:	1%{?dist}
-License:	GPLv2+
+License:	GPL-2.0-or-later
 Group:		Applications/Internet
 Source:		https://www.wireshark.org/download/src/%{name}-%{package_version}.tar.zst
 # Or this URL for automated builds:
@@ -121,6 +138,18 @@ BuildRequires:	(lz4-devel or liblz4-devel)
 BuildRequires:	snappy-devel
 %endif
 
+%if %{with spandsp}
+BuildRequires:	spandsp-devel
+%endif
+
+%if %{with bcg729}
+BuildRequires:	bcg729-devel
+%endif
+
+%if %{with amrnb}
+BuildRequires:	opencore-amr-devel
+%endif
+
 BuildRequires:	(c-ares-devel or libcares-devel)
 # On SUSE speex-devel requires speexdsp-devel, but that
 # is not the case on RH/Fedora. I believe we only need
@@ -130,6 +159,8 @@ BuildRequires:	speexdsp-devel
 %if %{with lua}
 BuildRequires:	(lua-devel or lua53-devel or compat-lua-devel or lua52-devel or lua51-devel)
 %endif
+
+BuildRequires:	libxml2-devel
 
 %if %{with nghttp2}
 BuildRequires:	libnghttp2-devel
@@ -151,10 +182,21 @@ BuildRequires:	(brotli-devel or libbrotli-devel)
 BuildRequires:	libzstd-devel
 %endif
 
+%if %{with ilbc}
+BuildRequires:	ilbc-devel
+%endif
+
+%if %{with opus}
+BuildRequires:	(opus-devel or libopus-devel)
+%endif
+
+%if %{with libssh}
+BuildRequires:	libssh-devel
+%endif
+
 # Uncomment these if you want to be sure you get them...
 #BuildRequires:	krb5-devel
 #BuildRequires:	libsmi-devel
-#BuildRequires:	pcre-devel
 #BuildRequires:	libselinux
 #BuildRequires:	gnutls-devel
 #BuildRequires:	libcap-devel
@@ -163,7 +205,7 @@ BuildRequires:	libzstd-devel
 BuildRequires:	libmaxminddb-devel
 %endif
 
-%if %{use_wireshark_group}
+%if %{use_wireshark_group} || "%{use_stratoshark_group}" == "1"
 %if 0%{?suse_version}
 # SUSE's groupadd is in this package:
 Requires(pre):	pwdutils
@@ -248,6 +290,58 @@ Requires:	%{name} = %{version}-%{release}
 The wireshark-devel package contains the header and other files required for
 development of Wireshark scripts and plugins.
 
+%if %{with stratoshark}
+%package	-n stratoshark
+Summary:	Stratoshark
+Version:	@STRATOSHARK_RPM_VERSION@
+Group:		Applications/System
+Requires:	%{name} = @RPM_VERSION@-%{release}
+BuildRequires:	falcosecurity-libs-devel
+Requires:	falcosecurity-libs
+%if %{with qt5}
+%if 0%{?suse_version}
+BuildRequires:	libQt5Core-devel
+BuildRequires:	libQt5Gui-devel
+BuildRequires:	libQt5Widgets-devel
+BuildRequires:	libQt5PrintSupport-devel
+BuildRequires:	libQt5Concurrent-devel
+BuildRequires:	libqt5-qtmultimedia-devel
+BuildRequires:	libqt5-linguist-devel
+Requires:	libQt5Svg5
+# Need this for SUSE's suse_update_desktop_file macro
+BuildRequires:	update-desktop-files
+%else
+BuildRequires:	qt5-qtbase-devel
+BuildRequires:	qt5-qtmultimedia-devel
+BuildRequires:	qt5-linguist
+Requires:	qt5-qtsvg
+%endif
+%endif
+%if %{with qt6}
+%if 0%{?suse_version}
+BuildRequires:	qt6-base-devel
+BuildRequires:	qt6-multimedia-devel
+BuildRequires:	qt6-tools-devel
+BuildRequires:	qt6-linguist-devel
+%else
+BuildRequires:	qt6-qtbase-devel
+BuildRequires:	qt6-qtmultimedia-devel
+BuildRequires:	qt6-qttools-devel
+%endif
+BuildRequires:	qt6-qt5compat-devel
+BuildRequires:	libxkbcommon-devel
+%endif
+Requires:	xdg-utils
+Requires:	hicolor-icon-theme
+BuildRequires:	desktop-file-utils
+Requires(post):	desktop-file-utils
+# Add this for more readable fonts on some distributions/versions
+#Requires:	dejavu-sans-mono-fonts
+
+%description -n stratoshark
+This package contains the Stratoshark GUI and desktop integration files,
+the strato text-mode variant, and necessary Stratoshark-related extcaps.
+%endif
 
 %prep
 %setup -q -n %{name}-%{package_version}
@@ -280,6 +374,9 @@ development of Wireshark scripts and plugins.
 %if 0%{?fedora} && ( "%{_prefix}" != "/usr" )
   -DENABLE_RPATH_ORIGIN=ON \
 %endif
+%if %{with ninja}
+  -G Ninja \
+%endif
 %if %{with ccache}
   -DENABLE_CCACHE=ON \
 %endif
@@ -290,6 +387,11 @@ development of Wireshark scripts and plugins.
 %endif
 %else
   -DBUILD_wireshark=OFF \
+%endif
+%if %{with stratoshark}
+  -DBUILD_stratoshark=ON -DBUILD_falcodump=ON \
+%else
+  -DBUILD_stratoshark=OFF -DBUILD_falcodump=OFF \
 %endif
 %if %{with lua}
   -DENABLE_LUA=ON \
@@ -318,10 +420,10 @@ development of Wireshark scripts and plugins.
 %else
   -DENABLE_BCG729=OFF \
 %endif
-%if %{with libxml2}
-  -DENABLE_LIBXML2=ON \
+%if %{with amrnb}
+  -DENABLE_AMRNB=ON \
 %else
-  -DENABLE_LIBXML2=OFF \
+  -DENABLE_AMRNB=OFF \
 %endif
 %if %{with nghttp2}
   -DENABLE_NGHTTP2=ON \
@@ -344,8 +446,10 @@ development of Wireshark scripts and plugins.
   -DENABLE_BROTLI=OFF \
 %endif
   -DENABLE_WERROR=OFF \
-%if %{with ninja}
-  -G Ninja \
+%if %{with zstd}
+  -DENABLE_ZSTD=ON \
+%else
+  -DENABLE_ZSTD=OFF \
 %endif
 %if %{with ilbc}
   -DENABLE_ILBC=ON \
@@ -356,6 +460,11 @@ development of Wireshark scripts and plugins.
   -DENABLE_OPUS=ON \
 %else
   -DENABLE_OPUS=OFF \
+%endif
+%if %{with libssh}
+  -DENABLE_LIBSSH=ON \
+%else
+  -DENABLE_LIBSSH=OFF \
 %endif
 
 # Fedora and SUSE 15 do out of source builds by default, but they store
@@ -412,9 +521,32 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.wireshark.Wiresha
 %endif
 %endif
 
-%if %{use_wireshark_group}
+%if %{with stratoshark}
+%if 0%{?suse_version}
+# SUSE's packaging conventions
+# (https://en.opensuse.org/openSUSE:Packaging_Conventions_RPM_Macros#.25suse_update_desktop_file)
+# require this:
+%if "%{_prefix}" != "/usr"
+install -Dm 0644 %{buildroot}%{_prefix}/share/applications/org.wireshark.Stratoshark.desktop %{buildroot}/usr/share/applications/org.wireshark.Stratoshark.desktop
+%endif
+%suse_update_desktop_file org.wireshark.Stratoshark
+%else
+# Fedora's packaging guidelines (https://fedoraproject.org/wiki/Packaging:Guidelines)
+# require this (at least if desktop-file-install was not used to install it).
+desktop-file-validate %{buildroot}%{_datadir}/applications/org.wireshark.Stratoshark.desktop
+%endif
+%endif
+
+%if %{use_wireshark_group} || "%{use_stratoshark_group}" == "1"
 %pre
+%if %{use_wireshark_group}
 getent group wireshark >/dev/null || groupadd -r wireshark
+%endif
+
+%if "%{use_stratoshark_group}" == "1"
+getent group stratoshark >/dev/null || groupadd -r stratoshark
+%endif
+
 %endif
 
 %post -p /sbin/ldconfig
@@ -432,10 +564,22 @@ update-desktop-database %{_datadir}/applications &> /dev/null ||:
 update-mime-database %{_datadir}/mime &> /dev/null || :
 %endif
 
+%if %{with statoshark}
+%post -n stratoshark
+update-desktop-database %{_datadir}/applications &> /dev/null || :
+update-mime-database %{_datadir}/mime &> /dev/null || :
+touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
+
+%postun -n stratoshark
+update-desktop-database %{_datadir}/applications &> /dev/null ||:
+update-mime-database %{_datadir}/mime &> /dev/null || :
+%endif
+
 %files
 
 %defattr(-,root,root)
-%doc AUTHORS COPYING README.md
+%doc AUTHORS README.md
+%license COPYING
 %if %{with guides}
 %exclude %{_docdir}/wireshark/wsdg_html_chunked
 %endif
@@ -446,6 +590,8 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %exclude %{_bindir}/wireshark*
 %exclude %{_bindir}/dftest
 %exclude %{_bindir}/idl2wrs
+# Don't pick up the stratoshark or strato binaries here
+%exclude %{_bindir}/strato*
 %{_bindir}/*
 
 # This generates a warning because dumpcap is listed twice. That's
@@ -476,12 +622,18 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 
 %{_libdir}/lib*.so.*
 %{_libdir}/wireshark
+%{_libexecdir}/wireshark
 # Don't pick up the wireshark (GUI) man page here
 %exclude %{_mandir}/man1/wireshark.*
+# Don't pick up the stratoshark related man pages here
+%exclude %{_mandir}/man1/strato.*
+%exclude %{_mandir}/man1/stratoshark.*
+%exclude %{_mandir}/man1/falcodump.*
+%exclude %{_mandir}/man1/sshdig.*
 %{_mandir}/man1/*
 %{_mandir}/man4/*
 
-%config(noreplace) %{_datadir}/wireshark/diameter/Custom.xml
+%config(noreplace) %{_datadir}/wireshark/diameter/dictionary.ent
 %{_datadir}/wireshark
 
 %if 0%{?install_ld_so_conf}
@@ -505,6 +657,59 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %{_mandir}/man1/wireshark.*
 %endif
 
+%if %{with stratoshark}
+%files -n stratoshark
+%defattr(-,root,root)
+%{_datadir}/applications/org.wireshark.Stratoshark.desktop
+%if 0%{?suse_version}
+%if "%{_prefix}" != "/usr"
+/usr/share/applications/org.wireshark.Stratoshark.desktop
+%endif
+%endif
+%{_datadir}/stratoshark
+
+%{_datadir}/metainfo/org.wireshark.Stratoshark.metainfo.xml
+%{_datadir}/icons/hicolor/*/apps/*
+%{_datadir}/icons/hicolor/*/mimetypes/*
+%{_datadir}/mime/packages/org.wireshark.Stratoshark.xml
+%{_bindir}/strato*
+%{_libexecdir}/stratoshark
+%{_mandir}/man1/stratoshark.*
+%{_mandir}/man1/falcodump.*
+%{_mandir}/man1/sshdig.*
+
+# The note above about generating a warning because dumpcap is listed twice
+# applies here as well.
+# The minimum set of capabibilities we need for syscall capture are
+# CAP_SYS_PTRACE, CAP_SYS_RESOURCE, CAP_BPF, and CAP_PERFMON.
+# However, Docker doesn't support CAP_BPF and CAP_PERFMON so we use
+# CAP_SYS_ADMIN instead.
+# https://falco.org/docs/setup/container/#docker-least-privileged-modern-ebpf
+%if %{use_stratoshark_group} && %{setuid_falcodump}
+# Setuid but only executable by members of the 'stratoshark' group
+%attr(4750, root, stratoshark) %{_libexecdir}/stratoshark/extcap/falcodump
+%else
+%if %{use_stratoshark_group} && %{setcap_falcodump}
+# Setcap but only executable by members of the 'stratoshark' group
+%attr(0750, root, stratoshark) %caps(cap_sys_admin,cap_sys_resource,cap_sys_ptrace=ep) %{_libexecdir}/stratoshark/extcap/falcodump
+%else
+%if %{setuid_falcodump}
+# Setuid and executable by all
+%attr(4755, root, root) %{_libexecdir}/stratoshark/extcap/falcodump
+%else
+%if %{setcap_falcodump}
+# Setcap and executable by all
+%attr(0755, root, root) %caps(cap_sys_admin,cap_sys_resource,cap_sys_ptrace=ep) %{_libexecdir}/stratoshark/extcap/falcodump
+%else
+# Executable by all but with no special permissions
+%attr(0755, root, root) %{_libexecdir}/stratoshark/extcap/falcodump
+%endif
+%endif
+%endif
+%endif
+
+%endif
+
 %files devel
 %{_bindir}/dftest
 %{_bindir}/idl2wrs
@@ -518,6 +723,9 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %endif
 
 %changelog
+* Thu Feb 27 2025 Gerald Combs
+- Use an SPDX license identifier
+
 * Wed Jun 14 2023 Joao Valverde
 - Update CMake devel files path
 

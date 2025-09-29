@@ -127,6 +127,7 @@ typedef struct recent_settings_tag {
     bool        statusbar_show;
     bool        packet_list_colorize;
     bool        capture_auto_scroll;
+    bool        aggregation_view;
     ts_type     gui_time_format;
     int         gui_time_precision;
     ts_seconds_type gui_seconds_format;
@@ -173,6 +174,10 @@ typedef struct recent_settings_tag {
     GList      *custom_colors;
     GList      *gui_additional_toolbars;
     GList      *interface_toolbars;
+
+    bool        gui_tsgd_throughput_show;            /* tcp_stream_dialog throughput checkbox */
+    bool        gui_tsgd_goodput_show;               /* tcp_stream_dialog goodput checkbox */
+    double      gui_tsgd_ma_window_size;             /* tcp_stream_dialog ma_window_size */
 } recent_settings_t;
 
 /** Global recent settings. */

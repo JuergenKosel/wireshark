@@ -10,7 +10,9 @@
     <launchable type="desktop-id">org.wireshark.Wireshark.desktop</launchable>
     <name>Wireshark</name>
     <summary>Network protocol analyzer</summary>
-    <developer_name>The Wireshark developer community</developer_name>
+    <developer id="org.wireshark">
+        <name>The Wireshark developer community</name>
+    </developer>
     <content_rating type="oars-1.1"/>
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>GPL-2.0</project_license>
@@ -20,7 +22,7 @@
 	Wireshark allows you to examine protocol data stored in files or as it
 	is captured from wired or wireless (WiFi or Bluetooth) networks, USB
 	devices, and many other sources.  It supports dozens of protocol
-	capture file formats and understands more than a thousand protocols.
+	capture file formats and understands thousands of protocols.
     </p>
     <p>
 	It has many powerful features including a rich display filter language

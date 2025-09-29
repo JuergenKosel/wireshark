@@ -20,7 +20,7 @@
 #include <epan/packet_info.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
-#include <epan/value_string.h>
+#include <wsutil/value_string.h>
 #include <epan/dissectors/packet-sctp.h>
 #include <epan/to_str.h>
 
@@ -64,6 +64,22 @@ sctpstat_reset(void *phs)
 			tmp->chunk_count[chunk_type] = 0;
 
 	sctp_stat->number_of_packets = 0;
+}
+
+static void
+sctpstat_finish(void *phs)
+{
+	sctpstat_t *sctp_stat = (sctpstat_t *)phs;
+	sctp_ep_t  *list      = (sctp_ep_t *)sctp_stat->ep_list;
+
+	while (list != NULL) {
+		sctp_ep_t *ptr = list;
+		list = list->next;
+		g_free(ptr);
+	}
+
+	g_free(sctp_stat->filter);
+	g_free(sctp_stat);
 }
 
 
@@ -184,7 +200,7 @@ sctpstat_draw(void *phs)
 }
 
 
-static void
+static bool
 sctpstat_init(const char *opt_arg, void *userdata _U_)
 {
 	sctpstat_t *hs;
@@ -199,9 +215,7 @@ sctpstat_init(const char *opt_arg, void *userdata _U_)
 	hs->ep_list = NULL;
 	hs->number_of_packets = 0;
 
-	sctpstat_reset(hs);
-
-	error_string = register_tap_listener("sctp", hs, hs->filter, 0, NULL, sctpstat_packet, sctpstat_draw, NULL);
+	error_string = register_tap_listener("sctp", hs, hs->filter, TL_REQUIRES_NOTHING, sctpstat_reset, sctpstat_packet, sctpstat_draw, sctpstat_finish);
 	if (error_string) {
 		/* error, we failed to attach to the tap. clean up */
 		g_free(hs->filter);
@@ -210,8 +224,10 @@ sctpstat_init(const char *opt_arg, void *userdata _U_)
 		cmdarg_err("Couldn't register sctp,stat tap: %s",
 			error_string->str);
 		g_string_free(error_string, TRUE);
-		exit(1);
+		return false;
 	}
+
+	return true;
 }
 
 static stat_tap_ui sctpstat_ui = {

@@ -178,7 +178,7 @@ static int dissect_sftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
         typ = tvb_get_uint8(tvb, offset) ;
         proto_tree_add_item(sftp_tree, hf_ssh_sftp_type, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset += 1;
-        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, val_to_str(typ, ssh2_sftp_vals, "Unknown (%u)"));
+        col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, val_to_str(pinfo->pool, typ, ssh2_sftp_vals, "Unknown (%u)"));
         switch(typ){
         case SSH_FXP_INIT:{
                 int ver = tvb_get_ntohl(tvb, offset) ;
@@ -527,11 +527,11 @@ static int dissect_sftp_attrs(tvbuff_t *packet_tvb, packet_info *pinfo,
             offset += 4;
         }
         if(flags & SSH_FILEXFER_ATTR_ACMODTIME){
-            proto_tree_add_item(sftp_attrs_tree, hf_ssh_sftp_attrs_atime, packet_tvb, offset, 4, ENC_TIME_SECS);
+            proto_tree_add_item(sftp_attrs_tree, hf_ssh_sftp_attrs_atime, packet_tvb, offset, 4, ENC_TIME_SECS|ENC_BIG_ENDIAN);
             offset += 4;
         }
         if(flags & SSH_FILEXFER_ATTR_ACMODTIME){
-            proto_tree_add_item(sftp_attrs_tree, hf_ssh_sftp_attrs_mtime, packet_tvb, offset, 4, ENC_TIME_SECS);
+            proto_tree_add_item(sftp_attrs_tree, hf_ssh_sftp_attrs_mtime, packet_tvb, offset, 4, ENC_TIME_SECS|ENC_BIG_ENDIAN);
             offset += 4;
         }
         if(flags & SSH_FILEXFER_ATTR_EXTENDED){

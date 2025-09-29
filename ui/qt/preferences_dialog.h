@@ -40,6 +40,7 @@ public:
      * to prefs_register_module or a protocol name.
      */
     void setPane(const QString module_name);
+    void enableAggregationOptions(bool);
 
 protected:
     void keyPressEvent(QKeyEvent *event);
@@ -47,6 +48,7 @@ protected:
 
 private:
     void apply();
+    void resizeSplitter();
 
     Ui::PreferencesDialog *pd_ui_;
 

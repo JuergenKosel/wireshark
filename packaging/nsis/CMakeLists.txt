@@ -48,7 +48,6 @@ set(STRATOSHARK_NSIS_FILES
 
 # Variables required for config.nsh
 set(PROGRAM_NAME ${CMAKE_PROJECT_NAME})
-set(LOG_PROGRAM_NAME ${LOG_PROJECT_NAME})
 file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}" TOP_SRC_DIR)
 # STAGING_DIR depends on the build configuration so we pass it
 # on the command line below.
@@ -60,7 +59,7 @@ set (MMDBRESOLVE_EXE ${MAXMINDDB_FOUND})
 # - Set CMakeLists.txt version strings in tools/make-version.py
 # - Add a VERSION_EXTRA cmake option
 set (PRODUCT_VERSION ${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}.${PROJECT_BUILD_VERSION})
-set (LOG_PRODUCT_VERSION ${LOG_PROJECT_MAJOR_VERSION}.${LOG_PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}.${PROJECT_BUILD_VERSION})
+set (STRATOSHARK_PRODUCT_VERSION ${STRATOSHARK_MAJOR_VERSION}.${STRATOSHARK_MINOR_VERSION}.${STRATOSHARK_PATCH_VERSION}.${STRATOSHARK_BUILD_VERSION})
 
 if((BUILD_wireshark OR BUILD_stratoshark) AND QT_FOUND)
 	set (QT_DIR "\${STAGING_DIR}")
@@ -156,7 +155,7 @@ if (BUILD_wireshark)
 				${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLLS} ${LUA_DLL}
 				${LZ4_DLL} ${MINIZIP_DLL} ${MINIZIPNG_DLLS} ${NGHTTP2_DLL} ${NGHTTP3_DLL} ${SBC_DLL} ${SMI_DLL}
 				${SNAPPY_DLL} ${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
-				${ZLIB_DLL} ${ZLIBNG_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}
+				${XXHASH_DLL} ${ZLIB_DLL} ${ZLIBNG_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}
 				${SPEEXDSP_DLL}
 				# Needed for mmdbresolve
 				${MAXMINDDB_DLL}
@@ -205,7 +204,7 @@ if (BUILD_stratoshark)
 			${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLLS} ${LUA_DLL}
 			${LZ4_DLL} ${MINIZIP_DLL} ${MINIZIPNG_DLLS} ${NGHTTP2_DLL} ${NGHTTP3_DLL} ${SBC_DLL} ${SMI_DLL}
 			${SNAPPY_DLL} ${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
-			${ZLIB_DLL} ${ZLIBNG_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}
+			${XXHASH_DLL} ${ZLIB_DLL} ${ZLIBNG_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}
 			${SPEEXDSP_DLL}
 			# Needed for mmdbresolve
 			${MAXMINDDB_DLL}
@@ -286,7 +285,6 @@ macro( ADD_NSIS_PACKAGE_TARGETS )
 			DEPENDS
 				${WIRESHARK_NSIS_FILES}
 				copy_data_files
-				faq_html
 				user_guide_html
 				release_notes_html
 		)
@@ -333,7 +331,6 @@ macro( ADD_NSIS_PACKAGE_TARGETS )
 				${STRATOSHARK_NSIS_FILES}
 				copy_data_files
 				user_guide_html
-				faq_html
 				${DATAFILE_DIR}/uninstall-stratoshark.exe
 		)
 		set_target_properties(stratoshark_nsis_prep PROPERTIES

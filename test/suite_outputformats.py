@@ -50,11 +50,6 @@ class TestOutputFormats:
         '''Decode some captures into json'''
         check_outputformat("json", expected="dhcp.json", env=base_env)
 
-    def test_outputformat_json_asctime(self, check_outputformat, base_env):
-        '''Decode some captures into json, with absolute times like asctime, for backwards compatibility '''
-        check_outputformat("json", extra_args=['-o', 'protocols.display_abs_time_ascii:ALWAYS'],
-            expected="dhcp-asctime.json", env=base_env)
-
     def test_outputformat_jsonraw(self, check_outputformat, base_env):
         '''Decode some captures into jsonraw'''
         check_outputformat("jsonraw", expected="dhcp.jsonraw", env=base_env)
@@ -72,7 +67,6 @@ class TestOutputFormats:
         check_outputformat("json", extra_args=['-eframe.number', '-c1'], expected=[
             {
                 "_index": "packets-2004-12-05",
-                "_type": "doc",
                 "_score": None,
                 "_source": {
                     "layers": {
@@ -87,7 +81,7 @@ class TestOutputFormats:
     def test_outputformat_ek_select_field(self, check_outputformat, base_env):
         '''Checks that the -e option works with -Tek.'''
         check_outputformat("ek", extra_args=['-eframe.number', '-c1'], expected=[
-            {"index": {"_index": "packets-2004-12-05", "_type": "doc"}},
+            {"index": {"_index": "packets-2004-12-05"}},
             {"timestamp": "1102274184317", "layers": {"frame_number": ["1"]}}
         ], multiline=True, env=base_env)
 

@@ -10,10 +10,11 @@ import re
 import argparse
 import signal
 import subprocess
+from pathlib import Path
 
 # This utility scans the dissector code for various issues.
 # TODO:
-# - Create maps from type -> display types for hf items (see display (FIELDDISPLAY)) in docs/README.dissector
+# - Create maps from type -> display types for hf items (see display (FIELDDISPLAY (1.2))) in docs/README.dissector
 
 
 # Try to exit soon after Ctrl-C is pressed.
@@ -36,14 +37,25 @@ def name_has_one_of(name, substring_list):
             return True
     return False
 
+# TODO: show in red and automatically inc errors_found
+def show_error(**kwargs):
+    print(kwargs)
+
+
 # An individual call to an API we are interested in.
 # Used by APICheck below.
 class Call:
-    def __init__(self, function_name, hf_name, macros, line_number=None, offset=None, length=None, fields=None):
+    def __init__(self, function_name, hf_name, macros, line_number=None, offset=None, length=None, fields=None, enc=None):
         self.hf_name = hf_name
         self.line_number = line_number
+        self.function_name = function_name
         self.fields = fields
+        self.enc = enc
+        if enc:
+            self.enc = self.enc.strip()
         self.length = None
+
+        # Substitute length if necessary
         if length:
             try:
                 #if offset.find('*') != -1 and offset.find('*') != 0 and offset.find('8') != -1:
@@ -90,6 +102,190 @@ item_lengths['FT_IPv4']   = 4
 item_lengths['FT_IPv6']   = 16
 
 # TODO: other types...
+
+
+# Checking encoding args against item types.
+
+# item type -> set<encodings>
+# TODO: need to capture that they may include endian *and* some other property..
+# TODO: should ENC_NA be allowed when e.g., FT_UINT16 field is called with 1-byte width?
+compatible_encoding_args = {
+    # doc/README.dissector says these should all be ENC_NA
+    'FT_NONE' :      set(['ENC_NA']),
+    'FT_BYTES' :     set(['ENC_NA']),
+    'FT_ETHER' :     set(['ENC_NA']),  # TODO: consider allowing 'ENC_LITTLE_ENDIAN' ?
+    'FT_IPv6' :      set(['ENC_NA']),
+    'FT_IPXNET' :    set(['ENC_NA']),
+    'FT_OID' :       set(['ENC_NA']),
+    'FT_REL_OID' :   set(['ENC_NA']),
+    'FT_AX25' :      set(['ENC_NA']),
+    'FT_VINES' :     set(['ENC_NA']),
+    'FT_SYSTEM_ID' : set(['ENC_NA']),
+    'FT_FCWWN' :     set(['ENC_NA']),
+
+    # TODO: FT_UINT_BYTES should have e.g., ENC_LITTLE_ENDIAN|ENC_NA
+
+    'FT_IPv4' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+
+
+    'FT_STRING' :    set(['ENC_ASCII',
+                          'ENC_UTF_8',
+                          'ENC_UTF_16',
+                          'ENC_UCS_2',
+                          'ENC_UCS_4',
+                          'ENC_WINDOWS_1250', 'ENC_WINDOWS_1251', 'ENC_WINDOWS_1252',
+                          'ENC_ISO_646_BASIC',
+                          'ENC_ISO_8859_1', 'ENC_ISO_8859_2', 'ENC_ISO_8859_3', 'ENC_ISO_8859_4',
+                          'ENC_ISO_8859_5', 'ENC_ISO_8859_6', 'ENC_ISO_8859_7', 'ENC_ISO_8859_8',
+                          'ENC_ISO_8859_9', 'ENC_ISO_8859_10', 'ENC_ISO_8859_11', 'ENC_ISO_8859_12',
+                          'ENC_ISO_8859_13', 'ENC_ISO_8859_14', 'ENC_ISO_8859_15', 'ENC_ISO_8859_16',
+                          'ENC_3GPP_TS_23_038_7BITS',
+                          'ENC_3GPP_TS_23_038_7BITS_UNPACKED',
+                          'ENC_ETSI_TS_102_221_ANNEX_A',
+                          'ENC_APN_STR',
+                          'ENC_EBCDIC',
+                          'ENC_EBCDIC_CP037',
+                          'ENC_EBCDIC_CP500',
+                          'ENC_MAC_ROMAN',
+                          'ENC_CP437',
+                          'ENC_CP855',
+                          'ENC_CP866',
+                          'ENC_ASCII_7BITS',
+                          'ENC_T61',
+                          'ENC_BCD_DIGITS_0_9', 'ENC_BCD_SKIP_FIRST', 'ENC_BCD_ODD_NUM_DIG',
+                          'ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN',   # These are allowed if ENC_BCD_DIGITS_0_9 is set..
+                          'ENC_KEYPAD_ABC_TBCD',
+                          'ENC_KEYPAD_BC_TBCD',
+                          'ENC_GB18030',
+                          'ENC_EUC_KR',
+                          'ENC_DECT_STANDARD_8BITS',
+                          'ENC_DECT_STANDARD_4BITS_TBCD',
+                          # Are these right..?
+                          #'ENC_STR_HEX',       # Should also have at least one ENC_SEP_* flag!
+                          #'ENC_STR_NUM',       # Should also have at least one ENC_SEP_* flag!
+                          #'ENC_STRING',        # OR of previous 2 values
+
+                          'ENC_LITTLE_ENDIAN'  # Only meaniningful for some encodings (ENC_UTF_16, ENC_UCS_2, ENC_UCS_4)
+                          ]),
+
+    'FT_CHAR' :      set(['ENC_ASCII', 'ENC_VARIANT_QUIC', 'ENC_ASCII_7BITS']),  # TODO: others?
+
+    # Integral types
+    'FT_UINT8' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN', 'ENC_NA']),
+    'FT_INT8' :      set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN', 'ENC_NA']),
+    'FT_UINT16' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT16' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT24' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT24' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT32' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT32' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT40' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT40' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT48' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT48' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT56' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT56' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_UINT64' :    set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+    'FT_INT64' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_HOST_ENDIAN']),
+
+    'FT_GUID' :      set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN']),
+    'FT_EUI64' :     set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN']),
+
+    # It does seem harsh to need to set this when field is 8 bits of less..
+    'FT_BOOLEAN' :   set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN']),
+
+
+    # N.B., these fields should also have an endian order...
+    'FT_ABSOLUTE_TIME' :  set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN',
+                               'ENC_TIME_SECS_NSECS', 'ENC_TIME_NTP', 'ENC_TIME_TOD',
+                               'ENC_TIME_RTPS', 'ENC_TIME_SECS_USECS', 'ENC_TIME_SECS',
+                               'ENC_TIME_MSECS', 'ENC_TIME_USECS',
+                               'ENC_TIME_NSECS', 'ENC_TIME_SECS_NTP', 'ENC_TIME_RFC_3971',
+                               'ENC_TIME_MSEC_NTP', 'ENC_TIME_MIP6', 'ENC_TIME_CLASSIC_MAC_OS_SECS',
+                               'ENC_TIME_ZBEE_ZCL', 'ENC_TIME_MP4_FILE_SECS']),
+   'FT_RELATIVE_TIME' :   set(['ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN',
+                               'ENC_TIME_SECS_NSECS', 'ENC_TIME_SECS_USECS', 'ENC_TIME_SECS',
+                               'ENC_TIME_MSECS', 'ENC_TIME_USECS', 'ENC_TIME_NSECS'])
+}
+
+# TODO: look into FT_STRINGZPAD, FT_STRINGZTRUNC, FT_UINT_STRING
+compatible_encoding_args['FT_STRINGZ'] = compatible_encoding_args['FT_STRING']
+
+compatible_encoding_multiple_flags_allowed = set(['FT_ABSOLUTE_TIME', 'FT_RELATIVE_TIME', 'FT_STRING', 'FT_STRINGZ'])
+
+class EncodingCheckerBasic:
+    def __init__(self, type, allowed_encodings, allow_multiple):
+        self.type = type
+        self.allowed_encodings = allowed_encodings
+        self.allow_multiple = allow_multiple
+        self.encodings_seen = 0
+
+    def check(self, encoding, call, api_check, item):
+        type = self.type
+
+        # Doesn't even really have an encoding type..
+        if call.function_name.find('_add_none') != -1:
+            return
+
+        # Are more encodings allowed?
+        if not self.allow_multiple and self.encodings_seen >= 1:
+            global errors_found
+            print('Error:', api_check.file + ':' + str(call.line_number),
+                  api_check.fun_name + ' called for ' + type + ' field "' + call.hf_name + '"', ' with encoding', encoding, 'but only one encoding flag allowed for type')
+            # TODO: enable once error count is zero..
+            #errors_found += 1
+
+        # Is this encoding allowed for this type?
+        if not encoding in self.allowed_encodings:
+            # Have an exemption for UINT fields if the length is only 1.
+            if encoding == 'ENC_NA' and item.item_type.find('FT_UINT') != -1 and call.length == 1:
+                return
+
+
+            global warnings_found
+            print('Warning:', api_check.file + ':' + str(call.line_number),
+                  api_check.fun_name + ' called for ' + type + ' field "' + call.hf_name + '"', ' - with bad encoding - ' + '"' + encoding + '"', '-',
+                  compatible_encoding_args[type], 'allowed')
+            warnings_found += 1
+        self.encodings_seen += 1
+
+# TODO: separate checker for string types?
+
+# Factory for appropriate checker object
+def create_enc_checker(type):
+    if type in compatible_encoding_args:
+        allow_multiple = type in compatible_encoding_multiple_flags_allowed
+        checker = EncodingCheckerBasic(type, compatible_encoding_args[type], allow_multiple)
+        return checker
+    else:
+        return None
+
+
+
+def check_call_enc_matches_item(items_defined, call, api_check):
+    if call.enc is None:
+        return
+
+    if call.enc.find('|') != -1:
+        encs = call.enc.split('|')
+        encs = [enc.strip() for enc in encs]
+    else:
+        encs = [call.enc.strip()]
+
+    if call.hf_name in items_defined:
+        item = items_defined[call.hf_name]
+        type = item.item_type
+        # TODO: checking each ENC_ value that appears, but not enforcing cases where there should be 2 values |d together
+        # TODO: should check extra logic here, like flags that should be given or only have significance sometimes, like
+        # order within a byte of ENC_BCD_DIGITS_0_9 for FT_STRING
+
+        checker = create_enc_checker(type)
+        if not checker is None:
+            for enc in encs:
+                if enc.startswith('ENC_'):
+                    if type != 'FT_BOOLEAN' or item.get_field_width_in_bits() > 8:
+                        checker.check(enc, call, api_check, item)
+
 
 
 # A check for a particular API function.
@@ -149,13 +345,28 @@ class APICheck:
                             if self.p.groups == 3:
                                 length = m.group(3)
 
+                        # Look for encoding arg
+                        # N.B. REs often won't extend to end of call, so may not include any encoding args..  TODO: extend them to );
+                        enc = None
+                        enc_start_index = to_check.find('ENC_')
+                        if enc_start_index != -1:
+                            enc_to_end = to_check[enc_start_index:]
+
+                            p = re.compile(r'(ENC_[A-Z_0-9\|\s]*)')
+                            enc_m = p.match(enc_to_end)
+
+                            if enc_m:
+                                enc = enc_m.group(1)
+                                #print(enc_m.group(1))
+
                         # Add call. We have length if re had 3 groups.
                         self.calls.append(Call(self.fun_name,
                                                m.group(2),
                                                macros,
                                                line_number=line_number,
                                                length=length,
-                                               fields=fields))
+                                               fields=fields,
+                                               enc=enc))
 
     # Return true if bit position n is set in value.
     def check_bit(self, value, n):
@@ -233,6 +444,10 @@ class APICheck:
                           self.fun_name + ' called for "' + call.hf_name + '"', ' - but no item found')
                     warnings_found += 1
 
+            # Checking that encoding arg is compatible with item type
+            check_call_enc_matches_item(items_defined, call, self)
+
+
 
 # Specialization of APICheck for add_item() calls
 class ProtoTreeAddItemCheck(APICheck):
@@ -308,15 +523,15 @@ class ProtoTreeAddItemCheck(APICheck):
                                             'BASE_SHOW_UTF_8_PRINTABLE',
                                             'is_mdns ? ENC_UTF_8|ENC_NA : ENC_ASCII|ENC_NA',
                                             'xl_encoding',
-                                            'my_frame_data->encoding_client', 'my_frame_data->encoding_results'
-
+                                            'my_frame_data->encoding_client', 'my_frame_data->encoding_results',
+                                            'seq_info->txt_enc'
                                           }:
                                 global warnings_found
 
                                 print('Warning:', self.file + ':' + str(line_number),
                                       self.fun_name + ' called for "' + hf_name + '"',  'check last/enc param:', enc, '?')
                                 warnings_found += 1
-                        self.calls.append(Call(self.fun_name, hf_name, macros, line_number=line_number, offset=m.group(2), length=m.group(3)))
+                        self.calls.append(Call(self.fun_name, hf_name, macros, line_number=line_number, offset=m.group(2), length=m.group(3), fields=None, enc=enc))
 
     def check_against_items(self, items_defined, items_declared, items_declared_extern,
                             check_missing_items=False, field_arrays=None):
@@ -338,6 +553,22 @@ class ProtoTreeAddItemCheck(APICheck):
                                 self.fun_name + ' called for', call.hf_name, ' - ',
                                 'item type is', items_defined[call.hf_name].item_type, 'but call has len', call.length)
                             warnings_found += 1
+
+                    # If have mask and length is too short, that is likely to be a problem.
+                    # N.B. shouldn't be from width of field, but how many bytes a mask spans (e.g., 0x0ff0 spans 2 bytes)
+                    if (item_lengths[items_defined[call.hf_name].item_type] > call.length and
+                        items_defined[call.hf_name].mask_value != 0 and
+                        int((items_defined[call.hf_name].mask_width + 7)/8) > call.length):
+
+                        print('Warning:', self.file + ':' + str(call.line_number),
+                            self.fun_name + ' called for', call.hf_name, ' - ',
+                            'item type is', items_defined[call.hf_name].item_type, 'but call has len', call.length, 'and mask is', hex(items_defined[call.hf_name].mask_value))
+                        warnings_found += 1
+
+                # Checking that encoding arg is compatible with item type
+                check_call_enc_matches_item(items_defined, call, self)
+
+
             elif check_missing_items:
                 if call.hf_name in items_declared and call.hf_name not in items_declared_extern:
                 #not in common_hf_var_names:
@@ -345,6 +576,44 @@ class ProtoTreeAddItemCheck(APICheck):
                           self.fun_name + ' called for "' + call.hf_name + '"', ' - but no item found')
                     warnings_found += 1
 
+class TVBGetBits:
+    def __init__(self, name, maxlen):
+        self.name = name
+        self.maxlen = maxlen
+        self.calls = []
+        pass
+
+    def find_calls(self, file, macros):
+        self.file = file
+        self.calls = []
+        with open(file, 'r', encoding="utf8") as f:
+            contents = f.read()
+            matches = re.finditer(self.name + r'\([a-zA-Z0-9_]+\s*,\s*(.*?)\s*,\s*([0-9a-zA-Z_]+)', contents)
+            for m in matches:
+                try:
+                    length = int(m.group(2))
+                except Exception:
+                    # Not parsable as literal decimal, so ignore
+                    # TODO: could subst macros if e.g., do check in check_against_items() 
+                    continue
+
+                if length > self.maxlen:
+                    # Error if some bits would get chopped off.
+                    global errors_found
+                    print('Error: ' + file + ' ' + m.group(0) + '...  has length of ' + m.group(2) + ', which is > API limit of ' + str(self.maxlen))
+                    errors_found += 1
+                elif self.maxlen > 8 and length <= self.maxlen/2:
+                    print('Note: ' + file + ' ' +  m.group(0) + '...  has length of ' + m.group(2) + ', could have used smaller version of function?')
+
+
+        return []
+
+    def calls(self):
+        return []
+
+    def check_against_items(self, items_defined, items_declared, items_declared_extern,
+                            check_missing_items=False, field_arrays=None):
+        pass
 
 
 ##################################################################################################
@@ -402,7 +671,9 @@ field_widths = {
     'FT_UINT56'  : 56,
     'FT_INT56'   : 56,
     'FT_UINT64'  : 64,
-    'FT_INT64'   : 64
+    'FT_INT64'   : 64,
+
+    'FT_UINT1632' : 32  # from packet-dcerpc.h
 }
 
 def is_ignored_consecutive_filter(filter):
@@ -603,7 +874,7 @@ class ValueString:
             # Same value, different label
             if value in self.parsed_vals and label != self.parsed_vals[value]:
                 print('Warning:', self.file, ': value_string', self.name, '- value ', value, 'repeated with different values - was',
-                    self.parsed_vals[value], 'now', label)
+                      self.parsed_vals[value], 'now', label)
                 warnings_found += 1
             else:
                 # Add into table, while checking for repeated label
@@ -625,7 +896,9 @@ class ValueString:
                             break
 
                     if not excepted and len(label)>2:
-                        print('Warning:', self.file, ': value_string', self.name, '- label ', label, 'repeated')
+                        previous_values =  [ str(v) for v in self.parsed_vals if self.parsed_vals[v] == label ]
+                        print('Warning:', self.file, ': value_string', self.name, '- label', label, 'repeated, value now', value,
+                              'previously', ','.join(previous_values))
                         warnings_found += 1
                 else:
                     self.seen_labels.add(label)
@@ -644,7 +917,7 @@ class ValueString:
         if num_items > 4 and span > num_items and (span-num_items <=1):
             for val in range(self.min_value, self.max_value):
                 if val not in self.parsed_vals:
-                    print('Warning:', self.file, ': value_string', self.name, '- value', val, 'missing?', '(', num_items, 'entries)')
+                    print('Warning:', self.file, ': value_string', self.name, '- value', val, 'missing?', '(', num_items, 'entries )')
                     global warnings_found
                     warnings_found += 1
 
@@ -1053,13 +1326,16 @@ class ExpertEntry:
 
         global errors_found, warnings_found
 
-        # Some immediate checks
+        # Remove any line breaks
+        summary = re.sub(re.compile(r'\"\s*\n\s*\"' ) ,'' , summary)
+
+        # Some immediate checks (already covered by other scripts)
         if group not in valid_groups:
-            print('Error:', filename, 'Expert group', group, 'is not in', valid_groups)
+            print('Error:', filename, name, 'Expert group', group, 'is not in', valid_groups)
             errors_found += 1
 
         if severity not in valid_levels:
-            print('Error:', filename, 'Expert severity', severity, 'is not in', valid_levels)
+            print('Error:', filename, name, 'Expert severity', severity, 'is not in', valid_levels)
             errors_found += 1
 
         # Checks on the summary field
@@ -1069,6 +1345,11 @@ class ExpertEntry:
         if summary.endswith(' '):
             print('Warning:', filename, 'Expert info summary', '"' + summary + '"', 'for', name, 'ends with space')
             warnings_found += 1
+        if summary.find('  ') != -1:
+            print('Warning:', filename, 'Expert info summary', '"' + summary + '"', 'for', name, 'has a double space')
+            warnings_found += 1
+
+
 
         # The summary field is shown in the expert window without substituting args..
         if summary.find('%') != -1:
@@ -1083,7 +1364,8 @@ class ExpertEntries:
         self.filename = filename
         self.entries = []
         self.summaries = set()  # key is (name, severity)
-        self.reverselookup = {}  # summary -> previous-item
+        self.summary_reverselookup = {}  # summary -> item-name
+        self.filter_reverselookup  = {}  # filter  -> item-name
         self.filters = set()
 
     def AddEntry(self, entry):
@@ -1092,18 +1374,21 @@ class ExpertEntries:
         global errors_found, warnings_found
 
         # If summaries are not unique, can't tell apart from expert window (need to look into frame to see details)
+        # TODO: summary strings will never be seen if all calls to that item use expert_add_info_format()
         if (entry.summary, entry.severity) in self.summaries:
             print('Warning:', self.filename, 'Expert summary', '"' + entry.summary + '"',
-                  'has already been seen (now in', entry.name, '- previously in', self.reverselookup[entry.summary], ')')
+                  'has already been seen (now in', entry.name, '- previously in', self.summary_reverselookup[entry.summary], ')')
             warnings_found += 1
         self.summaries.add((entry.summary, entry.severity))
-        self.reverselookup[entry.summary] = entry.name
+        self.summary_reverselookup[entry.summary] = entry.name
 
         # Not sure if anyone ever filters on these, but check if are unique
         if entry.filter in self.filters:
-            print('Warning:', self.filename, 'Expert filter', '"' + entry.filter + '"', 'has already been seen (now in', entry.name+')')
+            print('Warning:', self.filename, 'Expert filter', '"' + entry.filter + '"',
+                  'has already been seen (now in', entry.name, '- previously in', self.filter_reverselookup[entry.filter], ')')
             warnings_found += 1
         self.filters.add(entry.filter)
+        self.filter_reverselookup[entry.filter] = entry.name
 
     def VerifyCall(self, item):
         # TODO: ignore if wasn't declared in self.filename?
@@ -1115,7 +1400,7 @@ class ExpertEntries:
         # None matched...
         if item not in [ 'hf', 'dissect_hf' ]:
             global warnings_found
-            print('Warning:', self.filename, 'Expert info added with', '"' + item + '"', 'was it was not registered (in this file)')
+            print('Warning:', self.filename, 'Expert info added with', '"' + item + '"', 'was not registered (in this file)?')
             warnings_found += 1
 
 
@@ -1136,6 +1421,7 @@ class Item:
         self.label = label
         self.blurb = blurb
         self.mask = mask
+        self.mask_value_invalid = False
         self.strings = strings
         self.mask_exact_width = mask_exact_width
 
@@ -1146,7 +1432,6 @@ class Item:
                 '" has blurb of 0 - if no string, please set NULL instead')
             errors_found += 1
 
-        self.set_mask_value(macros)
 
         if check_consecutive:
             for previous_index,previous_item in enumerate(Item.previousItems):
@@ -1168,6 +1453,9 @@ class Item:
 
         self.display = display
         self.set_display_value(macros)
+
+        self.set_mask_value(macros)
+
 
         # Optionally check label (short and long).
         if check_label:
@@ -1218,9 +1506,29 @@ class Item:
         #    print('Warning: ' + self.filename, self.hf, 'filter "' + self.filter + '", label "' + label + '"', 'item type is', self.item_type, '- could be FT_FRANENUM?')
         #    warnings_found += 1
 
+        if item_type == 'FT_IPv4':
+            if label.endswith('6') or filter.endswith('6'):
+                print('Warning: ' + filename, hf, 'filter ' + filter + 'label "'+ label + '" but is a v4 field')
+                warnings_found += 1
+        if item_type == 'FT_IPv6':
+            if label.endswith('4') or filter.endswith('4'):
+                print('Warning: ' + filename, hf, 'filter ' + filter + 'label "' + label + '" but is a v6 field')
+                warnings_found += 1
+
+        # Could/should this entry use one of the port type display types?
+        if False:
+            if item_type == 'FT_UINT16' and not display.startswith('BASE_PT_') and display != 'BASE_CUSTOM':
+                desc = str(self).lower()
+                # TODO: use re to avoid matching 'transport' ?
+                if desc.lower().find('port') != -1:
+                    if desc.find('udp') != -1 or desc.find('tcp') != -1 or desc.find('sctp') -1:
+                        print('Warning: ' + filename, hf, 'filter "' + filter + '" label "' + label + '" field might be a transport port - should use e.g., BASE_PT_UDP as display??')
+                        print(self)
+                        warnings_found += 1
+
 
     def __str__(self):
-        return 'Item ({0} {1} "{2}" {3} type={4}:{5} {6} mask={7})'.format(self.filename, self.hf, self.label, self.filter, self.item_type, self.display, self.strings, self.mask)
+        return 'Item ({0} {1} "{2}" "{3}" type={4}:{5} {6} mask={7})'.format(self.filename, self.hf, self.label, self.filter, self.item_type, self.display, self.strings, self.mask)
 
     def check_label(self, label, label_name):
         global warnings_found
@@ -1241,7 +1549,7 @@ class Item:
                 print('Warning: ' + self.filename, self.hf, 'filter "' + self.filter + '"', label_name, '"' + label + '"', 'has unbalanced parens/braces/brackets')
                 warnings_found += 1
         if self.item_type != 'FT_NONE' and label.endswith(':'):
-            print('Warning: ' + self.filename, self.hf, 'filter "' + self.filter + '"', label_name, '"' + label + '"', 'ends with an unnecessary colon')
+            print('Warning: ' + self.filename, self.hf, 'filter "' + self.filter + '"', label_name, '"' + label + '"', 'with type', self.item_type, 'ends with an unnecessary colon')
             warnings_found += 1
 
     def check_blurb_vs_label(self):
@@ -1274,6 +1582,7 @@ class Item:
 
 
     def set_mask_value(self, macros):
+        self.mask_width = 0
         try:
             self.mask_read = True
             # PIDL generator adds annoying parenthesis and spaces around mask..
@@ -1284,7 +1593,10 @@ class Item:
                 self.mask = macros[self.mask]
             elif any(c not in '0123456789abcdefABCDEFxX' for c in self.mask):
                 self.mask_read = False
-                self.mask_value = 0
+                # Didn't manage to parse, set to a full value to avoid warnings.
+                self.mask_value = 0xffffffff
+                self.mask_width = 32
+                self.mask_value_invalid = True
                 #print(self.filename, 'Could not read:', '"' + self.mask + '"')
                 return
 
@@ -1295,9 +1607,23 @@ class Item:
                 self.mask_value = int(self.mask, 8)
             else:
                 self.mask_value = int(self.mask, 10)
+
+            # Also try to set mask_width
+            if self.mask_value > 0:
+                # Distance between first and last '1'
+                bitBools = bin(self.mask_value)[2:]
+                self.mask_width = bitBools.rfind('1') - bitBools.find('1') + 1
+            else:
+                # No mask is effectively a full mask..
+                self.mask_width = self.get_field_width_in_bits()
+
+
         except Exception:
             self.mask_read = False
-            self.mask_value = 0
+            # Didn't manage to parse, set to a full value to avoid warnings.
+            self.mask_value = 0xffffffff
+            self.mask_width = 32
+            self.mask_value_invalid = True
 
         #if not self.mask_read:
         #    print('Could not read:', self.mask)
@@ -1335,19 +1661,11 @@ class Item:
             # Type field defined by macro?
             return
 
-        if self.mask_value > 0:
-            # Distance between first and last '1'
-            bitBools = bin(self.mask_value)[2:]
-            mask_width = bitBools.rfind('1') - bitBools.find('1') + 1
-        else:
-            # No mask is effectively a full mask..
-            mask_width = item_width
-
-        item_max = (2 ** mask_width)
+        item_max = (2 ** self.mask_width)
         if vs_max > item_max:
             global warnings_found
             print('Warning:', self.filename, self.hf, 'filter=', self.filter,
-                  self.strings, "has max value", vs_max, '(' + hex(vs_max) + ')', "which doesn't fit into", mask_width, 'bits',
+                  self.strings, "has max value", vs_max, '(' + hex(vs_max) + ')', "which doesn't fit into", self.mask_width, 'bits',
                   '( mask is', hex(self.mask_value), ')')
             warnings_found += 1
 
@@ -1358,19 +1676,11 @@ class Item:
             # Type field defined by macro?
             return
 
-        if self.mask_value > 0:
-            # Distance between first and last '1'
-            bitBools = bin(self.mask_value)[2:]
-            mask_width = bitBools.rfind('1') - bitBools.find('1') + 1
-        else:
-            # No mask is effectively a full mask..
-            mask_width = item_width
-
-        item_max = (2 ** mask_width)
+        item_max = (2 ** self.mask_width)
         if rs_max > item_max:
             global warnings_found
             print('Warning:', self.filename, self.hf, 'filter=', self.filter,
-                  self.strings, "has values", rs_min, rs_max, '(' + hex(rs_max) + ')', "which doesn't fit into", mask_width, 'bits',
+                  self.strings, "has values", rs_min, rs_max, '(' + hex(rs_max) + ')', "which doesn't fit into", self.mask_width, 'bits',
                   '( mask is', hex(self.mask_value), ')')
             warnings_found += 1
 
@@ -1444,7 +1754,7 @@ class Item:
 
     def get_field_width_in_bits(self):
         if self.item_type == 'FT_BOOLEAN':
-            if self.display == 'NULL':
+            if self.display == 'BASE_NONE':    # 'NULL' ?
                 return 8  # i.e. 1 byte
             elif self.display == 'SEP_DOT':   # from proto.h, only meant for FT_BYTES
                 return 64
@@ -1453,13 +1763,15 @@ class Item:
                     # For FT_BOOLEAN, modifier is just numerical number of bits. Round up to next nibble.
                     return int((int(self.display) + 3)/4)*4
                 except Exception:
-                    return None
+                    #print(self, self.display)
+                    return 8
         else:
             if self.item_type in field_widths:
                 # Lookup fixed width for this type
                 return field_widths[self.item_type]
             else:
-                return None
+                # Unknown type..
+                return 0
 
     def check_num_digits(self, mask):
         if mask.startswith('0x') and len(mask) > 3:
@@ -1623,8 +1935,8 @@ class Item:
     def check_string_display(self):
         global warnings_found
         if self.item_type in { 'FT_STRING', 'FT_STRINGZ', 'FT_UINT_STRING'}:
-            if self.display.find('BASE_NONE')==-1:
-                print('Warning:', self.filename, self.hf, 'type is', self.item_type, 'display must be BASE_NONE, is instead', self.display)
+            if self.display.find('BASE_NONE')==-1 and self.display.find('BASE_STR_WSP')==-1:
+                print('Warning:', self.filename, self.hf, 'type is', self.item_type, 'display must be BASE_NONE or BASE_STR_WSP, is instead', self.display)
                 warnings_found += 1
 
 
@@ -1767,11 +2079,15 @@ apiChecks.append(APICheck('ptvcursor_add_ret_boolean', { 'FT_BOOLEAN'}))
 apiChecks.append(ProtoTreeAddItemCheck())
 apiChecks.append(ProtoTreeAddItemCheck(True)) # for ptvcursor_add()
 
+apiChecks.append(TVBGetBits('tvb_get_bits8',  maxlen=8))
+apiChecks.append(TVBGetBits('tvb_get_bits16', maxlen=16))
+apiChecks.append(TVBGetBits('tvb_get_bits32', maxlen=32))
+apiChecks.append(TVBGetBits('tvb_get_bits64', maxlen=64))
 
 
 def removeComments(code_string):
-    code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" , code_string) # C-style comment
-    code_string = re.sub(re.compile(r"//.*?\n" ) ,"" , code_string)             # C++-style comment
+    code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" , code_string)     # C-style comment
+    code_string = re.sub(re.compile(r"(?<!http:)//.*?\n" ) ,"" , code_string)       # C++-style comment
     code_string = re.sub(re.compile(r"#if 0.*?#endif",re.DOTALL ) ,"" , code_string) # Ignored region
 
     return code_string
@@ -1810,26 +2126,36 @@ def isGeneratedFile(filename):
     return False
 
 
-# TODO: could also look for macros in related/included header file(s)?
+# Looking for simple #define macros or enumerations.
 def find_macros(filename):
     # Pre-populate with some useful values..
     macros = { 'BASE_NONE' : 0,  'BASE_DEC' : 1 }
 
-    with open(filename, 'r', encoding="utf8") as f:
-        contents = f.read()
-        # Remove comments so as not to trip up RE.
-        contents = removeComments(contents)
+    # Also look for macros from corresponding header file, if present
+    files_to_check = [filename]
+    header = Path(filename).with_suffix('.h')
+    if os.path.exists(header):
+        files_to_check.append(header)
 
-        matches = re.finditer( r'#define\s*([A-Za-z0-9_]*)\s*([0-9xa-fA-F]*)\s*\n', contents)
-        for m in matches:
-            # Store this mapping.
-            macros[m.group(1)] = m.group(2)
+    # TODO: also/instead look for directly included files of form packet-xxx.h ?
 
-        # Also look for what could be enumeration assignments
-        matches = re.finditer( r'\s*([A-Za-z0-9_]*)\s*=\s*([0-9xa-fA-F]*)\s*,?\n', contents)
-        for m in matches:
-            # Store this mapping.
-            macros[m.group(1)] = m.group(2)
+    for file in files_to_check:
+        with open(file, 'r', encoding="utf8") as f:
+            contents = f.read()
+            # Remove comments so as not to trip up RE.
+            contents = removeComments(contents)
+
+            # Allowing optional parenthesis around value part.
+            matches = re.finditer( r'#define\s*([A-Za-z0-9_]*)\s*\(?([0-9xa-fA-F]*)\)?\s*\n', contents)
+            for m in matches:
+                # Store this mapping.
+                macros[m.group(1)] = m.group(2)
+
+            # Also look for what could be enumeration assignments
+            matches = re.finditer( r'\s*([A-Za-z0-9_]*)\s*=\s*([0-9xa-fA-F]*)\s*,?\n', contents)
+            for m in matches:
+                # Store this mapping.
+                macros[m.group(1)] = m.group(2)
 
     return macros
 
@@ -1916,7 +2242,8 @@ def find_field_arrays(filename, all_fields, all_hf):
             combined_mask = 0x0
             for f in fields[0:-1]:
                 if f in all_hf:
-                    new_mask = all_hf[f].mask_value
+                    # Don't use invalid mask.
+                    new_mask = all_hf[f].mask_value if not all_hf[f].mask_value_invalid else 0
                     if new_mask & combined_mask:
                         print('Warning:', filename, name, 'has overlapping mask - {', ', '.join(fields), '} combined currently', hex(combined_mask), f, 'adds', hex(new_mask))
                         warnings_found += 1

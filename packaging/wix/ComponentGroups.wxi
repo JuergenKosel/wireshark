@@ -61,7 +61,7 @@
           <File Id="filIpmap_html" KeyPath="yes" Source="$(var.Staging.Dir)\ipmap.html" />
         </Component>
         <Component Id="cmpReleaseNotes_html" Guid="*">
-          <File Id="filReleaseNotes_html" KeyPath="yes" Source="$(var.Staging.Dir)\release-notes.html" />
+          <File Id="filReleaseNotes_html" KeyPath="yes" Source="$(var.Staging.Dir)\Wireshark Release Notes.html" />
         </Component>
       </DirectoryRef>
     </Fragment>
@@ -591,23 +591,6 @@
     </ComponentGroup>
   </Fragment>
 
-  <?ifdef DOC_DIR?>
-    <!-- User Guide is created by heat -->
-    <!-- FAQ -->
-    <Fragment>
-      <DirectoryRef Id="INSTALLFOLDER">
-        <Component Id="cmpFAQ_html" Guid="*">
-          <File Id="filFAQ_html" KeyPath="yes" Source="$(var.DOC_DIR)\faq.html" />
-        </Component>
-      </DirectoryRef>
-    </Fragment>
-    <Fragment>
-      <ComponentGroup Id="CG.Documentation">
-        <ComponentRef Id="cmpFAQ_html" />
-      </ComponentGroup>
-    </Fragment>
-  <?endif?>
-
   <!-- Shortcuts -->
   <Fragment>
     <ComponentGroup Id="CG.WiresharkStartMenu" Directory="ProgramMenuFolder">
@@ -818,15 +801,6 @@
           </Extension>
         </ProgId>
         <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="rf5" Type="integer" Value="1" KeyPath="yes"/>
-        <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
-      </Component>
-      <Component Id="cmpFAscap">
-        <ProgId Id="$(var.WiresharkFileAssociation)" Description="scap">
-          <Extension Id="scap">
-            <Verb Id="open" Command="open" TargetFile="filWireshark_exe" Argument="&quot;%1&quot;"/>
-          </Extension>
-        </ProgId>
-        <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="scap" Type="integer" Value="1" KeyPath="yes"/>
         <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
       </Component>
       <Component Id="cmpFAsnoop">

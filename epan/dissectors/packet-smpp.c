@@ -38,6 +38,7 @@
 
 #include "config.h"
 
+#include <errno.h>
 
 #include <epan/packet.h>
 #include <epan/expert.h>
@@ -243,6 +244,7 @@ static int hf_huawei_smpp_notify_mode;
 static int hf_huawei_smpp_delivery_result;
 
 static expert_field ei_smpp_message_payload_duplicate;
+static expert_field ei_smpp_date_time_decoding_failed;
 
 /* Initialize the subtree pointers */
 static int ett_smpp;
@@ -1084,7 +1086,7 @@ smpp_stats_tree_init(stats_tree* st)
 
 static tap_packet_status
 smpp_stats_tree_per_packet(stats_tree *st, /* st as it was passed to us */
-                           packet_info *pinfo _U_,
+                           packet_info *pinfo,
                            epan_dissect_t *edt _U_,
                            const void *p,
                            tap_flags_t flags _U_) /* Used for getting SMPP command_id values */
@@ -1096,16 +1098,16 @@ smpp_stats_tree_per_packet(stats_tree *st, /* st as it was passed to us */
     if ((tap_rec->command_id & SMPP_COMMAND_ID_RESPONSE_MASK) == SMPP_COMMAND_ID_RESPONSE_MASK) /* Response */
     {
         tick_stat_node(st, "SMPP Responses", st_smpp_ops, true);
-        tick_stat_node(st, val_to_str(tap_rec->command_id, vals_command_id, "Unknown 0x%08x"), st_smpp_res, false);
+        tick_stat_node(st, val_to_str(pinfo->pool, tap_rec->command_id, vals_command_id, "Unknown 0x%08x"), st_smpp_res, false);
 
         tick_stat_node(st, "SMPP Response Status", 0, true);
-        tick_stat_node(st, rval_to_str(tap_rec->command_status, rvals_command_status, "Unknown 0x%08x"), st_smpp_res_status, false);
+        tick_stat_node(st, rval_to_str_wmem(pinfo->pool, tap_rec->command_status, rvals_command_status, "Unknown 0x%08x"), st_smpp_res_status, false);
 
     }
     else  /* Request */
     {
         tick_stat_node(st, "SMPP Requests", st_smpp_ops, true);
-        tick_stat_node(st, val_to_str(tap_rec->command_id, vals_command_id, "Unknown 0x%08x"), st_smpp_req, false);
+        tick_stat_node(st, val_to_str(pinfo->pool, tap_rec->command_id, vals_command_id, "Unknown 0x%08x"), st_smpp_req, false);
     }
 
     return TAP_PACKET_REDRAW;
@@ -1114,22 +1116,36 @@ smpp_stats_tree_per_packet(stats_tree *st, /* st as it was passed to us */
 /*!
  * SMPP equivalent of mktime() (3). Convert date to standard 'time_t' format
  *
- * \param       datestr The SMPP-formatted date to convert
- * \param       secs    Returns the 'time_t' equivalent
- * \param       nsecs   Returns the additional nano-seconds
+ * \param      datestr  The SMPP-formatted date to convert
+ * \param      nstime   Returns the 'nstime_t' equivalent
+ * \param      relative Returns whether time is specified relative or absolute
  *
- * \return              Whether time is specified relative (true) or absolute (false)
- *                      If invalid abs time: return *secs = (time_t)(-1) and *nsecs=0
+ * \return              Whether the time parsed validly.
  */
 
-/* XXX: This function needs better error checking and handling */
-
 static bool
-smpp_mktime(const char *datestr, time_t *secs, int *nsecs)
+smpp_mktime(const char *datestr, nstime_t *nstime, bool *relative)
 {
     struct tm    r_time;
     time_t       t_diff;
-    bool         relative = (datestr[15] == 'R') ? true : false;
+
+    for (int i = 0; i < 15; ++i) {
+        if (!g_ascii_isdigit(datestr[i])) {
+            return false;
+        }
+    }
+
+    switch (datestr[15]) {
+    case 'R':
+        *relative = true;
+        break;
+    case '+':
+    case '-':
+        *relative = false;
+        break;
+    default:
+        return false;
+    }
 
     r_time.tm_year = 10 * (datestr[0] - '0') + (datestr[1] - '0');
     /*
@@ -1145,30 +1161,40 @@ smpp_mktime(const char *datestr, time_t *secs, int *nsecs)
     r_time.tm_sec  = 10 * (datestr[10] - '0') + (datestr[11] - '0');
     r_time.tm_isdst = -1;
 
-    if (relative == false) {
-        *secs = mktime_utc(&r_time);
-        *nsecs = 0;
-        if (*secs == (time_t)(-1)) {
-            return relative;
+    /* Some implementations of timegm, mktime, etc. happily convert
+     * October 40 to November 9, etc. Don't allow that. */
+    if (!tm_is_valid(&r_time)) {
+        return false;
+    }
+
+    if (*relative == false) {
+        nstime->secs = mktime_utc(&r_time);
+        if (errno == EINVAL) {
+            return false;
         }
-        *nsecs = (datestr[12] - '0') * 100000000;
+        nstime->nsecs = (datestr[12] - '0') * 100000000;
 
         t_diff = (10 * (datestr[13] - '0') + (datestr[14] - '0')) * 900;
         if (datestr[15] == '-')
             /* Represented time is behind UTC, shift it forward to UTC */
-            *secs += t_diff;
+            nstime->secs += t_diff;
         else if (datestr[15] == '+')
             /* Represented time is ahead of UTC, shift it backward to UTC */
-            *secs -= t_diff;
+            nstime->secs -= t_diff;
     } else {
-        *secs = r_time.tm_sec + 60 *
+        /* The SMPP standard gives examples of a relative time using years
+         * and months, but that can't be converted into a FT_RELATIVE_TIME
+         * without knowing the start time. In practice it shouldn't happen.
+         * XXX - Either fail or use some kind of contractual average month?
+         */
+        nstime->secs = r_time.tm_sec + 60 *
             (r_time.tm_min + 60 *
              (r_time.tm_hour + 24 *
               r_time.tm_mday));
-        *nsecs = 0;
+        nstime->nsecs = 0;
     }
 
-    return relative;
+    return true;
 }
 
 /*!
@@ -1225,25 +1251,27 @@ static void
 smpp_handle_time(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
                  int field, int field_R, int *offset)
 {
+    proto_item *ti;
     char     *strval;
     int       len;
-    nstime_t  tmptime;
+    nstime_t  tmptime = NSTIME_INIT_ZERO;
+    bool relative;
 
     strval = (char *) tvb_get_stringz_enc(pinfo->pool, tvb, *offset, &len, ENC_ASCII);
     if (*strval)
     {
-        if (len >= 16)
+        if (len >= 16 && smpp_mktime(strval, &tmptime, &relative))
         {
-            if (smpp_mktime(strval, &tmptime.secs, &tmptime.nsecs))
+            if (relative) {
                 proto_tree_add_time(tree, field_R, tvb, *offset, len, &tmptime);
-            else
+            } else {
                 proto_tree_add_time(tree, field, tvb, *offset, len, &tmptime);
+            }
         }
         else
         {
-            tmptime.secs = 0;
-            tmptime.nsecs = 0;
-            proto_tree_add_time_format_value(tree, field_R, tvb, *offset, len, &tmptime, "%s", strval);
+            ti = proto_tree_add_time_format_value(tree, field_R, tvb, *offset, len, &tmptime, "%s", strval);
+            expert_add_info(pinfo, ti, &ei_smpp_date_time_decoding_failed);
         }
     }
     *offset += len;
@@ -1363,7 +1391,7 @@ smpp_handle_tlv(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int *offset
         pi = proto_tree_add_none_format(tlvs_tree, hf_smpp_opt_param, tvb,
                                         *offset, length+4,
                                         "Optional parameter: %s (0x%04x)",
-                                        val_to_str(tag, vals_tlv_tags, "0x%04x"), tag);
+                                        val_to_str(pinfo->pool, tag, vals_tlv_tags, "0x%04x"), tag);
         sub_tree = proto_item_add_subtree(pi, ett_opt_param);
         proto_tree_add_uint(sub_tree,hf_smpp_opt_param_tag,tvb,*offset,2,tag);
         proto_tree_add_uint(sub_tree,hf_smpp_opt_param_len,tvb,*offset+2,2,length);
@@ -1414,13 +1442,13 @@ smpp_handle_tlv(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int *offset
             case  0x001D:       /* additional_status_info_text  */
                 if (length)
                     proto_tree_add_item(sub_tree, hf_smpp_additional_status_info_text,
-                        tvb, *offset, length, ENC_NA | ENC_ASCII);
+                        tvb, *offset, length, ENC_ASCII);
                 (*offset) += length;
                 break;
             case  0x001E:       /* receipted_message_id */
                 if (length)
                     proto_tree_add_item(sub_tree, hf_smpp_receipted_message_id,
-                        tvb, *offset, length, ENC_NA | ENC_ASCII);
+                        tvb, *offset, length, ENC_ASCII);
                 (*offset) += length;
                 break;
             case  0x0030: {       /* ms_msg_wait_facilities       */
@@ -1640,13 +1668,13 @@ smpp_handle_tlv(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int *offset
             case 0x060D:        /* source_network_id */
                 if (length)
                     proto_tree_add_item(sub_tree, hf_smpp_source_network_id,
-                        tvb, *offset, length, ENC_NA|ENC_ASCII);
+                        tvb, *offset, length, ENC_ASCII);
                 (*offset) += length;
                 break;
             case 0x060E:        /* dest_network_id */
                 if (length)
                     proto_tree_add_item(sub_tree, hf_smpp_dest_network_id,
-                        tvb, *offset, length, ENC_NA | ENC_ASCII);
+                        tvb, *offset, length, ENC_ASCII);
                 (*offset) += length;
                 break;
             case 0x060F:        /* source_node_id */
@@ -2450,13 +2478,13 @@ dissect_smpp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
     command_length = tvb_get_ntohl(tvb, offset);
     offset += 4;
     command_id = tvb_get_ntohl(tvb, offset);
-    command_str = val_to_str(command_id, vals_command_id,
+    command_str = val_to_str(pinfo->pool, command_id, vals_command_id,
             "(Unknown SMPP Operation 0x%08X)");
     offset += 4;
     command_status = tvb_get_ntohl(tvb, offset);
     if (command_id & SMPP_COMMAND_ID_RESPONSE_MASK) {
         /* PDU is a response. */
-        command_status_str = rval_to_str(command_status, rvals_command_status, "Unknown (0x%08x)");
+        command_status_str = rval_to_str_wmem(pinfo->pool, command_status, rvals_command_status, "Unknown (0x%08x)");
     }
     offset += 4;
     sequence_number = tvb_get_ntohl(tvb, offset);
@@ -3266,7 +3294,7 @@ proto_register_smpp(void)
         },
         {   &hf_smpp_sar_total_segments,
             {   "SAR size", "smpp.sar_total_segments",
-                FT_UINT16, BASE_DEC, NULL, 0x00,
+                FT_UINT8, BASE_DEC, NULL, 0x00,
                 "Number of segments of a concatenated short message.",
                 HFILL
             }
@@ -3639,7 +3667,7 @@ proto_register_smpp(void)
         },
         {       &hf_smpp_broadcast_rep_num,
                 {       "Broadcast Message - Number of repetitions requested", "smpp.broadcast_rep_num",
-                        FT_UINT16, BASE_DEC, NULL, 0x00,
+                        FT_UINT8, BASE_DEC, NULL, 0x00,
                         "Cell Broadcast Message - Number of repetitions requested", HFILL
                 }
         },
@@ -3780,6 +3808,11 @@ proto_register_smpp(void)
         { &ei_smpp_message_payload_duplicate,
           { "smpp.message_payload.duplicate", PI_PROTOCOL, PI_WARN,
             "short_message field and message_payload TLV can only appear once in total",
+            EXPFILL }
+        },
+        { &ei_smpp_date_time_decoding_failed,
+          { "smpp.date_time.decoding.failed", PI_PROTOCOL, PI_WARN,
+            "Failed to decode date and time from string",
             EXPFILL }
         }
     };

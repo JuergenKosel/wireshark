@@ -33,6 +33,7 @@
 #include <QDesktopServices>
 #include <QKeyEvent>
 #include <QMenu>
+#include <QScrollBar>
 #include <QUrl>
 
 extern "C" {
@@ -50,7 +51,7 @@ module_prefs_unstash(module_t *module, void *data)
     for (GList *pref_l = module->prefs; pref_l && pref_l->data; pref_l = gxx_list_next(pref_l)) {
         pref_t *pref = gxx_list_data(pref_t *, pref_l);
 
-        if (prefs_get_type(pref) == PREF_OBSOLETE || prefs_get_type(pref) == PREF_STATIC_TEXT) continue;
+        if (prefs_is_preference_obsolete(pref) || prefs_get_type(pref) == PREF_STATIC_TEXT) continue;
 
         unstashed_data.module = module;
         pref_unstash(pref, &unstashed_data);
@@ -74,7 +75,7 @@ module_prefs_clean_stash(module_t *module, void *)
     for (GList *pref_l = module->prefs; pref_l && pref_l->data; pref_l = gxx_list_next(pref_l)) {
         pref_t *pref = gxx_list_data(pref_t *, pref_l);
 
-        if (prefs_get_type(pref) == PREF_OBSOLETE || prefs_get_type(pref) == PREF_STATIC_TEXT) continue;
+        if (prefs_is_preference_obsolete(pref) || prefs_get_type(pref) == PREF_STATIC_TEXT) continue;
 
         pref_clean_stash(pref, Q_NULLPTR);
     }
@@ -149,6 +150,8 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) :
     pd_ui_->expertFrame->setUat(uat_get_table_by_name("Expert Info Severity Level Configuration"));
 
     connect(pd_ui_->prefsView, &PrefModuleTreeView::goToPane, this, &PreferencesDialog::selectPane);
+    connect(pd_ui_->prefsView, &PrefModuleTreeView::expanded, this, &PreferencesDialog::resizeSplitter);
+    connect(pd_ui_->prefsView, &PrefModuleTreeView::collapsed, this, &PreferencesDialog::resizeSplitter);
 
     /* Create a single-shot timer for debouncing calls to
      * updateSearchLineEdit() */
@@ -172,6 +175,11 @@ void PreferencesDialog::setPane(const QString module_name)
     pd_ui_->prefsView->setPane(module_name);
 }
 
+void PreferencesDialog::enableAggregationOptions(bool enable)
+{
+    pd_ui_->captureFrame->enableAggregationOptions(enable);
+}
+
 void PreferencesDialog::keyPressEvent(QKeyEvent *event)
 {
     if (pd_ui_->advancedSearchLineEdit->hasFocus() && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return)) {
@@ -181,33 +189,39 @@ void PreferencesDialog::keyPressEvent(QKeyEvent *event)
     GeometryStateDialog::keyPressEvent(event);
 }
 
-void PreferencesDialog::showEvent(QShowEvent *)
+void PreferencesDialog::resizeSplitter()
 {
-    QStyleOption style_opt;
-    int new_prefs_tree_width =  pd_ui_->prefsView->style()->subElementRect(QStyle::SE_TreeViewDisclosureItem, &style_opt).left();
     QList<int> sizes = pd_ui_->splitter->sizes();
 
-#ifdef Q_OS_WIN
-    new_prefs_tree_width *= 2;
-#endif
+    pd_ui_->prefsView->header()->setStretchLastSection(false);
     pd_ui_->prefsView->resizeColumnToContents(ModulePrefsModel::colName);
-    new_prefs_tree_width += pd_ui_->prefsView->columnWidth(ModulePrefsModel::colName);
-    pd_ui_->prefsView->setMinimumWidth(new_prefs_tree_width);
 
-    sizes[1] += sizes[0] - new_prefs_tree_width;
+    int new_prefs_tree_width = pd_ui_->prefsView->columnWidth(ModulePrefsModel::colName);
+    int scrollBarWidth = pd_ui_->prefsView->verticalScrollBar()->sizeHint().width();
+    new_prefs_tree_width += scrollBarWidth;
+    int border_width = pd_ui_->prefsView->style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
+    new_prefs_tree_width += 2 * border_width;
+
+    sizes[1] = (sizes[0] + sizes[1]) - new_prefs_tree_width;
     sizes[0] = new_prefs_tree_width;
+
     pd_ui_->splitter->setSizes(sizes);
     pd_ui_->splitter->setStretchFactor(0, 1);
+}
+
+void PreferencesDialog::showEvent(QShowEvent *)
+{
+    resizeSplitter();
 
     pd_ui_->advancedView->expandAll();
     pd_ui_->advancedView->setSortingEnabled(true);
     pd_ui_->advancedView->sortByColumn(AdvancedPrefsModel::colName, Qt::AscendingOrder);
 
-    int one_em = fontMetrics().height();
-    pd_ui_->advancedView->setColumnWidth(AdvancedPrefsModel::colName, one_em * 12); // Don't let long items widen things too much
+    int one_acw = fontMetrics().averageCharWidth();
+    pd_ui_->advancedView->setColumnWidth(AdvancedPrefsModel::colName, one_acw * 35); // Don't let long items widen things too much
     pd_ui_->advancedView->resizeColumnToContents(AdvancedPrefsModel::colStatus);
-    pd_ui_->advancedView->resizeColumnToContents(AdvancedPrefsModel::colType);
-    pd_ui_->advancedView->setColumnWidth(AdvancedPrefsModel::colValue, one_em * 30);
+    pd_ui_->advancedView->setColumnWidth(AdvancedPrefsModel::colType, one_acw * 22);
+    pd_ui_->advancedView->setColumnWidth(AdvancedPrefsModel::colValue, one_acw * 30);
 }
 
 void PreferencesDialog::selectPane(QString pane)
@@ -412,6 +426,10 @@ void PreferencesDialog::apply()
 
     /* Fill in capture options with values from the preferences */
     prefs_to_capture_opts();
+    mainApp->emitAppSignal(MainApplication::AggregationVisiblity);
+    if (redissect_flags & PREF_EFFECT_AGGREGATION) {
+        mainApp->emitAppSignal(MainApplication::AggregationChanged);
+    }
 
     mainApp->setMonospaceFont(prefs.gui_font_name);
 

@@ -69,7 +69,12 @@ AStringListListModel(parent)
     QFile f_authors;
 
     f_authors.setFileName(":/about/authors.csv");
-    f_authors.open(QFile::ReadOnly | QFile::Text);
+    if (!f_authors.open(QFile::ReadOnly | QFile::Text)) {
+        // "Cannot fail" because the file is in the resource system,
+        // unless something went wrong during building.
+        Q_ASSERT(false);
+        return;
+    }
     QTextStream ReadFile_authors(&f_authors);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     ReadFile_authors.setEncoding(QStringConverter::Utf8);
@@ -103,19 +108,19 @@ static void plugins_add_description(const char *name, const char *version,
     QList<QStringList> *plugin_data = (QList<QStringList> *)user_data;
     QStringList plugin_types;
     if (flags & WS_PLUGIN_DESC_DISSECTOR)
-        plugin_types << "dissector";
+        plugin_types << QObject::tr("Dissector");
     if (flags & WS_PLUGIN_DESC_FILE_TYPE)
-        plugin_types << "file type";
+        plugin_types << QObject::tr("File Type");
     if (flags & WS_PLUGIN_DESC_CODEC)
-        plugin_types << "codec";
+        plugin_types << QObject::tr("Codec");
     if (flags & WS_PLUGIN_DESC_EPAN)
-        plugin_types << "epan";
+        plugin_types << QObject::tr("Analysis");
     if (flags & WS_PLUGIN_DESC_TAP_LISTENER)
-        plugin_types << "tap listener";
+        plugin_types << QObject::tr("Tap Listener");
     if (flags & WS_PLUGIN_DESC_DFILTER)
-        plugin_types << "dfilter";
+        plugin_types << QObject::tr("Display Filter");
     if (plugin_types.empty())
-        plugin_types << "unknown";
+        plugin_types << QObject::tr("Unknown");
     QStringList plugin_row = QStringList() << name << version << plugin_types.join(", ") << filename;
     *plugin_data << plugin_row;
 }
@@ -263,7 +268,7 @@ FolderListModel::FolderListModel(QObject * parent):
 #ifdef HAVE_LIBSMI
     /* SMI MIBs/PIBs */
     char *default_mib_path = oid_get_default_mib_path();
-    QStringList smiPaths = QString(default_mib_path).split(G_SEARCHPATH_SEPARATOR_S);
+    QStringList smiPaths = QString(default_mib_path).split(G_SEARCHPATH_SEPARATOR_S, Qt::SkipEmptyParts);
     g_free(default_mib_path);
     foreach(QString path, smiPaths)
         appendRow(QStringList() << tr("MIB/PIB path") << path.trimmed() << tr("SMI MIB/PIB search path"));
@@ -306,10 +311,15 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->pte_wireshark->setFrameStyle(QFrame::NoFrame);
     ui->pte_wireshark->viewport()->setAutoFillBackground(false);
 
-/* Check if it is a dev release... (VERSION_MINOR is odd in dev release) */
-#if VERSION_MINOR & 1
-        ui->label_logo->setPixmap(QPixmap(":/about/wssplash_dev.png"));
-#endif
+    if (application_flavor_is_stratoshark()) {
+        if (mainApp->devicePixelRatio() > 1.0) {
+            QPixmap pm = QPixmap(":/about/sssplash@2x.png");
+            pm.setDevicePixelRatio(2.0);
+            ui->label_logo->setPixmap(pm);
+        } else {
+            ui->label_logo->setPixmap(QPixmap(":/about/sssplash.png"));
+        }
+    }
 
     /* Authors */
     AuthorListModel * authorModel = new AuthorListModel(this);
@@ -402,11 +412,16 @@ AboutDialog::AboutDialog(QWidget *parent) :
     /* Acknowledgements */
     f_acknowledgements.setFileName(":/about/Acknowledgements.md");
 
-    f_acknowledgements.open(QFile::ReadOnly | QFile::Text);
-    QTextStream ReadFile_acks(&f_acknowledgements);
-
     QTextBrowser *textBrowserAcks = new QTextBrowser();
-    textBrowserAcks->setMarkdown(ReadFile_acks.readAll());
+    if (f_acknowledgements.open(QFile::ReadOnly | QFile::Text)) {
+        QTextStream ReadFile_acks(&f_acknowledgements);
+        textBrowserAcks->setMarkdown(ReadFile_acks.readAll());
+    } else {
+        // "Cannot fail" because the file is in the resource system,
+        // unless something went wrong during building.
+        Q_ASSERT(false);
+    }
+
     textBrowserAcks->setReadOnly(true);
     textBrowserAcks->setOpenExternalLinks(true);
     textBrowserAcks->moveCursor(QTextCursor::Start);
@@ -415,10 +430,14 @@ AboutDialog::AboutDialog(QWidget *parent) :
     /* License */
     f_license.setFileName(":/about/gpl-2.0-standalone.html");
 
-    f_license.open(QFile::ReadOnly | QFile::Text);
-    QTextStream ReadFile_license(&f_license);
-
-    ui->textBrowserLicense->setHtml(ReadFile_license.readAll());
+    if (f_license.open(QFile::ReadOnly | QFile::Text)) {
+        QTextStream ReadFile_license(&f_license);
+        ui->textBrowserLicense->setHtml(ReadFile_license.readAll());
+    } else {
+        // "Cannot fail" because the file is in the resource system,
+        // unless something went wrong during building.
+        Q_ASSERT(false);
+    }
     ui->textBrowserLicense->moveCursor(QTextCursor::Start);
 }
 
@@ -664,7 +683,7 @@ void AboutDialog::copyActionTriggered(bool copyRow)
                 row << tree->model()->data(dataIdx).toString();
             }
 
-            clipdata.append(row.join("\t\t").append("\n"));
+            clipdata.append(row.join("\t").append("\n"));
 
             visitedRows << index.row();
         }

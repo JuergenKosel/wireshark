@@ -24,6 +24,7 @@
 #include <wsutil/crc16-plain.h> /* For FP Payload CRC. */
 #include <wsutil/crc11.h> /* For FP EDCH header CRC. */
 #include <wsutil/pint.h>
+#include <wsutil/ws_roundup.h>
 
 #include "packet-umts_fp.h"
 #include "packet-nbap.h"
@@ -633,7 +634,7 @@ static bool verify_control_frame_crc(tvbuff_t * tvb, packet_info * pinfo, proto_
     uint8_t crc = 0;
     uint8_t * data = NULL;
     /* Get data. */
-    data = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb, 0, tvb_reported_length(tvb));
+    data = (uint8_t *)tvb_memdup(pinfo->pool, tvb, 0, tvb_reported_length(tvb));
     /* Include only FT flag bit in CRC calculation. */
     data[0] = data[0] & 1;
     /* Calculate crc7 sum. */
@@ -653,7 +654,7 @@ static bool verify_header_crc(tvbuff_t * tvb, packet_info * pinfo, proto_item * 
     uint8_t crc = 0;
     uint8_t * data = NULL;
     /* Get data of header with first byte removed. */
-    data = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb, 1, header_length-1);
+    data = (uint8_t *)tvb_memdup(pinfo->pool, tvb, 1, header_length-1);
     /* Calculate crc7 sum. */
     crc = crc7update(0, data, header_length-1);
     crc = crc7finalize(crc); /* finalize crc */
@@ -673,7 +674,7 @@ static bool verify_header_crc_edch(tvbuff_t * tvb, packet_info * pinfo, proto_it
     /* First create new subset of header with first byte removed. */
     tvbuff_t * headtvb = tvb_new_subset_length(tvb, 1, header_length-1);
     /* Get data of header with first byte removed. */
-    data = (uint8_t *)tvb_memdup(wmem_packet_scope(), headtvb, 0, header_length-1);
+    data = (uint8_t *)tvb_memdup(pinfo->pool, headtvb, 0, header_length-1);
     /* Remove first 4 bits of the remaining data which are Header CRC cont. */
     data[0] = data[0] & 0x0f;
     crc = crc11_307_noreflect_noxor(data, header_length-1);
@@ -721,9 +722,7 @@ dissect_tb_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 /* Advance bit offset */
                 crci_bit_offset += p_fp_info->chan_tf_size[chan];
                 /* Pad out to next byte */
-                if (crci_bit_offset % 8) {
-                    crci_bit_offset += (8 - (crci_bit_offset % 8));
-                }
+                crci_bit_offset = WS_ROUNDUP_8(crci_bit_offset);
             }
         }
     }
@@ -796,9 +795,7 @@ dissect_tb_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             data_bits  += p_fp_info->chan_tf_size[chan];
 
             /* Pad out to next byte */
-            if (bit_offset % 8) {
-                bit_offset += (8 - (bit_offset % 8));
-            }
+            bit_offset = WS_ROUNDUP_8(bit_offset);
         }
     }
 
@@ -875,9 +872,7 @@ dissect_macd_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         bit_offset += length;
 
         /* Pad out to next byte */
-        if (bit_offset % 8) {
-            bit_offset += (8 - (bit_offset % 8));
-        }
+        bit_offset = WS_ROUNDUP_8(bit_offset);
     }
 
     /* Data tree should cover entire length */
@@ -1029,7 +1024,7 @@ dissect_spare_extension_and_crc(tvbuff_t *tvb, packet_info *pinfo,
         if (preferences_payload_checksum) {
             flags = PROTO_CHECKSUM_VERIFY;
             if ((unsigned)offset > header_length) {
-                uint8_t * data = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb, header_length, offset-header_length);
+                uint8_t * data = (uint8_t *)tvb_memdup(pinfo->pool, tvb, header_length, offset-header_length);
                 calc_crc = crc16_8005_noreflect_noxor(data, offset-header_length);
             }
         }
@@ -2650,7 +2645,7 @@ dissect_e_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         rlcinf = (rlc_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_rlc, 0);
         if (!rlcinf) {
-            rlcinf = wmem_new0(wmem_packet_scope(), rlc_info);
+            rlcinf = wmem_new0(pinfo->pool, rlc_info);
         }
 
         header_crc_pi = proto_tree_add_uint_format(tree, hf_fp_edch_header_crc, tvb,
@@ -2804,7 +2799,7 @@ dissect_e_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
             macinf = (umts_mac_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_mac, 0);
             if (!macinf) {
-                macinf = wmem_new0(wmem_packet_scope(), umts_mac_info);
+                macinf = wmem_new0(pinfo->pool, umts_mac_info);
             }
             /* Add subframe subtree */
             subframe_ti = proto_tree_add_string_format(tree, hf_fp_edch_subframe, tvb, offset, 0,
@@ -2919,9 +2914,7 @@ dissect_e_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 mac_d_pdus_in_subframe += subframes[n].number_of_mac_d_pdus[i];
 
                 /* Pad out to next byte */
-                if (bit_offset % 8) {
-                    bit_offset += (8 - (bit_offset % 8));
-                }
+                bit_offset = WS_ROUNDUP_8(bit_offset);
             }
 
             if (tree) {
@@ -3199,11 +3192,11 @@ dissect_hsdsch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         rlcinf = (rlc_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_rlc, 0);
         if (!rlcinf) {
-            rlcinf = wmem_new0(wmem_packet_scope(), rlc_info);
+            rlcinf = wmem_new0(pinfo->pool, rlc_info);
         }
         macinf = (umts_mac_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_mac, 0);
         if (!macinf) {
-            macinf = wmem_new0(wmem_packet_scope(), umts_mac_info);
+            macinf = wmem_new0(pinfo->pool, umts_mac_info);
         }
 
         /**************************************/
@@ -3424,11 +3417,11 @@ dissect_hsdsch_type_2_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
         rlcinf = (rlc_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_rlc, 0);
         if (!rlcinf) {
-            rlcinf = wmem_new0(wmem_packet_scope(), rlc_info);
+            rlcinf = wmem_new0(pinfo->pool, rlc_info);
         }
         macinf = (umts_mac_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_mac, 0);
         if (!macinf) {
-            macinf = wmem_new0(wmem_packet_scope(), umts_mac_info);
+            macinf = wmem_new0(pinfo->pool, umts_mac_info);
         }
 
         /********************************/
@@ -3684,11 +3677,11 @@ void dissect_hsdsch_common_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto
 
         rlcinf = (rlc_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_rlc, 0);
         if (!rlcinf) {
-            rlcinf = wmem_new0(wmem_packet_scope(), rlc_info);
+            rlcinf = wmem_new0(pinfo->pool, rlc_info);
         }
         macinf = (umts_mac_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_umts_mac, 0);
         if (!macinf) {
-            macinf = wmem_new0(wmem_packet_scope(), umts_mac_info);
+            macinf = wmem_new0(pinfo->pool, umts_mac_info);
         }
         /********************************/
         /* HS-DCH type 2 data here      */
@@ -3891,7 +3884,7 @@ void dissect_hsdsch_common_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto
 /* Validates the header CRC in a Control FP frame */
 /* Should only be used in heuristic dissectors! */
 static bool
-check_control_frame_crc_for_heur(tvbuff_t * tvb)
+check_control_frame_crc_for_heur(wmem_allocator_t* allocator, tvbuff_t * tvb)
 {
     uint8_t crc = 0;
     uint8_t calc_crc = 0;
@@ -3903,7 +3896,7 @@ check_control_frame_crc_for_heur(tvbuff_t * tvb)
 
     crc = tvb_get_uint8(tvb, 0) >> 1;
     /* Get data. */
-    data = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb, 0, tvb_reported_length(tvb));
+    data = (uint8_t *)tvb_memdup(allocator, tvb, 0, tvb_reported_length(tvb));
     /* Include only FT flag bit in CRC calculation. */
     data[0] = data[0] & 1;
     calc_crc = crc7update(0, data, tvb_reported_length(tvb));
@@ -3963,7 +3956,7 @@ check_payload_crc_for_heur(tvbuff_t *tvb, uint16_t header_length)
 /* Validates the header CRC in a E-DCH Data FP frame */
 /* Should only be used in heuristic dissectors! */
 static bool
-check_edch_header_crc_for_heur(tvbuff_t *tvb, uint16_t header_length)
+check_edch_header_crc_for_heur(wmem_allocator_t* allocator, tvbuff_t *tvb, uint16_t header_length)
 {
     uint16_t crc = 0;
     uint16_t calc_crc = 0;
@@ -3974,7 +3967,7 @@ check_edch_header_crc_for_heur(tvbuff_t *tvb, uint16_t header_length)
 
     crc = (tvb_get_bits8(tvb, 0, 7) << 4) + tvb_get_bits8(tvb, 8, 4);
     /* Get data of header excluding the first byte */
-    data = (uint8_t *)tvb_memdup(wmem_packet_scope(), tvb, 1, header_length-1);
+    data = (uint8_t *)tvb_memdup(allocator, tvb, 1, header_length-1);
     /*Zero the part in the second byte which contains part of the CRC*/
     data[0] = data[0] & 0x0f;
 
@@ -3995,12 +3988,12 @@ generate_ue_id_for_heur(packet_info *pinfo)
         /* srcXor: [ ------- Source Address ------- ] (4 bytes)*/
         /*                         XOR                         */
         /*         [  Source Port  ][  Source Port  ] (4 bytes)*/
-        int srcXor = pntoh32(pinfo->src.data) ^ ((pinfo->srcport << 16) | (pinfo->srcport));
+        int srcXor = pntohu32(pinfo->src.data) ^ ((pinfo->srcport << 16) | (pinfo->srcport));
 
         /* dstXor: [ ---- Destination  Address ---- ] (4 bytes)*/
         /*                         XOR                         */
         /*         [ - Dest Port - ][ - Dest Port - ] (4 bytes)*/
-        int dstXor = pntoh32(pinfo->dst.data) ^ ((pinfo->destport << 16) | (pinfo->destport));
+        int dstXor = pntohu32(pinfo->dst.data) ^ ((pinfo->destport << 16) | (pinfo->destport));
         return srcXor ^ dstXor;
     }
     else {
@@ -5186,7 +5179,7 @@ heur_dissect_fp_edch_type_1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         return false;
     }
 
-    if (!check_edch_header_crc_for_heur(tvb, total_header_length)) {
+    if (!check_edch_header_crc_for_heur(pinfo->pool, tvb, total_header_length)) {
         return false;
     }
     if (!check_payload_crc_for_heur(tvb, total_header_length)) {
@@ -5303,7 +5296,7 @@ heur_dissect_fp_unknown_format(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     }
 
     /* Checking Header CRC*/
-    if (!check_control_frame_crc_for_heur(tvb)) {
+    if (!check_control_frame_crc_for_heur(pinfo->pool, tvb)) {
         /* The CRC is incorrect */
         return false;
     }
@@ -5365,7 +5358,7 @@ static uint8_t fake_map[256];
  * TODO: This need to be fixed!
  * Basically you would want the actual RRC messages, that sooner or later maps
  * transport channel id's to logical id's or RAB IDs
- * to set the proper logical channel/RAB ID, but for now we make syntethic ones.
+ * to set the proper logical channel/RAB ID, but for now we make synthetic ones.
  * */
 
 static uint8_t
@@ -5619,7 +5612,7 @@ fp_set_per_packet_inf_from_conv(conversation_t *p_conv,
                     }
                     else {
                         /* Unfamiliar DCH format, faking LCHID */
-                        /* Asuming the channel isn't multiplexed (ie. C/T field not present) */
+                        /* Assuming the channel isn't multiplexed (ie. C/T field not present) */
                         macinf->ctmux[j+chan] = false;
 
                         /* TODO: This stuff has to be reworked! */

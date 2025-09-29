@@ -168,8 +168,7 @@ void FirewallRulesDialog::on_denyCheckBox_toggled(bool)
 void FirewallRulesDialog::on_buttonBox_clicked(QAbstractButton *button)
 {
     if (button == ui->buttonBox->button(QDialogButtonBox::Save)) {
-        QString save_title = QStringLiteral("Save %1 rules as%2")
-            .arg(firewall_product_name(prod_), UTF8_HORIZONTAL_ELLIPSIS);
+        QString save_title = tr("Save %1 rules as…").arg(firewall_product_name(prod_));
         QByteArray file_name = WiresharkFileDialog::getSaveFileName(this,
                                                  save_title,
                                                  mainApp->openDialogInitialDir().canonicalPath(),
@@ -179,9 +178,10 @@ void FirewallRulesDialog::on_buttonBox_clicked(QAbstractButton *button)
             QFile save_file(file_name);
             QByteArray rule_text = ui->textBrowser->toPlainText().toUtf8();
 
-            save_file.open(QIODevice::WriteOnly);
-            save_file.write(rule_text);
-            save_file.close();
+            if (save_file.open(QIODevice::WriteOnly)) {
+                save_file.write(rule_text);
+                save_file.close();
+            }
 
             if (save_file.error() != QFile::NoError) {
                 QMessageBox::warning(this, tr("Warning"), tr("Unable to save %1").arg(save_file.fileName()));

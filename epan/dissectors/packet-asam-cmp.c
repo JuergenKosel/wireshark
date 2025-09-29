@@ -1,7 +1,7 @@
 /* packet-asam-cmp.c
  * ASAM Capture Module Protocol dissector.
  * Copyright 2021-2023 Alicia Mediano Schikarski, Technica Engineering GmbH
- * Copyright 2021-2024 Dr. Lars Voelker, Technica Engineering GmbH
+ * Copyright 2021-2025 Dr. Lars Völker, Technica Engineering GmbH
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -36,8 +36,6 @@ static dissector_handle_t eth_handle;
 
 static bool heuristic_first;
 static bool old_11bit_canid_encoding;
-
-static dissector_table_t lin_subdissector_table;
 
 /* Header fields */
 static int hf_cmp_header;
@@ -785,6 +783,15 @@ free_generic_one_id_string_cb(void *r) {
     rec->name = NULL;
 }
 
+static char *
+ht_lookup_device_name(uint16_t device_id) {
+    if (data_asam_cmp_devices == NULL) {
+        return NULL;
+    }
+
+    return g_hash_table_lookup(data_asam_cmp_devices, GUINT_TO_POINTER(device_id));
+}
+
 /* ID -> ID, Name */
 static void *
 copy_interface_config_cb(void *n, const void *o, size_t size _U_) {
@@ -827,9 +834,19 @@ free_interface_config_cb(void *r) {
     rec->name = NULL;
 }
 
+static interface_config_t *
+ht_lookup_interface(unsigned int identifier) {
+    if (data_asam_cmp_interfaces == NULL) {
+        return NULL;
+    }
+
+    return g_hash_table_lookup(data_asam_cmp_interfaces, GUINT_TO_POINTER(identifier));
+}
+
+
 static char *
 ht_interface_config_to_string(unsigned int identifier) {
-    interface_config_t   *tmp = g_hash_table_lookup(data_asam_cmp_interfaces, GUINT_TO_POINTER(identifier));
+    interface_config_t *tmp = ht_lookup_interface(identifier);
     if (tmp == NULL) {
         return NULL;
     }
@@ -839,7 +856,7 @@ ht_interface_config_to_string(unsigned int identifier) {
 
 static uint16_t
 ht_interface_config_to_bus_id(unsigned int identifier) {
-    interface_config_t   *tmp = g_hash_table_lookup(data_asam_cmp_interfaces, GUINT_TO_POINTER(identifier));
+    interface_config_t *tmp = ht_lookup_interface(identifier);
     if (tmp == NULL) {
         /* 0 means basically any or none */
         return 0;
@@ -849,42 +866,52 @@ ht_interface_config_to_bus_id(unsigned int identifier) {
 }
 
 static void
-post_update_asam_cmp_devices_cb(void) {
-    unsigned i;
-
+reset_asam_cmp_devices_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_asam_cmp_devices) {
         g_hash_table_destroy(data_asam_cmp_devices);
+        data_asam_cmp_devices = NULL;
     }
+}
+
+static void
+post_update_asam_cmp_devices_cb(void) {
+    /* destroy old hash table, if it exists */
+    reset_asam_cmp_devices_cb();
 
     /* create new hash table */
     data_asam_cmp_devices = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
-    for (i = 0; i < asam_cmp_devices_num; i++) {
+    for (unsigned i = 0; i < asam_cmp_devices_num; i++) {
         g_hash_table_insert(data_asam_cmp_devices, GUINT_TO_POINTER(asam_cmp_devices[i].id), asam_cmp_devices[i].name);
     }
 }
 
 static void
-post_update_interface_config_cb(void) {
-    unsigned  i;
-
+reset_interface_config_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_asam_cmp_interfaces) {
         g_hash_table_destroy(data_asam_cmp_interfaces);
+        data_asam_cmp_interfaces = NULL;
     }
+}
+
+static void
+post_update_interface_config_cb(void) {
+    /* destroy old hash table, if it exists */
+    reset_interface_config_cb();
 
     /* create new hash table */
     data_asam_cmp_interfaces = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
-    for (i = 0; i < asam_cmp_interface_num; i++) {
+    for (unsigned i = 0; i < asam_cmp_interface_num; i++) {
         g_hash_table_insert(data_asam_cmp_interfaces, GUINT_TO_POINTER(asam_cmp_interfaces[i].id), &asam_cmp_interfaces[i]);
     }
 }
 
 static void
 add_device_id_text(proto_item *ti, uint16_t device_id) {
-    const char *descr = g_hash_table_lookup(data_asam_cmp_devices, GUINT_TO_POINTER(device_id));
+    const char *descr = ht_lookup_device_name(device_id);
 
     if (descr != NULL) {
         proto_item_append_text(ti, " (%s)", descr);
@@ -1310,12 +1337,7 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
             lin_info.bus_id = ht_interface_config_to_bus_id(interface_id);
             lin_info.len = msg_payload_type_length;
 
-            if (!dissector_try_uint_with_data(lin_subdissector_table, lin_info.id | (lin_info.bus_id << 16), sub_tvb, pinfo, tree, false, &lin_info)) {
-                if (!dissector_try_uint_with_data(lin_subdissector_table, lin_info.id, sub_tvb, pinfo, tree, false, &lin_info)) {
-                    call_data_dissector(sub_tvb, pinfo, tree);
-                }
-            }
-
+            dissect_lin_message(sub_tvb, pinfo, tree, &lin_info);
             offset += (int)msg_payload_type_length;
         }
 
@@ -1351,7 +1373,7 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
         proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_flexray_frame_crc, tvb, offset, 3, ENC_BIG_ENDIAN);
         offset += 3;
 
-        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_flexray_reserved_2, tvb, offset, 1, ENC_NA);
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_flexray_reserved_2, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset += 1;
 
         proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_flexray_data_len, tvb, offset, 1, ENC_NA, &msg_payload_type_length);
@@ -1853,7 +1875,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
 
         if ((asam_cmp_status_msg_cm_dev_desc_length) > 0) {
             asam_cmp_status_msg_cm_dev_desc_length += (asam_cmp_status_msg_cm_dev_desc_length % 2); /* padding to 16bit */
-            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_dev_desc, tvb, offset, asam_cmp_status_msg_cm_dev_desc_length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_dev_desc, tvb, offset, asam_cmp_status_msg_cm_dev_desc_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_dev_desc_length;
         }
 
@@ -1862,7 +1884,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
 
         if ((asam_cmp_status_msg_cm_sn_length) > 0) {
             asam_cmp_status_msg_cm_sn_length += (asam_cmp_status_msg_cm_sn_length % 2); /* padding to 16bit */
-            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sn, tvb, offset, asam_cmp_status_msg_cm_sn_length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sn, tvb, offset, asam_cmp_status_msg_cm_sn_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_sn_length;
         }
 
@@ -1871,7 +1893,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
 
         if ((asam_cmp_status_msg_cm_hw_ver_length) > 0) {
             asam_cmp_status_msg_cm_hw_ver_length += (asam_cmp_status_msg_cm_hw_ver_length % 2); /* padding to 16bit */
-            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_hw_ver, tvb, offset, asam_cmp_status_msg_cm_hw_ver_length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_hw_ver, tvb, offset, asam_cmp_status_msg_cm_hw_ver_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_hw_ver_length;
         }
 
@@ -1880,7 +1902,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
 
         if ((asam_cmp_status_msg_cm_sw_ver_length) > 0) {
             asam_cmp_status_msg_cm_sw_ver_length += (asam_cmp_status_msg_cm_sw_ver_length % 2); /* padding to 16bit */
-            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sw_ver, tvb, offset, asam_cmp_status_msg_cm_sw_ver_length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sw_ver, tvb, offset, asam_cmp_status_msg_cm_sw_ver_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_sw_ver_length;
         }
 
@@ -1934,9 +1956,9 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
             offset += 1;
 
             if (descr != NULL) {
-                proto_item_append_text(ti_interface, " %s, Type: %s", descr, val_to_str(ifacetype, data_msg_type_names, "Unknown (0x%x)"));
+                proto_item_append_text(ti_interface, " %s, Type: %s", descr, val_to_str(pinfo->pool, ifacetype, data_msg_type_names, "Unknown (0x%x)"));
             } else {
-                proto_item_append_text(ti_interface, " 0x%x, Type: %s", ifaceid, val_to_str(ifacetype, data_msg_type_names, "Unknown (0x%x)"));
+                proto_item_append_text(ti_interface, " 0x%x, Type: %s", ifaceid, val_to_str(pinfo->pool, ifacetype, data_msg_type_names, "Unknown (0x%x)"));
             }
 
             proto_tree_add_item(subtree, hf_cmp_iface_iface_status, tvb, offset, 1, ENC_NA);
@@ -2147,7 +2169,7 @@ dissect_asam_cmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
     proto_tree_add_item(asam_cmp_header_tree, hf_cmp_stream_seq_ctr, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    proto_item_append_text(ti_root, ", Device: 0x%04x, Type: %s", device_id, val_to_str(msg_type, msg_type_names, "Unknown (0x%x)"));
+    proto_item_append_text(ti_root, ", Device: 0x%04x, Type: %s", device_id, val_to_str(pinfo->pool, msg_type, msg_type_names, "Unknown (0x%x)"));
 
     while (tvb_reported_length_remaining(tvb, offset) >= 16) {
         switch (msg_type) {
@@ -2316,7 +2338,7 @@ proto_register_asam_cmp(void) {
         { &hf_cmp_lin_pid_parity,                   { "Parity", "asam-cmp.msg.lin.pid.parity", FT_UINT8, BASE_HEX, NULL, CMP_CANFD_PID_PARITY_MASK, NULL, HFILL } },
         { &hf_cmp_lin_reserved_2,                   { "Reserved", "asam-cmp.msg.lin.res_2", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
         { &hf_cmp_lin_checksum,                     { "Checksum", "asam-cmp.msg.lin.checksum", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
-        { &hf_cmp_lin_data_len,                     { "Data length", "asam-cmp.msg.lin.data_len", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_lin_data_len,                     { "Data length", "asam-cmp.msg.lin.data_len", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
         { &hf_cmp_lin_flag_checksum_err,            { "Checksum Error", "asam-cmp.msg.lin.flags.checksum_err", FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL } },
         { &hf_cmp_lin_flag_col_err,                 { "Collision Error", "asam-cmp.msg.lin.flags.col_err", FT_BOOLEAN, 16, NULL, 0x0002, NULL, HFILL } },
@@ -2564,7 +2586,7 @@ proto_register_asam_cmp(void) {
         update_generic_one_identifier_16bit,    /* update callback       */
         free_generic_one_id_string_cb,          /* free callback         */
         post_update_asam_cmp_devices_cb,        /* post update callback  */
-        NULL,                                   /* reset callback        */
+        reset_asam_cmp_devices_cb,              /* reset callback        */
         asam_cmp_device_id_uat_fields           /* UAT field definitions */
     );
 
@@ -2583,7 +2605,7 @@ proto_register_asam_cmp(void) {
         update_interface_config,                /* update callback       */
         free_interface_config_cb,               /* free callback         */
         post_update_interface_config_cb,        /* post update callback  */
-        NULL,                                   /* reset callback        */
+        reset_interface_config_cb,              /* reset callback        */
         asam_cmp_interface_id_uat_fields        /* UAT field definitions */
     );
 
@@ -2611,8 +2633,6 @@ proto_reg_handoff_asam_cmp(void) {
 
     dissector_add_for_decode_as("ethertype", asam_cmp_handle);
     dissector_add_for_decode_as_with_preference("udp.port", asam_cmp_handle);
-
-    lin_subdissector_table = find_dissector_table("lin.frame_id");
 }
 
   /*

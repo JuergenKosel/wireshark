@@ -15,8 +15,8 @@
  */
 #include <epan/address.h>
 #include <epan/ipproto.h>
-#include <epan/proto.h>
 #include <epan/ftypes/ftypes.h>
+#include <epan/proto.h>
 #include <epan/stat_groups.h>
 
 #define ENUM(arg) { #arg, arg }
@@ -34,6 +34,9 @@ static ws_enum_t const all_enums[] = {
     ENUM(AT_FC),
     ENUM(AT_FCWWN),
     ENUM(AT_IB),
+    ENUM(AT_ILNP_ILV),
+    ENUM(AT_ILNP_L64),
+    ENUM(AT_ILNP_NID),
     ENUM(AT_IPX),
     ENUM(AT_IPv4),
     ENUM(AT_IPv6),
@@ -180,6 +183,7 @@ static ws_enum_t const all_enums[] = {
     ENUM(FI_VARINT),
     ENUM(FTREPR_DFILTER),
     ENUM(FTREPR_DISPLAY),
+    ENUM(FTREPR_EK),
     ENUM(FTREPR_JSON),
     ENUM(FTREPR_RAW),
     ENUM(FT_ABSOLUTE_TIME),
@@ -269,6 +273,7 @@ static ws_enum_t const all_enums[] = {
     ENUM(IP_PROTO_AX25),
     ENUM(IP_PROTO_AX4000),
     ENUM(IP_PROTO_BBN_RCC),
+    ENUM(IP_PROTO_BIT_EMU),
     ENUM(IP_PROTO_BNA),
     ENUM(IP_PROTO_BRSATMON),
     ENUM(IP_PROTO_BULK),
@@ -302,6 +307,7 @@ static ws_enum_t const all_enums[] = {
     ENUM(IP_PROTO_GRE),
     ENUM(IP_PROTO_HIP),
     ENUM(IP_PROTO_HMP),
+    ENUM(IP_PROTO_HOMA),
     ENUM(IP_PROTO_HOPOPTS),
     ENUM(IP_PROTO_IATP),
     ENUM(IP_PROTO_ICMP),

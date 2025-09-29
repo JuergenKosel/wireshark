@@ -87,8 +87,8 @@ def program(program_path, request):
     def resolver(name):
         path = os.path.abspath(os.path.join(program_path, name + dotexe))
         if not os.access(path, os.X_OK):
-            if skip_if_missing == ['all'] or name in skip_if_missing:
-                pytest.skip('Program %s is not available' % (name,))
+            if skip_if_missing == ['all'] or os.path.basename(name) in skip_if_missing:
+                pytest.skip(f'Program %s is not available' % (os.path.basename(name),))
             raise AssertionError('Program %s is not available' % (name,))
         return path
     return resolver
@@ -167,7 +167,7 @@ def features(cmd_tshark, make_env):
     '''Returns an object describing available features in tshark.'''
     try:
         tshark_v = subprocess.check_output(
-            (cmd_tshark, '--version'),
+            (cmd_tshark, '--log-fatal', 'warning', '--version'),
             stderr=subprocess.PIPE,
             universal_newlines=True,
             env=make_env()
@@ -186,7 +186,7 @@ def features(cmd_tshark, make_env):
         have_nghttp3='+nghttp3' in tshark_v,
         have_kerberos='+Kerberos' in tshark_v,
         have_gnutls='+GnuTLS' in tshark_v,
-        have_pkcs11='PKCS #11' in tshark_v,
+        have_pkcs11='PKCS#11' in tshark_v,
         have_brotli='+brotli' in tshark_v,
         have_zstd='+Zstandard' in tshark_v,
         have_plugins='Plugins: supported' in tshark_v,

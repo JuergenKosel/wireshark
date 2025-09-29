@@ -74,9 +74,7 @@ typedef enum _accept_mode_t {
 
 typedef struct _mate_cfg_pdu {
 	char* name;
-	unsigned last_id; /* keeps the last id given to an item of this kind */
 
-	GHashTable* items; /* all the items of this type */
 	GPtrArray* transforms; /* transformations to be applied */
 
 	int hfid;
@@ -107,11 +105,9 @@ typedef struct _mate_cfg_pdu {
 
 typedef struct _mate_cfg_gop {
 	char* name;
-	unsigned last_id; /* keeps the last id given to an item of this kind */
-	GHashTable* items; /* all the items of this type */
 
 	GPtrArray* transforms; /* transformations to be applied */
-	char* on_pdu;
+	const char* on_pdu;
 
 	AVPL* key; /* key candidate avpl */
 	AVPL* start; /* start candidate avpl */
@@ -138,17 +134,11 @@ typedef struct _mate_cfg_gop {
 	int ett_attr;
 	int ett_times;
 	int ett_children;
-
-	GHashTable* gop_index;
-	GHashTable* gog_index;
 } mate_cfg_gop;
 
 
 typedef struct _mate_cfg_gog {
 	char* name;
-
-	GHashTable* items; /* all the items of this type */
-	unsigned last_id; /* keeps the last id given to an item of this kind */
 
 	GPtrArray* transforms; /* transformations to be applied */
 
@@ -176,8 +166,6 @@ typedef struct _mate_cfg_gog {
 } mate_cfg_gog;
 
 typedef struct _mate_config {
-	char* mate_config_file; /* name of the config file */
-
 	int hfid_mate;
 
 	GArray *wanted_hfids;    /* hfids of protocols and fields MATE needs */
@@ -246,6 +234,11 @@ typedef struct _mate_config_frame {
 	unsigned  linenum;
 } mate_config_frame;
 
+typedef struct _gopcfg_runtime_data {
+	unsigned last_id; /* keeps the last id given to an item of this kind */
+	GHashTable* gop_index;
+	GHashTable* gog_index;
+} gopcfg_runtime_data;
 
 typedef struct _mate_runtime_data {
 	unsigned current_items; /* a count of items */
@@ -253,7 +246,12 @@ typedef struct _mate_runtime_data {
 	unsigned highest_analyzed_frame;
 
 	GHashTable* frames; /* k=frame.num v=pdus */
+	GHashTable* gops; /* set of gops, for memory management */
+	GHashTable* gogs; /* set of gogs, for memory management */
 
+	GHashTable* pdu_last_ids; /* k=pducfg, v=last id given to a pdu of this cfg */
+	GHashTable* gopcfg_rd;    /* k=gopcfg, v=gopcfg_runtime_data */
+	GHashTable* gog_last_ids; /* k=gogcfg, v=last id given to a gog of this cfg */
 } mate_runtime_data;
 
 typedef struct _mate_pdu mate_pdu;
@@ -263,12 +261,11 @@ typedef struct _mate_gog mate_gog;
 /* these are used to contain information regarding pdus, gops and gogs */
 struct _mate_pdu {
 	uint32_t id; /* 1:1 -> saving a g_malloc */
-	mate_cfg_pdu* cfg; /* the type of this item */
+	const mate_cfg_pdu* cfg; /* the type of this item */
 
 	AVPL* avpl;
 
 	uint32_t frame; /* which frame I belong to? */
-	mate_pdu* next_in_frame; /* points to the next pdu in this frame */
 	double rel_time; /* time since start of capture  */
 
 	mate_gop* gop; /* the gop the pdu belongs to (if any) */
@@ -285,7 +282,7 @@ struct _mate_pdu {
 
 struct _mate_gop {
 	uint32_t id;
-	mate_cfg_gop* cfg;
+	const mate_cfg_gop* cfg;
 
 	char* gop_key;
 	AVPL* avpl; /* the attributes of the pdu/gop/gog */
@@ -315,7 +312,7 @@ struct _mate_gop {
 
 struct _mate_gog {
 	uint32_t id;
-	mate_cfg_gog* cfg;
+	const mate_cfg_gog* cfg;
 
 	AVPL* avpl; /* the attributes of the pdu/gop/gog */
 	unsigned last_n; /* the number of attributes the avpl had the last time we checked */
@@ -347,7 +344,7 @@ typedef union _mate_max_size {
 
 /* from mate_runtime.c */
 extern void initialize_mate_runtime(mate_config* mc);
-extern mate_pdu* mate_get_pdus(uint32_t framenum);
+extern GPtrArray* mate_get_pdus(uint32_t framenum);
 extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* tree);
 
 /* from mate_setup.c */

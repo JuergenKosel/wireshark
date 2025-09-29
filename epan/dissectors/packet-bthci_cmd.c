@@ -814,6 +814,18 @@ static int hf_bthci_cmd_override_config_main_mode_steps;
 static int hf_bthci_cmd_override_config_channel_list;
 static int hf_bthci_cmd_cs_override_param_length;
 static int hf_bthci_cmd_cs_override_param_data;
+static int hf_bthci_cmd_override_param_channel_length;
+static int hf_bthci_cmd_override_param_channels;
+static int hf_bthci_cmd_override_param_main_mode_steps;
+static int hf_bthci_cmd_override_param_tpm_tone_ext;
+static int hf_bthci_cmd_override_param_tone_antenna_permutation;
+static int hf_bthci_cmd_override_param_cs_sync_aa_initiator;
+static int hf_bthci_cmd_override_param_cs_sync_aa_reflector;
+static int hf_bthci_cmd_override_param_ss_marker_1_position;
+static int hf_bthci_cmd_override_param_ss_marker_2_position;
+static int hf_bthci_cmd_override_param_ss_marker_value;
+static int hf_bthci_cmd_override_param_cs_sync_payload_pattern;
+static int hf_bthci_cmd_override_param_cs_sync_user_payload;
 static int hf_bthci_cmd_adv_monitoring_enable;
 static int hf_bthci_cmd_adv_decision_flags;
 static int hf_bthci_cmd_adv_decision_flags_resolvable_tag;
@@ -1197,8 +1209,22 @@ static expert_field ei_command_undecoded;
 static expert_field ei_command_unknown_command;
 static expert_field ei_command_parameter_unexpected;
 
-static dissector_table_t vendor_dissector_table;
+static dissector_table_t hci_vendor_payload_table;
 static dissector_table_t hci_vendor_table;
+
+/* Zigbee Direct specific definitions. */
+static int hf_btcommon_eir_ad_zd_ext;
+static int hf_btcommon_eir_ad_zd_ext_zd_version;
+static int hf_btcommon_eir_ad_zd_ext_zd_flag_ZDTS;
+static int hf_btcommon_eir_ad_zd_ext_zd_flag_PermitJoin;
+static int hf_btcommon_eir_ad_zd_zigbee_panid;
+static int hf_btcommon_eir_ad_zd_zigbee_nwkaddr;
+static int ett_zigbee_direct_adv_extension;
+
+#define ZD_AD_EXTENSION_VERSION             0xf << 0
+#define ZD_AD_EXTENSION_ZD_FLAG_ZDTS          1 << 4
+#define ZD_AD_EXTENSION_ZD_FLAG_PERMIT_JOIN   1 << 5
+#define ZD_AD_EXTENSION_ZD_FLAG_RESERVED      3 << 6
 
 /* Initialize the subtree pointers */
 static int ett_bthci_cmd;
@@ -1233,6 +1259,7 @@ static int ett_cs_capability;
 static int ett_cs_times;
 static int ett_adv_test_flags;
 static int ett_override_config;
+static int ett_override_params;
 static int ett_spacing_types;
 
 static int proto_btcommon;
@@ -1375,6 +1402,11 @@ static int hf_btcommon_eir_ad_biginfo_bis_access_address;
 static int hf_btcommon_eir_ad_broadcast_code;
 static int hf_btcommon_eir_ad_rsi;
 static int hf_btcommon_eir_ad_broadcast_name;
+static int hf_btcommon_eir_ad_pawr_timing_rsp_access_address;
+static int hf_btcommon_eir_ad_pawr_timing_num_subevents;
+static int hf_btcommon_eir_ad_pawr_timing_subevent_interval;
+static int hf_btcommon_eir_ad_pawr_timing_response_slot_delay;
+static int hf_btcommon_eir_ad_pawr_timing_response_slot_spacing;
 
 static int hf_btcommon_cod_class_of_device;
 static int hf_btcommon_cod_format_type;
@@ -1547,9 +1579,6 @@ static dissector_handle_t btmesh_beacon_handle;
 static dissector_table_t  bluetooth_eir_ad_manufacturer_company_id;
 static dissector_table_t  bluetooth_eir_ad_tds_organization_id;
 static dissector_table_t  bluetooth_eir_ad_service_uuid;
-
-bool bthci_vendor_android = false;
-const uint16_t bthci_vendor_manufacturer_android = 0x00e0; // Google LLC
 
 wmem_tree_t *bthci_cmds;
 
@@ -2314,6 +2343,9 @@ static const value_string bthci_cmd_eir_data_type_vals[] = {
     {0x2E, "Resolvable Set Identifier" },
     {0x2F, "Advertising Interval - long" },
     {0x30, "Broadcast_Name" },
+    {0x31, "Encrypted Advertising Data" },
+    {0x32, "Periodic Advertising Response Timing Information" },
+    {0x34, "Electronic Shelf Label" },
     {0x3D, "3D Information Data" },
     {0xFF, "Manufacturer Specific" },
     {   0, NULL }
@@ -3155,6 +3187,45 @@ static const value_string cmd_snr_control_vals[] = {
     {0, NULL }
 };
 
+static const value_string cmd_tone_ext_vals[] = {
+    { 0x00, "No tone extension present" },
+    { 0x01, "Tone extension present for initiator" },
+    { 0x02, "Tone extension present for reflector" },
+    { 0x03, "Tone extension present for both" },
+    { 0x04, "Loop through all valid tone extension patterns" },
+    {0, NULL }
+};
+
+static const value_string cmd_tone_antenna_permutation_vals[] = {
+    { 0xff, "Loop through all valid indices starting from the lowest" },
+    {0, NULL }
+};
+
+static const value_string cmd_ss_marker_2_position_vals[] = {
+    { 0xff, "Sounding sequence or second marker is not present" },
+    {0, NULL }
+};
+
+static const value_string cmd_ss_marker_value_vals[] = {
+    { 0x00, "Use pattern '0011'" },
+    { 0x01, "Use pattern '1100'" },
+    { 0x02, "Loop through pattern '0011' and '1100'" },
+    {0, NULL }
+};
+
+static const value_string cmd_cs_sync_payload_pattern_vals[] = {
+    { 0x00, "PRBS9 sequence" },
+    { 0x01, "Repeated '11110000' sequence" },
+    { 0x02, "Repeated '10101010' sequence" },
+    { 0x03, "PRBS15 sequence" },
+    { 0x04, "Repeated '11111111' sequence" },
+    { 0x05, "Repeated '00000000' sequence" },
+    { 0x06, "Repeated '00001111' sequence" },
+    { 0x07, "Repeated '01010101' sequence" },
+    { 0x80, "Use CS_SYNC_User_Payload" },
+    {0, NULL }
+};
+
 static const value_string cs_sync_antenna_special[] = {
     {0xfe, "Repetitive order, 1 to 4"},
     {0xff, "Host has no recommendation"},
@@ -3657,7 +3728,7 @@ dissect_link_control_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo,
             break;
 
         case 0x003c: /* Flow Spec Modify */
-            proto_tree_add_item(tree, hf_bthci_cmd_logical_link_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item(tree, hf_bthci_cmd_physical_link_handle, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset++;
             offset = dissect_bthci_cmd_flow_spec(tvb, offset, pinfo, tree, true);
             offset = dissect_bthci_cmd_flow_spec(tvb, offset, pinfo, tree, false);
@@ -4155,7 +4226,7 @@ dissect_host_controller_baseband_cmd(tvbuff_t *tvb, int offset, packet_info *pin
             break;
 
         case 0x0013: /* Change Local Name */
-            proto_tree_add_item(tree, hf_bthci_cmd_device_name, tvb, offset, 248, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_device_name, tvb, offset, 248, ENC_UTF_8);
             if (!pinfo->fd->visited && bthci_cmd_data) {
                 bthci_cmd_data->data.name = tvb_get_string_enc(wmem_file_scope(), tvb, offset, 248, ENC_UTF_8);
             }
@@ -4456,9 +4527,9 @@ dissect_host_controller_baseband_cmd(tvbuff_t *tvb, int offset, packet_info *pin
         case 0x0065: /* Write Location Data */
             proto_tree_add_item(tree, hf_bthci_cmd_location_domain_aware, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset++;
-            proto_tree_add_item(tree, hf_bthci_cmd_location_domain, tvb, offset, 2, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_location_domain, tvb, offset, 2, ENC_ASCII);
             offset+=2;
-            proto_tree_add_item(tree, hf_bthci_cmd_location_domain_options, tvb, offset, 1, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_location_domain_options, tvb, offset, 1, ENC_ASCII);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_location_options, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset++;
@@ -5939,7 +6010,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             break;
 
         case 0x0068: /* LE Create BIG */
-            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_NA);
             offset++;
@@ -5966,7 +6037,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             break;
 
         case 0x0069: /* LE Create BIG Test */
-            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_advertising_handle, tvb, offset, 1, ENC_NA);
             offset++;
@@ -6001,7 +6072,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             break;
 
         case 0x006A: /* LE Terminate BIG */
-            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_reason, tvb, offset, 1, ENC_NA);
             offset++;
@@ -6011,7 +6082,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             {
             uint8_t num_bis;
 
-            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_sync_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset+=2;
@@ -6034,7 +6105,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             break;
 
         case 0x006C: /* LE BIG Terminate Sync */
-            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_cmd_big_handle, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset++;
             break;
 
@@ -6304,21 +6375,21 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             offset += 1;
             proto_tree_add_item(tree, hf_bthci_cmd_rtt_random_n, tvb, offset, 1, ENC_NA);
             offset += 1;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_nadm_sounding_capability, ett_cs_capability, hfx_bthci_cmd_nadm_sounding_capability, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_nadm_sounding_capability, ett_cs_capability, hfx_bthci_cmd_nadm_sounding_capability, ENC_BIG_ENDIAN);
             offset += 2;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_nadm_random_capability, ett_cs_capability, hfx_bthci_cmd_nadm_random_capability, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_nadm_random_capability, ett_cs_capability, hfx_bthci_cmd_nadm_random_capability, ENC_BIG_ENDIAN);
             offset += 2;
             proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_cs_sync_phys_supported, ett_cs_capability, hfx_bthci_cmd_cs_sync_phys_supported, ENC_NA);
             offset++;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_cs_subfeatures_supported, ett_cs_capability, hfx_bthci_cmd_cs_subfeatures, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_cs_subfeatures_supported, ett_cs_capability, hfx_bthci_cmd_cs_subfeatures, ENC_BIG_ENDIAN);
             offset++;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tip1_times_supported, ett_cs_times, hfx_bthci_cmd_tip_times_supported, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tip1_times_supported, ett_cs_times, hfx_bthci_cmd_tip_times_supported, ENC_BIG_ENDIAN);
             offset += 2;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tip2_times_supported, ett_cs_times, hfx_bthci_cmd_tip_times_supported, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tip2_times_supported, ett_cs_times, hfx_bthci_cmd_tip_times_supported, ENC_BIG_ENDIAN);
             offset += 2;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tfcs_times_supported, ett_cs_times, hfx_bthci_cmd_tfcs_times_supported, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tfcs_times_supported, ett_cs_times, hfx_bthci_cmd_tfcs_times_supported, ENC_BIG_ENDIAN);
             offset += 2;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tpm_times_supported, ett_cs_times, hfx_bthci_cmd_tpm_times_supported, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_tpm_times_supported, ett_cs_times, hfx_bthci_cmd_tpm_times_supported, ENC_BIG_ENDIAN);
             offset += 2;
             proto_tree_add_item(tree, hf_bthci_cmd_tsw_time_supported, tvb, offset, 1, ENC_NA);
             offset += 1;
@@ -6439,6 +6510,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
         case 0x0095: /* LE CS Test */
             {
             uint8_t role, rtt_type, length;
+            uint16_t override_config;
             proto_tree_add_item(tree, hf_bthci_cmd_main_mode_type, tvb, offset, 1, ENC_NA);
             offset++;
             proto_tree_add_item(tree, hf_bthci_cmd_sub_mode_type, tvb, offset, 1, ENC_NA);
@@ -6487,13 +6559,64 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             offset+=2;
             proto_tree_add_item(tree, hf_bthci_cmd_channel_map_repetition, tvb, offset, 1, ENC_NA);
             offset++;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_cs_override_config, ett_override_config, hfx_bthci_cmd_override_config, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_cs_override_config, ett_override_config, hfx_bthci_cmd_override_config, ENC_LITTLE_ENDIAN);
+            override_config = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
             offset += 2;
             proto_tree_add_item(tree, hf_bthci_cmd_cs_override_param_length, tvb, offset, 1, ENC_NA);
             length = tvb_get_uint8(tvb, offset);
             offset++;
-            proto_tree_add_item(tree, hf_bthci_cmd_cs_override_param_data, tvb, offset, length, ENC_NA);
-            offset+=length;
+            sub_tree = proto_tree_add_subtree(tree, tvb, offset, length, ett_override_params, NULL, "Override Parameter Data");
+            if (override_config & (1 << 0)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_channel_length, tvb, offset, 1, ENC_NA);
+              length = tvb_get_uint8(tvb, offset);
+              offset++;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_channels, tvb, offset, length, ENC_NA);
+              offset += length;
+            }
+            else {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_channel_map, tvb, offset, 10, ENC_NA);
+              offset += 10;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_channel_selection_type, tvb, offset, 1, ENC_NA);
+              offset++;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_ch3c_shape, tvb, offset, 1, ENC_NA);
+              offset++;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_ch3c_jump, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 2)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_main_mode_steps, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 3)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_tpm_tone_ext, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 4)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_tone_antenna_permutation, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 5)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_cs_sync_aa_initiator, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+              offset += 4;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_cs_sync_aa_reflector, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+              offset += 4;
+            }
+            if (override_config & (1 << 6)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_ss_marker_1_position, tvb, offset, 1, ENC_NA);
+              offset++;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_ss_marker_2_position, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 7)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_ss_marker_value, tvb, offset, 1, ENC_NA);
+              offset++;
+            }
+            if (override_config & (1 << 8)) {
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_cs_sync_payload_pattern, tvb, offset, 1, ENC_NA);
+              offset++;
+              proto_tree_add_item(sub_tree, hf_bthci_cmd_override_param_cs_sync_user_payload, tvb, offset, 16, ENC_NA);
+              offset += 16;
+            }
             if (!pinfo->fd->visited) {
                 /* store CS role and RTT type configuration for later dissection of CS results */
                 wmem_tree_key_t     key[6];
@@ -6568,7 +6691,7 @@ dissect_le_cmd(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, 
             offset+=2;
             proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_le_phys, ett_phy_param, hfx_btcmd_le_phys, ENC_NA);
             offset += 1;
-            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_spacing_types, ett_spacing_types, hfx_bthci_cmd_spacing_types, ENC_NA);
+            proto_tree_add_bitmask(tree, tvb, offset, hf_bthci_cmd_spacing_types, ett_spacing_types, hfx_bthci_cmd_spacing_types, ENC_BIG_ENDIAN);
             offset += 2;
             break;
 
@@ -6661,6 +6784,14 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             break;
     }
 
+    /* These *should* be P2P_DIR_SENT, and the vendor dissectors expect
+     * pinfo->p2p_dir to be set to that to dissect correctly. Not all
+     * link-layer and file types may set the direction correctly. Should
+     * we add an expert info if not? Note we set the addresses assuming
+     * the direction. Should we set pinfo->p2p_dir before calling the
+     * vendor dissectors?
+     */
+
     set_address(&pinfo->src,     AT_STRINGZ,  5, "host");
     set_address(&pinfo->dst,     AT_STRINGZ, 11, "controller");
     set_address(&pinfo->net_src, AT_STRINGZ,  5, "host");
@@ -6684,9 +6815,9 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     ogf = (uint8_t) (opcode >> 10);
 
     if (ogf == HCI_OGF_VENDOR_SPECIFIC)
-        proto_item_append_text(ti_cmd," - %s", val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Vendor Command 0x%04x"));
+        proto_item_append_text(ti_cmd," - %s", val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Vendor Command 0x%04x"));
     else
-        proto_item_append_text(ti_cmd," - %s", val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
+        proto_item_append_text(ti_cmd," - %s", val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
 
     if (have_tap_listener(bluetooth_hci_summary_tap)) {
         bluetooth_hci_summary_tap_t  *tap_hci_summary;
@@ -6700,7 +6831,7 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         tap_hci_summary->ogf = ogf;
         tap_hci_summary->ocf = ocf;
         if (try_val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -6751,7 +6882,7 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     if (ogf == HCI_OGF_VENDOR_SPECIFIC) {
         col_append_fstr(pinfo->cinfo, COL_INFO, "Vendor Command 0x%04X (opcode 0x%04X)", ocf, opcode);
 
-        if (!dissector_try_payload_with_data(vendor_dissector_table, tvb, pinfo, tree, true, bluetooth_data)) {
+        if (!dissector_try_payload_with_data(hci_vendor_payload_table, tvb, pinfo, tree, true, bluetooth_data)) {
             if (bluetooth_data) {
                 hci_vendor_data_t  *hci_vendor_data;
 
@@ -6766,11 +6897,7 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 if (hci_vendor_data) {
                     int sub_offset = 0;
 
-                    if (bthci_vendor_android) {
-                      sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
-                    } else {
-                      sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
-                    }
+                    sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
 
                     if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                         proto_tree_add_expert(bthci_cmd_tree, pinfo, &ei_command_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -6778,9 +6905,11 @@ dissect_bthci_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             }
         }
 
-        proto_tree_add_item(bthci_cmd_tree, hf_bthci_cmd_parameter, tvb, offset, tvb_captured_length_remaining(tvb, offset), ENC_NA);
+        if (param_length > 0) {
+            proto_tree_add_item(bthci_cmd_tree, hf_bthci_cmd_parameter, tvb, offset, param_length, ENC_NA);
+        }
     } else {
-        col_append_str(pinfo->cinfo, COL_INFO, val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
+        col_append_str(pinfo->cinfo, COL_INFO, val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
 
         if (param_length > 0) {
             switch (ogf) {
@@ -8682,7 +8811,7 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_parameter,
           { "Parameter", "bthci_cmd.parameter",
-            FT_NONE, BASE_NONE, NULL, 0x0,
+            FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_response_in_frame,
@@ -9732,12 +9861,12 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_nadm_sounding_capability_supported,
           { "Phase-based NADM Metric", "bthci_cmd.optional_nadm_sounding_capability.supported",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_nadm_sounding_capability_reserved,
           { "Reserved", "bthci_cmd.optional_nadm_sounding_capability.reserved",
-            FT_UINT16, BASE_HEX, NULL, 0xfe,
+            FT_UINT16, BASE_HEX, NULL, 0x00fe,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_nadm_random_capability,
@@ -9747,12 +9876,12 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_nadm_random_capability_supported,
           { "Phase-based NADM Metric", "bthci_cmd.optional_nadm_random_capability.supported",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_nadm_random_capability_reserved,
           { "Reserved", "bthci_cmd.optional_nadm_random_capability.reserved",
-            FT_UINT16, BASE_HEX, NULL, 0xfe,
+            FT_UINT16, BASE_HEX, NULL, 0x00fe,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_cs_sync_phys_supported,
@@ -9782,22 +9911,22 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_cs_subfeatures_companion_signal,
           { "Companion Signal", "bthci_cmd.optional_cs_subfeatures.companion_signal",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_cs_subfeatures_freq_actuation_error,
           { "Zero Freq. Actuation Error Relative to Mode-0 Tx in Reflector", "bthci_cmd.optional_cs_subfeatures.freq_actuation_error",
-            FT_BOOLEAN, 16, NULL, 0x02,
+            FT_BOOLEAN, 16, NULL, 0x0002,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_cs_subfeatures_channel_selection_3c,
           { "Channel Selection Algorithm #3c", "bthci_cmd.optional_cs_subfeatures.channel_selection_3c",
-            FT_BOOLEAN, 16, NULL, 0x04,
+            FT_BOOLEAN, 16, NULL, 0x0004,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_cs_subfeatures_pbr_from_rtt,
           { "Phase-based Ranging from RTT sounding sequence", "bthci_cmd.optional_cs_subfeatures.pbr_from_rtt",
-            FT_BOOLEAN, 16, NULL, 0x08,
+            FT_BOOLEAN, 16, NULL, 0x0008,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_cs_subfeatures_reserved,
@@ -10247,6 +10376,66 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_cs_override_param_data,
           { "Override Parameter Data", "bthci_cmd.cs_override_param_data",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_channel_length,
+          { "Channel Length", "bthci_cmd.override_param_channel_length",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_channels,
+          { "Channels", "bthci_cmd.override_param_channels",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_main_mode_steps,
+          { "Main Mode Steps", "bthci_cmd.override_param_main_mode_steps",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_tpm_tone_ext,
+          { "Tone Extension", "bthci_cmd.override_param_tpm_tone_ext",
+            FT_UINT8, BASE_DEC, VALS(cmd_tone_ext_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_tone_antenna_permutation,
+          { "Tone Antenna Permutation", "bthci_cmd.override_param_tone_antenna_permutation",
+            FT_UINT8, BASE_DEC|BASE_SPECIAL_VALS, VALS(cmd_tone_antenna_permutation_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_cs_sync_aa_initiator,
+          { "CS SYNC AA Initiator", "bthci_cmd.override_param_cs_sync_aa_initiator",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_cs_sync_aa_reflector,
+          { "CS SYNC AA Reflector", "bthci_cmd.override_param_cs_sync_aa_reflector",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_ss_marker_1_position,
+          { "SS Marker 1 Position", "bthci_cmd.override_param_ss_marker_1_position",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_ss_marker_2_position,
+          { "SS Marker 2 Position", "bthci_cmd.override_param_ss_marker_2_position",
+            FT_UINT8, BASE_DEC|BASE_SPECIAL_VALS, VALS(cmd_ss_marker_2_position_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_ss_marker_value,
+          { "SS Marker Value", "bthci_cmd.override_param_ss_marker_value",
+            FT_UINT8, BASE_DEC, VALS(cmd_ss_marker_value_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_cs_sync_payload_pattern,
+          { "CS SYNC Payload Pattern", "bthci_cmd.override_param_cs_sync_payload_pattern",
+            FT_UINT8, BASE_DEC, VALS(cmd_cs_sync_payload_pattern_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_bthci_cmd_override_param_cs_sync_user_payload,
+          { "CS SYNC User Payload", "bthci_cmd.override_param_cs_sync_user_payload",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
@@ -10900,7 +11089,9 @@ proto_register_bthci_cmd(void)
         &ett_cs_times,
         &ett_adv_test_flags,
         &ett_override_config,
-        &ett_spacing_types
+        &ett_override_params,
+        &ett_spacing_types,
+        &ett_zigbee_direct_adv_extension
     };
 
     proto_bthci_cmd = proto_register_protocol("Bluetooth HCI Command", "HCI_CMD", "bthci_cmd");
@@ -10919,13 +11110,53 @@ proto_register_bthci_cmd(void)
     prefs_register_static_text_preference(module, "hci_cmd.version",
             "Bluetooth HCI version: 4.0 (Core)",
             "Version of protocol supported by this dissector.");
-    prefs_register_bool_preference(module, "bthci_vendor_android",
-        "Android HCI Vendor Commands/Events",
-        "Whether HCI Vendor Commands/Events should be dissected as Android specific",
-        &bthci_vendor_android);
 
-    vendor_dissector_table = register_decode_as_next_proto(proto_bthci_cmd, "bthci_cmd.vendor",
-                                                           "BT HCI Command Vendor", bthci_cmd_vendor_prompt);
+    /* There are two tables that contain the same HCI vendor dissectors.
+     * The first table is a "Decode As Next Proto" table that is used to
+     * choose one dissector to use for all Vendor-Specific Commands and
+     * Events. The second table is registered by the unique 16-bit
+     * company identifier, and is used when the manufacturer of the local
+     * Controller is known from a Read Local Version Information command.
+     * The first table's setting by Decode As takes precedence.
+     *
+     * "HCI Command packets can only be sent to the Bluetooth controller,
+     * HCI Event packets can only be sent from the Bluetooth controller..."
+     * [Bluetooth Core Specification Vol 4, Part A, 2 Protocol, et passim]
+     *
+     * The vendor dissectors therefore examine pinfo->p2p_dir and dissect
+     * the tvbuff as a HCI Command packet [Bluetooth Spec Vol 4, Part E,
+     * 5.4.1] in the case of P2P_DIR_SENT and as a HCI Event packet
+     * [Ibid., 5.4.4] in the case of P2P_DIR_RECV. They are called whenever
+     * a vendor-specific Command Opcode or Event Code is encountered; that
+     * includes when a vendor-specific Command Opcode is found in a Commmand
+     * Complete or Command Status event. The entire HCI Event packet is sent
+     * to the vendor dissector, which must read the Event Code to handle
+     * the Vendor-Specific, Command Complete, and Command Status events
+     * differently. That means that the opcodes, events, and lengths can
+     * be added to the tree multiple times, once by the generic dissector
+     * and once by the vendor dissector.
+     *
+     * We might want to have separate tables so that dissectors don't have
+     * handle more cases, which could mean 4 tables (2 CMD tables, one payload
+     * and one manuf, 2 EVT tables) or could mean 8 tables (2 CMD tables, and
+     * 6 EVT tables, 2 each for the 3 event codes that can be Vendor-Specific).
+     * We also instead might want to use register_dissector_with_data to make
+     * it easier to avoid adding multiple items for the same bytes to the tree.
+     */
+    /* XXX - This table is also used by proto_bthci_evt, but because it's
+     * registered to this protocol, it doesn't get shown at top by the
+     * Decode As dialog for proto_bthci_evt. Perhaps it should be
+     * registered in packet-bluetooth.c, since that protocol is generally
+     * present when dissecting either Commands or Events?
+     */
+
+    hci_vendor_payload_table = register_decode_as_next_proto(proto_bthci_cmd, "bthci_cmd.vendor",
+                                                           "BT HCI Vendor", bthci_cmd_vendor_prompt);
+
+    register_external_value_string("bthci_cmd_scan_enable_values", bthci_cmd_scan_enable_values);
+    register_external_value_string("bthci_cmd_encrypt_mode_vals", bthci_cmd_encrypt_mode_vals);
+    register_external_value_string("bthci_cmd_authentication_enable_values", bthci_cmd_authentication_enable_values);
+    register_external_value_string("bthci_cmd_inq_modes", bthci_cmd_inq_modes);
 }
 
 
@@ -10989,6 +11220,36 @@ static void *bluetooth_eir_ad_tds_organization_id_value(packet_info *pinfo)
         return GUINT_TO_POINTER((unsigned long)*value_data);
 
     return NULL;
+}
+
+/* Helper function to dissect Zigbee Direct advertisement data. */
+static void
+dissect_zigbee_direct_adv_data(proto_tree *tree, tvbuff_t *tvb, const gint start, gint length)
+{
+    guint offset = start;
+
+    static int * const zd_adv_data[] = {
+        &hf_btcommon_eir_ad_zd_ext_zd_version,
+        &hf_btcommon_eir_ad_zd_ext_zd_flag_ZDTS,
+        &hf_btcommon_eir_ad_zd_ext_zd_flag_PermitJoin,
+        NULL
+    };
+
+    /* Sanity, ensure we have minimum data as per Zigbee Direct extension to BLE advertisement. */
+    if (length < 5) {
+      return; /* Malformed or truncated Zigbee Direct Advertisement data. */
+    }
+
+    /* Zigbee Direct extension: Version & Flags. */
+    proto_tree_add_bitmask(tree, tvb, offset, hf_btcommon_eir_ad_zd_ext, ett_zigbee_direct_adv_extension, zd_adv_data, ENC_NA);
+    offset += 1;
+
+    /* Zigbee PAN ID. */
+    proto_tree_add_item(tree, hf_btcommon_eir_ad_zd_zigbee_panid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+    /* Zigbee NWK address. */
+    proto_tree_add_item(tree, hf_btcommon_eir_ad_zd_zigbee_nwkaddr, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 }
 
 static int
@@ -11096,7 +11357,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
 
         case 0x08: /* Device Name (shortened) */
         case 0x09: /* Device Name */
-            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_name, tvb, offset, length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_name, tvb, offset, length, ENC_UTF_8);
             proto_item_append_text(entry_item, ": %s", tvb_format_text(pinfo->pool, tvb, offset, length));
             if (!name || type == 0x09)
                 name = tvb_get_string_enc(pinfo->pool, tvb, offset, length, ENC_UTF_8);
@@ -11211,7 +11472,14 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                 uuid = get_bluetooth_uuid(tvb, offset-2, 2);
                 if (!dissector_try_string_with_data(bluetooth_eir_ad_service_uuid, print_numeric_bluetooth_uuid(pinfo->pool, &uuid),
                         tvb_new_subset_length(tvb, offset, length - 2), pinfo, entry_tree, true, bluetooth_eir_ad_data)) {
-                    proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_service_data, tvb, offset, length - 2, ENC_NA);
+                    /* Zigbee Direct */
+                    if (uuid.bt_uuid == 0xfff7) {
+                      /* Parse Zigbee Direct Advertisement data (5 bytes).*/
+                      dissect_zigbee_direct_adv_data(entry_tree, tvb, offset, length - 2);
+                    }
+                    else {
+                      proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_service_data, tvb, offset, length - 2, ENC_NA);
+                    }
                 }
                 offset += length - 2;
             }
@@ -11301,7 +11569,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
 
             break;
         case 0x24: /* URI */
-            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uri, tvb, offset, length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uri, tvb, offset, length, ENC_UTF_8);
             offset += length;
 
             break;
@@ -11514,7 +11782,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
 
             break;
         case 0x2d: /* Broadcast Code */
-            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_code, tvb, offset, length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_code, tvb, offset, length, ENC_UTF_8);
             proto_item_append_text(entry_item, ": %s", tvb_format_text(pinfo->pool, tvb, offset, length));
             offset += length;
 
@@ -11525,8 +11793,21 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
 
             break;
         case 0x30: /* Broadcast Name */
-            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_name, tvb, offset, length, ENC_UTF_8 | ENC_NA);
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_name, tvb, offset, length, ENC_UTF_8);
             offset += length;
+
+            break;
+        case 0x32: /* Periodic Advertising Response Timing Information */
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_pawr_timing_rsp_access_address, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            offset += 4;
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_pawr_timing_num_subevents, tvb, offset, 1, ENC_NA);
+            offset += 1;
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_pawr_timing_subevent_interval, tvb, offset, 1, ENC_NA);
+            offset += 1;
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_pawr_timing_response_slot_delay, tvb, offset, 1, ENC_NA);
+            offset += 1;
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_pawr_timing_response_slot_spacing, tvb, offset, 1, ENC_NA);
+            offset += 1;
 
             break;
         case 0xFF: /* Manufacturer Specific */ {
@@ -11852,6 +12133,36 @@ proto_register_btcommon(void)
           {"Data",                               "btcommon.eir_ad.entry.data",
            FT_BYTES, BASE_NONE, NULL, 0x0,
            NULL, HFILL}
+        },
+        { &hf_btcommon_eir_ad_zd_ext,
+          { "Zigbee Direct Extension Data",      "btcommon.eir_ad.entry.zd_extension",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_zd_ext_zd_version,
+          { "Zigbee Direct version",             "btcommon.eir_ad.entry.zd_version",
+            FT_UINT8, BASE_HEX, NULL, ZD_AD_EXTENSION_VERSION,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_zd_ext_zd_flag_ZDTS,
+          { "Zigbee Direct Tunnel Support (ZDTS)", "btcommon.eir_ad.entry.zd_flags_zdts",
+            FT_UINT8, BASE_HEX, NULL, ZD_AD_EXTENSION_ZD_FLAG_ZDTS,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_zd_ext_zd_flag_PermitJoin,
+          { "Permit Join",                       "btcommon.eir_ad.entry.zd_flags_permitjoin",
+            FT_UINT8, BASE_HEX, NULL, ZD_AD_EXTENSION_ZD_FLAG_PERMIT_JOIN,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_zd_zigbee_panid,
+          { "Zigbee PAN ID",                     "btcommon.eir_ad.entry.zd_zigbee_panid",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_zd_zigbee_nwkaddr,
+          { "Zigbee NWK address",                "btcommon.eir_ad.entry.zd_zigbee_nwk_addr",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
         },
         { &hf_btcommon_eir_ad_service_data,
           {"Service Data",                       "btcommon.eir_ad.entry.service_data",
@@ -12524,6 +12835,31 @@ proto_register_btcommon(void)
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_btcommon_eir_ad_pawr_timing_rsp_access_address,
+          { "Response Access Address", "btcommon.eir_ad.entry.pawr_timing.rsp_access_address",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL}
+        },
+        { &hf_btcommon_eir_ad_pawr_timing_num_subevents,
+          { "Number of Subevents", "btcommon.eir_ad.entry.pawr_timing.num_subevents",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL}
+        },
+        { &hf_btcommon_eir_ad_pawr_timing_subevent_interval,
+          { "Subevent Interval", "btcommon.eir_ad.entry.pawr_timing.subevent_interval",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(bluetooth_unit_1p25_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_pawr_timing_response_slot_delay,
+          { "Response Slot Delay", "btcommon.eir_ad.entry.pawr_timing.resp_slot_delay",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(bluetooth_unit_1p25_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_pawr_timing_response_slot_spacing,
+          { "Response Slot Spacing", "btcommon.eir_ad.entry.pawr_timing.resp_slot_spacing",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(bluetooth_unit_1p25_ms), 0x0,
+            NULL, HFILL }
+        },
         { &hf_btcommon_cod_class_of_device,
           { "Class of Device", "btcommon.cod.class_of_device",
             FT_UINT24, BASE_HEX, NULL, 0x0,
@@ -12947,8 +13283,6 @@ proto_reg_handoff_btcommon(void)
     btmesh_pbadv_handle = find_dissector("btmesh.pbadv");
     btmesh_beacon_handle = find_dissector("btmesh.beacon");
 }
-
-
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

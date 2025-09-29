@@ -659,7 +659,7 @@ dissect_bitcoin_msg_addrv2(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
     switch (network)
     {
       case 1:
-        proto_tree_add_item(subtree, hf_msg_addrv2_address_ipv4, tvb, offset, (unsigned) address_length, ENC_NA);
+        proto_tree_add_item(subtree, hf_msg_addrv2_address_ipv4, tvb, offset, (unsigned) address_length, ENC_BIG_ENDIAN);
         if (address_length != 4) {
           proto_tree_add_expert(subtree, pinfo, &ei_bitcoin_address_length,
                                 tvb, offset, (unsigned) address_length);
@@ -1660,7 +1660,7 @@ proto_register_bitcoin(void)
     },
     { &hf_msg_addrv2_port,
       { "Node port", "bitcoin.addrv2.port",
-        FT_UINT16, BASE_DEC, NULL, 0x0,
+        FT_UINT16, BASE_PT_TCP, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_bitcoin_msg_addrv2,
@@ -2405,7 +2405,7 @@ proto_register_bitcoin(void)
     },
     { &hf_address_port,
       { "Node port", "bitcoin.address.port",
-        FT_UINT16, BASE_DEC, NULL, 0x0,
+        FT_UINT16, BASE_PT_TCP, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_string_value,

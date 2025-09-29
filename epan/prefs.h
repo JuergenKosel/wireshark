@@ -43,6 +43,15 @@ extern "C" {
 #define CONV_DEINT_KEY_MAC        0x04
 #define CONV_DEINT_KEY_VLAN       0x08
 
+/* Bitmask of flags for the effect of a preference in Wireshark */
+#define PREF_EFFECT_DISSECTION        (1u << 0)
+#define PREF_EFFECT_CAPTURE           (1u << 1)
+#define PREF_EFFECT_GUI_LAYOUT        (1u << 2)
+#define PREF_EFFECT_FIELDS            (1u << 3)
+#define PREF_EFFECT_GUI               (1u << 4)
+#define PREF_EFFECT_GUI_COLOR         (1u << 5)
+#define PREF_EFFECT_AGGREGATION       (1u << 6)
+
 struct epan_uat;
 struct _e_addr_resolve;
 
@@ -166,7 +175,8 @@ typedef struct _e_prefs {
   GList       *col_list;
   int          num_cols;
   color_t      st_client_fg, st_client_bg, st_server_fg, st_server_bg;
-  color_t      gui_text_valid, gui_text_invalid, gui_text_deprecated;
+  color_t      gui_filter_valid_fg, gui_filter_invalid_fg, gui_filter_deprecated_fg;
+  color_t      gui_filter_valid_bg, gui_filter_invalid_bg, gui_filter_deprecated_bg;
   bool         restore_filter_after_following_stream;
   int          gui_toolbar_main_style;
   char        *gui_font_name;
@@ -213,6 +223,9 @@ typedef struct _e_prefs {
   bool         gui_interfaces_remote_display;
   bool         gui_io_graph_automatic_update;
   bool         gui_io_graph_enable_legend;
+  bool         gui_plot_automatic_update;
+  bool         gui_plot_enable_legend;
+  bool         gui_plot_enable_auto_scroll;
   bool         gui_packet_details_show_byteview;
   char        *capture_device;
   char        *capture_devices_linktypes;
@@ -228,6 +241,9 @@ typedef struct _e_prefs {
   bool         capture_pcap_ng;
   bool         capture_real_time;
   unsigned     capture_update_interval;
+  bool         enable_aggregation;
+  GList*       aggregation_fields;
+  int          aggregation_fields_num;
   bool         capture_no_interface_load;
   bool         capture_no_extcap;
   bool         capture_show_info;
@@ -278,6 +294,8 @@ typedef struct _e_prefs {
   int          st_sort_defcolflag;
   bool         st_sort_defdescending;
   bool         st_sort_showfullname;
+  int          st_format;
+  bool         conv_machine_readable;
   bool         extcap_save_on_start;
 } e_prefs;
 
@@ -693,27 +711,6 @@ WS_DLL_PUBLIC void prefs_register_uat_preference(module_t *module,
     const char *name, const char* title, const char *description,  struct epan_uat* uat);
 
 /**
- * Register a uat 'preference' for QT only. It adds a button that opens the uat's window in the
- * preferences tab of the module.
- * @param module the preferences module returned by prefs_register_protocol() or
- *               prefs_register_protocol_subtree()
- * @param name the preference's identifier. This is appended to the name of the
- *             protocol, with a "." between them, to create a unique identifier.
- *             The identifier should not include the protocol name, as the name in
- *             the preference file will already have it. Make sure that
- *             only lower-case ASCII letters, numbers, underscores and
- *             dots appear in the preference name.
- * @param title Field's title in the preferences dialog
- * @param description description to include in the preferences file
- *                    and shown as tooltip in the GUI, or NULL
- * @param uat the uat object that will be updated when the
- *                    field is changed in the preference dialog box
- */
-WS_DLL_PUBLIC void prefs_register_uat_preference_qt(module_t *module,
-    const char *name, const char* title, const char *description,  struct epan_uat* uat);
-
-
-/**
  * Register a color preference.  Currently does not have any "GUI Dialog" support
  * so the color data needs to be managed independently.  Currently used by the
  * "GUI preferences" to aid in reading/writing the preferences file, but the
@@ -886,6 +883,8 @@ WS_DLL_PUBLIC void prefs_register_custom_preference_TCP_Analysis(module_t *modul
 WS_DLL_PUBLIC void prefs_set_preference_effect_fields(module_t *module,
     const char *name);
 
+WS_DLL_PUBLIC void prefs_set_preference_effect(module_t* module,
+    const char* name, unsigned flags);
 
 typedef unsigned (*pref_cb)(pref_t *pref, void *user_data);
 
@@ -954,6 +953,15 @@ char *prefs_pref_type_description(pref_t *pref);
 WS_DLL_PUBLIC
 char *prefs_pref_to_str(pref_t *pref, pref_source_t source);
 
+/** Fetch whether a preference is marked obsolete.
+ *
+ * @param pref A preference.
+ *
+ * @return A boolean indication the obsolesence of the preference.
+ */
+WS_DLL_PUBLIC
+bool prefs_is_preference_obsolete(pref_t *pref);
+
 /**
  * Read the preferences file, fill in "prefs", and return a pointer to it.
  * If we got an error (other than "it doesn't exist") we report it through
@@ -1001,24 +1009,6 @@ typedef enum {
  * @return the result from attempting to set the preference
  */
 WS_DLL_PUBLIC prefs_set_pref_e prefs_set_pref(char *prefarg, char **errmsg);
-
-/**
- * Get or set a preference's obsolete status. These can be used to make a
- * preference obsolete after startup so that we can fetch its value but
- * keep it from showing up in the prefrences dialog.
- *
- * @param pref A preference.
- * @return true if the preference is obsolete, otherwise false
- */
-bool prefs_get_preference_obsolete(pref_t *pref);
-
-/**
- * Make a preference obsolete
- *
- * @param pref a preference.
- * @return the result from attempting to set the preference
- */
-prefs_set_pref_e prefs_set_preference_obsolete(pref_t *pref);
 
 /**
  * Get the current range preference value (maintained by pref, so it doesn't need to be freed). This allows the

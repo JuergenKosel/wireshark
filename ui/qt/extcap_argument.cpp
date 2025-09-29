@@ -215,7 +215,7 @@ bool ExtArgSelector::isValid()
 
     if (boxSelection)
     {
-        QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_text_invalid).name();
+        QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_filter_invalid_bg).name();
         QString cmbBoxStyle("QComboBox { background-color: %1; } ");
         boxSelection->setStyleSheet(cmbBoxStyle.arg(valid ? QString("") : lblInvalidColor));
     }
@@ -396,7 +396,7 @@ bool ExtArgRadio::isValid()
 
     /* If nothing is selected, but a selection is required, the only thing that
      * can be marked is the label */
-    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_text_invalid).name();
+    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_filter_invalid_bg).name();
     _label->setStyleSheet (label_style.arg(valid ? QString("") : lblInvalidColor));
 
     return valid;
@@ -623,7 +623,7 @@ bool ExtArgText::isValid()
         }
     }
 
-    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_text_invalid).name();
+    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_filter_invalid_bg).name();
     QString txtStyle("QLineEdit { background-color: %1; } ");
     textBox->setStyleSheet(txtStyle.arg(valid ? QString("") : lblInvalidColor));
 
@@ -797,6 +797,7 @@ ExtcapArgument::ExtcapArgument(const ExtcapArgument &obj) :
     }
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 ExtcapValueList ExtcapArgument::loadValues(QString parent)
 {
     if (_argument == 0 || _argument->values == 0)
@@ -824,6 +825,7 @@ ExtcapValueList ExtcapArgument::loadValues(QString parent)
                             v->enabled == true, v->is_default == true);
 
             if (!call.isEmpty())
+                // We recurse here, but the tree is only two levels deep
                 element.setChildren(this->loadValues(call));
 
             elements.append(element);
@@ -861,7 +863,7 @@ QWidget * ExtcapArgument::createLabel(QWidget * parent)
     if (_argument == 0 || _argument->display == 0)
         return 0;
 
-    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_text_invalid).name();
+    QString lblInvalidColor = ColorUtils::fromColorT(prefs.gui_filter_invalid_bg).name();
 
     QString text = QString().fromUtf8(_argument->display);
 
@@ -942,14 +944,27 @@ int ExtcapArgument::argNr() const
     return _number;
 }
 
-QString ExtcapArgument::prefKey(const QString & device_name)
+QString ExtcapArgument::prefKey(const QString & device_name,
+    const QString & option_name, const QString & option_value)
 {
     pref_t * pref = NULL;
+    QString id;
 
     if (_argument == 0 || ! _argument->save)
         return QString();
 
-    pref = extcap_pref_for_argument(device_name.toStdString().c_str(), _argument);
+    id = device_name;
+    /* If we are doing a sub-option: append an ID to the interface name */
+    if (!option_name.isEmpty())
+    {
+        /* Remove all illegal characters from option value */
+        QRegularExpression regex("[^a-z0-9._]");
+        QStringList option_uid = { "", option_name, option_value.toLower().replace(regex, "") };
+
+        id.append(option_uid.join("_"));
+    }
+
+    pref = extcap_pref_for_argument(id.toStdString().c_str(), _argument);
     if (pref != NULL)
         return QString(prefs_get_name(pref));
 
@@ -960,6 +975,14 @@ bool ExtcapArgument::isRequired()
 {
     if (_argument != NULL)
         return _argument->is_required;
+
+    return false;
+}
+
+bool ExtcapArgument::isSufficient()
+{
+    if (_argument != NULL)
+        return _argument->is_sufficient;
 
     return false;
 }
@@ -1012,6 +1035,8 @@ ExtcapArgument * ExtcapArgument::create(extcap_arg * argument, QObject *parent)
         result = new ExtcapArgumentFileSelection(argument, parent);
     else if (argument->arg_type == EXTCAP_ARG_MULTICHECK)
         result = new ExtArgMultiSelect(argument, parent);
+    else if (argument->arg_type == EXTCAP_ARG_TABLE)
+        result = new ExtArgTable(argument, parent);
     else if (argument->arg_type == EXTCAP_ARG_TIMESTAMP)
         result = new ExtArgTimestamp(argument, parent);
     else

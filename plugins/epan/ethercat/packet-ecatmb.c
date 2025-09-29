@@ -22,7 +22,6 @@
 #include "packet-ecatmb.h"
 
 #define BIT2BYTE(x) ((x+7)/8)
-#define ENDOF(p) ((p)+1) /* pointer to end of *p */
 
 void proto_register_ecat_mailbox(void);
 void proto_reg_handoff_ecat_mailbox(void);
@@ -690,7 +689,7 @@ static void dissect_ecat_coe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
             memset(&info, 0x0, sizeof(info));
             init_sdo_info_header(&info, tvb, offset);
 
-            col_append_str(pinfo->cinfo, COL_INFO, val_to_str(info.anSdoControlUnion.v.OpCode & 0x7F, CANopenSdoInfo, "%d (Unknown)"));
+            col_append_str(pinfo->cinfo, COL_INFO, val_to_str(pinfo->pool, info.anSdoControlUnion.v.OpCode & 0x7F, CANopenSdoInfo, "%d (Unknown)"));
             if ( info.anSdoControlUnion.v.InComplete )
                 col_append_str(pinfo->cinfo, COL_INFO, " - More Follows");
 
@@ -731,7 +730,7 @@ static void dissect_ecat_coe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
                      proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfomaxsub, tvb, offset++, 1, ENC_LITTLE_ENDIAN);
                      proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfoobjcode, tvb, offset++, 1, ENC_LITTLE_ENDIAN);
 
-                     proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfoname, tvb, offset, coe_length-offset, ENC_ASCII|ENC_NA);
+                     proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfoname, tvb, offset, coe_length-offset, ENC_ASCII);
                   }
                   break;
                case ECAT_COE_INFO_OPCODE_ENTRY_Q:
@@ -785,7 +784,7 @@ static void dissect_ecat_coe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
                         proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfomaxvalue, tvb, offset, objlen, ENC_NA);
                         offset+=objlen;
                      }
-                     proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfoname, tvb, offset, coe_length-offset, ENC_ASCII|ENC_NA);
+                     proto_tree_add_item(ecat_coe_tree, hf_ecat_mailbox_coe_sdoinfoname, tvb, offset, coe_length-offset, ENC_ASCII);
                   }
                   break;
                case ECAT_COE_INFO_OPCODE_ERROR_S:
@@ -1010,7 +1009,7 @@ static void dissect_ecat_eoe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
                proto_tree_add_item(ecat_eoe_init_tree, hf_ecat_mailbox_eoe_init_dnsserver, tvb, offset, 4, ENC_LITTLE_ENDIAN);
                offset+=4;
 
-               proto_tree_add_item(ecat_eoe_init_tree, hf_ecat_mailbox_eoe_init_dnsname, tvb, offset, 32, ENC_ASCII|ENC_NA);
+               proto_tree_add_item(ecat_eoe_init_tree, hf_ecat_mailbox_eoe_init_dnsname, tvb, offset, 32, ENC_ASCII);
             }
             else
             {
@@ -1117,7 +1116,7 @@ static void dissect_ecat_foe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
             proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_filelength, tvb, offset, 4, ENC_LITTLE_ENDIAN);
             offset+=4;
 
-            proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_filename, tvb, offset, foe_length-offset, ENC_ASCII|ENC_NA);
+            proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_filename, tvb, offset, foe_length-offset, ENC_ASCII);
             break;
 
          case ECAT_FOE_OPMODE_DATA:
@@ -1158,7 +1157,7 @@ static void dissect_ecat_foe(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
             proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_errcode, tvb, offset, 4, ENC_LITTLE_ENDIAN);
             offset+=4;
 
-            proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_errtext, tvb, offset, foe_length-offset, ENC_ASCII|ENC_NA);
+            proto_tree_add_item(ecat_foe_tree, hf_ecat_mailbox_foe_errtext, tvb, offset, foe_length-offset, ENC_ASCII);
             break;
 
          case ECAT_FOE_OPMODE_BUSY:

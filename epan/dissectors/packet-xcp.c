@@ -1,7 +1,7 @@
 /* packet-xcp.c
  * Universal Measurement and Calibration (XCP)
  * By <lars.voelker@technica-engineering.de>
- * Copyright 2023-2024 Dr. Lars Völker
+ * Copyright 2023-2025 Dr. Lars Völker
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -1168,7 +1168,7 @@ xcp_lookup_memory_address(uint16_t ecu_id, uint8_t addr_ext, uint32_t memory_add
         return NULL;
     }
 
-    return g_hash_table_lookup(data_xcp_memory_addresses, &key);
+    return (char *)g_hash_table_lookup(data_xcp_memory_addresses, &key);
 }
 
 static void *
@@ -1220,16 +1220,13 @@ reset_xcp_memory_addresses_cb(void) {
 
 static void
 post_update_xcp_memory_addresses_cb(void) {
-    unsigned    i;
-    uint64_t    *key;
-
     reset_xcp_memory_addresses_cb();
 
     /* create new hash table */
     data_xcp_memory_addresses = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
 
-    for (i = 0; i < xcp_memory_addresses_num; i++) {
-        key = g_new(uint64_t, 1);
+    for (unsigned i = 0; i < xcp_memory_addresses_num; i++) {
+        uint64_t *key = g_new(uint64_t, 1);
         *key = xcp_memory_address_calc_key((uint16_t)xcp_memory_addresses[i].ecu_id, (uint8_t)xcp_memory_addresses[i].addr_ext, xcp_memory_addresses[i].address);
         g_hash_table_insert(data_xcp_memory_addresses, key, xcp_memory_addresses[i].name);
     }
@@ -1360,12 +1357,19 @@ eth_mapping_uat_entry_to_eth_mapping_entry(uint32_t i) {
 }
 
 static void
-post_update_xcp_eth_mapping_cb(void) {
-    uint32_t i;
+reset_xcp_eth_mapping_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_xcp_eth_mappings) {
+        g_hash_table_destroy(data_xcp_eth_mappings);
+        data_xcp_eth_mappings = NULL;
+    }
+}
 
+static void
+post_update_xcp_eth_mapping_cb(void) {
     /* destroy the local xcp_uat_eth_mappings array */
     if (xcp_eth_mappings_priv != NULL) {
-        for (i = 0; i < xcp_uat_eth_mapping_num_current; i++) {
+        for (uint32_t i = 0; i < xcp_uat_eth_mapping_num_current; i++) {
             if (xcp_eth_mappings_priv[i].stream != NULL) {
                 wmem_free(wmem_epan_scope(), xcp_eth_mappings_priv[i].stream);
                 xcp_eth_mappings_priv[i].stream = NULL;
@@ -1381,14 +1385,12 @@ post_update_xcp_eth_mapping_cb(void) {
     xcp_uat_eth_mapping_num_current = xcp_uat_eth_mapping_num;
 
     /* destroy old hash table, if it exists */
-    if (data_xcp_eth_mappings != NULL) {
-        g_hash_table_destroy(data_xcp_eth_mappings);
-    }
+    reset_xcp_eth_mapping_cb();
 
     /* we don't need to free the data as long as we don't alloc it first */
     data_xcp_eth_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
 
-    for (i = 0; i < xcp_uat_eth_mapping_num; i++) {
+    for (uint32_t i = 0; i < xcp_uat_eth_mapping_num; i++) {
         xcp_eth_mapping_t* mapping = eth_mapping_uat_entry_to_eth_mapping_entry(i);
 
         uint64_t* hash = g_new(uint64_t, 1);
@@ -1399,15 +1401,6 @@ post_update_xcp_eth_mapping_cb(void) {
 
     /* we need to register the CAN-IDs */
     register_xcp_eth();
-}
-
-static void
-reset_xcp_eth_mapping_cb(void) {
-    /* destroy old hash table, if it exists */
-    if (data_xcp_eth_mappings) {
-        g_hash_table_destroy(data_xcp_eth_mappings);
-        data_xcp_eth_mappings = NULL;
-    }
 }
 
 static xcp_eth_mapping_t *
@@ -1515,6 +1508,15 @@ can_mapping_uat_entry_to_can_mapping_entry(uint32_t i) {
 }
 
 static void
+reset_xcp_can_mapping_cb(void) {
+    /* destroy hash table, if it exists */
+    if (data_xcp_can_mappings) {
+        g_hash_table_destroy(data_xcp_can_mappings);
+        data_xcp_can_mappings = NULL;
+    }
+}
+
+static void
 post_update_xcp_can_mapping_cb(void) {
     uint32_t i;
     uint64_t *key;
@@ -1535,9 +1537,7 @@ post_update_xcp_can_mapping_cb(void) {
     xcp_uat_can_mapping_num_current = xcp_uat_can_mapping_num;
 
     /* destroy old hash table, if it exists */
-    if (data_xcp_can_mappings != NULL) {
-        g_hash_table_destroy(data_xcp_can_mappings);
-    }
+    reset_xcp_can_mapping_cb();
 
     /* we don't need to free the data as long as we don't alloc it first */
     data_xcp_can_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
@@ -1568,12 +1568,12 @@ get_can_mapping(uint32_t id, uint16_t bus_id) {
 
     /* key is Bus ID, EFF Flag, CAN-ID */
     uint64_t key = ((uint64_t)id & (CAN_EFF_MASK | CAN_EFF_FLAG)) | ((uint64_t)bus_id << 32);
-    xcp_can_mapping_t *tmp = g_hash_table_lookup(data_xcp_can_mappings, &key);
+    xcp_can_mapping_t *tmp = (xcp_can_mapping_t *)g_hash_table_lookup(data_xcp_can_mappings, &key);
 
     if (tmp == NULL) {
         /* try again without Bus ID set */
         key = id & (CAN_EFF_MASK | CAN_EFF_FLAG);
-        tmp = g_hash_table_lookup(data_xcp_can_mappings, &key);
+        tmp = (xcp_can_mapping_t *)g_hash_table_lookup(data_xcp_can_mappings, &key);
     }
 
     return tmp;
@@ -1642,7 +1642,8 @@ dissect_transport_layer_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
                 switch (ip_version) {
                 case 0:
-                    proto_tree_add_item(tree, hf_xcp_sub_command_eth_ipv4, tvb, offset, 4, ENC_NA);
+                    /* TODO: is this actually encoded in big-endian order? */
+                    proto_tree_add_item(tree, hf_xcp_sub_command_eth_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
                     offset += 4;
 
                     /* TODO: we need to register the address and since the answer will be sent there... */
@@ -1750,7 +1751,7 @@ dissect_sw_debug_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32
         uint32_t cmd;
         proto_tree_add_item_ret_uint(tree, hf_xcp_debug_command, tvb, offset, 1, ENC_NA, &cmd);
         message->cmd_sw_debug = cmd;
-        col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(cmd, cmd_sw_dbg_mnemonics, "Unknown Software Debug Command (0x%02x)"));
+        col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(pinfo->pool, cmd, cmd_sw_dbg_mnemonics, "Unknown Software Debug Command (0x%02x)"));
         offset += 1;
 
         /* TODO */
@@ -1783,7 +1784,7 @@ dissect_pod_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t of
         uint32_t cmd;
         proto_tree_add_item_ret_uint(tree, hf_xcp_pod_command, tvb, offset, 2, stream->endianess, &cmd);
         message->cmd_pod = cmd;
-        col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(cmd, cmd_pod_mnemonics, "Unknown POD Command (0x%04x)"));
+        col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(pinfo->pool, cmd, cmd_pod_mnemonics, "Unknown POD Command (0x%04x)"));
         offset += 1;
 
         switch (message->cmd_pod) {
@@ -1875,7 +1876,7 @@ dissect_xcp_m2s(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t of
     offset += 1;
 
     if (cmd != XCP_CMD_2BYTE_FIRST_BYTE) {
-        col_add_fstr(pinfo->cinfo, COL_INFO, "XCP M->S: %s", val_to_str(cmd, cmd_code_mnemonics, "Unknown Command Code (0x%02x)"));
+        col_add_fstr(pinfo->cinfo, COL_INFO, "XCP M->S: %s", val_to_str(pinfo->pool, cmd, cmd_code_mnemonics, "Unknown Command Code (0x%02x)"));
     } else {
         proto_tree_add_item_ret_uint(xcp_tree, hf_xcp_cmd_code_level1, tvb, offset, 1, ENC_NA, &cmd_lvl1);
         offset += 1;
@@ -1883,7 +1884,7 @@ dissect_xcp_m2s(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t of
         if (cmd_lvl1 == XCP_CMD_2BYTE_XCP_POD_COMMANDS || cmd_lvl1 == XCP_CMD_2BYTE_XCP_SW_DEBUG) {
             col_set_str(pinfo->cinfo, COL_INFO, "XCP M->S:");
         } else {
-            col_add_fstr(pinfo->cinfo, COL_INFO, "XCP M->S: %s", val_to_str(cmd_lvl1, cmd_code_mnemonics_2bytes, "Unknown Command Code (0xC0 0x%02x)"));
+            col_add_fstr(pinfo->cinfo, COL_INFO, "XCP M->S: %s", val_to_str(pinfo->pool, cmd_lvl1, cmd_code_mnemonics_2bytes, "Unknown Command Code (0xC0 0x%02x)"));
         }
     }
 
@@ -2792,19 +2793,19 @@ dissect_xcp_s2m(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t of
             message->transport_layer_sub_cmd = message->peer_message->transport_layer_sub_cmd;
 
             if (message->cmd != XCP_CMD_2BYTE_FIRST_BYTE) {
-                col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(message->cmd, cmd_code_mnemonics, "Unknown Command Code 0x%02x"));
+                col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(pinfo->pool, message->cmd, cmd_code_mnemonics, "Unknown Command Code 0x%02x"));
             } else {
                 switch (message->cmd_lvl1) {
                 case XCP_CMD_2BYTE_XCP_SW_DEBUG:
-                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(message->cmd_sw_debug, cmd_sw_dbg_mnemonics, "Unknown Command Code 0xC0 0xFC 0x%02x"));
+                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(pinfo->pool, message->cmd_sw_debug, cmd_sw_dbg_mnemonics, "Unknown Command Code 0xC0 0xFC 0x%02x"));
                     break;
 
                 case XCP_CMD_2BYTE_XCP_POD_COMMANDS:
-                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(message->cmd_pod, cmd_pod_mnemonics, "Unknown Command Code 0xC0 0xFD 0x%04x"));
+                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(pinfo->pool, message->cmd_pod, cmd_pod_mnemonics, "Unknown Command Code 0xC0 0xFD 0x%04x"));
                     break;
 
                 default:
-                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(message->cmd_lvl1, cmd_code_mnemonics_2bytes, "Unknown Command Code 0xC0 0x%02x"));
+                    col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: %s RES", val_to_str(pinfo->pool, message->cmd_lvl1, cmd_code_mnemonics_2bytes, "Unknown Command Code 0xC0 0x%02x"));
                     break;
                 }
             }
@@ -3576,7 +3577,7 @@ dissect_xcp_s2m(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t of
             }
         }
     } else {
-        col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: PID: %s", val_to_str(pid, pid_type_names_s2m, "Unknown PID 0x%02x"));
+        col_append_fstr(pinfo->cinfo, COL_INFO, "XCP S->M: PID: %s", val_to_str(pinfo->pool, pid, pid_type_names_s2m, "Unknown PID 0x%02x"));
     }
 
     int unparsed_length = tvb_captured_length_remaining(tvb, offset);
@@ -4132,6 +4133,7 @@ proto_register_xcp(void) {
         &ett_xcp_comm_mode_optional,
         &ett_xcp_get_id_mode_parameter,
         &ett_xcp_set_request_mode,
+        &ett_xcp_set_cal_page_mode,
         &ett_xcp_trigger_info,
         &ett_xcp_payload_format,
         &ett_xcp_daq_properties,
@@ -4139,6 +4141,7 @@ proto_register_xcp(void) {
         &ett_xcp_timestamp_mode,
         &ett_xcp_daq_list_properties,
         &ett_xcp_daq_event_properties,
+        &ett_xcp_comm_mode_pgm,
         &ett_xcp_set_daq_list_mode_mode,
         &ett_xcp_clear_program_range_fct,
         &ett_xcp_set_daq_packed_mode_timestamp_mode,
@@ -4237,7 +4240,7 @@ proto_register_xcp(void) {
         update_xcp_can_mapping_cb,                  /* update callback       */
         NULL,                                       /* free callback         */
         post_update_xcp_can_mapping_cb,             /* post update callback  */
-        NULL,                                       /* reset callback        */
+        reset_xcp_can_mapping_cb,                   /* reset callback        */
         xcp_can_mapping_fields                      /* UAT field definitions */
     );
 

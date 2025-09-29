@@ -509,7 +509,7 @@ static inline int dissect_zvt_tlv_text_lines(
         packet_info *pinfo _U_, proto_tree *tree, tlv_seq_info_t *seq_info)
 {
     proto_tree_add_item(tree, hf_zvt_text_lines_line,
-            tvb, offset, len, seq_info->txt_enc | ENC_NA);
+            tvb, offset, len, seq_info->txt_enc);
     return len;
 }
 
@@ -1118,7 +1118,7 @@ dissect_zvt_apdu(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree
         ctrl = tvb_get_ntohs(tvb, offset);
         proto_tree_add_item(apdu_tree, hf_zvt_ctrl, tvb, offset, 2, ENC_BIG_ENDIAN);
         col_append_sep_str(pinfo->cinfo, COL_INFO, NULL,
-                val_to_str(ctrl, ctrl_field, "Unknown 0x%x"));
+                val_to_str(pinfo->pool, ctrl, ctrl_field, "Unknown 0x%x"));
         offset += 2;
 
         if (PINFO_FD_VISITED(pinfo)) {

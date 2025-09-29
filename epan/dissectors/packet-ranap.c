@@ -2165,7 +2165,7 @@ dissect_ranap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
                                                             0U, 65535U, &ProtocolIE_ID, false);
 
   if (tree) {
-    proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s", val_to_str_ext(ProtocolIE_ID, &ranap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
+    proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s", val_to_str_ext(actx->pinfo->pool, ProtocolIE_ID, &ranap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
   }
   return offset;
 }
@@ -3345,7 +3345,7 @@ dissect_ranap_TransportLayerAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
       /* IPv4 */
       private_data_set_transportLayerAddress_ipv4(actx, tvb_get_ipv4(parameter_tvb, 3));
     }
-    dissect_nsap(nsap_tvb, 0, 20, nsap_tree);
+    dissect_nsap(nsap_tvb, actx->pinfo, 0, 20, nsap_tree);
   }
 
 
@@ -14934,8 +14934,8 @@ dissect_sccp_ranap_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
   temp = tvb_get_uint8(tvb, PDU_TYPE_OFFSET);
   if (temp & 0x1F) {
-    /* PDU Type byte is not 0x00 (initiatingMessage), 0x20 (succesfulOutcome),
-       0x40 (unsuccesfulOutcome) or 0x60 (outcome), ignore extension bit (0x80) */
+    /* PDU Type byte is not 0x00 (initiatingMessage), 0x20 (successfulOutcome),
+       0x40 (unsuccessfulOutcome) or 0x60 (outcome), ignore extension bit (0x80) */
     return false;
   }
 

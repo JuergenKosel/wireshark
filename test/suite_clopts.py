@@ -109,8 +109,8 @@ class TestTsharkOptions:
     # XXX Should we generate individual test functions instead of looping?
     def test_tshark_interface_chars(self, cmd_tshark, cmd_dumpcap, test_env):
         '''Valid tshark parameters requiring capture permissions'''
-        # These options require dumpcap, but may fail with a pacp error
-        # if WinPcap or Npcap are not present
+        # These options require dumpcap, but may fail with a pcap error
+        # if Npcap is not present
         valid_returns = [ExitCodes.OK, ExitCodes.PCAP_ERROR, ExitCodes.INVALID_CAPABILITY, ExitCodes.INVALID_INTERFACE]
         for char_arg in 'DL':
             process = subprocesstest.run((cmd_tshark, '-' + char_arg), env=test_env)
@@ -282,14 +282,14 @@ class TestTsharkZExpert:
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,' + invalid_filter,
             '-r', capture_file('http-ooo.pcap')), capture_output=True, env=test_env)
         assert proc.returncode == ExitCodes.COMMAND_LINE
-        assert grep_output(proc.stdout, 'Filter "' + invalid_filter + '" is invalid')
+        assert grep_output(proc.stderr, 'Filter "' + invalid_filter + '" is invalid')
 
     def test_tshark_z_expert_error_invalid_filter(self, cmd_tshark, capture_file, test_env):
         invalid_filter = '__invalid_protocol'
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,error,' + invalid_filter,
             '-r', capture_file('http-ooo.pcap')), capture_output=True, env=test_env)
         assert proc.returncode == ExitCodes.COMMAND_LINE
-        assert grep_output(proc.stdout, 'Filter "' + invalid_filter + '" is invalid')
+        assert grep_output(proc.stderr, 'Filter "' + invalid_filter + '" is invalid')
 
     def test_tshark_z_expert_filter(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,udp',
@@ -331,10 +331,14 @@ class TestTsharkExtcap:
         except AttributeError:
             # Most Linux and NetBSD have ST_NOEXEC; Darwin and other *BSDs don't.
             pass
+        source_file = os.path.join(os.path.dirname(__file__), 'sampleif.py')
+        # If the git config core.fileMode is set to false, then the execute bit
+        # won't be set. Respect the security policy rather than overriding it.
+        if not os.access(home_path, os.X_OK):
+            pytest.skip('Test requires execute permission for sampleif.py (is git config core.fileMode false?)')
         extcap_dir_path = os.path.join(home_path, 'extcap')
         os.makedirs(extcap_dir_path)
         test_env['WIRESHARK_EXTCAP_DIR'] = extcap_dir_path
-        source_file = os.path.join(os.path.dirname(__file__), 'sampleif.py')
         # We run our tests in a bare, reproducible home environment. This can result in an
         # invalid or missing Python interpreter if our main environment has a wonky Python
         # path, as is the case in the GitLab SaaS macOS runners which use `asdf`. Force

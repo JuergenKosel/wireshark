@@ -454,7 +454,7 @@ static const value_string CommandCode_vals[] = {
 	{AFP_ADDICON,		"FPAddIcon" },
 	{0,			 NULL }
 };
-value_string_ext CommandCode_vals_ext = VALUE_STRING_EXT_INIT(CommandCode_vals);
+static value_string_ext CommandCode_vals_ext = VALUE_STRING_EXT_INIT(CommandCode_vals);
 
 static const value_string unicode_hint_vals[] = {
 	{    0,	"MacRoman" },
@@ -1095,7 +1095,7 @@ static const value_string afp_server_addr_type_vals[] = {
 	{6,   "IP6 address" },
 	{7,   "IP6+port address" },
 	{0,   NULL } };
-value_string_ext afp_server_addr_type_vals_ext = VALUE_STRING_EXT_INIT(afp_server_addr_type_vals);
+static value_string_ext afp_server_addr_type_vals_ext = VALUE_STRING_EXT_INIT(afp_server_addr_type_vals);
 
 #define AFP_NUM_PROCEDURES     256
 
@@ -1108,7 +1108,7 @@ afpstat_init(struct register_srt* srt _U_, GArray* srt_array)
 	afp_srt_table = init_srt_table("AFP Commands", NULL, srt_array, AFP_NUM_PROCEDURES, NULL, "afp.command", NULL);
 	for (i = 0; i < AFP_NUM_PROCEDURES; i++)
 	{
-		char* tmp_str = val_to_str_ext_wmem(NULL, i, &CommandCode_vals_ext, "Unknown(%u)");
+		char* tmp_str = val_to_str_ext(NULL, i, &CommandCode_vals_ext, "Unknown(%u)");
 		init_srt_table_row(afp_srt_table, i, tmp_str);
 		wmem_free(NULL, tmp_str);
 	}
@@ -5162,12 +5162,12 @@ dissect_afp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
 	afp_command = request_val->command;
 	col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s",
-		     val_to_str_ext(afp_command, &CommandCode_vals_ext,
+		     val_to_str_ext(pinfo->pool, afp_command, &CommandCode_vals_ext,
 				"Unknown command (%u)"),
 		     atp_asp_dsi_info->reply ? "reply" : "request");
 	if (atp_asp_dsi_info->reply && atp_asp_dsi_info->code != 0) {
 		col_append_fstr(pinfo->cinfo, COL_INFO, ": %s (%d)",
-			val_to_str_ext(atp_asp_dsi_info->code, &asp_error_vals_ext,
+			val_to_str_ext(pinfo->pool, atp_asp_dsi_info->code, &asp_error_vals_ext,
 				"Unknown error (%u)"), atp_asp_dsi_info->code);
 	}
 

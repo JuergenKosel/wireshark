@@ -72,7 +72,7 @@ from omniidl import idlast, idltype, idlutil, output
 # 7. Exception can be common to many operations, so handle them outside the
 #    operation helper functions [done]
 # 8. Automatic variable declaration [done, improve, still get some collisions.add variable delegator function ]
-#    For example, mutlidimensional arrays.
+#    For example, multidimensional arrays.
 # 9. wchar and wstring handling [giop API needs improving]
 # 10. Support Fixed [done]
 # 11. Support attributes (get/set) [started, needs language mapping option, perhaps wireshark GUI option
@@ -748,7 +748,6 @@ class wireshark_gen_C:
                                       # but only if the fn_hash is not already built
 
         self.curr_sname = sname  # update current opnode's scoped name
-        opname = opnode.identifier()
 
         self.st.out(self.template_helper_function_comment, repoid=opnode.repoId())
 
@@ -843,7 +842,7 @@ class wireshark_gen_C:
             if ex.members():
                 #print ex.members()
                 for m in ex.members():
-                    t = 0
+                    pass
                     #print m.memberType(), m.memberType().kind()
 
     def genOpDelegator(self, oplist):
@@ -2150,7 +2149,7 @@ u_octet4 = get_CDR_enum(tvb,offset,stream_is_big_endian, boundary);
 proto_tree_add_uint(tree, hf_@hfname@, tvb, *offset-4, 4, u_octet4);
 """
     template_get_CDR_string = """\
-giop_add_CDR_string(tree, tvb, offset, stream_is_big_endian, boundary, hf_@hfname@);
+giop_add_CDR_string(pinfo->pool, tree, tvb, offset, stream_is_big_endian, boundary, hf_@hfname@);
 """
     template_get_CDR_wstring = """\
 u_octet4 = get_CDR_wstring(tvb, &seq, offset, stream_is_big_endian, boundary, header);

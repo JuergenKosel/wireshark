@@ -108,33 +108,7 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
 {
     if (! gbl_cur_packet_list || ! gbl_cur_packet_list->model())
         return false;
-
-    PacketListModel * model = qobject_cast<PacketListModel *>(gbl_cur_packet_list->model());
-
-    if (! model)
-        return false;
-
-    model->flushVisibleRows();
-    int row = -1;
-    if (!fdata_needle)
-        row = 0;
-    else
-        row = model->visibleIndexOf(fdata_needle);
-
-    if (row >= 0) {
-        /* Calling ClearAndSelect with setCurrentIndex clears the "current"
-         * item, but doesn't clear the "selected" item. We want to clear
-         * the "selected" item as well so that selectionChanged() will be
-         * emitted in order to force an update of the packet details and
-         * packet bytes after a search.
-         */
-        gbl_cur_packet_list->selectionModel()->clearSelection();
-        gbl_cur_packet_list->selectionModel()->setCurrentIndex(model->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-        gbl_cur_packet_list->scrollTo(gbl_cur_packet_list->currentIndex(), PacketList::PositionAtCenter);
-        return true;
-    }
-
-    return false;
+    return gbl_cur_packet_list->selectRow(fdata_needle);
 }
 
 /*
@@ -325,14 +299,11 @@ void PacketList::colorsChanged()
         "  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1 stop: 0 %4, stop: 0.5 %3, stop: 1 %4);"
         "}";
 
-    QString hover_style;
-#if !defined(Q_OS_WIN)
-    hover_style = QStringLiteral(
+    QString hover_style = QStringLiteral(
         "QTreeView:item:hover {"
         "  background-color: %1;"
         "  color: palette(text);"
         "}").arg(ColorUtils::hoverBackground().name(QColor::HexArgb));
-#endif
 
     QString active_style   = QString();
     QString inactive_style = QString();
@@ -845,7 +816,7 @@ void PacketList::paintEvent(QPaintEvent *event)
     QTreeView::paintEvent(event);
 }
 
-void PacketList::mousePressEvent (QMouseEvent *event)
+void PacketList::mousePressEvent(QMouseEvent *event)
 {
     QTreeView::mousePressEvent(event);
 
@@ -878,13 +849,13 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
     {
         ctx_column_ = curIndex.column();
         QMimeData * mimeData = new QMimeData();
-        QWidget * content = nullptr;
+        DragLabel * drag_label = nullptr;
 
         QString filter = getFilterFromRowAndColumn(curIndex);
         QList<int> rows = selectedRows();
         if (rows.count() > 1)
         {
-            QStringList content;
+            QStringList entries;
             foreach (int row, rows)
             {
                 QModelIndex idx = model()->index(row, 0);
@@ -892,11 +863,11 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
                     continue;
 
                 QString entry = createSummaryText(idx, CopyAsText);
-                content << entry;
+                entries << entry;
             }
 
-            if (content.count() > 0)
-                mimeData->setText(content.join("\n"));
+            if (entries.count() > 0)
+                mimeData->setText(entries.join("\n"));
         }
         else if (! filter.isEmpty())
         {
@@ -921,7 +892,7 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
             filterData["description"] = name;
 
             mimeData->setData(WiresharkMimeData::DisplayFilterMimeType, QJsonDocument(filterData).toJson());
-            content = new DragLabel(QStringLiteral("%1\n%2").arg(name, abbrev), this);
+            drag_label = new DragLabel(QStringLiteral("%1\n%2").arg(name, abbrev), this);
         }
         else
         {
@@ -934,13 +905,14 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
         {
             QDrag * drag = new QDrag(this);
             drag->setMimeData(mimeData);
-            if (content)
+            if (drag_label)
             {
                 qreal dpr = window()->windowHandle()->devicePixelRatio();
-                QPixmap pixmap= QPixmap(content->size() * dpr);
+                QPixmap pixmap= QPixmap(drag_label->size() * dpr);
                 pixmap.setDevicePixelRatio(dpr);
-                content->render(&pixmap);
+                drag_label->render(&pixmap);
                 drag->setPixmap(pixmap);
+                delete drag_label;
             }
 
             drag->exec(Qt::CopyAction);
@@ -1051,28 +1023,24 @@ void PacketList::setColumnVisibility()
     for (int i = 0; i < prefs.num_cols; i++) {
         setColumnHidden(i, get_column_visible(i) ? false : true);
     }
+    setColumnDelegate();
     set_column_visibility_ = false;
 }
 
-int PacketList::sizeHintForColumn(int column) const
+void PacketList::setColumnDelegate()
 {
-    int size_hint = 0;
-
-    // This is a bit hacky but Qt does a fine job of column sizing and
-    // reimplementing QTreeView::sizeHintForColumn seems like a worse idea.
-    if (itemDelegateForColumn(column)) {
-        QStyleOptionViewItem option;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        initViewItemOption(&option);
-#else
-        option = viewOptions();
-#endif
-        // In my (gcc) testing this results in correct behavior on Windows but adds extra space
-        // on macOS and Linux. We might want to add Q_OS_... #ifdefs accordingly.
-        size_hint = itemDelegateForColumn(column)->sizeHint(option, QModelIndex()).width();
+    for (int i = 0; i < prefs.num_cols; i++) {
+        setItemDelegateForColumn(i, nullptr);   // Reset all delegates
     }
-    size_hint += QTreeView::sizeHintForColumn(column); // Decoration padding
-    return size_hint;
+
+    if (prefs.gui_packet_list_show_related) {
+        for (int i = 0; i < prefs.num_cols; i++) {
+            if (get_column_visible(i)) {
+                setItemDelegateForColumn(i, &related_packet_delegate_);
+                break;  // Set the delegate only on the first visible column
+            }
+        }
+    }
 }
 
 void PacketList::setRecentColumnWidth(int col)
@@ -1097,6 +1065,12 @@ void PacketList::setRecentColumnWidth(int col)
 #else
             option = viewOptions();
 #endif
+            // This is adding "how much width hinted for an empty index, plus
+            // the decoration, plus any padding between the decoration and
+            // normal display?" Many styles however have a non zero hint for
+            // an empty index, so this isn't quite right. What we really want
+            // is a size hint for an index whose data is the string above, and
+            // to just use that for the width.
             col_width += itemDelegateForColumn(col)->sizeHint(option, QModelIndex()).width();
         }
     }
@@ -1207,10 +1181,20 @@ void PacketList::columnsChanged()
 // Fields have changed, update custom columns
 void PacketList::fieldsChanged(capture_file *cf)
 {
-    prefs.num_cols = g_list_length(prefs.col_list);
-    col_cleanup(&cf->cinfo);
-    build_column_format_array(&cf->cinfo, prefs.num_cols, false);
-    resetColumns();
+    // hfids used by custom columns or by the _ws.col fields may have changed,
+    // so recreate the columns. We shouldn't need to if prefs.col_list is NULL,
+    // since that doesn't register and deregister _ws.col fields.
+    // If the column pref changes to or from NULL, that triggers columnsChanged
+    // above, so we don't need to do it twice.
+    //
+    // XXX - If we knew exactly which fields changed, we could rebuild the
+    // columns only if a field used by the columns changed.
+    if (prefs.col_list) {
+        prefs.num_cols = g_list_length(prefs.col_list);
+        col_cleanup(&cf->cinfo);
+        build_column_format_array(&cf->cinfo, prefs.num_cols, false);
+        resetColumns();
+    }
 }
 
 // Column widths should
@@ -1239,13 +1223,6 @@ void PacketList::applyRecentColumnWidths()
 
 void PacketList::preferencesChanged()
 {
-    // Related packet delegate
-    if (prefs.gui_packet_list_show_related) {
-        setItemDelegateForColumn(0, &related_packet_delegate_);
-    } else {
-        setItemDelegateForColumn(0, 0);
-    }
-
     // Intelligent scroll bar (minimap)
     if (prefs.gui_packet_list_show_minimap) {
         if (overlay_timer_id_ == 0) {
@@ -1449,23 +1426,18 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
 
     if (fdata != NULL) {
         epan_dissect_t edt;
-        wtap_rec rec; /* Record metadata */
-        Buffer buf;   /* Record data */
+        wtap_rec rec; /* Record information */
 
-        wtap_rec_init(&rec);
-        ws_buffer_init(&buf, 1514);
-        if (!cf_read_record(cap_file_, fdata, &rec, &buf)) {
+        wtap_rec_init(&rec, 1514);
+        if (!cf_read_record(cap_file_, fdata, &rec)) {
             wtap_rec_cleanup(&rec);
-            ws_buffer_free(&buf);
             return filter; /* error reading the record */
         }
         /* proto tree, visible. We need a proto tree if there's custom columns */
         epan_dissect_init(&edt, cap_file_->epan, have_custom_cols(&cap_file_->cinfo), false);
         col_custom_prime_edt(&edt, &cap_file_->cinfo);
 
-        epan_dissect_run(&edt, cap_file_->cd_t, &rec,
-                         ws_buffer_start_ptr(&buf),
-                         fdata, &cap_file_->cinfo);
+        epan_dissect_run(&edt, cap_file_->cd_t, &rec, fdata, &cap_file_->cinfo);
 
         if (cap_file_->cinfo.columns[column].col_fmt == COL_CUSTOM) {
             filter.append(gchar_free_to_qstring(col_custom_get_filter(&edt, &cap_file_->cinfo, column)));
@@ -1499,7 +1471,6 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
 
         epan_dissect_cleanup(&edt);
         wtap_rec_cleanup(&rec);
-        ws_buffer_free(&buf);
     }
 
     return filter;
@@ -2421,6 +2392,9 @@ void PacketList::drawFarOverlay()
 void PacketList::rowsInserted(const QModelIndex &parent, int start, int end)
 {
     QTreeView::rowsInserted(parent, start, end);
+    if (recent.aggregation_view && currentIndex().isValid() && currentIndex().row() >= 0) {
+        selectRow(getFDataForRow(currentIndex().row()), false);
+    }
     if (capture_in_progress_ && tail_at_end_) {
         scrollToBottom();
     }
@@ -2436,4 +2410,36 @@ void PacketList::resizeAllColumns(bool onlyTimeFormatted)
             resizeColumnToContents(col);
         }
     }
+}
+
+bool PacketList::selectRow(const frame_data* fdata, bool flushRows)
+{
+    PacketListModel* pktListModel = qobject_cast<PacketListModel*>(model());
+
+    if (!pktListModel)
+        return false;
+
+    if (flushRows) {
+        pktListModel->flushVisibleRows();
+    }
+    int row = -1;
+    if (!fdata)
+        row = 0;
+    else
+        row = pktListModel->visibleIndexOf(fdata);
+
+    if (row >= 0) {
+        /* Calling ClearAndSelect with setCurrentIndex clears the "current"
+         * item, but doesn't clear the "selected" item. We want to clear
+         * the "selected" item as well so that selectionChanged() will be
+         * emitted in order to force an update of the packet details and
+         * packet bytes after a search.
+         */
+        selectionModel()->clearSelection();
+        selectionModel()->setCurrentIndex(pktListModel->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        scrollTo(currentIndex(), PacketList::PositionAtCenter);
+        return true;
+    }
+
+    return false;
 }

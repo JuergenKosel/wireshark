@@ -386,13 +386,15 @@ static bool ldp_desegment = true;
 #define TLV_TYPED_WILDCARD_FEC_CAPA             0x050B  /* [RFC5918] */
 #define TLV_MULTI_TOPOLOGY_CAPA                 0x050C  /* [RFC7307] */
 #define TLV_STATE_ADVERTISEMENT_CONTROL_CAPA    0x050D  /* [RFC7473] */
-#define TLV_MRT_CAPA                            0x050E  /* draft-iefp-mpls-ldp-mrt */
+#define TLV_MRT_CAPA                            0x050E  /* [RFC8320] */
 #define TLV_TARGETED_APPLICATION_CAPA           0x050F  /* [RFC8223] */
+#define TLV_MT_MULTIPOINT_CAPA                  0x0510  /* [RFC9658] */
 #define TLV_LABEL_REQUEST_MESSAGE_ID            0x0600  /* [RFC5036] */
 #define TLV_MTU                                 0x0601  /* [RFC3988] */
 #define TLV_UNRECOGNIZED_NOTIFICATION_CAPA      0x0603  /* [RFC5919] */
 #define TLV_ICCP_CAPA                           0x0700  /* [RFC7275] */
 #define TLV_DUAL_STACK_CAPA                     0x0701  /* [RFC7552] */
+#define TLV_P2MP_PW_CAPA                        0x0703  /* [RFC8338] */
 #define TLV_EXPLICIT_ROUTE                      0x0800  /* [RFC3212] */
 #define TLV_IPV4_PREFIX_ER_HOP                  0x0801  /* [RFC3212] */
 #define TLV_IPV6_PREFIX_ER_HOP                  0x0802  /* [RFC3212] */
@@ -501,11 +503,13 @@ static const value_string tlv_type_names[] = {
     { TLV_MULTI_TOPOLOGY_CAPA,                 "Multi-Topology Capability"              },
     { TLV_STATE_ADVERTISEMENT_CONTROL_CAPA,    "State Advertisement Control Capability" },
     { TLV_TARGETED_APPLICATION_CAPA,           "Targeted Application Capability"        },
+    { TLV_MT_MULTIPOINT_CAPA,                  "MT Multipoint Capability"               },
     { TLV_LABEL_REQUEST_MESSAGE_ID,            "Label Request Message ID"               },
     { TLV_MTU,                                 "MTU TLV"                                },
     { TLV_UNRECOGNIZED_NOTIFICATION_CAPA,      "Unrecognized Notification Capability"   },
     { TLV_ICCP_CAPA,                           "ICCP capability TLV"                    },
     { TLV_DUAL_STACK_CAPA,                     "Dual-Stack capability"                  },
+    { TLV_P2MP_PW_CAPA,                        "P2MP PW Capability"                     },
     { TLV_EXPLICIT_ROUTE,                      "Explicit Route TLV"                     },
     { TLV_IPV4_PREFIX_ER_HOP,                  "Ipv4 Prefix ER-Hop TLV"                 },
     { TLV_IPV6_PREFIX_ER_HOP,                  "Ipv6 Prefix ER-Hop TLV"                 },
@@ -650,9 +654,9 @@ static const value_string tlv_unknown_vals[] = {
 #define HSMP_DOWNSTREAM               0x0A    /* [RFC7140][RFC7358] */
 #define PWID_FEC_ELEMENT              0x80    /* [RFC8077][RFC7358] */
 #define GENERALIZED_PWID_FEC          0x81    /* [RFC8077][RFC7358] */
-#define P2MP_PW_UPSTREAM_FEC          0x82    /* [draft-ietf-pwe3-p2mp-pw][RFC7358] */
+#define P2MP_PW_UPSTREAM_FEC          0x82    /* [RFC8338][RFC7358] */
 #define PROTECTION_FEC                0x83    /* [RFC8104][RFC7358] */
-#define P2MP_PW_DOWNSTREAM_FEC        0x84    /* [draft-ietf-pwe3-p2mp-pw][RFC7358] */
+#define P2MP_PW_DOWNSTREAM_FEC        0x84    /* [RFC8338][RFC7358] */
 
 const value_string fec_types_vals[] = {
   {WILDCARD_FEC,                      "Wildcard FEC"},
@@ -669,7 +673,7 @@ const value_string fec_types_vals[] = {
   {GENERALIZED_PWID_FEC,              "Generalized PWid FEC Element"},
   {P2MP_PW_UPSTREAM_FEC,              "P2MP PW Upstream FEC Element"},
   {PROTECTION_FEC,                    "Protection FEC Element"},
-  {P2MP_PW_DOWNSTREAM_FEC,            "P2MP_PW_DOWNSTREAM_FEC"},
+  {P2MP_PW_DOWNSTREAM_FEC,            "P2MP PW Downstream FEC Element"},
 
   {0, NULL}
 };
@@ -680,7 +684,7 @@ const value_string fec_types_vals[] = {
  *
  * RFC 4446
  *
- * http://www.iana.org/assignments/pwe3-parameters/pwe3-parameters.xhtml#pwe3-parameters-2
+ * https://www.iana.org/assignments/pwe3-parameters/pwe3-parameters.xhtml#pwe3-parameters-2
  */
 const value_string fec_vc_types_vals[] = {
     {0x0001, "Frame Relay DLCI (Martini Mode)"},
@@ -799,13 +803,6 @@ static const true_false_string fec_vc_cbit = {
     "Control Word Present",
     "Control Word NOT Present"
 };
-
-#if 0
-static const true_false_string fec_vc_ = {
-    "Control Word Present",
-    "Control Word NOT Present"
-};
-#endif
 
 static const value_string tlv_atm_merge_vals[] = {
     {0, "Merge not supported"},
@@ -2575,15 +2572,14 @@ dissect_tlv_mpls_context_lbl(tvbuff_t *tvb,packet_info *pinfo, unsigned offset, 
 static void
 dissect_tlv_ldp_p2mp_lsp(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
-    uint16_t addr_length = tvb_get_bits16(tvb, ((offset+3)*8), 8, ENC_BIG_ENDIAN);
-    uint16_t opcode_length = tvb_get_bits16(tvb, ((offset + 4 + addr_length)*8), 16, ENC_BIG_ENDIAN);
+    uint32_t addr_length, opcode_length;
 
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_lsptype, tvb,offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_addrfam, tvb,offset + 1, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_addrlen, tvb,offset + 3, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_rtnodeaddr, tvb,offset + 4, addr_length, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_oplength, tvb,offset + 4 + addr_length, 2, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_opvalue, tvb,offset + 4 + addr_length + 2, opcode_length, ENC_NA);
+    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_lsptype, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_addrfam, tvb, offset + 1, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_ldp_tlv_ldp_p2mp_addrlen, tvb, offset + 3, 1, ENC_BIG_ENDIAN, &addr_length);
+    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_rtnodeaddr, tvb, offset + 4, addr_length, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_ldp_tlv_ldp_p2mp_oplength, tvb,offset + 4 + addr_length, 2, ENC_BIG_ENDIAN, &opcode_length);
+    proto_tree_add_item(tree, hf_ldp_tlv_ldp_p2mp_opvalue, tvb, offset + 4 + addr_length + 2, opcode_length, ENC_NA);
 }
 
 static void
@@ -2639,7 +2635,7 @@ dissect_tlv(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree
         } else {
             typebak=0;
             tlv_tree = proto_tree_add_subtree(tree, tvb, offset, length + 4, ett_ldp_tlv, NULL,
-                                     val_to_str(type, tlv_type_names, "Unknown TLV type (0x%04X)"));
+                                     val_to_str(pinfo->pool, type, tlv_type_names, "Unknown TLV type (0x%04X)"));
         }
 
         proto_tree_add_item(tlv_tree, hf_ldp_tlv_unknown, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -3067,7 +3063,7 @@ dissect_msg(tvbuff_t *tvb, unsigned offset, packet_info *pinfo, proto_tree *tree
         col_append_fstr(pinfo->cinfo, COL_INFO, "Experimental Message (0x%04X) ", typebak);
         break;
     default:
-        col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(type, ldp_message_types, "Unknown Message (0x%04X)"));
+        col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", val_to_str(pinfo->pool, type, ldp_message_types, "Unknown Message (0x%04X)"));
     }
 
     if (tree) {
@@ -3081,7 +3077,7 @@ dissect_msg(tvbuff_t *tvb, unsigned offset, packet_info *pinfo, proto_tree *tree
             break;
         default:
             msg_tree = proto_tree_add_subtree(tree, tvb, offset, length + 4, ett_ldp_message, NULL,
-                                     val_to_str(type, ldp_message_types, "Unknown Message type (0x%04X)"));
+                                     val_to_str(pinfo->pool, type, ldp_message_types, "Unknown Message type (0x%04X)"));
         }
 
         proto_tree_add_item(msg_tree, hf_ldp_msg_ubit, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -3283,7 +3279,7 @@ dissect_subtlv_interface_parameters(tvbuff_t *tvb, unsigned offset, proto_tree *
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[1],tvb, offset+2, 2, ENC_BIG_ENDIAN);
         break;
     case FEC_VC_INTERFACEPARAM_TDMBPS:
-        /* draft-ietf-pwe3-control-protocol-06.txt */
+        /* RFC 4842 RFC 5287 */
         proto_item_append_text(ti,": BPS %u", tvb_get_ntohl(tvb,offset+2));
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[2],tvb, offset+2, 4, ENC_BIG_ENDIAN);
         break;
@@ -3300,7 +3296,7 @@ dissect_subtlv_interface_parameters(tvbuff_t *tvb, unsigned offset, proto_tree *
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[6],tvb, offset+2, 2, ENC_BIG_ENDIAN);
         break;
     case FEC_VC_INTERFACEPARAM_CEPOPTIONS:
-        /* draft-ietf-pwe3-sonet-05.txt */
+        /* RFC 4842 */
         proto_item_append_text(ti,": CEP Options");
         cepopt_tree = proto_tree_add_subtree(vcintparam_tree, tvb, offset + 2, 2, ett_ldp_fec_vc_interfaceparam_cepopt, NULL, "CEP Options");
         proto_tree_add_item(cepopt_tree, *interface_parameters_hf[7], tvb, offset + 2, 2, ENC_BIG_ENDIAN);
@@ -3322,16 +3318,16 @@ dissect_subtlv_interface_parameters(tvbuff_t *tvb, unsigned offset, proto_tree *
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[17], tvb, offset+2, 2, ENC_BIG_ENDIAN);
         break;
     case FEC_VC_INTERFACEPARAM_FRAGIND:
-        /* draft-ietf-pwe3-fragmentation-05.txt */
+        /* RFC 4623 */
         proto_item_append_text(ti,": Fragmentation");
         break;
     case FEC_VC_INTERFACEPARAM_FCSRETENT:
-        /* draft-ietf-pwe3-fcs-retention-02.txt */
+        /* RFC 4446 RFC 4720 */
         proto_item_append_text(ti,": FCS retention, FCS Length %u Bytes", tvb_get_ntohs(tvb,offset+2));
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[18], tvb, offset+2, 2, ENC_BIG_ENDIAN);
         break;
     case FEC_VC_INTERFACEPARAM_TDMOPTION:
-        /* draft-vainshtein-pwe3-tdm-control-protocol-extensions */
+        /* RFC 5287 */
         proto_item_append_text(ti,": TDM Options");
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[19], tvb, offset+2, 2, ENC_BIG_ENDIAN);
         proto_tree_add_item(vcintparam_tree,*interface_parameters_hf[20], tvb, offset+2, 2, ENC_BIG_ENDIAN);
@@ -3347,7 +3343,7 @@ dissect_subtlv_interface_parameters(tvbuff_t *tvb, unsigned offset, proto_tree *
         }
         break;
     case FEC_VC_INTERFACEPARAM_VCCV:
-        /* draft-ietf-pwe3-vccv-03.txt */
+        /* RFC 4446 RFC 5085 */
         proto_item_append_text(ti,": VCCV");
         vccvtype_tree = proto_tree_add_subtree(vcintparam_tree, tvb, offset + 2, 1, ett_ldp_fec_vc_interfaceparam_vccvtype, NULL, "CC Type");
         proto_tree_add_item(vccvtype_tree, *interface_parameters_hf[27], tvb, offset+2, 1, ENC_BIG_ENDIAN);

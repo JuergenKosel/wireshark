@@ -68,13 +68,13 @@ topic_action_url(topic_action_e action)
 
     switch(action) {
     /* pages online at www.wireshark.org */
-    case(ONLINEPAGE_HOME):
+    case(ONLINEPAGE_WIRESHARK_HOME):
         url = g_strdup(WS_HOME_PAGE_URL);
         break;
-    case(ONLINEPAGE_WIKI):
+    case(ONLINEPAGE_WIRESHARK_WIKI):
         url = g_strdup(WS_WIKI_HOME_URL);
         break;
-    case(ONLINEPAGE_DOWNLOAD):
+    case(ONLINEPAGE_WIRESHARK_DOWNLOAD):
         url = g_strdup(WS_DOWNLOAD_URL);
         break;
     case(ONLINEPAGE_DOCS):
@@ -106,6 +106,17 @@ topic_action_url(topic_action_e action)
         break;
     case(ONLINEPAGE_DFILTER_REF):
         url = g_strdup(WS_DOCS_URL "dfref/");
+        break;
+
+    /* pages online at stratoshark.org */
+    case(ONLINEPAGE_STRATOSHARK_HOME):
+        url = g_strdup(SS_HOME_PAGE_URL);
+        break;
+    case(ONLINEPAGE_STRATOSHARK_WIKI):
+        url = g_strdup(SS_WIKI_HOME_URL);
+        break;
+    case(ONLINEPAGE_STRATOSHARK_DOWNLOAD):
+        url = g_strdup(SS_DOWNLOAD_URL);
         break;
 
     /* local manual pages */
@@ -144,8 +155,11 @@ topic_action_url(topic_action_e action)
         break;
 
     /* Release Notes */
-    case(LOCALPAGE_RELEASE_NOTES):
-        url = doc_file_url("release-notes.html");
+    case(LOCALPAGE_WIRESHARK_RELEASE_NOTES):
+        url = doc_file_url("Wireshark Release Notes.html");
+        break;
+    case(LOCALPAGE_STRATOSHARK_RELEASE_NOTES):
+        url = doc_file_url("Stratoshark Release Notes.html");
         break;
 
     /* local help pages (User's Guide) */
@@ -308,6 +322,9 @@ topic_action_url(topic_action_e action)
         break;
     case(HELP_STAT_FLOW_GRAPH):
         url = user_guide_url("ChStatFlowGraph.html");
+        break;
+    case(HELP_STATS_PLOT_DIALOG):
+        url = user_guide_url("ChStatPlots.html");
         break;
 
     case(TOPIC_ACTION_NONE):

@@ -551,10 +551,10 @@ dissect_bthci_vendor_intel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
                 proto_tree_add_item(main_tree, hf_intel_identifier, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
-                proto_tree_add_item(main_tree, hf_intel_data, tvb, offset, ddc_config_length, ENC_NA);
-                offset += ddc_config_length;
+                proto_tree_add_item(main_tree, hf_intel_data, tvb, offset, ddc_config_length - 2, ENC_NA);
+                offset += ddc_config_length - 2;
 
-                length -= 1 + 3 + ddc_config_length;
+                length -= 1 + ddc_config_length;
             }
 
             break;
@@ -594,9 +594,9 @@ dissect_bthci_vendor_intel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         event_code = tvb_get_uint8(tvb, offset);
 
         if (try_val_to_str(event_code, intel_event_code_vals))
-            description = val_to_str(event_code, intel_event_code_vals, "Unknown 0x%08x");
+            description = val_to_str(pinfo->pool, event_code, intel_event_code_vals, "Unknown 0x%08x");
         else
-            description = val_to_str_ext(event_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%08x");
+            description = val_to_str_ext(pinfo->pool, event_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%08x");
         col_append_str(pinfo->cinfo, COL_INFO, description);
         proto_tree_add_item(main_tree, hf_intel_event_code, tvb, offset, 1, ENC_NA);
         offset += 1;

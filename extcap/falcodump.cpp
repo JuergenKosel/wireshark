@@ -239,6 +239,8 @@ void print_cloudtrail_aws_region_config(int arg_num, const char *display, const 
         "ap-southeast-2",
         "ap-southeast-3",
         "ap-southeast-4",
+        "ap-southeast-5",
+        "ap-southeast-7",
         "ca-central-1",
         "ca-west-1",
         "eu-central-1",
@@ -252,6 +254,7 @@ void print_cloudtrail_aws_region_config(int arg_num, const char *display, const 
         "il-central-1",
         "me-central-1",
         "me-south-1",
+        "mx-central-1",
         "sa-east-1",
         "us-east-1",
         "us-east-2",
@@ -291,7 +294,7 @@ void print_cloudtrail_aws_region_config(int arg_num, const char *display, const 
 }
 
 
-// Load our plugins. This should match the behavior of the Falco Bridge dissector.
+// Load our plugins. This should match the behavior of the Falco Events dissector.
 static void load_plugins(sinsp &inspector) {
     WS_DIR *dir;
     WS_DIRENT *file;
@@ -411,7 +414,12 @@ const std::pair<std::vector<std::string>,bool> get_json_array(const std::string 
 
 // Given a JSON blob containing a schema properties object, add each property to the
 // given plugin config.
-const std::pair<const std::string,bool> get_schema_properties(const std::string props_blob, int &opt_idx, const std::string option_prefix, const std::string plugin_name, std::vector<struct config_properties> &property_list) {
+// NOLINTNEXTLINE(misc-no-recursion)
+const std::pair<const std::string,bool> get_schema_properties(const std::string props_blob, int &opt_idx, const std::string option_prefix, const std::string plugin_name, std::vector<struct config_properties> &property_list, int depth) {
+    if (++depth > JSON_DUMPER_MAX_DEPTH) {
+        return std::pair<std::string,bool>("max depth exceeded", false);
+    }
+
     std::vector<jsmntok_t> tokens;
     int num_tokens = json_parse(props_blob.c_str(), NULL, 0);
 
@@ -473,7 +481,7 @@ const std::pair<const std::string,bool> get_schema_properties(const std::string 
                 "",
             };
             property_list.push_back(properties);
-            get_schema_properties(jv.first, opt_idx, option_prefix + "-" + name, plugin_name, property_list);
+            get_schema_properties(jv.first, opt_idx, option_prefix + "-" + name, plugin_name, property_list, depth);
             properties = {
                 name,
                 display,
@@ -682,7 +690,7 @@ static bool get_plugin_config_schema(const std::shared_ptr<sinsp_plugin> &plugin
         return false;
     }
     int opt_idx = OPT_SCHEMA_PROPERTIES_START;
-    jv = get_schema_properties(jv.first, opt_idx, "", plugin->name(), plugin_config.property_list);
+    jv = get_schema_properties(jv.first, opt_idx, "", plugin->name(), plugin_config.property_list, 0);
     if (!jv.second) {
         ws_warning("ERROR: Interface \"%s\" has an unsupported or invalid configuration schema: %s", plugin->name().c_str(), jv.first.c_str());
         return false;
@@ -942,8 +950,8 @@ int main(int argc, char **argv)
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0]);
     set_application_flavor(APPLICATION_FLAVOR_STRATOSHARK);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         ws_warning("Can't get pathname of directory containing the extcap program: %s.",
                 configuration_init_error);
@@ -984,6 +992,9 @@ int main(int argc, char **argv)
 
     if (g_list_length(extcap_conf->interfaces) < 1) {
         ws_debug("No source plugins found.");
+        // This should maybe be WS_EXIT_NO_INTERFACES from ws_exit_codes.h,
+        // if we updated the tests to allow that as a valid exit code.
+        ret = EXIT_SUCCESS;
         goto end;
     }
 
@@ -1119,7 +1130,12 @@ int main(int argc, char **argv)
         else
 #endif
         {
-            ret = show_plugin_config(extcap_conf->interface, plugin_configs.at(extcap_conf->interface));
+            if (extcap_conf->interface) {
+                ret = show_plugin_config(extcap_conf->interface, plugin_configs.at(extcap_conf->interface));
+            } else {
+                ws_warning("extcap interface missing");
+                goto end;
+            }
         }
         goto end;
     }

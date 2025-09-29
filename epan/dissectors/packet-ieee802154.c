@@ -53,7 +53,7 @@
  *  CRC16 is calculated using the x^16 + x^12 + x^5 + 1 polynomial
  *  as specified by ITU-T, and is calculated over the IEEE 802.15.4
  *  packet (excluding the FCS) as transmitted over the air. Note,
- *  that because the least significan bits are transmitted first, this
+ *  that because the least significant bits are transmitted first, this
  *  will require reversing the bit-order in each byte. Also, unlike
  *  most CRC algorithms, IEEE 802.15.4 uses an initial and final value
  *  of 0x0000, instead of 0xffff (which is used by the ITU-T).
@@ -107,6 +107,8 @@
 
 /* Use libgcrypt for cipher libraries. */
 #include <wsutil/wsgcrypt.h>
+
+#include <wsutil/ws_padding_to.h>
 
 #include "packet-ieee802154.h"
 #include "packet-sll.h"
@@ -202,10 +204,6 @@ static uint64_t ieee802154_tsch_asn;
 static const char  *ieee802154_user    = "User";
 
 static wmem_tree_t* mac_key_hash_handlers;
-
-#ifndef ROUND_UP
-#define ROUND_UP(_offset_, _align_) (((_offset_) + (_align_) - 1) / (_align_) * (_align_))
-#endif
 
 /*
  * Address Hash Tables
@@ -1473,7 +1471,7 @@ static bool ieee802154_extend_auth = true;
 
 static int ieee802_15_4_short_address_to_str(const address* addr, char *buf, int buf_len)
 {
-    uint16_t ieee_802_15_4_short_addr = pletoh16(addr->data);
+    uint16_t ieee_802_15_4_short_addr = pletohu16(addr->data);
 
     if (ieee_802_15_4_short_addr == 0xffff)
     {
@@ -2838,7 +2836,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
         packet->dst64 = tvb_get_letoh64(tvb, offset);
 
         /* Copy and convert the address to network byte order. */
-        *p_addr = pntoh64(&(packet->dst64));
+        *p_addr = pntohu64(&(packet->dst64));
 
         /* Display the destination address. */
         /* XXX - OUI resolution doesn't happen when displaying resolved
@@ -2933,7 +2931,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
         packet->src64 = tvb_get_letoh64(tvb, offset);
 
         /* Copy and convert the address to network byte order. */
-        *p_addr = pntoh64(&(packet->src64));
+        *p_addr = pntohu64(&(packet->src64));
 
         /* Display the source address. */
         /* XXX - OUI resolution doesn't happen when displaying resolved
@@ -2985,10 +2983,12 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
      */
     /* All of the beacon fields, except the beacon payload are considered nonpayload. */
     if ((packet->frame_type != IEEE802154_FCF_MULTIPURPOSE) && ((packet->version == IEEE802154_VERSION_2003) || (packet->version == IEEE802154_VERSION_2006))) {
-        if (packet->frame_type == IEEE802154_FCF_BEACON) { /* Regular Beacon. Some are not present in frame version (Enhanced) Beacons */
-            dissect_ieee802154_superframe(tvb, pinfo, ieee802154_tree, &offset); /* superframe spec */
-            dissect_ieee802154_gtsinfo(tvb, pinfo, ieee802154_tree, &offset);    /* GTS information fields */
-            dissect_ieee802154_pendaddr(tvb, pinfo, ieee802154_tree, &offset);   /* Pending address list */
+        if (tvb_reported_length(tvb) > offset) {
+            if (packet->frame_type == IEEE802154_FCF_BEACON) { /* Regular Beacon. Some are not present in frame version (Enhanced) Beacons */
+                dissect_ieee802154_superframe(tvb, pinfo, ieee802154_tree, &offset); /* superframe spec */
+                dissect_ieee802154_gtsinfo(tvb, pinfo, ieee802154_tree, &offset);    /* GTS information fields */
+                dissect_ieee802154_pendaddr(tvb, pinfo, ieee802154_tree, &offset);   /* Pending address list */
+            }
         }
 
         if (packet->frame_type == IEEE802154_FCF_CMD) {
@@ -3511,9 +3511,7 @@ ieee802154_create_tap_tlv_tree(proto_tree *tree, tvbuff_t *tvb, int offset, uint
     *length = tvb_get_letohs(tvb, offset+2);
 
     subtree_length = 4 + *length;
-    if (*length % 4) {
-        subtree_length += (4 - *length % 4);
-    }
+    subtree_length += WS_PADDING_TO_4(*length);
 
     subtree = proto_tree_add_subtree(tree, tvb, offset, subtree_length, ett_ieee802154_tap_tlv, &ti, "");
 
@@ -3657,17 +3655,19 @@ dissect_ieee802154_tap_tlvs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
                 proto_item_append_text(proto_tree_get_parent(tlvtree), "Unknown TLV");
                 break;
         } /* switch (tlv_type) */
+        offset += length;
 
-        if (length%4) {
+        unsigned padding_len = WS_PADDING_TO_4(length);
+        if (padding_len != 0) {
             uint32_t zero = 0;
             GByteArray *padding = g_byte_array_sized_new(4);
-            ti = proto_tree_add_bytes_item(tlvtree, hf_ieee802154_tap_tlv_padding, tvb, offset+length, 4-length%4, ENC_NA, padding, NULL, NULL);
-            if (memcmp(&zero, padding->data, 4-length%4)) {
+            ti = proto_tree_add_bytes_item(tlvtree, hf_ieee802154_tap_tlv_padding, tvb, offset, padding_len, ENC_NA, padding, NULL, NULL);
+            if (memcmp(&zero, padding->data, padding_len)) {
                 expert_add_info(NULL, ti, &ei_ieee802154_tap_tlv_padding_not_zeros);
             }
             g_byte_array_free(padding, true);
+            offset += padding_len;
         }
-        offset += ROUND_UP(length, 4);
     } /* while */
 
     /* if we have both slot start and frame start timestamp, show frame start offset */
@@ -4355,7 +4355,7 @@ dissect_hie_rendezvous_time(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *t
 /**
  * Dissect the Time Correction Header IE (7.4.2.7)
  *
- * This field is constructed by taking a signed 16-bit 2's compliment time
+ * This field is constructed by taking a signed 16-bit 2's complement time
  * correction in the range of -2048 us to 2047 us, AND'ing it with 0xfff, and
  * OR'ing again with 0x8000 to indicate a negative acknowledgment.
  */
@@ -5941,7 +5941,7 @@ proto_init_ieee802154(void)
     /* Reload the hash table from the static address UAT. */
     for (i=0; (i<num_static_addrs) && (static_addrs); i++) {
         ieee802154_addr_update(&ieee802154_map,(uint16_t)static_addrs[i].addr16, (uint16_t)static_addrs[i].pan,
-               pntoh64(static_addrs[i].eui64), ieee802154_user, IEEE802154_USER_MAPPING);
+               pntohu64(static_addrs[i].eui64), ieee802154_user, IEEE802154_USER_MAPPING);
     } /* for */
 } /* proto_init_ieee802154 */
 

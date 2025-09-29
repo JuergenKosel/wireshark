@@ -6982,8 +6982,8 @@ dissect_nbap_ProcedureID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
                                    ett_nbap_ProcedureID, ProcedureID_sequence);
 
   ProcedureID = wmem_strdup_printf(actx->pinfo->pool, "%s/%s",
-                                 val_to_str(nbap_private_data->procedure_code, VALS(nbap_ProcedureCode_vals), "unknown(%u)"),
-                                 val_to_str(nbap_private_data->dd_mode, VALS(nbap_DdMode_vals), "unknown(%u)"));
+                                 val_to_str(actx->pinfo->pool, nbap_private_data->procedure_code, VALS(nbap_ProcedureCode_vals), "unknown(%u)"),
+                                 val_to_str(actx->pinfo->pool, nbap_private_data->dd_mode, VALS(nbap_DdMode_vals), "unknown(%u)"));
   nbap_private_data->crnc_context_present = false; /*Reset CRNC Com context present flag.*/
 
 
@@ -8230,7 +8230,7 @@ dissect_nbap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
   nbap_get_private_data(actx->pinfo)->protocol_ie_id = protocol_ie_id; /* To carry around the packet */
   if (tree) {
     proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s",
-                           val_to_str_ext(protocol_ie_id, &nbap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
+                           val_to_str_ext(actx->pinfo->pool, protocol_ie_id, &nbap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
   }
 
   return offset;
@@ -8863,7 +8863,7 @@ dissect_nbap_TransportLayerAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
       /* IPv4 */
       nbap_private_data->transportLayerAddress_ipv4 = tvb_get_ipv4(parameter_tvb, 3);
     }
-    dissect_nsap(nsap_tvb, 0, 20, nsap_tree);
+    dissect_nsap(nsap_tvb, actx->pinfo, 0, 20, nsap_tree);
   }
 
 
@@ -23669,12 +23669,11 @@ dissect_nbap_HSDSCH_MACdFlow_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
   nbap_private_data->hsdsch_macdflow_id = hsdsch_macdflow_id;
 
   num_items = nbap_private_data->num_items;
-DISSECTOR_ASSERT(num_items < maxNrOfMACdFlows+1);
-DISSECTOR_ASSERT(num_items > 0);
 
-hsdsch_macdflow_ids = nbap_private_data->hsdsch_macdflow_ids;
-hsdsch_macdflow_ids[num_items-1] = hsdsch_macdflow_id;
-
+  if ((num_items > 0) && (num_items < maxNrOfMACdFlows+1)) {
+    hsdsch_macdflow_ids = nbap_private_data->hsdsch_macdflow_ids;
+    hsdsch_macdflow_ids[num_items-1] = hsdsch_macdflow_id;
+  }
 
   return offset;
 }

@@ -201,6 +201,8 @@ static expert_field ei_android_unexpected_data;
 static dissector_handle_t bthci_vendor_android_handle;
 static dissector_handle_t btcommon_ad_android_handle;
 
+static const uint16_t bthci_vendor_manufacturer_android = 0x00e0; // Google LLC
+
 #define ANDROID_OPCODE_VALS(base) \
     { (base) | 0x0153,  "LE Get Vendor Capabilities" }, \
     { (base) | 0x0154,  "LE Multi Advertising" }, \
@@ -774,7 +776,7 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                 if (cp_enable_scmst) {
                     proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst, tvb, offset, 1, ENC_NA);
                 } else {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst_reserved, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
                 }
                 offset += 1;
 
@@ -823,7 +825,7 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         col_set_str(pinfo->cinfo, COL_INFO, "Rcvd Android ");
 
         event_code = tvb_get_uint8(tvb, offset);
-        description = val_to_str_ext(event_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%08x");
+        description = val_to_str_ext(pinfo->pool, event_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%08x");
         col_append_str(pinfo->cinfo, COL_INFO, description);
         proto_tree_add_item(main_tree, hf_android_event_code, tvb, offset, 1, ENC_NA);
         offset += 1;
@@ -993,16 +995,16 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                 break;
             case 0x0159: /* LE Energy Info */
                 if (status == STATUS_SUCCESS) {
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_rx_time, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(main_tree, hf_android_le_energy_total_rx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
                     offset += 1;
 
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_tx_time, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(main_tree, hf_android_le_energy_total_tx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
                     offset += 1;
 
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_idle_time, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(main_tree, hf_android_le_energy_total_idle_time, tvb, offset, 1, ENC_BIG_ENDIAN);
                     offset += 1;
 
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_energy_used, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(main_tree, hf_android_le_energy_total_energy_used, tvb, offset, 1, ENC_BIG_ENDIAN);
                     offset += 1;
                 }
 

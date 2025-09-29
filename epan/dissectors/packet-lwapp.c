@@ -278,7 +278,7 @@ dissect_control(tvbuff_t *tvb, packet_info *pinfo,
     header.length = g_ntohs(header.length);
 
     col_append_str(pinfo->cinfo, COL_INFO,
-        val_to_str_ext(header.type, &control_msg_vals_ext, "Bad Type: 0x%02x"));
+        val_to_str_ext(pinfo->pool, header.type, &control_msg_vals_ext, "Bad Type: 0x%02x"));
 
     /* In the interest of speed, if "tree" is NULL, don't do any work not
        necessary to generate protocol tree items. */
@@ -569,7 +569,7 @@ proto_reg_handoff_lwapp(void)
      * First, lwapp can join on multiple udp ports, as encapsulated
      * packets on top of UDP.  In this case, there is a full raw
      * ethernet frame inside of the UDP packet.  This method is
-     * becoming obscelete, but we still wanted to dissect the
+     * becoming obsolete, but we still wanted to dissect the
      * packets.
      *
      * Next, lwapp can be over UDP, but packaged for L3 tunneling.  This

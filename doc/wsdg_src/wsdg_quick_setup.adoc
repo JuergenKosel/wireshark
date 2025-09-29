@@ -93,16 +93,18 @@ The setup script is `tools/rpm-setup.sh`; its options are:
 
 You must first install Xcode.
 
-There are two scripts available for macOS which will install the packages and libraries required to build Wireshark and its documentation:
+As with Windows we provide pre-built third party libraries which will be automatically installed if you set the `WIRESHARK_BASE_DIR` CMake variable to a directory that is writable by you, such as _/opt/wireshark-third-party_ or _wireshark-libraries_ at the same level as your Wireshark source code directory.
+You can alternatively use two scripts to install the packages and libraries required to build Wireshark and its documentation:
 `tools/macos-setup-brew.sh`, which will use the https://brew.sh/[Homebrew] package manager and `tools/macos-setup.sh`, which will build any required libraries and tools locally, except for Qt 6.
 
 `tools/macos-setup-brew.sh` supports the following options:
 
-* `--install-optional` install optional software as well
+* `--install-required` install third party libraries required to build Wireshark. Not needed if you set `WIRESHARK_BASE_DIR`.
+* `--install-optional` install optional third party libraries. Not needed if you set `WIRESHARK_BASE_DIR`.
 * `--install-dmg-deps` install packages required to build the .dmg file
 * `--install-sparkle-deps` install the Sparkle automatic updater
 * `--install-all` install everything
-* `--install-stratoshark` install everything to compile Stratoshark and Falco bridge
+* `--install-stratoshark` install libraries required to build Stratoshark and the Falco Events plugin
 * `[other]` other options are passed as-is to brew
 
 `tools/macos-setup.sh` supports the following options:
@@ -334,7 +336,6 @@ choco install -y git cmake python3
 ===== Install Microsoft Visual Studio
 
 Download and install https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=17[“Microsoft Visual Studio 2022 Community Edition”].
-If you prefer you can instead download and install https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=16[“Microsoft Visual Studio 2019 Community Edition”].
 The examples below are for Visual Studio 2022 but can be adapted for Visual Studio 2019.
 These are small utilities that download all the other required parts (which are quite large).
 
@@ -391,7 +392,7 @@ In the "Select Components" page, select your desired Qt version. We recommend
 the latest LTS version, and the stable Windows installers currently ship with Qt {windows-qt6-lts-version}.
 Select the following components:
 
-* MSVC 2019 64-bit
+* MSVC 2022 64-bit
 * Qt 5 Compatibility Module
 * Qt Debug Information Files (contains PDB files which can be used for debugging)
 * Under "Additional Libraries" select "Qt Multimedia" to support advanced
@@ -399,7 +400,7 @@ controls for playing back streams in the RTP Player dialog
 * You can deselect all of the other the components
 such as “Qt Charts” or “Android xxxx” as they aren’t required.
 
-The CMake variable CMAKE_PREFIX_PATH (see `https://doc.qt.io/qt-6/cmake-get-started.html`) should be set as appropriate for your environment and should point to the Qt installation directory, e.g. _C:\Qt{backslash}{windows-qt6-lts-version}\msvc2019_64_
+The CMake variable CMAKE_PREFIX_PATH (see `https://doc.qt.io/qt-6/cmake-get-started.html`) should be set as appropriate for your environment and should point to the Qt installation directory, e.g. _C:\Qt{backslash}{windows-qt6-lts-version}\msvc2022_64_
 Alternatively you can also use the environment variable WIRESHARK_QT6_PREFIX_PATH.
 
 Qt 6 is the default option for building Wireshark, but Wireshark has support for Qt 5.12 and later. To enable Wireshark to build with Qt 5 pass `-DUSE_qt6=OFF`
@@ -415,7 +416,7 @@ Then just run the following command to launch the installation.
 
 [subs="attributes+"]
 ----
-.\aqt.exe install-qt windows desktop {windows-qt6-lts-version} win64_msvc2019_64 -m qt5compat debug_info qtmultimedia
+.\aqt.exe install-qt windows desktop {windows-qt6-lts-version} win64_msvc2022_64 -m qt5compat debug_info qtmultimedia
 ----
 
 [#ChSetupPython]
@@ -515,26 +516,17 @@ choco install -y cmake
 
 Chocolatey ensures cmake.exe is on your path.
 
-[#ChSetupAsciidoctor]
+[#ChSetupXsltproc]
 
-===== Install Asciidoctor, Xsltproc, And DocBook
+===== Install Xsltproc
 
-https://asciidoctor.org/[Asciidoctor] can be run directly as a Ruby script or via a Java wrapper (AsciidoctorJ).
-The JavaScript flavor (Asciidoctor.js) isn’t yet supported.
-It is used in conjunction with Xsltproc and DocBook to generate the documentation you're reading and the User’s Guide.
-
-You can install AsciidoctorJ, Xsltproc, and DocBook using Chocolatey.
-AsciidoctorJ requires a Java runtime and there are https://en.wikipedia.org/wiki/List_of_Java_virtual_machines[many to choose from].
-Chocolatey doesn't support alternative package dependencies at the present time, including dependencies on Java.
-As a result, installing the asciidoctorj package won't automatically install a Java runtime -- you must install one separately.
+Asciidoctor, xsltproc, and DocBook are required to build the documentation.
+CMake will download a pre-built version of Asciidoctor and DocBook on Windows, but xsltproc must be installed manually.
+You can install it using Chocolatey:
 
 ----
-choco install -y <your favorite Java runtime>
-choco install -y asciidoctorj xsltproc docbook-bundle
+choco install -y xsltproc
 ----
-
-Chocolatey ensures that asciidoctorj.exe and xsltproc.exe is on your
-path and that xsltproc uses the DocBook catalog.
 
 // winget has no Asciidoctor, xsltproc, or DocBook packages.
 
@@ -555,13 +547,15 @@ Chocolatey ensures win_flex.exe is on your path.
 
 // winget has no bison package.
 
-===== Optional: Install Perl
+===== Only if needed: Install Perl
 
-If needed you can get a Perl installer from
-http://strawberryperl.com/
+As discussed in the <<ChToolsWindowsPerl,Tool Reference>>, you should avoid installing Perl on Windows unless you have a specific need for it.
+
+If you do need Perl you can get an installer from
+https://strawberryperl.com/
 or
 https://www.activestate.com/
-and install Perl into the default location.
+and install it into the default location.
 
 Alternatively you can install Perl using Chocolatey:
 
@@ -657,7 +651,7 @@ rem Set *one* of these.
 set WIRESHARK_BASE_DIR=C:\Development
 rem set WIRESHARK_LIB_DIR=c:\wireshark-x64-libs
 rem Set the Qt installation directory
-set WIRESHARK_QT6_PREFIX_PATH=C:\Qt{backslash}{windows-qt6-lts-version}\msvc2019_64
+set WIRESHARK_QT6_PREFIX_PATH=C:\Qt{backslash}{windows-qt6-lts-version}\msvc2022_64
 rem Append a custom string to the package version. Optional.
 set WIRESHARK_VERSION_EXTRA=-YourExtraVersionInfo
 ----
@@ -770,7 +764,7 @@ on using the <<ChToolsDebugger, Debugger Tools>>.
 ===== Optional: Create User’s and Developer’s Guide
 
 To build the Wireshark User's Guide and the Wireshark Developer's Guide,
-build the `all_guides` target, e.g.  `msbuild all_guides.vcxproj`.
+build the `all_guides` target, e.g.  `msbuild doc\all_guides.vcxproj`.
 Detailed information to build these guides can be found in the file
 _doc\README.documentation.adoc_ in the Wireshark sources.
 
@@ -865,6 +859,48 @@ the build using MSVC:
 
 * Enhanced Kerberos dissection with decryption is not available.
 
+
+[#ChSetupWSL2]
+
+==== Using WSL2 on a Windows Host (Beginner Friendly)
+
+Using WSL2 on a Windows machine can provide a quick and easy way for beginners
+to get started. This section will focus on using the official Debian
+distribution installed from the `wsl` CLI command or Windows App Store.
+
+This will allow for a quick and easy way to build Wireshark. Please note
+that while this guide is sufficient for an environment to build and test minor changes,
+some changes and enhancements will still need to be built and tested for Windows
+as described in the sections above.
+
+To install WSL2 for the first time and Debian via the CLI run (as administrator):
+
+  wsl --install
+  wsl --install -d Debian
+
+https://learn.microsoft.com/en-us/windows/wsl/install[Please see the documentation on WSL for help with installation.]
+
+From here following the build guide for Debian based Un*x systems should finish
+the setup of the build environment. See <<ChSetupUNIX>> for
+details on compiling, building, and running Wireshark on Debian. WSL2 supports
+both X11 and Wayland to enable the use of GUI applications without any additional
+requirements. Please see the https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-appsp[WSL2 reference of GUIs for more detail.]
+
+[NOTE]
+.For First Time Contributors
+====
+It is highly recommended to review the source control process before attempting
+to build any changes.
+
+Please see:
+
+  - <<ChSrcGit>>
+  - <<ChSrcGitUpdate>>
+  - <<ChSrcContribute>>
+
+For a description of the process.
+====
+
 [#ChSetupCross]
 
 ==== Cross-compilation using Linux
@@ -952,6 +988,7 @@ This guide assumes `paru` is being used.
   paru -S mingw-w64-cmake
   paru -S mingw-w64-glib2
   paru -S mingw-w64-libgcrypt
+  paru -S mingw-w64-libxml2
   paru -S mingw-w64-c-ares
   paru -S mingw-w64-speexdsp
   paru -S mingw-w64-libpcap
@@ -967,7 +1004,6 @@ This guide assumes `paru` is being used.
   paru -S mingw-w64-snappy
   paru -S mingw-w64-opus
   paru -S mingw-w64-opencore-amr
-  paru -S mingw-w64-libxml2
   paru -S mingw-w64-libnghttp2
   paru -S mingw-w64-libssh
   paru -S mingw-w64-minizip

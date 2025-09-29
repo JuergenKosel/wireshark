@@ -149,6 +149,14 @@ cfile_open_failure_alert_box(const char *filename, int err, char *err_info)
             g_free(err_info);
             break;
 
+        case WTAP_ERR_REC_MALFORMED:
+            simple_error_message_box("%s contains a malformed record.\n"
+                "(%s)",
+                display_basename,
+                err_info != NULL ? err_info : "no information supplied");
+            g_free(err_info);
+            break;
+
         default:
             simple_error_message_box(
                         "The file \"%s\" could not be opened: %s.",
@@ -328,6 +336,14 @@ cfile_read_failure_alert_box(const char *filename, int err, char *err_info)
         g_free(err_info);
         break;
 
+    case WTAP_ERR_REC_MALFORMED:
+        simple_error_message_box("%s contains a malformed record.\n"
+            "(%s)",
+            display_name,
+            err_info != NULL ? err_info : "no information supplied");
+        g_free(err_info);
+        break;
+
     default:
         simple_error_message_box(
                     "An error occurred while reading the %s: %s.",
@@ -409,9 +425,12 @@ cfile_write_failure_alert_box(const char *in_filename, const char *out_filename,
              * the record number and file type/subtype.
              */
             simple_error_message_box(
-                        "Record %" PRIu64 "%s has a record type that can't be saved in a \"%s\" file.",
+                        "Record %" PRIu64 "%s has a record type that can't be saved in a \"%s\" file.\n"
+                        "(%s)",
                         framenum, in_file_string,
-                        wtap_file_type_subtype_description(file_type_subtype));
+                        wtap_file_type_subtype_description(file_type_subtype),
+                        err_info != NULL ? err_info : "no information supplied");
+            g_free(err_info);
             break;
 
         case WTAP_ERR_UNWRITABLE_REC_DATA:

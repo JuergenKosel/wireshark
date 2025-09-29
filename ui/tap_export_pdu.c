@@ -39,9 +39,9 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
      */
     exp_pdu_tap_data->framenum++;
 
-    memset(&rec, 0, sizeof rec);
     buffer_len = exp_pdu_data->tvb_captured_length + exp_pdu_data->tlv_buffer_len;
-    packet_buf = (uint8_t *)g_malloc(buffer_len);
+    wtap_rec_init(&rec, buffer_len);
+    packet_buf = ws_buffer_start_ptr(&rec.data);
 
     if(exp_pdu_data->tlv_buffer_len > 0){
         memcpy(packet_buf, exp_pdu_data->tlv_buffer, exp_pdu_data->tlv_buffer_len);
@@ -49,14 +49,12 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
     if(exp_pdu_data->tvb_captured_length > 0){
         tvb_memcpy(exp_pdu_data->pdu_tvb, packet_buf+exp_pdu_data->tlv_buffer_len, 0, exp_pdu_data->tvb_captured_length);
     }
-    rec.rec_type                           = REC_TYPE_PACKET;
+    wtap_setup_packet_rec(&rec, exp_pdu_tap_data->pkt_encap);
     rec.presence_flags                     = WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID|WTAP_HAS_TS;
     rec.ts.secs                            = pinfo->abs_ts.secs;
     rec.ts.nsecs                           = pinfo->abs_ts.nsecs;
     rec.rec_header.packet_header.caplen    = buffer_len;
     rec.rec_header.packet_header.len       = exp_pdu_data->tvb_reported_length + exp_pdu_data->tlv_buffer_len;
-
-    rec.rec_header.packet_header.pkt_encap = exp_pdu_tap_data->pkt_encap;
 
     /* rec.opt_block is not modified by wtap_dump, but if for some reason the
      * epan_get_modified_block() or pinfo->rec->block are invalidated,
@@ -69,14 +67,14 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
     }
 
     /* XXX: should the rec.rec_header.packet_header.pseudo_header be set to the pinfo's pseudo-header? */
-    if (!wtap_dump(exp_pdu_tap_data->wdh, &rec, packet_buf, &err, &err_info)) {
+    if (!wtap_dump(exp_pdu_tap_data->wdh, &rec, &err, &err_info)) {
         report_cfile_write_failure(NULL, exp_pdu_tap_data->pathname,
                                    err, err_info, exp_pdu_tap_data->framenum,
                                    wtap_dump_file_type_subtype(exp_pdu_tap_data->wdh));
         status = TAP_PACKET_FAILED;
     }
 
-    g_free(packet_buf);
+    wtap_rec_cleanup(&rec);
 
     return status;
 }

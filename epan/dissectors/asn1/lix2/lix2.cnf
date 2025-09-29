@@ -13,8 +13,32 @@ MDTActivation
 MDTConfigurationEUTRA
 MDTConfigurationNR
 MDTMode
-PDNPCO
 RCSServerURI
+
+#omit from IPAccessPDU
+IPCC
+IPCCContents
+IPTruncatedPacket
+IPIRI
+IPIRIContents
+AccessEventType
+InternetAccessType
+IPVersion
+EndReason
+IPIRIIDType
+NationalIPIRIParameters
+AuthenticationType
+OtherTargetIdentifiers
+FramedRoute
+IPIRIOnly
+IPInformation
+ProtocolInformation
+IPv4Information
+IPv6Information
+TCPInformation
+UDPInformation
+PDSRInformation
+PDSRSummaryTriggerIPaccess
 
 #.EXPORTS
 
@@ -24,6 +48,43 @@ XIRIPayload
 #.NO_EMIT
 
 #.TYPE_RENAME
+
+#.FIELD_RENAME
+TraceActivationInfo/traceCollectionEntityIPAddress traceCollectionEntityIPAddress-choice
+AMFDeregistration/cause amfderegistration-cause
+SMFPDUSessionRelease/cause smfpdusessionrelease-cause
+SMFMAPDUSessionRelease/cause smfmapdusessionrelease-cause
+EPSBearerContextCreated/cause epsbearercontextcreated-cause
+EPSBearerContextModified/cause epsbearercontextmodified-cause
+EPSBearersDeleted/cause epsbearersdeleted-cause
+EPSDeleteBearerResponse/cause epsdeletebearerresponse-cause
+EPSDeleteBearerContext/cause epsdeletebearercontext-cause
+EPSBearerContextForRemoval/cause epsbearercontextforremoval-cause
+UDMProblemDetails/cause udmproblemdetails-cause
+UDMProblemDetailsOtherCause/cause udmproblemdetailsothercause
+MMEDetach/cause mmedetach-cause
+ERABError/cause eraberror-cause
+
+VLANTag/priority vlantag-priority
+MMSDeleteFromRelay/contentLocationReq contentLocationReq-seq
+MMSMBoxDelete/contentLocationReq contentLocationReq-seq
+MMSDeleteFromRelay/contentLocationConf contentLocationConf-seq
+MMSMBoxDelete/contentLocationConf contentLocationConf-seq
+NGAPCauseInt/value ngapcausevalueint
+MMSElementDescriptor/value value-str
+StartOfInterceptionForActiveIMSSession/sDPState sDPState-seq
+IMSMessage/payload imsmessage-payload
+IMSCCPDU/payload imsccpdu-payload
+UnfulfilledACProfile/reason unfulfilledacprofile-reason
+UDMInvalidParameters/reason udminvalidparameters-reason
+EASDynamicInfoFilter/eASStatus eASStatus-boolean
+ANNodeID/n3IWFID aNNodeID-n3IWFID
+MMELocationInformation/geographicalInformation geographicalinformationoctet
+SGSNLocationInformation/geographicalInformation geographicalinformationoctet
+MMELocationInformation/geodeticInformation geodeticinformationoctet
+SGSNLocationInformation/geodeticInformation geodeticinformationoctet
+SIPCellularAccessInfo/accessInfo sipaccessinfo
+
 
 #.FN_BODY IMSI
   unsigned tvb_len;
@@ -47,8 +108,7 @@ XIRIPayload
 
   tvb_len = tvb_reported_length(tvb);
 
-  //dissect_e212_utf8_imsi(tvb, actx->pinfo, tree, offset, tvb_len);
-  dissect_e164_msisdn(tvb, tree, offset, tvb_len, E164_ENC_UTF8);
+  dissect_e164_msisdn(tvb, actx->pinfo, tree, offset, tvb_len, E164_ENC_UTF8);
 
   offset = tvb_len;
 
@@ -60,63 +120,34 @@ XIRIPayload
 #
 
 #.FN_BODY PDNProtocolConfigurationOptions/requestPCO
-  unsigned tvb_len;
-
-  tvb_len = tvb_reported_length(tvb);
 
   actx->pinfo->link_dir = P2P_DIR_UL;
-  de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
-
-  offset = tvb_len;
 
 #.FN_BODY PDNProtocolConfigurationOptions/requestAPCO
-  unsigned tvb_len;
-
-  tvb_len = tvb_reported_length(tvb);
 
   actx->pinfo->link_dir = P2P_DIR_UL;
-  de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
 
-  offset = tvb_len;
-
-#.FN_BODY PDNProtocolConfigurationOptions/requestEPCO
-  unsigned tvb_len;
-
-  tvb_len = tvb_reported_length(tvb);
+#.FN_HDR PDNProtocolConfigurationOptions/requestEPCO
 
   actx->pinfo->link_dir = P2P_DIR_UL;
-  de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
 
-  offset = tvb_len;
+#.FN_HDR PDNProtocolConfigurationOptions/responsePCO
 
-#.FN_BODY PDNProtocolConfigurationOptions/responsePCO
+  actx->pinfo->link_dir = P2P_DIR_DL;
+
+#.FN_HDR PDNProtocolConfigurationOptions/responseAPCO
+
+  actx->pinfo->link_dir = P2P_DIR_DL;
+
+#.FN_HDR PDNProtocolConfigurationOptions/responseEPCO
+
+  actx->pinfo->link_dir = P2P_DIR_DL;
+
+#.FN_BODY PDNPCO
   unsigned tvb_len;
 
   tvb_len = tvb_reported_length(tvb);
-
-  actx->pinfo->link_dir = P2P_DIR_DL;
   de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
-
-  offset = tvb_len;
-
-#.FN_BODY PDNProtocolConfigurationOptions/responseAPCO
-  unsigned tvb_len;
-
-  tvb_len = tvb_reported_length(tvb);
-
-  actx->pinfo->link_dir = P2P_DIR_DL;
-  de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
-
-  offset = tvb_len;
-
-#.FN_BODY PDNProtocolConfigurationOptions/responseEPCO
-  unsigned tvb_len;
-
-  tvb_len = tvb_reported_length(tvb);
-
-  actx->pinfo->link_dir = P2P_DIR_DL;
-  de_sm_pco(tvb, tree, actx->pinfo, 0, tvb_len, NULL, 0);
-
   offset = tvb_len;
 
 #.FN_BODY PDNConnectionIndicationFlags

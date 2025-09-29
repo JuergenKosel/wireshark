@@ -27,18 +27,17 @@
 
 #include "tap-tcp-stream.h"
 
-typedef struct _tcp_scan_t {
-    int                     direction;
-    struct tcp_graph       *tg;
-    struct segment         *last;
-} tcp_scan_t;
-
+static void
+tapall_tcpip_reset(void *tapdata)
+{
+    struct tcp_graph *tg = (struct tcp_graph *)tapdata;
+    graph_segment_list_free(tg);
+}
 
 static tap_packet_status
 tapall_tcpip_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags _U_)
 {
-    tcp_scan_t   *ts = (tcp_scan_t *)pct;
-    struct tcp_graph *tg  = ts->tg;
+    struct tcp_graph *tg  = (struct tcp_graph *)pct;
     const struct tcpheader *tcphdr = (const struct tcpheader *)vip;
 
     if (tg->stream == tcphdr->th_stream
@@ -77,7 +76,7 @@ tapall_tcpip_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, cons
                         tg->src_port, tg->dst_port,
                         &tcphdr->ip_src, &tcphdr->ip_dst,
                         tcphdr->th_sport, tcphdr->th_dport,
-                        ts->direction)
+                        COMPARE_ANY_DIR)
         && tg->stream == tcphdr->th_stream)
     {
         struct segment *segment = g_new(struct segment, 1);
@@ -114,6 +113,8 @@ tapall_tcpip_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, cons
         copy_address(&segment->ip_src, &tcphdr->ip_src);
         copy_address(&segment->ip_dst, &tcphdr->ip_dst);
 
+        segment->ack_karn=tcphdr->flagkarn;
+
         segment->num_sack_ranges = MIN(MAX_TCP_SACK_RANGES, tcphdr->num_sack_ranges);
         if (segment->num_sack_ranges > 0) {
             /* Copy entries in the order they happen */
@@ -121,12 +122,12 @@ tapall_tcpip_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, cons
             memcpy(&segment->sack_right_edge, &tcphdr->sack_right_edge, sizeof(segment->sack_right_edge));
         }
 
-        if (ts->tg->segments) {
-            ts->last->next = segment;
+        if (tg->segments) {
+            tg->last->next = segment;
         } else {
-            ts->tg->segments = segment;
+            tg->segments = segment;
         }
-        ts->last = segment;
+        tg->last = segment;
     }
 
     return TAP_PACKET_DONT_REDRAW;
@@ -137,7 +138,6 @@ void
 graph_segment_list_get(capture_file *cf, struct tcp_graph *tg)
 {
     GString    *error_string;
-    tcp_scan_t  ts;
 
     if (!cf || !tg) {
         return;
@@ -147,10 +147,7 @@ graph_segment_list_get(capture_file *cf, struct tcp_graph *tg)
      * we only filter for TCP here for speed and do the actual compare
      * in the tap listener
      */
-    ts.direction = COMPARE_ANY_DIR;
-    ts.tg      = tg;
-    ts.last    = NULL;
-    error_string = register_tap_listener("tcp", &ts, "tcp", 0, NULL, tapall_tcpip_packet, NULL, NULL);
+    error_string = register_tap_listener("tcp", tg, "tcp", 0, tapall_tcpip_reset, tapall_tcpip_packet, NULL, NULL);
     if (error_string) {
         fprintf(stderr, "wireshark: Couldn't register tcp_graph tap: %s\n",
                 error_string->str);
@@ -158,7 +155,7 @@ graph_segment_list_get(capture_file *cf, struct tcp_graph *tg)
         exit(1);   /* XXX: fix this */
     }
     cf_retap_packets(cf);
-    remove_tap_listener(&ts);
+    remove_tap_listener(tg);
 }
 
 void
@@ -176,6 +173,7 @@ graph_segment_list_free(struct tcp_graph *tg)
         g_free(tg->segments);
         tg->segments = segment;
     }
+    tg->last = NULL;
 }
 
 int
@@ -317,14 +315,12 @@ select_tcpip_session(capture_file *cf)
         fprintf(stderr, "wireshark: Couldn't register tcp_graph tap: %s\n",
                 error_string->str);
         g_string_free(error_string, TRUE);
-        exit(1);
+        return UINT32_MAX;
     }
 
     epan_dissect_init(&edt, cf->epan, true, false);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
-    epan_dissect_run_with_taps(&edt, cf->cd_t, &cf->rec,
-                               ws_buffer_start_ptr(&cf->buf),
-                               fdata, NULL);
+    epan_dissect_run_with_taps(&edt, cf->cd_t, &cf->rec, fdata, NULL);
     epan_dissect_cleanup(&edt);
     remove_tap_listener(&th);
     dfilter_free(sfcode);
@@ -361,7 +357,7 @@ select_tcpip_session(capture_file *cf)
     return th_stream;
 }
 
-int rtt_is_retrans(struct rtt_unack *list, unsigned int seqno)
+bool rtt_is_retrans(struct rtt_unack *list, unsigned int seqno)
 {
     struct rtt_unack *u;
 

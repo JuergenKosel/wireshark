@@ -6,7 +6,7 @@
 /* packet-xnap.c
  * Routines for dissecting NG-RAN Xn application protocol (XnAP)
  * 3GPP TS 38.423 packet dissection
- * Copyright 2018-2024, Pascal Quantin <pascal@wireshark.org>
+ * Copyright 2018-2025, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -15,7 +15,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref:
- * 3GPP TS 38.423 V18.3.0 (2024-09)
+ * 3GPP TS 38.423 V18.6.0 (2025-06)
  */
 
 #include "config.h"
@@ -1653,9 +1653,9 @@ static int hf_xnap_secondaryRATRestriction;       /* T_secondaryRATRestriction *
 static int hf_xnap_ExtendedSliceSupportList_item;  /* S_NSSAI */
 static int hf_xnap_ExtTLAs_item;                  /* ExtTLA_Item */
 static int hf_xnap_iPsecTLA;                      /* TransportLayerAddress */
-static int hf_xnap_gTPTransportLayerAddresses;    /* GTPTLAs */
+static int hf_xnap_gtptlas;                       /* GTPTLAs */
 static int hf_xnap_GTPTLAs_item;                  /* GTPTLA_Item */
-static int hf_xnap_gTPTransportLayerAddresses_01;  /* TransportLayerAddress */
+static int hf_xnap_gTPTransportLayerAddresses;    /* TransportLayerAddress */
 static int hf_xnap_f1TerminatingBHInformation_List;  /* F1TerminatingBHInformation_List */
 static int hf_xnap_F1TerminatingBHInformation_List_item;  /* F1TerminatingBHInformation_Item */
 static int hf_xnap_dLTNLAddress;                  /* IABTNLAddress */
@@ -1692,7 +1692,7 @@ static int hf_xnap_notificationControl;           /* T_notificationControl */
 static int hf_xnap_maxPacketLossRateDL;           /* PacketLossRate */
 static int hf_xnap_maxPacketLossRateUL;           /* PacketLossRate */
 static int hf_xnap_gnb_id;                        /* GNB_ID_Choice */
-static int hf_xnap_subcarrierSpacing;             /* SSB_subcarrierSpacing */
+static int hf_xnap_subcarrierSpacing;             /* SubcarrierSpacing */
 static int hf_xnap_dUFTransmissionPeriodicity;    /* DUFTransmissionPeriodicity */
 static int hf_xnap_dUF_Slot_Config_List;          /* DUF_Slot_Config_List */
 static int hf_xnap_hSNATransmissionPeriodicity;   /* HSNATransmissionPeriodicity */
@@ -4575,7 +4575,7 @@ dissect_xnap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
   if (tree) {
-    proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s", val_to_str_ext(xnap_data->protocol_ie_id, &xnap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
+    proto_item_append_text(proto_item_get_parent_nth(actx->created_item, 2), ": %s", val_to_str_ext(actx->pinfo->pool, xnap_data->protocol_ie_id, &xnap_ProtocolIE_ID_vals_ext, "unknown (%d)"));
   }
   return offset;
 }
@@ -13090,7 +13090,7 @@ dissect_xnap_ExtendedUEIdentityIndexValue(tvbuff_t *tvb _U_, int offset _U_, asn
 
 
 static const per_sequence_t GTPTLA_Item_sequence[] = {
-  { &hf_xnap_gTPTransportLayerAddresses_01, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_TransportLayerAddress },
+  { &hf_xnap_gTPTransportLayerAddresses, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_TransportLayerAddress },
   { &hf_xnap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -13120,7 +13120,7 @@ dissect_xnap_GTPTLAs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 static const per_sequence_t ExtTLA_Item_sequence[] = {
   { &hf_xnap_iPsecTLA       , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_TransportLayerAddress },
-  { &hf_xnap_gTPTransportLayerAddresses, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_GTPTLAs },
+  { &hf_xnap_gtptlas        , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_GTPTLAs },
   { &hf_xnap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_ProtocolExtensionContainer },
   { NULL, 0, 0, NULL }
 };
@@ -13712,7 +13712,7 @@ dissect_xnap_FrequencyShift7p5khz(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 }
 
 
-static const value_string xnap_SSB_subcarrierSpacing_vals[] = {
+static const value_string xnap_SubcarrierSpacing_vals[] = {
   {   0, "kHz15" },
   {   1, "kHz30" },
   {   2, "kHz120" },
@@ -13720,14 +13720,15 @@ static const value_string xnap_SSB_subcarrierSpacing_vals[] = {
   {   4, "spare3" },
   {   5, "spare2" },
   {   6, "spare1" },
+  {   7, "kHz60" },
   { 0, NULL }
 };
 
 
 static int
-dissect_xnap_SSB_subcarrierSpacing(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_xnap_SubcarrierSpacing(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     7, NULL, true, 0, NULL);
+                                     7, NULL, true, 1, NULL);
 
   return offset;
 }
@@ -13821,7 +13822,7 @@ dissect_xnap_INTEGER_1_maxnoofRBsetsPerCell(tvbuff_t *tvb _U_, int offset _U_, a
 
 
 static const per_sequence_t RBsetConfiguration_sequence[] = {
-  { &hf_xnap_subcarrierSpacing, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_SSB_subcarrierSpacing },
+  { &hf_xnap_subcarrierSpacing, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_SubcarrierSpacing },
   { &hf_xnap_rBsetSize      , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_T_rBsetSize },
   { &hf_xnap_numberofRBSets , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_INTEGER_1_maxnoofRBsetsPerCell },
   { &hf_xnap_iE_Extensions  , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_ProtocolExtensionContainer },
@@ -13917,7 +13918,7 @@ dissect_xnap_NACellResourceConfigurationList(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t GNB_DU_Cell_Resource_Configuration_sequence[] = {
-  { &hf_xnap_subcarrierSpacing, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_SSB_subcarrierSpacing },
+  { &hf_xnap_subcarrierSpacing, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_SubcarrierSpacing },
   { &hf_xnap_dUFTransmissionPeriodicity, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_DUFTransmissionPeriodicity },
   { &hf_xnap_dUF_Slot_Config_List, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_xnap_DUF_Slot_Config_List },
   { &hf_xnap_hSNATransmissionPeriodicity, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_xnap_HSNATransmissionPeriodicity },
@@ -14117,6 +14118,27 @@ static int
 dissect_xnap_SSB_freqInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, maxNRARFCN, NULL, false);
+
+  return offset;
+}
+
+
+static const value_string xnap_SSB_subcarrierSpacing_vals[] = {
+  {   0, "kHz15" },
+  {   1, "kHz30" },
+  {   2, "kHz120" },
+  {   3, "kHz240" },
+  {   4, "spare3" },
+  {   5, "spare2" },
+  {   6, "spare1" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_xnap_SSB_subcarrierSpacing(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
+                                     7, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -20796,7 +20818,7 @@ dissect_xnap_T_startTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -20813,7 +20835,7 @@ dissect_xnap_T_endTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
   if (timestamp_tvb) {
-    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(timestamp_tvb, 0));
+    proto_item_append_text(actx->created_item, " (%s)", tvb_ntp_fmt_ts_sec(actx->pinfo->pool, timestamp_tvb, 0));
   }
 
   return offset;
@@ -36907,15 +36929,15 @@ void proto_register_xnap(void) {
       { "iPsecTLA", "xnap.iPsecTLA",
         FT_BYTES, BASE_NONE, NULL, 0,
         "TransportLayerAddress", HFILL }},
-    { &hf_xnap_gTPTransportLayerAddresses,
-      { "gTPTransportLayerAddresses", "xnap.gTPTransportLayerAddresses",
+    { &hf_xnap_gtptlas,
+      { "gTPTransportLayerAddresses", "xnap.gtptlas",
         FT_UINT32, BASE_DEC, NULL, 0,
         "GTPTLAs", HFILL }},
     { &hf_xnap_GTPTLAs_item,
       { "GTPTLA-Item", "xnap.GTPTLA_Item_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_xnap_gTPTransportLayerAddresses_01,
+    { &hf_xnap_gTPTransportLayerAddresses,
       { "gTPTransportLayerAddresses", "xnap.gTPTransportLayerAddresses",
         FT_BYTES, BASE_NONE, NULL, 0,
         "TransportLayerAddress", HFILL }},
@@ -37065,8 +37087,8 @@ void proto_register_xnap(void) {
         "GNB_ID_Choice", HFILL }},
     { &hf_xnap_subcarrierSpacing,
       { "subcarrierSpacing", "xnap.subcarrierSpacing",
-        FT_UINT32, BASE_DEC, VALS(xnap_SSB_subcarrierSpacing_vals), 0,
-        "SSB_subcarrierSpacing", HFILL }},
+        FT_UINT32, BASE_DEC, VALS(xnap_SubcarrierSpacing_vals), 0,
+        NULL, HFILL }},
     { &hf_xnap_dUFTransmissionPeriodicity,
       { "dUFTransmissionPeriodicity", "xnap.dUFTransmissionPeriodicity",
         FT_UINT32, BASE_DEC, VALS(xnap_DUFTransmissionPeriodicity_vals), 0,

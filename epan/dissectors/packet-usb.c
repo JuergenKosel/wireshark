@@ -1799,11 +1799,11 @@ static int usb_addr_to_str(const address* addr, char *buf, int buf_len _U_)
 {
     const uint8_t *addrp = (const uint8_t *)addr->data;
 
-    if(pletoh32(&addrp[0])==0xffffffff){
+    if(pletohu32(&addrp[0])==0xffffffff){
         (void) g_strlcpy(buf, "host", buf_len);
     } else {
-        snprintf(buf, buf_len, "%d.%d.%d", pletoh16(&addrp[8]),
-                        pletoh32(&addrp[0]), pletoh32(&addrp[4]) & 0x0f);
+        snprintf(buf, buf_len, "%d.%d.%d", pletohu16(&addrp[8]),
+                        pletohu32(&addrp[0]), pletohu32(&addrp[4]) & 0x0f);
     }
 
     return (int)(strlen(buf)+1);
@@ -2553,7 +2553,7 @@ dissect_usb_interface_descriptor(packet_info *pinfo, proto_tree *parent_tree,
     /* save the class so we can access it later in the endpoint descriptor */
     urb->conv->interfaceClass = tvb_get_uint8(tvb, offset);
 
-    class_str = val_to_str_ext(urb->conv->interfaceClass, &usb_class_vals_ext, "unknown (0x%X)");
+    class_str = val_to_str_ext(pinfo->pool, urb->conv->interfaceClass, &usb_class_vals_ext, "unknown (0x%X)");
     proto_item_append_text(item, " (%u.%u): class %s", interface_num, alt_setting, class_str);
 
     if (!pinfo->fd->visited) {
@@ -2775,16 +2775,16 @@ sanitize_usb_max_packet_size(uint8_t ep_type, usb_speed_t speed,
     return USB_MPS(sanitized_ep_size, sanitized_adtnl);
 }
 
-static char *usb_max_packet_size_str(unsigned int max_packet_size)
+static char *usb_max_packet_size_str(wmem_allocator_t* allocator, unsigned int max_packet_size)
 {
     unsigned int ep_size = USB_MPS_EP_SIZE(max_packet_size);
     unsigned int addnl = USB_MPS_ADDNL(max_packet_size);
 
     if (addnl == 1 || addnl == 2) {
-        return wmem_strdup_printf(wmem_packet_scope(), "%u * %u = %u",
+        return wmem_strdup_printf(allocator, "%u * %u = %u",
                                   addnl + 1, ep_size, (addnl + 1) * ep_size);
     } else {
-        return wmem_strdup_printf(wmem_packet_scope(), "%u", ep_size);
+        return wmem_strdup_printf(allocator, "%u", ep_size);
     }
 }
 
@@ -2877,7 +2877,7 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
 
     /* wMaxPacketSize */
     max_packet_size = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
-    max_packet_size_str = usb_max_packet_size_str(max_packet_size);
+    max_packet_size_str = usb_max_packet_size_str(pinfo->pool, max_packet_size);
     ep_pktsize_item = proto_tree_add_uint_format_value(tree, hf_usb_wMaxPacketSize,
         tvb, offset, 2, max_packet_size, "%s", max_packet_size_str);
     ep_pktsize_tree = proto_item_add_subtree(ep_pktsize_item, ett_endpoint_wMaxPacketSize);
@@ -2890,7 +2890,7 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
         expert_add_info_format(pinfo, ep_pktsize_item, &ei_usb_invalid_max_packet_size,
             "%s %s endpoint max packet size cannot be %s, using %s instead.",
             try_val_to_str(speed, usb_speed_vals), try_val_to_str(ep_type, usb_bmAttributes_transfer_vals),
-            max_packet_size_str, usb_max_packet_size_str(sanitized_max_packet_size));
+            max_packet_size_str, usb_max_packet_size_str(pinfo->pool, sanitized_max_packet_size));
         max_packet_size = sanitized_max_packet_size;
     }
     offset+=2;
@@ -3311,7 +3311,7 @@ dissect_usb_device_capability_descriptor(packet_info *pinfo, proto_tree *tree,
         }
     } else if (cap_type == BOS_CAP_SUPERSPEED_USB) {
         /* USB 3.2 Specification 9.6.2.2 SuperSpeed USB Device Capability */
-        static int * const usb_ss_bmAtrributes_fields[] = {
+        static int * const usb_ss_bmAttributes_fields[] = {
             &hf_usb_ss_bmAttributes_reserved0,
             &hf_usb_ss_bmAttributes_LTM,
             &hf_usb_ss_bmAttributes_reserved7_2,
@@ -3327,7 +3327,7 @@ dissect_usb_device_capability_descriptor(packet_info *pinfo, proto_tree *tree,
         };
 
         proto_tree_add_bitmask(tree, tvb, offset, hf_usb_ss_bmAttributes,
-            ett_ss_bmAttributes, usb_ss_bmAtrributes_fields, ENC_LITTLE_ENDIAN);
+            ett_ss_bmAttributes, usb_ss_bmAttributes_fields, ENC_LITTLE_ENDIAN);
         offset += 1;
         proto_tree_add_bitmask(tree, tvb, offset, hf_usb_ss_wSpeedSupported,
             ett_ss_wSpeedSupported, usb_ss_wSpeedSupported_fields, ENC_LITTLE_ENDIAN);
@@ -3447,7 +3447,7 @@ dissect_usb_setup_get_descriptor_request(packet_info *pinfo, proto_tree *tree,
     usb_trans_info->u.get_descriptor.type = tvb_get_uint8(tvb, offset);
     offset += 1;
     col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
-        val_to_str_ext(usb_trans_info->u.get_descriptor.type, &std_descriptor_type_vals_ext, "Unknown type %u"));
+        val_to_str_ext(pinfo->pool, usb_trans_info->u.get_descriptor.type, &std_descriptor_type_vals_ext, "Unknown type %u"));
 
     /* language id */
     proto_tree_add_item(tree, hf_usb_language_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -3472,7 +3472,7 @@ dissect_usb_setup_get_descriptor_response(packet_info *pinfo, proto_tree *tree,
     speed = urb->speed;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
-        val_to_str_ext(usb_trans_info->u.get_descriptor.type, &std_descriptor_type_vals_ext, "Unknown type %u"));
+        val_to_str_ext(pinfo->pool, usb_trans_info->u.get_descriptor.type, &std_descriptor_type_vals_ext, "Unknown type %u"));
 
     switch(usb_trans_info->u.get_descriptor.type) {
         case USB_DT_INTERFACE:
@@ -3968,7 +3968,7 @@ dissect_usb_standard_setup_request(packet_info *pinfo, proto_tree *tree ,
     offset += 1;
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s Request",
-            val_to_str_ext(usb_trans_info->setup.request, &setup_request_names_vals_ext, "Unknown type %x"));
+            val_to_str_ext(pinfo->pool, usb_trans_info->setup.request, &setup_request_names_vals_ext, "Unknown type %x"));
 
     dissector = NULL;
     for(tmp = setup_request_dissectors;tmp->dissector;tmp++) {
@@ -4000,7 +4000,7 @@ dissect_usb_standard_setup_response(packet_info *pinfo, proto_tree *tree,
 
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s Response",
-        val_to_str_ext(urb->usb_trans_info->setup.request,
+        val_to_str_ext(pinfo->pool, urb->usb_trans_info->setup.request,
             &setup_request_names_vals_ext, "Unknown type %x"));
 
     dissector = NULL;
@@ -4541,7 +4541,7 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
     transfer_type_and_direction = (transfer_type & 0x7F) | (endpoint_byte & 0x80);
     col_append_str(pinfo->cinfo, COL_INFO,
-                    val_to_str(transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
+                    val_to_str(pinfo->pool, transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
 
     proto_tree_add_bitmask(tree, tvb, 10, hf_usb_endpoint_address, ett_usb_endpoint, usb_endpoint_fields, ENC_NA);
     proto_tree_add_item(tree, hf_usb_device_address, tvb, 11, 1, ENC_LITTLE_ENDIAN);
@@ -4554,7 +4554,7 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
      * sizeof(struct usb_device_setup_hdr) bytes. The content of these
      * bytes only have meaning in case setup_flag == 0.
      */
-    proto_tree_add_item_ret_uint(tree, hf_usb_setup_flag, tvb, 14, 1, ENC_NA, &flag);
+    proto_tree_add_item_ret_uint(tree, hf_usb_setup_flag, tvb, 14, 1, ENC_ASCII, &flag);
     if (flag == 0) {
         urb->is_setup = true;
         if (urb->transfer_type!=URB_CONTROL)
@@ -4563,7 +4563,7 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
         urb->is_setup = false;
     }
 
-    proto_tree_add_item(tree, hf_usb_data_flag, tvb, 15, 1, ENC_NA);
+    proto_tree_add_item(tree, hf_usb_data_flag, tvb, 15, 1, ENC_ASCII);
 
     proto_tree_add_item(tree, hf_usb_urb_ts_sec, tvb, 16, 8, ENC_HOST_ENDIAN);
     proto_tree_add_item(tree, hf_usb_urb_ts_usec, tvb, 24, 4, ENC_HOST_ENDIAN);
@@ -4629,10 +4629,10 @@ dissect_usbpcap_buffer_packet_header(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     if (transfer_type != USBPCAP_URB_IRP_INFO) {
         transfer_type_and_direction = (transfer_type & 0x7F) | (endpoint_byte & 0x80);
         col_append_str(pinfo->cinfo, COL_INFO,
-            val_to_str(transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
+            val_to_str(pinfo->pool, transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
     } else {
         col_append_str(pinfo->cinfo, COL_INFO,
-            val_to_str_ext(function_code, &win32_urb_function_vals_ext, "Unknown function %x"));
+            val_to_str_ext(pinfo->pool, function_code, &win32_urb_function_vals_ext, "Unknown function %x"));
     }
 
     *win32_data_len = tvb_get_letohl(tvb, 23);
@@ -4701,7 +4701,7 @@ dissect_darwin_buffer_packet_header(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
     transfer_type_and_direction = (darwin_endpoint_to_linux[transfer_type] & 0x7F) | (endpoint_byte & 0x80);
     col_append_str(pinfo->cinfo, COL_INFO,
-                   val_to_str(transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
+                   val_to_str(pinfo->pool, transfer_type_and_direction, usb_transfer_type_and_direction_vals, "Unknown type %x"));
     col_append_str(pinfo->cinfo, COL_INFO, urb->is_request == true ? " (submitted)" : " (completed)");
 
     urb->is_setup = false;
@@ -5004,7 +5004,7 @@ dissect_linux_usb_iso_transfer(packet_info *pinfo _U_, proto_tree *urb_tree,
         iso_desc_tree = proto_item_add_subtree(iso_desc_ti, ett_usb_isodesc);
 
         proto_tree_add_item_ret_int(iso_desc_tree, hf_usb_iso_status, tvb, offset, 4, ENC_HOST_ENDIAN, &iso_status);
-        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(iso_status, &linux_negative_errno_vals_ext, "Error %d"));
+        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(pinfo->pool, iso_status, &linux_negative_errno_vals_ext, "Error %d"));
         offset += 4;
 
         proto_tree_add_item_ret_uint(iso_desc_tree, hf_usb_iso_off, tvb, offset, 4, ENC_HOST_ENDIAN, &iso_off);
@@ -5080,7 +5080,7 @@ dissect_usbip_iso_transfer(packet_info *pinfo _U_, proto_tree *urb_tree,
         desc_offset += 4;
 
         proto_tree_add_item_ret_int(iso_desc_tree, hf_usb_iso_status, tvb, desc_offset, 4, ENC_BIG_ENDIAN, &iso_status);
-        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(iso_status, &linux_negative_errno_vals_ext, "Error %d"));
+        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(pinfo->pool, iso_status, &linux_negative_errno_vals_ext, "Error %d"));
         desc_offset += 4;
 
         if (iso_len > 0)
@@ -5148,7 +5148,7 @@ dissect_darwin_usb_iso_transfer(packet_info *pinfo _U_, proto_tree *tree, usb_he
             proto_tree_add_item(iso_desc_tree, hf_usb_darwin_iso_timestamp, tvb, offset + 20, 8, ENC_LITTLE_ENDIAN);
             proto_tree_add_item_ret_uint(iso_desc_tree, hf_usb_darwin_iso_status, tvb, offset + 8, 4, ENC_LITTLE_ENDIAN, &status);
 
-            proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(status, &usb_darwin_status_vals_ext, "Error %d"));
+            proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(pinfo->pool, status, &usb_darwin_status_vals_ext, "Error %d"));
 
             /* Data */
             if (frame_length > len) {
@@ -5871,7 +5871,7 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
                     (usbpcap_control_stage == USB_CONTROL_STAGE_STATUS)) {
                     const char *description;
                     if (USB_TYPE(urb->usb_trans_info->setup.requesttype) == RQT_SETUP_TYPE_STANDARD) {
-                        description = val_to_str_ext(urb->usb_trans_info->setup.request,
+                        description = val_to_str_ext(pinfo->pool, urb->usb_trans_info->setup.request,
                             &setup_request_names_vals_ext, "Unknown type %x") ;
                     } else {
                         description = "URB_CONTROL";

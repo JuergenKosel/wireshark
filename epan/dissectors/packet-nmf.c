@@ -5,19 +5,7 @@
  *
  * Copyright 2017 Stefan Metzmacher <metze@samba.org>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "config.h"
@@ -217,7 +205,7 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 
 		proto_tree_add_item_ret_string(record_tree, hf_nmf_via_value,
 					       tvb, offset, size, ENC_UTF_8,
-					       wmem_packet_scope(), &str);
+					       pinfo->pool, &str);
 		offset += size;
 		proto_item_append_text(record_item, ": %s", (const char *)str);
 		break;
@@ -283,7 +271,7 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 
 		proto_tree_add_item_ret_string(record_tree, hf_nmf_upgrade_protocol,
 					       tvb, offset, size, ENC_UTF_8,
-					       wmem_packet_scope(), &str);
+					       pinfo->pool, &str);
 		offset += size;
 		proto_item_append_text(record_item, ": %s", (const char *)str);
 		break;

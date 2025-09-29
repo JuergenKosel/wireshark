@@ -144,8 +144,8 @@ IP address and name, separated by whitespace. The personal __hosts__
 file, if present, overrides the one in the global directory.
 
 Capture filter name resolution is handled by libpcap on UNIX-compatible
-systems, such as Linux, macOS, \*BSD, Solaris, and AIX, and Npcap or
-WinPcap on Windows.  As such the Wireshark personal __hosts__ file will
+systems, such as Linux, macOS, \*BSD, Solaris, and AIX, and Npcap
+on Windows.  As such the Wireshark personal __hosts__ file will
 not be consulted for capture filter name resolution.
 --
 
@@ -207,7 +207,7 @@ The personal __ethers__ file is looked for in the same directory as the personal
 preferences file.
 
 Capture filter name resolution is handled by libpcap on UNIX-compatible
-systems and Npcap or WinPcap on Windows.  As such the Wireshark personal
+systems and Npcap on Windows.  As such the Wireshark personal
 __ethers__ file will not be consulted for capture filter name
 resolution.
 --
@@ -245,7 +245,7 @@ with *tshark -G manuf*.
 
 In addition to the __manuf__ file, another file with the same format,
 __wka__, is looked for in the global directory. This file is distributed
-with Wireshark, and contains data about well-known MAC adddresses and
+with Wireshark, and contains data about well-known MAC addresses and
 address ranges assembled from various non IEEE but respected sources.
 --
 

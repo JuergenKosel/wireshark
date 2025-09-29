@@ -17,7 +17,7 @@
 #define VERSION_MICRO ${PROJECT_PATCH_VERSION}
 
 /* Version number of Stratoshark and associated utilities */
-#define LOG_VERSION "${LOG_PROJECT_VERSION}${VERSION_EXTRA}"
+#define STRATOSHARK_VERSION "${STRATOSHARK_VERSION}${VERSION_EXTRA}"
 
 #define PLUGIN_PATH_ID "${PLUGIN_PATH_ID}"
 #define VERSION_FLAVOR "${VERSION_FLAVOR}"
@@ -31,14 +31,14 @@
 /*  Define to 1 if we check hf conflict */
 #cmakedefine ENABLE_CHECK_FILTER 1
 
-/* Link Wireshark libraries statically */
-#cmakedefine ENABLE_STATIC 1
-
 /* Enable AddressSanitizer (and LeakSanitizer on clang/gcc) */
 #cmakedefine ENABLE_ASAN 1
 
 /* Enable LeakSanitizer standalone */
 #cmakedefine ENABLE_LSAN 1
+
+/* Adapt build products for fuzzing (e.g. accepting incorrect checksums or prioritizing determinism). */
+#cmakedefine FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION 1
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #cmakedefine HAVE_ARPA_INET_H 1
@@ -133,12 +133,6 @@
 /* Enable libnl support */
 #cmakedefine HAVE_LIBNL 1
 
-/* libnl version 1 */
-#cmakedefine HAVE_LIBNL1 1
-
-/* libnl version 2 */
-#cmakedefine HAVE_LIBNL2 1
-
 /* libnl version 3 */
 #cmakedefine HAVE_LIBNL3 1
 
@@ -150,6 +144,10 @@
 
 /* Define to 1 if libsmi exports a version string (and that symbol is visible). */
 #cmakedefine HAVE_SMI_VERSION_STRING 1
+
+/* Define to use xxhash library */
+#cmakedefine HAVE_XXHASH 1
+#define XXHASH_VERSION_STRING "${XXHASH_VERSION_STRING}"
 
 /* Define to use zlib library */
 #cmakedefine HAVE_ZLIB 1
@@ -221,44 +219,26 @@
 /* VHT_CAPABILITY is supported */
 #cmakedefine HAVE_NL80211_VHT_CAPABILITY 1
 
+/* HE_CAPABILITY is supported */
+#cmakedefine HAVE_NL80211_HE_CAPABILITY 1
+
+/* EHT_CAPABILITY is supported */
+#cmakedefine HAVE_NL80211_EHT_CAPABILITY 1
+
 /* Define to 1 if you have macOS frameworks */
 #cmakedefine HAVE_MACOS_FRAMEWORKS 1
 
 /* Define to 1 if you have the macOS CFPropertyListCreateWithStream function */
 #cmakedefine HAVE_CFPROPERTYLISTCREATEWITHSTREAM 1
 
-/* Define to 1 if you have the `pcap_create' function. */
-#cmakedefine HAVE_PCAP_CREATE 1
-
-/* Define to 1 if the capture buffer size can be set. */
-#cmakedefine CAN_SET_CAPTURE_BUFFER_SIZE 1
-
-/* Define to 1 if you have the `pcap_freecode' function. */
-#cmakedefine HAVE_PCAP_FREECODE 1
-
-/* Define to 1 if you have the `pcap_free_datalinks' function. */
-#cmakedefine HAVE_PCAP_FREE_DATALINKS 1
-
 /* Define to 1 if you have the `pcap_open' function. */
 #cmakedefine HAVE_PCAP_OPEN 1
 
-/* Define to 1 if you have libpcap/WinPcap/Npcap remote capturing support. */
+/* Define to 1 if you have libpcap/Npcap remote capturing support. */
 #cmakedefine HAVE_PCAP_REMOTE 1
 
 /* Define to 1 if you have the `pcap_setsampling' function. */
 #cmakedefine HAVE_PCAP_SETSAMPLING 1
-
-/* Define to 1 if you have the `pcap_set_tstamp_precision' function. */
-#cmakedefine HAVE_PCAP_SET_TSTAMP_PRECISION 1
-
-/* Define to 1 if you have the `pcap_set_tstamp_type' function. */
-#cmakedefine HAVE_PCAP_SET_TSTAMP_TYPE 1
-
-/* Define to 1 if you have the `PCAP_ERROR_PROMISC_PERM_DENIED' symbol. */
-#cmakedefine HAVE_PCAP_ERROR_PROMISC_PERM_DENIED 1
-
-/* Define to 1 if you have the `PCAP_WARNING_TSTAMP_TYPE_NOTSUP' symbol. */
-#cmakedefine HAVE_PCAP_WARNING_TSTAMP_TYPE_NOTSUP 1
 
 /* Define to 1 if you have the <pwd.h> header file. */
 #cmakedefine HAVE_PWD_H 1
@@ -280,9 +260,6 @@
 
 /* Define to 1 if you have the opus library. */
 #cmakedefine HAVE_OPUS 1
-
-/* Define to 1 if you have the lixbml2 library. */
-#cmakedefine HAVE_LIBXML2 1
 
 /* Define to 1 if you have the `setresgid' function. */
 #cmakedefine HAVE_SETRESGID 1
@@ -425,7 +402,7 @@
  * are added if and only if HAVE_REMOTE is defined, and will fill them in,
  * even if they're not there.
  *
- * Yes, this is q WinPcap bug; if your project has a public header file
+ * Yes, this is a WinPcap bug; if your project has a public header file
  * that checks or otherwise uses a #define that's defined by your project's
  * configuration process, and don't ensure that it's always defined
  * appropriately when that header file is included, before its first use,
@@ -449,6 +426,10 @@
  * No version of the WinPcap SDK provided libpcap 1.9.0-or-later headers.
  * The Npcap SDK, as of SDK version 1.04, provides them, so this is
  * only necessary for building with the WinPcap SDK.
+ *
+ * Building against the WinPcap SDK isn't supported anymore, nor is running
+ * with the WinPcap DLL installed, so needing this is very unlikely, though
+ * libpcap 1.9.0 or later is not yet required.
  */
 #ifdef HAVE_PCAP_REMOTE
 #define HAVE_REMOTE

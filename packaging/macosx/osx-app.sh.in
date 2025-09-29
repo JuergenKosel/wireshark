@@ -47,7 +47,7 @@ bundle="Wireshark.app"
 # various support libraries use as their standard installation location,
 # which is /usr/local)
 if [ -z "$LIBPREFIX" ]; then
-	LIBPREFIX="/usr/local"
+	LIBPREFIX="@OSX_APP_LIBPREFIX@"
 fi
 
 
@@ -181,7 +181,7 @@ cp -v +([^.]).+([[:digit:]]).dylib "$pkglib"
 
 # Fetch a unique list of LC_RPATHs from our executables, which will be used
 # for our dependency search below.
-bundle_binary_rpaths=("/usr/local/lib")
+bundle_binary_rpaths=("$LIBPREFIX/lib")
 rpaths=()
 
 # macdeployqt handles our Qt dependencies. We handle our Sparkle and
@@ -254,8 +254,8 @@ while $endl; do
 		| grep -F compatibility \
 		| grep -v @rpath \
 		| cut -d\( -f1 \
-		| sed '1,$s;^	libbrotli;	/usr/local/lib/libbrotli;' \
-		| sed '1,$s;^	@loader_path/libbrotli;	/usr/local/lib/libbrotli;' \
+		| sed "1,\$s;^	libbrotli;	$LIBPREFIX/lib/libbrotli;" \
+		| sed "1,\$s;^	@loader_path/libbrotli;	$LIBPREFIX/lib/libbrotli;" \
 		| grep -E -v "$install_exclude_prefixes" \
 		| sort \
 		| uniq \
@@ -321,7 +321,7 @@ rpathify_file () {
 	#
 	# OK, what type of file is this?
 	#
-	if ! filetype=$( otool -hv "$1" | grep -E MH_MAGIC | awk '{print $5}' ; exit "${PIPESTATUS[0]}" ) ; then
+	if ! filetype=$( otool -hv "$1" | awk '/MH_MAGIC/ {print $5; exit}' ; exit "${PIPESTATUS[0]}" ) ; then
 		echo "Unable to rpathify $1 in $( pwd ): file type failed."
 		exit 1
 	fi
@@ -645,7 +645,7 @@ if [ -n "$CODE_SIGN_IDENTITY" ] ; then
 		# 	--verbose \
 		# 	"$pkglib/Sparkle.framework/Versions/B/XPCServices/org.sparkle-project.Downloader.xpc" \
 		# 	|| exit 1
-	else
+	elif [ "$sparkle_version" == "1" ] ; then
 		echo "Signing Sparkle's AutoUpdate.app"
 		codesign \
 			--sign "$codesign_dev_app_identity" \

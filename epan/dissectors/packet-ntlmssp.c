@@ -26,6 +26,7 @@
 #include <epan/show_exception.h>
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
+#include <epan/read_keytab_file.h>
 
 #include <wsutil/array.h>
 #include <wsutil/wsgcrypt.h>
@@ -37,7 +38,6 @@
 #include "packet-dcerpc.h"
 #include "packet-gssapi.h"
 
-#include "read_keytab_file.h"
 
 #include "packet-ntlmssp.h"
 
@@ -466,7 +466,7 @@ get_md4pass_list(wmem_allocator_t *pool, md4_pass** p_pass_list)
 {
 #if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
   uint32_t       nb_pass = 0;
-  enc_key_t     *ek;
+  const enc_key_t *ek;
   const char*    password = ntlmssp_option_nt_password;
   unsigned char  nt_hash[NTLMSSP_KEY_LEN];
   char           password_unicode[256];
@@ -476,7 +476,7 @@ get_md4pass_list(wmem_allocator_t *pool, md4_pass** p_pass_list)
   *p_pass_list = NULL;
   read_keytab_file_from_preferences();
 
-  for (ek=enc_key_list; ek; ek=ek->next) {
+  for (ek=keytab_get_enc_key_list(); ek; ek=ek->next) {
     if (NTLMSSP_EK_IS_NT4HASH(ek)) {
       nb_pass++;
     }
@@ -505,7 +505,7 @@ get_md4pass_list(wmem_allocator_t *pool, md4_pass** p_pass_list)
                "<Global NT Password>");
     i = 1;
   }
-  for (ek=enc_key_list; ek; ek=ek->next) {
+  for (ek=keytab_get_enc_key_list(); ek; ek=ek->next) {
     if (NTLMSSP_EK_IS_NT4HASH(ek)) {
       memcpy(pass_list[i].md4, ek->keyvalue, NTLMSSP_KEY_LEN);
       memcpy(pass_list[i].key_origin, ek->key_origin,
@@ -1140,7 +1140,7 @@ get_sealing_rc4key(const uint8_t exportedsessionkey[NTLMSSP_KEY_LEN] , const int
   If there's no string, just use the offset of the end of the tvb as start/end.
 */
 static int
-dissect_ntlmssp_string (tvbuff_t *tvb, int offset,
+dissect_ntlmssp_string (tvbuff_t *tvb, wmem_allocator_t* allocator, int offset,
                         proto_tree *ntlmssp_tree,
                         bool unicode_strings,
                         int string_hf, int *start, int *end,
@@ -1171,7 +1171,7 @@ dissect_ntlmssp_string (tvbuff_t *tvb, int offset,
   tf = proto_tree_add_item_ret_string(ntlmssp_tree, string_hf, tvb,
                            string_offset, string_length,
                            unicode_strings ? ENC_UTF_16|ENC_LITTLE_ENDIAN : ENC_ASCII|ENC_NA,
-                           wmem_packet_scope(), stringp);
+                           allocator, stringp);
   tree = proto_item_add_subtree(tf, ett_ntlmssp_string);
   proto_tree_add_uint(tree, hf_ntlmssp_string_len,
                       tvb, offset, 2, string_length);
@@ -1497,7 +1497,7 @@ dissect_ntlmssp_target_info_list(tvbuff_t *_tvb, packet_info *pinfo, proto_tree 
     }
 
     target_info_tree = proto_tree_add_subtree_format(tree, tvb, item_offset, item_length, *tif_p->ett, &target_info_tf,
-                                  "Attribute: %s", val_to_str_ext(item_type, &ntlm_name_types_ext, "Unknown (%d)"));
+                                  "Attribute: %s", val_to_str_ext(pinfo->pool, item_type, &ntlm_name_types_ext, "Unknown (%d)"));
 
     proto_tree_add_item (target_info_tree, *tif_p->hf_item_type,    tvb, type_offset, 2, ENC_LITTLE_ENDIAN);
     proto_tree_add_item (target_info_tree, *tif_p->hf_item_length,  tvb, len_offset,  2, ENC_LITTLE_ENDIAN);
@@ -1593,7 +1593,7 @@ dissect_ntlmv2_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 
 /* tapping into ntlmssph not yet implemented */
 static int
-dissect_ntlmssp_negotiate (tvbuff_t *tvb, int offset, proto_tree *ntlmssp_tree, ntlmssp_header_t *ntlmssph _U_)
+dissect_ntlmssp_negotiate (tvbuff_t *tvb, packet_info* pinfo, int offset, proto_tree *ntlmssp_tree, ntlmssp_header_t *ntlmssph _U_)
 {
   uint32_t negotiate_flags;
   int     data_start;
@@ -1611,11 +1611,11 @@ dissect_ntlmssp_negotiate (tvbuff_t *tvb, int offset, proto_tree *ntlmssp_tree, 
    * sent at all, presumably meaning the length of the message
    * isn't enough to contain them.
    */
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree, false,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree, false,
                                   hf_ntlmssp_negotiate_domain,
                                   &data_start, &data_end, NULL);
 
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree, false,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree, false,
                                   hf_ntlmssp_negotiate_workstation,
                                   &item_start, &item_end, NULL);
   data_start = MIN(data_start, item_start);
@@ -1709,7 +1709,7 @@ dissect_ntlmssp_challenge (tvbuff_t *tvb, packet_info *pinfo, int offset,
    * presumably because non-domain targets are supported.
    * XXX - Original name "domain" changed to "target_name" to match MS-NLMP
    */
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree, unicode_strings,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree, unicode_strings,
                                   hf_ntlmssp_challenge_target_name,
                                   &item_start, &item_end, NULL);
   data_start = item_start;
@@ -1946,7 +1946,7 @@ dissect_ntlmssp_auth (tvbuff_t *tvb, packet_info *pinfo, int offset,
    * XXX: I've seen a capture which does an HTTP CONNECT which:
    *      - has the NEGOTIATE & CHALLENGE messages in one TCP connection;
    *      - has the AUTHENTICATE message in a second TCP connection;
-   *        (The authentication aparently succeeded).
+   *        (The authentication apparently succeeded).
    *      For that case, in order to get the flags from the CHALLENGE_MESSAGE,
    *      we'd somehow have to manage NTLMSSP exchanges that cross TCP
    *      connection boundaries.
@@ -2062,7 +2062,7 @@ dissect_ntlmssp_auth (tvbuff_t *tvb, packet_info *pinfo, int offset,
 
   /* domain name */
   item_start = tvb_get_letohl(tvb, offset+4);
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree,
                                   unicode_strings,
                                   hf_ntlmssp_auth_domain,
                                   &item_start, &item_end, &(ntlmssph->domain_name));
@@ -2072,7 +2072,7 @@ dissect_ntlmssp_auth (tvbuff_t *tvb, packet_info *pinfo, int offset,
 
   /* user name */
   item_start = tvb_get_letohl(tvb, offset+4);
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree,
                                   unicode_strings,
                                   hf_ntlmssp_auth_username,
                                   &item_start, &item_end, &(ntlmssph->acct_name));
@@ -2085,7 +2085,7 @@ dissect_ntlmssp_auth (tvbuff_t *tvb, packet_info *pinfo, int offset,
 
   /* hostname */
   item_start = tvb_get_letohl(tvb, offset+4);
-  offset = dissect_ntlmssp_string(tvb, offset, ntlmssp_tree,
+  offset = dissect_ntlmssp_string(tvb, pinfo->pool, offset, ntlmssp_tree,
                                   unicode_strings,
                                   hf_ntlmssp_auth_hostname,
                                   &item_start, &item_end, &(ntlmssph->host_name));
@@ -2514,7 +2514,7 @@ dissect_ntlmssp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     switch (ntlmssph->type) {
 
     case NTLMSSP_NEGOTIATE:
-      dissect_ntlmssp_negotiate (tvb, offset, ntlmssp_tree, ntlmssph);
+      dissect_ntlmssp_negotiate (tvb, pinfo, offset, ntlmssp_tree, ntlmssph);
       break;
 
     case NTLMSSP_CHALLENGE:

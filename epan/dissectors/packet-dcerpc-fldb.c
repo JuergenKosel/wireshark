@@ -214,7 +214,7 @@ static const uint8_t *st_str;
 
 #define MACRO_ST_CLEAR(name) \
   offset = dissect_ndr_uint32 (tvb, offset, pinfo, tree, di, drep, hf_error_st, &st); \
-  st_str = val_to_str_ext (st, &dce_error_vals_ext, "%u");              \
+  st_str = val_to_str_ext(pinfo->pool, st, &dce_error_vals_ext, "%u");              \
   if (st) {                                                              \
       col_add_fstr (pinfo->cinfo, COL_INFO, "%s st:%s ", name, st_str); \
   } else {                                                                \
@@ -1736,7 +1736,7 @@ proto_register_fldb (void)
      {"Site Flags", "fldb.vldbentry.siteflags", FT_UINT32, BASE_DEC, NULL, 0x0, NULL,
       HFILL}},
     {&hf_fldb_vldbentry_sitemaxreplicalatency,
-     {"Site Max Replica Latench", "fldb.vldbentry.sitemaxreplatency", FT_UINT32,
+     {"Site Max Replica Latency", "fldb.vldbentry.sitemaxreplatency", FT_UINT32,
       BASE_DEC, NULL, 0x0, NULL, HFILL}},
     {&hf_fldb_vldbentry_siteprincipal,
      {"Principal Name", "fldb.vldbentry.siteprincipal", FT_STRING, BASE_NONE, NULL,

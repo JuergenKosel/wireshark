@@ -640,7 +640,7 @@ dissect_usb_com_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
         is_request = (pinfo->srcport==NO_ENDPOINT);
         col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s",
-        val_to_str_ext(usb_trans_info->setup.request, &usb_com_setup_request_vals_ext, "Unknown type %x"),
+        val_to_str_ext(pinfo->pool, usb_trans_info->setup.request, &usb_com_setup_request_vals_ext, "Unknown type %x"),
             is_request ? "Request" : "Response");
 
         if (is_request) {
@@ -858,7 +858,7 @@ dissect_usb_com_interrupt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     offset++;
     proto_tree_add_item_ret_uint(subtree, hf_usb_com_interrupt_notif_code, tvb, offset, 1, ENC_LITTLE_ENDIAN, &notif_code);
     offset++;
-    col_add_str(pinfo->cinfo, COL_INFO, val_to_str(notif_code, usb_com_interrupt_notif_code_vals, "Unknown type %x"));
+    col_add_str(pinfo->cinfo, COL_INFO, val_to_str(pinfo->pool, notif_code, usb_com_interrupt_notif_code_vals, "Unknown type %x"));
     switch (notif_code) {
         case NETWORK_CONNECTION:
             proto_tree_add_item(subtree, hf_usb_com_interrupt_value_nw_conn, tvb, offset, 2, ENC_LITTLE_ENDIAN);

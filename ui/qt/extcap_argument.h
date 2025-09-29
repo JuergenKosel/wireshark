@@ -88,9 +88,11 @@ public:
     bool isDefault();
     virtual bool isValid();
     bool isRequired();
+    bool isSufficient();
     bool reload();
 
-    QString prefKey(const QString & device_name);
+    QString prefKey(const QString & device_name,
+        const QString & option_name, const QString & option_value);
     virtual QString prefValue();
 
     void resetValue();

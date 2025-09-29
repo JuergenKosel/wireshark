@@ -22,7 +22,6 @@
 #include <wsutil/array.h>
 
 #include "packet-t38.h"
-#include "packet-t30.h"
 
 void proto_register_t30(void);
 
@@ -273,7 +272,7 @@ static const value_string t30_facsimile_control_field_vals[] = {
     /* 0x88 */    { T30_FC_ISP,      "Internet Selective Polling Address" },
     { 0, NULL }
 };
-value_string_ext t30_facsimile_control_field_vals_ext =
+static value_string_ext t30_facsimile_control_field_vals_ext =
     VALUE_STRING_EXT_INIT(t30_facsimile_control_field_vals);
 
 static const value_string t30_facsimile_control_field_vals_short[] = {
@@ -329,7 +328,7 @@ static const value_string t30_facsimile_control_field_vals_short[] = {
     /* 0x88 */    { T30_FC_ISP,      "ISP" },
     { 0, NULL }
 };
-value_string_ext t30_facsimile_control_field_vals_short_ext =
+static value_string_ext t30_facsimile_control_field_vals_short_ext =
     VALUE_STRING_EXT_INIT(t30_facsimile_control_field_vals_short);
 
 static const value_string t30_data_signalling_rate_vals[] = {
@@ -1399,6 +1398,11 @@ proto_register_t30(void)
     expert_register_field_array(expert_t30, ei, array_length(ei));
 
     register_dissector("t30.hdlc", dissect_t30_hdlc, proto_t30);
+
+    register_external_value_string_ext("t30_facsimile_control_field_vals_ext", &t30_facsimile_control_field_vals_ext);
+    register_external_value_string_ext("t30_facsimile_control_field_vals_short_ext", &t30_facsimile_control_field_vals_short_ext);
+
+
 
 }
 

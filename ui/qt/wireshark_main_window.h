@@ -53,7 +53,6 @@
 
 #include <QMainWindow>
 #include <QPointer>
-#include <QTextCodec>
 
 #ifdef _WIN32
 # include <QTimer>
@@ -71,7 +70,7 @@
 #include "tlskeylog_launcher_dialog.h"
 
 class AccordionFrame;
-class ByteViewTab;
+class DataSourceTab;
 class CaptureOptionsDialog;
 class PrintDialog;
 class FileSetDialog;
@@ -153,7 +152,6 @@ private:
 
     Ui::WiresharkMainWindow *main_ui_;
     QFont mono_font_;
-    QMap<QString, QTextCodec *> text_codec_map_;
 #if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
     WirelessFrame *wireless_frame_;
 #endif
@@ -209,8 +207,6 @@ private:
     bool testCaptureFileClose(QString before_what, FileCloseContext context = Default);
     void captureStop(bool discard = false);
 
-    void findTextCodecs();
-
     void initMainToolbarIcons();
     void initShowHideMainWidgets();
     void initTimeDisplayFormatMenu();
@@ -229,9 +225,12 @@ private:
 
     void setForCaptureInProgress(bool capture_in_progress = false, bool handle_toolbars = false, GArray *ifaces = NULL);
     QMenu* findOrAddMenu(QMenu *parent_menu, const QStringList& menu_parts);
+    QMenu* findOrAddMenubar(const QString menu_text);
 
     void captureFileReadStarted(const QString &action);
 
+    void addMenusandSubmenus(QAction *action, QMenu *cur_menu);
+    void removeMenusandSubmenus(QAction *action, QMenu *cur_menu);
     void addMenuActions(QList<QAction *> &actions, int menu_group);
     void removeMenuActions(QList<QAction *> &actions, int menu_group);
     void goToConversationFrame(bool go_next, bool start_current = true);
@@ -328,6 +327,7 @@ private slots:
     void pushLiveCaptureInProgress();
     void popLiveCaptureInProgress();
     void stopCapture();
+    void aggregationViewChanged(bool enable) const;
 
     void loadWindowGeometry();
     void saveWindowGeometry();
@@ -450,6 +450,7 @@ private slots:
 
     void openFollowStreamDialog(int proto_id, unsigned stream_num, unsigned sub_stream_num, bool use_stream_index = true);
     void openFollowStreamDialog(int proto_id);
+    void openIOGraph(bool filtered, QVector<uint> conv_ids, QVector<QVariant> conv_agg);
 
     void statCommandExpertInfo(const char *, void *);
 
@@ -481,6 +482,8 @@ private slots:
     void openStatisticsTreeDialog(const char *abbr);
     void statCommandIOGraph(const char *, void *);
     void showIOGraphDialog(io_graph_item_unit_t value_units, QString);
+
+    void showPlotDialog(const QString& y_field = QString(), bool filtered = false);
 
     void connectTelephonyMenuActions();
 

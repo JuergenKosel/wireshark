@@ -81,6 +81,7 @@ BASIC_LIST="
 	glib2-devel
 	libgcrypt-devel
 	libpcap-devel
+	libxml2-devel
 	pcre2-devel
 	python3
 	"
@@ -89,7 +90,6 @@ ADDITIONAL_LIST="
 	krb5-devel
 	libcap-devel
 	libssh-devel
-	libxml2-devel
 	lz4
 	perl
 	perl-Parse-Yapp
@@ -98,6 +98,7 @@ ADDITIONAL_LIST="
 	snappy-devel
 	spandsp-devel
 	systemd-devel
+	xxhash-devel
 	"
 
 # Uncomment to add PNG compression utilities used by compress-pngs:
@@ -319,7 +320,7 @@ echo "Optional package docbook-style-xsl|docbook-xsl-stylesheets is unavailable"
 add_package ADDITIONAL_LIST brotli-devel || add_packages ADDITIONAL_LIST libbrotli-devel libbrotlidec1 ||
 echo "Optional packages brotli-devel|libbrotli-devel is unavailable" >&2
 
-add_package ADDITIONAL_LIST libnl3-devel || add_package ADDITIONAL_LIST libnl-devel ||
+add_package ADDITIONAL_LIST libnl3-devel ||
 echo "Optional package libnl3-devel|libnl-devel are unavailable" >&2
 
 add_package ADDITIONAL_LIST ilbc-devel ||
@@ -351,6 +352,9 @@ echo "Optional package libsmi-devel is unavailable"
 
 add_package ADDITIONAL_LIST opencore-amr-devel ||
 echo "Optional package opencore-amr-devel is unavailable" >&2
+
+add_package ADDITIONAL_LIST softhsm ||
+echo "Optional package softhsm is unavailable" >&2
 
 ACTUAL_LIST=$BASIC_LIST
 

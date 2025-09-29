@@ -83,7 +83,6 @@ int Dot11DecryptCcmpDecrypt(
 	PDOT11DECRYPT_MAC_FRAME wh;
 	uint8_t aad[30]; /* Max aad_len. See Table 12-1 IEEE 802.11 2016 */
 	uint8_t nonce[13];
-	uint8_t mic[16]; /* Big enough for CCMP-256 */
 	ssize_t data_len;
 	size_t aad_len;
 	int z = mac_header_len;
@@ -94,10 +93,9 @@ int Dot11DecryptCcmpDecrypt(
 	wh = (PDOT11DECRYPT_MAC_FRAME )m;
 	data_len = len - (z + DOT11DECRYPT_CCMP_HEADER + mic_len);
 	if (data_len < 1) {
-		return 0;
+		return -1;
 	}
 
-	memcpy(mic, m + len - mic_len, mic_len);
 	pn = READ_6(ivp[0], ivp[1], ivp[4], ivp[5], ivp[6], ivp[7]);
 	ccmp_construct_nonce(wh, pn, nonce);
 	dot11decrypt_construct_aad(wh, aad, &aad_len);
@@ -125,7 +123,7 @@ int Dot11DecryptCcmpDecrypt(
 	if (gcry_cipher_decrypt(handle, m + z + DOT11DECRYPT_CCMP_HEADER, data_len, NULL, 0)) {
 		goto err_out;
 	}
-	if (gcry_cipher_checktag(handle, mic, mic_len)) {
+	if (gcry_cipher_checktag(handle, m + len - mic_len, mic_len)) {
 		goto err_out;
 	}
 

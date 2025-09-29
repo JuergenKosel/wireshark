@@ -6,6 +6,7 @@
  * (c) 2006, Luis E. Garcia Ontanon <luis@ontanon.org>
  * (c) 2007, Tamas Regos <tamas.regos@ericsson.com>
  * (c) 2008, Balint Reczey <balint.reczey@ericsson.com>
+ * (c) 2025, Bartis Csaba <bracsek@bracsek.eu>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -37,18 +38,23 @@
 #include <epan/packet.h>
 #include <epan/strutil.h>
 #include <epan/to_str.h>
+#include <epan/uat-int.h>
+#include <epan/uat.h>
 #include <epan/prefs.h>
+#include <epan/prefs-int.h>
 #include <epan/proto.h>
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/column-utils.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/wsgcrypt.h>
 #include <epan/funnel.h>
 #include <epan/tvbparse.h>
 #include <epan/epan.h>
 #include <epan/expert.h>
 #include <epan/exceptions.h>
 #include <epan/show_exception.h>
+#include <epan/conversation.h>
 
 #include <epan/wslua/declare_wslua.h>
 
@@ -163,25 +169,11 @@ typedef struct _wslua_expert_field_t {
     int severity;
 } wslua_expert_field_t;
 
-/**
- * PREF_OBSOLETE is used for preferences that a module used to support
- * but no longer supports; we give different error messages for them.
- */
-typedef enum {
-    PREF_UINT,
-    PREF_BOOL,
-    PREF_ENUM,
-    PREF_STRING,
-    PREF_RANGE,
-    PREF_STATIC_TEXT,
-    PREF_OBSOLETE
-} pref_type_t;
-
 typedef struct _wslua_pref_t {
     char* name;
     char* label;
     char* desc;
-    pref_type_t type;
+    pref_type_e type;
     union {
         bool b;
         unsigned u;
@@ -199,6 +191,9 @@ typedef struct _wslua_pref_t {
                          option menu or combo box in
                          the preferences tab */
       } enum_info;            /**< for PREF_ENUM */
+      struct {
+          uat_field_t *uat_field_list; /**< list of field configurations */
+      } uat_field_list_info; /**< for PREF_UAT */
       char* default_s;       /**< default value for value.s */
     } info;                    /**< display/text file information */
 
@@ -225,6 +220,11 @@ typedef struct _wslua_proto_t {
     bool is_postdissector;
     bool expired;
 } wslua_proto_t;
+
+typedef struct _wslua_conv_data_t {
+    conversation_t* conv;
+    int data_ref;
+} wslua_conv_data_t;
 
 /* a "DissectorTable" object can be different things under the hood,
  * since its heuristic_new() can create a heur_dissector_list_t that
@@ -303,13 +303,12 @@ struct _wslua_captureinfo {
     bool expired;
 };
 
-struct _wslua_phdr {
-    wtap_rec *rec;      /* this also exists in wtap struct, but is different for seek_read ops */
-    Buffer *buf;        /* can't use the one in wtap because it's different for seek_read ops */
+struct _wslua_rec {
+    wtap_rec *rec;
     bool expired;
 };
 
-struct _wslua_const_phdr {
+struct _wslua_const_rec {
     const wtap_rec *rec;
     const uint8_t *pd;
     bool expired;
@@ -352,6 +351,7 @@ struct _wslua_progdlg {
 typedef struct { const char* name; tap_extractor_t extractor; } tappable_t;
 
 typedef struct {const char* str; enum ftenum id; } wslua_ft_types_t;
+typedef struct {const char* str; conversation_type id; } wslua_conv_types_t;
 
 typedef wslua_pref_t* Pref;
 typedef wslua_pref_t* Prefs;
@@ -361,6 +361,7 @@ typedef struct _wslua_proto_t* Proto;
 typedef struct _wslua_distbl_t* DissectorTable;
 typedef dissector_handle_t Dissector;
 typedef GByteArray* ByteArray;
+typedef gcry_cipher_hd_t* GcryptCipher;
 typedef struct _wslua_tvb* Tvb;
 typedef struct _wslua_tvbrange* TvbRange;
 typedef struct _wslua_col_info* Column;
@@ -379,8 +380,8 @@ typedef struct _wslua_progdlg* ProgDlg;
 typedef struct _wslua_file* File;
 typedef struct _wslua_captureinfo* CaptureInfo;
 typedef struct _wslua_captureinfo* CaptureInfoConst;
-typedef struct _wslua_phdr* FrameInfo;
-typedef struct _wslua_const_phdr* FrameInfoConst;
+typedef struct _wslua_rec* FrameInfo;
+typedef struct _wslua_const_rec* FrameInfoConst;
 typedef struct _wslua_filehandler* FileHandler;
 typedef wtap_dumper* Dumper;
 typedef struct lua_pseudo_header* PseudoHeader;
@@ -390,6 +391,7 @@ typedef tvbparse_elem_t* Node;
 typedef tvbparse_action_t* Shortcut;
 typedef struct _wslua_dir* Dir;
 typedef struct _wslua_private_table* PrivateTable;
+typedef conversation_t* Conversation;
 typedef char* Struct;
 
 /*
@@ -879,6 +881,8 @@ extern int wslua_deregister_filehandlers(lua_State* L);
 extern void wslua_deregister_menus(void);
 
 extern void wslua_init_wtap_filetypes(lua_State* L);
+
+extern const wslua_conv_types_t* wslua_inspect_convtype_enum(void);
 
 #endif
 

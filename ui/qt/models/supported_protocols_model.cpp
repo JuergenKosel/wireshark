@@ -164,6 +164,7 @@ void SupportedProtocolsModel::populate()
     SupportedProtocolsItem *protoItem, *fieldItem;
     protocol_t *protocol;
 
+    proto_initialize_all_prefixes();
     for (int proto_id = proto_get_first_protocol(&proto_cookie); proto_id != -1;
         proto_id = proto_get_next_protocol(&proto_cookie)) {
 
@@ -256,6 +257,13 @@ bool SupportedProtocolsProxyModel::filterAcceptsRow(int sourceRow, const QModelI
 
 void SupportedProtocolsProxyModel::setFilter(const QString& filter)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    beginFilterChange();
+#endif
     filter_ = filter;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateFilter();
+#endif
 }

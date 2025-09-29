@@ -34,6 +34,7 @@
 #include "packet-dcerpc-misc.h"
 /* for keytab format */
 #include <epan/asn1.h>
+#include "packet-kerberos.h"
 
 void proto_register_dcerpc_netlogon(void);
 void proto_reg_handoff_dcerpc_netlogon(void);
@@ -396,6 +397,55 @@ static int hf_netlogon_transitedlistsize;
 static int hf_netlogon_transited_service;
 static int hf_netlogon_logon_duration;
 static int hf_netlogon_time_created;
+static int hf_netlogon_claims_set_size;
+static int hf_netlogon_claims_compression_format;
+static int hf_netlogon_claims_set_uncompressed_size;
+static int hf_netlogon_claims_reserved_type;
+static int hf_netlogon_claims_reserved_field_size;
+static int hf_netlogon_claims_source_type;
+static int hf_netlogon_claims_count;
+static int hf_netlogon_claim_id;
+static int hf_netlogon_claim_type;
+static int hf_netlogon_claim_value_count;
+static int hf_netlogon_claim_int64_value;
+static int hf_netlogon_claim_uint64_value;
+static int hf_netlogon_claim_string_value;
+static int hf_netlogon_claim_boolean_value;
+static int hf_netlogon_ticket_logon_options;
+static int hf_netlogon_ticket_logon_options_0000000000000001;
+static int hf_netlogon_ticket_logon_options_0000000000010000;
+static int hf_netlogon_ticket_logon_options_0000000000020000;
+static int hf_netlogon_ticket_logon_options_0000000100000000;
+static int hf_netlogon_ticket_logon_options_0000000200000000;
+static int hf_netlogon_ticket_logon_options_0001000000000000;
+static int hf_netlogon_ticket_logon_options_0002000000000000;
+static int hf_netlogon_ticket_logon_service_ticket_size;
+static int hf_netlogon_ticket_logon_additional_ticket_size;
+static int hf_netlogon_ticket_logon_results;
+static int hf_netlogon_ticket_logon_results_0000000000000001;
+static int hf_netlogon_ticket_logon_results_0000000100000000;
+static int hf_netlogon_ticket_logon_results_0000000200000000;
+static int hf_netlogon_ticket_logon_results_0000000400000000;
+static int hf_netlogon_ticket_logon_results_0000000800000000;
+static int hf_netlogon_ticket_logon_results_0000001000000000;
+static int hf_netlogon_ticket_logon_results_0000002000000000;
+static int hf_netlogon_ticket_logon_results_0000004000000000;
+static int hf_netlogon_ticket_logon_results_0001000000000000;
+static int hf_netlogon_ticket_logon_results_0002000000000000;
+static int hf_netlogon_ticket_logon_results_0004000000000000;
+static int hf_netlogon_ticket_logon_results_0008000000000000;
+static int hf_netlogon_ticket_logon_results_0010000000000000;
+static int hf_netlogon_ticket_logon_results_0020000000000000;
+static int hf_netlogon_ticket_logon_results_0040000000000000;
+static int hf_netlogon_ticket_logon_kerberos_status;
+static int hf_netlogon_ticket_logon_netlogon_status;
+static int hf_netlogon_ticket_logon_source_of_status;
+static int hf_netlogon_ticket_logon_user_claims_size;
+static int hf_netlogon_ticket_logon_device_claims_size;
+static int hf_netlogon_ticket_logon_claims;
+static int hf_netlogon_forest_trust_info_flags;
+static int hf_netlogon_forest_trust_info_flags_00000001;
+static int hf_netlogon_forest_trust_info;
 
 static int ett_nt_counted_longs_as_string;
 static int ett_dcerpc_netlogon;
@@ -431,6 +481,10 @@ static int ett_dc_flags;
 static int ett_wstr_LOGON_IDENTITY_INFO_string;
 static int ett_domain_group_memberships;
 static int ett_domains_group_memberships;
+static int ett_netlogon_ticket_logon_options;
+static int ett_netlogon_ticket_logon_results;
+static int ett_netlogon_ticket_logon_claims;
+static int ett_netlogon_forest_trust_info_flags;
 
 static expert_field ei_netlogon_auth_nthash;
 static expert_field ei_netlogon_session_key;
@@ -557,6 +611,28 @@ static const true_false_string user_account_control_home_directory_required= {
 static const true_false_string user_account_control_account_disabled= {
     "This account is DISABLED",
     "This account is NOT disabled",
+};
+
+static const value_string netlogon_claims_compression_format_vals[] = {
+    { 0, "COMPRESSION_FORMAT_NONE" },
+    { 2, "COMPRESSION_FORMAT_LZNT1" },
+    { 3, "COMPRESSION_FORMAT_XPRESS" },
+    { 4, "COMPRESSION_FORMAT_XPRESS_HUFF" },
+    { 0, NULL }
+};
+
+static const value_string hf_netlogon_claims_source_type_vals[] = {
+    { 1, "CLAIMS_SOURCE_TYPE_AD" },
+    { 2, "CLAIMS_SOURCE_TYPE_CERTIFICATE" },
+    { 0, NULL }
+};
+
+static const value_string netlogon_claim_type_vals[] = {
+    { 1, "CLAIM_TYPE_INT64" },
+    { 2, "CLAIM_TYPE_UINT64" },
+    { 3, "CLAIM_TYPE_STRING" },
+    { 6, "CLAIM_TYPE_BOOLEAN" },
+    { 0, NULL }
 };
 
 typedef struct _netlogon_auth_key {
@@ -1035,13 +1111,13 @@ netlogon_dissect_netrlogonuaslogoff_reply(tvbuff_t *tvb, int offset,
 }
 
 static int
-netlogon_dissect_BYTE_byte(tvbuff_t *tvb, int offset,
-                           packet_info *pinfo, proto_tree *tree,
-                           dcerpc_info *di, uint8_t *drep)
+netlogon_dissect_BLOB(tvbuff_t *tvb, int offset, int length,
+                      packet_info *pinfo _U_ , proto_tree *tree,
+                      dcerpc_info *di _U_, uint8_t *drep _U_)
 {
-    offset = dissect_ndr_uint8(tvb, offset, pinfo, tree, di, drep,
-                               hf_netlogon_unknown_char, NULL);
-
+    proto_tree_add_item(tree, hf_netlogon_blob, tvb, offset, length,
+                        ENC_NA);
+    offset += length;
     return offset;
 }
 
@@ -1050,8 +1126,8 @@ netlogon_dissect_BYTE_array(tvbuff_t *tvb, int offset,
                             packet_info *pinfo, proto_tree *tree,
                             dcerpc_info *di, uint8_t *drep)
 {
-    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
-                                 netlogon_dissect_BYTE_byte);
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_BLOB);
 
     return offset;
 }
@@ -1377,6 +1453,85 @@ netlogon_dissect_GENERIC_INFO(tvbuff_t *tvb, int offset,
                                  "Logon Data", -1);
     return offset;
 }
+
+static int
+netlogon_dissect_KRB5_TICKET_BLOB(tvbuff_t *tvb, int offset, int length,
+                                  packet_info *pinfo, proto_tree *tree,
+                                  dcerpc_info *di, uint8_t *drep _U_)
+{
+    tvbuff_t *subtvb = NULL;
+
+    if (di->conformant_run) {
+        return offset;
+    }
+
+    subtvb = tvb_new_subset_length(tvb, offset, length);
+    offset += length;
+    dissect_kerberos_main(subtvb, pinfo, tree, false, NULL);
+    return offset;
+}
+
+static int
+netlogon_dissect_BYTE_ARRAY_AS_KRB5_TICKET(tvbuff_t *tvb, int offset,
+                                           packet_info *pinfo, proto_tree *tree,
+                                           dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_KRB5_TICKET_BLOB);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_TICKET_INFO(tvbuff_t *tvb, int offset,
+                             packet_info *pinfo, proto_tree *tree,
+                             dcerpc_info *di, uint8_t *drep)
+{
+    static int * const hf_netlogon_ticket_logon_options_bits[] = {
+        &hf_netlogon_ticket_logon_options_0000000000000001,
+        &hf_netlogon_ticket_logon_options_0000000000010000,
+        &hf_netlogon_ticket_logon_options_0000000000020000,
+        &hf_netlogon_ticket_logon_options_0000000100000000,
+        &hf_netlogon_ticket_logon_options_0000000200000000,
+        &hf_netlogon_ticket_logon_options_0001000000000000,
+        &hf_netlogon_ticket_logon_options_0002000000000000,
+        NULL
+    };
+    uint64_t options = 0;
+
+    if (di->conformant_run) {
+        /* just a run to handle conformant arrays, no scalars to dissect */
+        return offset;
+    }
+
+    offset = netlogon_dissect_LOGON_IDENTITY_INFO(tvb, offset,
+                                                  pinfo, tree, di, drep,
+                                                  NULL);
+
+    offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep,
+                                -1, &options);
+    proto_tree_add_bitmask_value_with_flags(tree, tvb, offset-8,
+                                            hf_netlogon_ticket_logon_options,
+                                            ett_netlogon_ticket_logon_options,
+                                            hf_netlogon_ticket_logon_options_bits,
+                                            options,
+                                            BMT_NO_APPEND);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_service_ticket_size, NULL);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_BYTE_ARRAY_AS_KRB5_TICKET, NDR_POINTER_UNIQUE,
+                                 "Service Ticket", -1);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_additional_ticket_size, NULL);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_BYTE_ARRAY_AS_KRB5_TICKET, NDR_POINTER_UNIQUE,
+                                 "Additional Ticket", -1);
+
+    return offset;
+}
+
 /*
  * IDL typedef [switch_type(short)] union {
  * IDL    [case(1)][unique] INTERACTIVE_INFO *iinfo;
@@ -1429,6 +1584,11 @@ netlogon_dissect_LEVEL(tvbuff_t *tvb, int offset,
         offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
                                      netlogon_dissect_SERVICE_INFO, NDR_POINTER_UNIQUE,
                                      "SERVICE_TRANSITIVE_INFO", -1);
+        break;
+    case 8:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_TICKET_INFO, NDR_POINTER_UNIQUE,
+                                     "TICKET_INFO", -1);
         break;
     }
     return offset;
@@ -1505,6 +1665,7 @@ netlogon_dissect_GROUP_MEMBERSHIP(tvbuff_t *tvb, int offset,
 {
     proto_item *item=NULL;
     proto_tree *tree=NULL;
+    uint32_t rid = 0;
 
     if(parent_tree){
         tree = proto_tree_add_subtree(parent_tree, tvb, offset, 0,
@@ -1512,7 +1673,10 @@ netlogon_dissect_GROUP_MEMBERSHIP(tvbuff_t *tvb, int offset,
     }
 
     offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
-                                hf_netlogon_group_rid, NULL);
+                                hf_netlogon_group_rid, &rid);
+    if (tree) {
+        proto_item_append_text(item, " RID=%"PRIu32"", rid);
+    }
 
     offset = dissect_ndr_nt_SE_GROUP_ATTRIBUTES(tvb, offset, pinfo, tree, di, drep);
 
@@ -1999,6 +2163,106 @@ netlogon_dissect_VALIDATION_SAM_INFO4(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+static int
+netlogon_dissect_VALIDATION_TICKET_LOGON_CLAIMS_BLOB(tvbuff_t *tvb, int offset, int length,
+                                                     packet_info *pinfo, proto_tree *tree,
+                                                     dcerpc_info *di _U_, uint8_t *drep _U_)
+{
+    return netlogon_dissect_CLAIMS_SET_METADATA_BLOB(tvb, offset, length,
+                                                     pinfo,
+                                                     tree,
+                                                     hf_netlogon_ticket_logon_claims,
+                                                     ett_netlogon_ticket_logon_claims,
+                                                     "Claims:");
+}
+
+static int
+netlogon_dissect_VALIDATION_TICKET_LOGON_CLAIMS(tvbuff_t *tvb,
+                                                int offset,
+                                                packet_info *pinfo,
+                                                proto_tree *tree,
+                                                dcerpc_info *di,
+                                                uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_VALIDATION_TICKET_LOGON_CLAIMS_BLOB);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_VALIDATION_TICKET_LOGON(tvbuff_t *tvb, int offset,
+                                         packet_info *pinfo, proto_tree *tree,
+                                         dcerpc_info *di, uint8_t *drep)
+{
+    static int * const hf_netlogon_ticket_logon_results_bits[] = {
+        &hf_netlogon_ticket_logon_results_0000000000000001,
+        &hf_netlogon_ticket_logon_results_0000000100000000,
+        &hf_netlogon_ticket_logon_results_0000000200000000,
+        &hf_netlogon_ticket_logon_results_0000000400000000,
+        &hf_netlogon_ticket_logon_results_0000000800000000,
+        &hf_netlogon_ticket_logon_results_0000001000000000,
+        &hf_netlogon_ticket_logon_results_0000002000000000,
+        &hf_netlogon_ticket_logon_results_0000004000000000,
+        &hf_netlogon_ticket_logon_results_0001000000000000,
+        &hf_netlogon_ticket_logon_results_0002000000000000,
+        &hf_netlogon_ticket_logon_results_0004000000000000,
+        &hf_netlogon_ticket_logon_results_0008000000000000,
+        &hf_netlogon_ticket_logon_results_0010000000000000,
+        &hf_netlogon_ticket_logon_results_0020000000000000,
+        &hf_netlogon_ticket_logon_results_0040000000000000,
+        NULL
+    };
+    uint64_t results = 0;
+
+    if (di->conformant_run) {
+        return offset;
+    }
+
+    offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep,
+                                -1, &results);
+    proto_tree_add_bitmask_value_with_flags(tree, tvb, offset-8,
+                                            hf_netlogon_ticket_logon_results,
+                                            ett_netlogon_ticket_logon_results,
+                                            hf_netlogon_ticket_logon_results_bits,
+                                            results,
+                                            BMT_NO_APPEND);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_kerberos_status, NULL);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_netlogon_status, NULL);
+
+    offset = lsarpc_dissect_struct_lsa_String(tvb, offset, pinfo, tree, di, drep,
+                                              hf_netlogon_ticket_logon_source_of_status, 0);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_VALIDATION_SAM_INFO4,
+                                 NDR_POINTER_UNIQUE,
+                                 "USER", -1);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_VALIDATION_SAM_INFO4,
+                                 NDR_POINTER_UNIQUE,
+                                 "DEVICE", -1);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_user_claims_size, NULL);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_VALIDATION_TICKET_LOGON_CLAIMS,
+                                 NDR_POINTER_UNIQUE,
+                                 "USER_CLAIMS", -1);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_ticket_logon_device_claims_size, NULL);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_VALIDATION_TICKET_LOGON_CLAIMS,
+                                 NDR_POINTER_UNIQUE,
+                                 "DEVICE_CLAIMS", -1);
+
+    return offset;
+}
+
 /*
  * IDL typedef struct {
  * IDL   uint64 LogonTime;
@@ -2311,6 +2575,526 @@ netlogon_dissect_PAC_DEVICE_INFO(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+static int
+netlogon_dissect_CLAIM_INT64_VALUE(tvbuff_t *tvb, int offset,
+                                   packet_info *pinfo, proto_tree *tree,
+                                   dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_int64_value, NULL);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_INT64_ARRAY(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_INT64_VALUE);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_INT64_VALUES(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_value_count, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_INT64_ARRAY, NDR_POINTER_UNIQUE,
+                                 "Claim INT64 Values:", -1);
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_UINT64_VALUE(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_uint64_value, NULL);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_UINT64_ARRAY(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_UINT64_VALUE);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_UINT64_VALUES(tvbuff_t *tvb, int offset,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_value_count, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_UINT64_ARRAY, NDR_POINTER_UNIQUE,
+                                 "Claim UINT64 Values:", -1);
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_STRING_VALUE(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_str_pointer_item(tvb, offset, pinfo, tree, di, drep,
+                                          NDR_POINTER_UNIQUE, "Claim STRING Value",
+                                          hf_netlogon_claim_string_value, 0);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_STRING_ARRAY(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_STRING_VALUE);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_STRING_VALUES(tvbuff_t *tvb, int offset,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_value_count, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_STRING_ARRAY, NDR_POINTER_UNIQUE,
+                                 "Claim STRING Values:", -1);
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_BOOLEAN_VALUE(tvbuff_t *tvb, int offset,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_boolean_value, NULL);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_BOOLEAN_ARRAY(tvbuff_t *tvb, int offset,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_BOOLEAN_VALUE);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIM_BOOLEAN_VALUES(tvbuff_t *tvb, int offset,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claim_value_count, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIM_BOOLEAN_ARRAY, NDR_POINTER_UNIQUE,
+                                 "Claim BOOLEAN Values:", -1);
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_ENTRY_WRAPPER(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    uint1632_t type;
+
+    offset = dissect_ndr_str_pointer_item(tvb, offset, pinfo, tree, di, drep,
+                                          NDR_POINTER_UNIQUE, "Claim ID",
+                                          hf_netlogon_claim_id, 0);
+
+    offset = dissect_ndr_uint1632(tvb, offset, pinfo, tree, di, drep,
+                                  hf_netlogon_claim_type, &type);
+
+    UNION_ALIGN_TO_4_BYTES;
+    switch (type) {
+    case 1:
+        offset = netlogon_dissect_CLAIM_INT64_VALUES(tvb, offset, pinfo, tree, di, drep);
+        break;
+    case 2:
+        offset = netlogon_dissect_CLAIM_UINT64_VALUES(tvb, offset, pinfo, tree, di, drep);
+        break;
+    case 3:
+        offset = netlogon_dissect_CLAIM_STRING_VALUES(tvb, offset, pinfo, tree, di, drep);
+        break;
+    case 6:
+        offset = netlogon_dissect_CLAIM_BOOLEAN_VALUES(tvb, offset, pinfo, tree, di, drep);
+        break;
+    }
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_ENTRY_ARRAY(tvbuff_t *tvb, int offset,
+                                    packet_info *pinfo, proto_tree *tree,
+                                    dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIMS_ENTRY_WRAPPER);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_ARRAY_WRAPPER(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint1632(tvb, offset, pinfo, tree, di, drep,
+                                  hf_netlogon_claims_source_type, NULL);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_count, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIMS_ENTRY_ARRAY, NDR_POINTER_UNIQUE,
+                                 "Claims Entries:", -1);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ARRAYS(tvbuff_t *tvb, int offset,
+                                   packet_info *pinfo, proto_tree *tree,
+                                   dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIMS_ARRAY_WRAPPER);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET(tvbuff_t *tvb, int offset,
+                            packet_info *pinfo, proto_tree *tree,
+                            dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_set_size, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_CLAIMS_SET_ARRAYS, NDR_POINTER_UNIQUE,
+                                 "Claims Set ARRAYS:", -1);
+
+    offset = dissect_ndr_uint16(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_reserved_type, NULL);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_reserved_field_size, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_BYTE_array, NDR_POINTER_UNIQUE,
+                                 "Reserved Field:", -1);
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER(tvbuff_t *tvb, int offset, int length,
+                                   packet_info *pinfo, proto_tree *tree,
+                                   dcerpc_info *caller_di, uint1632_t format)
+{
+    uint8_t drep[4] = { 0x10, 0x00, 0x00, 0x00}; /* fake DREP struct */
+    /* fake dcerpc_info struct */
+    dcerpc_call_value call_data = { .flags = 0, };
+    dcerpc_info di = { .ptype = UINT8_MAX, .call_data = &call_data, };
+    tvbuff_t *subtvb = NULL;
+    int suboffset = 0;
+
+    if (caller_di->conformant_run) {
+        /* just a run to handle conformant arrays, no scalars to dissect */
+        return offset;
+    }
+
+    switch (format) {
+    case 0:
+        subtvb = tvb_new_subset_length(tvb, offset, length);
+        break;
+    case 2:
+        subtvb = tvb_uncompress_lznt1(tvb, offset, length);
+        if (subtvb != NULL) {
+            add_new_data_source(pinfo, subtvb, "Claims LZNT1 decompressed");
+        }
+        break;
+    case 3:
+        subtvb = tvb_uncompress_lz77(tvb, offset, length);
+        if (subtvb != NULL) {
+            add_new_data_source(pinfo, subtvb, "Claims XPRESS decompressed");
+        }
+        break;
+    case 4:
+        subtvb = tvb_uncompress_lz77huff(tvb, offset, length);
+        if (subtvb != NULL) {
+            add_new_data_source(pinfo, subtvb, "Claims XPRESS+HUFF decompressed");
+        }
+        break;
+    }
+
+    if (subtvb == NULL) {
+        proto_tree_add_item(tree, hf_netlogon_blob, tvb, offset, length,
+                            ENC_NA);
+        offset += length;
+        return offset;
+    }
+    offset += length;
+
+    suboffset = nt_dissect_MIDL_NDRHEADERBLOB(tree, subtvb, suboffset, &drep[0]);
+
+    init_ndr_pointer_list(&di);
+    dissect_ndr_pointer(subtvb, suboffset, pinfo, tree, &di, drep,
+                        netlogon_dissect_CLAIMS_SET, NDR_POINTER_UNIQUE,
+                        "Claims Set:", -1);
+    free_ndr_pointer_list(&di);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER_0(tvbuff_t *tvb, int offset, int length,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep _U_)
+{
+    return netlogon_dissect_CLAIMS_SET_BUFFER(tvb, offset, length,
+                                              pinfo, tree, di, 0);
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ucarray_0(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_CLAIMS_SET_BUFFER_0);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER_2(tvbuff_t *tvb, int offset, int length,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep _U_)
+{
+    return netlogon_dissect_CLAIMS_SET_BUFFER(tvb, offset, length,
+                                              pinfo, tree, di, 2);
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ucarray_2(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_CLAIMS_SET_BUFFER_2);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER_3(tvbuff_t *tvb, int offset, int length,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep _U_)
+{
+    return netlogon_dissect_CLAIMS_SET_BUFFER(tvb, offset, length,
+                                              pinfo, tree, di, 3);
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ucarray_3(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_CLAIMS_SET_BUFFER_3);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER_4(tvbuff_t *tvb, int offset, int length,
+                                     packet_info *pinfo, proto_tree *tree,
+                                     dcerpc_info *di, uint8_t *drep _U_)
+{
+    return netlogon_dissect_CLAIMS_SET_BUFFER(tvb, offset, length,
+                                              pinfo, tree, di, 4);
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ucarray_4(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_CLAIMS_SET_BUFFER_4);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_BUFFER_U(tvbuff_t *tvb, int offset, int length,
+                                     packet_info *pinfo _U_, proto_tree *tree,
+                                     dcerpc_info *di _U_, uint8_t *drep _U_)
+{
+    proto_tree_add_item(tree, hf_netlogon_blob, tvb, offset, length,
+                        ENC_NA);
+    offset += length;
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_ucarray_U(tvbuff_t *tvb, int offset,
+                                      packet_info *pinfo, proto_tree *tree,
+                                      dcerpc_info *di, uint8_t *drep)
+{
+    offset = dissect_ndr_ucarray_block(tvb, offset, pinfo, tree, di, drep,
+                                       netlogon_dissect_CLAIMS_SET_BUFFER_U);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_CLAIMS_SET_METADATA(tvbuff_t *tvb,
+                                     int offset,
+                                     packet_info *pinfo,
+                                     proto_tree *tree,
+                                     dcerpc_info *di,
+                                     uint8_t *drep)
+{
+    int format_offset;
+    uint1632_t format = 0;
+
+    if (di->conformant_run) {
+        /* just a run to handle conformant arrays, no scalars to dissect */
+        return offset;
+    }
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_set_size, NULL);
+
+    ALIGN_TO_4_OR_8_BYTES;
+    if (di->call_data->flags & DCERPC_IS_NDR64) {
+        format_offset = offset + 8;
+        format = tvb_get_uint32(tvb, format_offset, DREP_ENC_INTEGER(drep));
+    } else { \
+        format_offset = offset + 4;
+        format = tvb_get_uint16(tvb, format_offset, DREP_ENC_INTEGER(drep));
+    }
+    switch (format) {
+    case 0:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_CLAIMS_SET_ucarray_0,
+                                     NDR_POINTER_UNIQUE,
+                                     "Claims Set Uncompressed:", -1);
+        break;
+    case 2:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_CLAIMS_SET_ucarray_2,
+                                     NDR_POINTER_UNIQUE,
+                                     "Claims Set LZNT1:", -1);
+        break;
+    case 3:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_CLAIMS_SET_ucarray_3,
+                                     NDR_POINTER_UNIQUE,
+                                     "Claims Set XPRESS:", -1);
+        break;
+    case 4:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_CLAIMS_SET_ucarray_4,
+                                     NDR_POINTER_UNIQUE,
+                                     "Claims Set XPRESS+HUFF:", -1);
+        break;
+    default:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_CLAIMS_SET_ucarray_U,
+                                     NDR_POINTER_UNIQUE,
+                                     "Claims Set Unknown Compression:", -1);
+    }
+
+    offset = dissect_ndr_uint1632(tvb, offset, pinfo, tree, di, drep,
+                                  hf_netlogon_claims_compression_format, NULL);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_set_uncompressed_size, NULL);
+
+    offset = dissect_ndr_uint16(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_reserved_type, NULL);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                hf_netlogon_claims_reserved_field_size, NULL);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_BYTE_array, NDR_POINTER_UNIQUE,
+                                 "Reserved Field:", -1);
+
+    return offset;
+}
+
+int
+netlogon_dissect_CLAIMS_SET_METADATA_BLOB(tvbuff_t *tvb,
+                                          int offset,
+                                          int length,
+                                          packet_info *pinfo,
+                                          proto_tree *parent_tree,
+                                          int hf_index,
+                                          int ett_index,
+                                          const char *info_str)
+{
+    proto_item *item;
+    proto_tree *tree;
+    uint8_t drep[4] = { 0x10, 0x00, 0x00, 0x00}; /* fake DREP struct */
+    /* fake dcerpc_info struct */
+    dcerpc_call_value call_data = { .flags = 0, };
+    dcerpc_info di = { .ptype = UINT8_MAX, .call_data = &call_data, };
+
+    item = proto_tree_add_item(parent_tree, hf_index, tvb, offset, length, ENC_NA);
+    tree = proto_item_add_subtree(item, ett_index);
+
+    if (length == 0) {
+        proto_tree_add_item(tree, hf_netlogon_blob, tvb, offset, length,
+                            ENC_NA);
+        return offset;
+    }
+
+    offset = nt_dissect_MIDL_NDRHEADERBLOB(tree, tvb, offset, &drep[0]);
+
+    init_ndr_pointer_list(&di);
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, &di, drep,
+                                 netlogon_dissect_CLAIMS_SET_METADATA,
+                                 NDR_POINTER_UNIQUE,
+                                 info_str, -1);
+    free_ndr_pointer_list(&di);
+
+    return offset;
+}
+
 #if 0
 static int
 netlogon_dissect_PAC(tvbuff_t *tvb, int offset,
@@ -2457,6 +3241,7 @@ netlogon_dissect_VALIDATION_PAC_INFO(tvbuff_t *tvb, int offset,
  * IDL    [case(5)][unique] VALIDATION_GENERIC_INFO *generic2;
  * IDL    [case(5)][unique] VALIDATION_GENERIC_INFO *generic2;
  * IDL    [case(6)][unique] VALIDATION_SAM_INFO4 *sam4;
+ * IDL    [case(7)][unique] VALIDATION_TICKET_LOGON *ticket;
  * IDL } VALIDATION;
  */
 static int
@@ -2501,9 +3286,167 @@ netlogon_dissect_VALIDATION(tvbuff_t *tvb, int offset,
                                      netlogon_dissect_VALIDATION_SAM_INFO4, NDR_POINTER_UNIQUE,
                                      "VALIDATION_SAM_INFO4:", -1);
         break;
+    case 7:
+        offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                     netlogon_dissect_VALIDATION_TICKET_LOGON, NDR_POINTER_UNIQUE,
+                                     "VALIDATION_TICKET_LOGON:", -1);
+        break;
     }
     return offset;
 }
+
+static int
+netlogon_forest_trust_info(tvbuff_t *tvb, int offset, packet_info *pinfo,
+                           proto_tree *tree, dcerpc_info *di, uint8_t *drep)
+{
+    offset = lsarpc_dissect_struct_lsa_ForestTrustInformation(tvb,
+                                                              offset,
+                                                              pinfo,
+                                                              tree,
+                                                              di,
+                                                              drep,
+                                                              hf_netlogon_forest_trust_info,
+                                                              0);
+
+    return offset;
+}
+
+/*
+ * IDL NET_API_STATUS DsrGetForestTrustInformation(
+ * IDL     [in, unique, string] LOGONSRV_HANDLE ServerName,
+ * IDL     [in, unique, string] wchar_t* TrustedDomainName,
+ * IDL     [in] DWORD Flags,
+ * IDL     [out] PLSA_FOREST_TRUST_INFORMATION* ForestTrustInfo
+ * IDL );
+ */
+static int
+netlogon_dissect_dsrgetforesttrustinformation_rqst(tvbuff_t *tvb,
+                                                   int offset,
+                                                   packet_info *pinfo,
+                                                   proto_tree *tree,
+                                                   dcerpc_info *di,
+                                                   uint8_t *drep)
+{
+    static int * const hf_netlogon_forest_trust_info_flags_bits[] = {
+        &hf_netlogon_forest_trust_info_flags_00000001,
+        NULL
+    };
+    uint32_t flags = 0;
+
+    if (di->conformant_run) {
+        return offset;
+    }
+
+    offset = netlogon_dissect_LOGONSRV_HANDLE(tvb, offset,
+                                              pinfo, tree, di, drep);
+
+    offset = dissect_ndr_str_pointer_item(tvb, offset, pinfo, tree, di, drep,
+                                          NDR_POINTER_UNIQUE, "Trusted Domain Name",
+                                          hf_netlogon_domain_name, 0);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                -1, &flags);
+    proto_tree_add_bitmask_value_with_flags(tree, tvb, offset-8,
+                                            hf_netlogon_forest_trust_info_flags,
+                                            ett_netlogon_forest_trust_info_flags,
+                                            hf_netlogon_forest_trust_info_flags_bits,
+                                            flags,
+                                            BMT_NO_APPEND);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_dsrgetforesttrustinformation_reply(tvbuff_t *tvb,
+                                                    int offset,
+                                                    packet_info *pinfo,
+                                                    proto_tree *tree,
+                                                    dcerpc_info *di,
+                                                    uint8_t *drep)
+{
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_forest_trust_info, NDR_POINTER_UNIQUE,
+                                 "ForestTrustInfo:", -1);
+
+    offset = dissect_werror(tvb, offset, pinfo, tree, di, drep,
+                            hf_netlogon_werr_rc, NULL);
+
+    return offset;
+}
+
+/*
+ * IDL NTSTATUS NetrGetForestTrustInformation(
+ * IDL     [in, unique, string] LOGONSRV_HANDLE ServerName,
+ * IDL     [in, string] wchar_t* ComputerName,
+ * IDL     [in] PNETLOGON_AUTHENTICATOR Authenticator,
+ * IDL     [out] PNETLOGON_AUTHENTICATOR ReturnAuthenticator,
+ * IDL     [in] DWORD Flags,
+ * IDL     [out] PLSA_FOREST_TRUST_INFORMATION* ForestTrustInfo
+ * IDL );
+ */
+static int
+netlogon_dissect_netrgetforesttrustinformation_rqst(tvbuff_t *tvb,
+                                                    int offset,
+                                                    packet_info *pinfo,
+                                                    proto_tree *tree,
+                                                    dcerpc_info *di,
+                                                    uint8_t *drep)
+{
+    static int * const hf_netlogon_forest_trust_info_flags_bits[] = {
+        &hf_netlogon_forest_trust_info_flags_00000001,
+        NULL
+    };
+    uint32_t flags = 0;
+
+    if (di->conformant_run) {
+        return offset;
+    }
+
+    offset = netlogon_dissect_LOGONSRV_HANDLE(tvb, offset,
+                                              pinfo, tree, di, drep);
+
+    offset = dissect_ndr_str_pointer_item(tvb, offset, pinfo, tree, di, drep,
+                                          NDR_POINTER_REF, "Computer Name",
+                                          hf_netlogon_computer_name, 0);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_AUTHENTICATOR, NDR_POINTER_REF,
+                                 "AUTHENTICATOR: credential", -1);
+
+    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep,
+                                -1, &flags);
+    proto_tree_add_bitmask_value_with_flags(tree, tvb, offset-8,
+                                            hf_netlogon_forest_trust_info_flags,
+                                            ett_netlogon_forest_trust_info_flags,
+                                            hf_netlogon_forest_trust_info_flags_bits,
+                                            flags,
+                                            BMT_NO_APPEND);
+
+    return offset;
+}
+
+static int
+netlogon_dissect_netrgetforesttrustinformation_reply(tvbuff_t *tvb,
+                                                     int offset,
+                                                     packet_info *pinfo,
+                                                     proto_tree *tree,
+                                                     dcerpc_info *di,
+                                                     uint8_t *drep)
+{
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_dissect_AUTHENTICATOR, NDR_POINTER_REF,
+                                 "AUTHENTICATOR: return_authenticator", -1);
+
+    offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
+                                 netlogon_forest_trust_info, NDR_POINTER_UNIQUE,
+                                 "ForestTrustInfo:", -1);
+
+    offset = dissect_ntstatus(tvb, offset, pinfo, tree, di, drep,
+                              hf_netlogon_rc, NULL);
+
+    return offset;
+}
+
 /*
  * IDL long NetrLogonSamLogonWithFlags(
  * IDL      [in][unique][string] wchar_t *ServerName,
@@ -2962,9 +3905,12 @@ netlogon_dissect_netrserverreqchallenge_rqst(tvbuff_t *tvb, int offset,
         cb_wstr_postprocess,
         GINT_TO_POINTER(CB_STR_COL_INFO |CB_STR_SAVE | 1));
 
-    ws_debug("1)Len %d offset %d txt %s",(int) strlen((char *)dcv->private_data),offset,(char*)dcv->private_data);
+    ws_debug("1)Len %zu offset %d txt %s",
+        dcv->private_data ? strlen((char *)dcv->private_data) : 0,
+        offset,
+        dcv->private_data ? (char*)dcv->private_data : "(null)");
     vars = create_global_netlogon_auth_vars(pinfo, (char*)dcv->private_data, 0);
-    ws_debug("2)Len %d offset %d txt %s",(int) strlen((char *)dcv->private_data),offset,vars->client_name);
+    ws_debug("2)Txt %s", vars->client_name);
 
     offset = dissect_dcerpc_8bytes(tvb, offset, pinfo, tree, drep,
                                    hf_client_challenge,&vars->client_challenge);
@@ -4635,7 +5581,7 @@ netlogon_dissect_DELTA_ENUM(tvbuff_t *tvb, int offset,
     offset = dissect_ndr_uint16(tvb, offset, pinfo, tree, di, drep,
                                 hf_netlogon_delta_type, &type);
 
-    proto_item_append_text(item, "%s", val_to_str(
+    proto_item_append_text(item, "%s", val_to_str(pinfo->pool,
                                type, delta_type_vals, "Unknown"));
 
     offset = netlogon_dissect_DELTA_ID_UNION(tvb, offset,
@@ -5189,16 +6135,12 @@ static int
 netlogon_dissect_netrlogoncontrol_reply(tvbuff_t *tvb, int offset,
                                         packet_info *pinfo, proto_tree *tree, dcerpc_info *di, uint8_t *drep)
 {
-    uint32_t status;
-
     offset = dissect_ndr_pointer(tvb, offset, pinfo, tree, di, drep,
                                  netlogon_dissect_CONTROL_QUERY_INFORMATION, NDR_POINTER_REF,
                                  "CONTROL_QUERY_INFORMATION:", -1);
 
-    offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep, hf_netlogon_werr_rc, &status);
-
-    if (status != 0)
-        col_append_fstr(pinfo->cinfo, COL_INFO, ", Error: %s", val_to_str_ext(status, &WERR_errors_ext, "Unknown WERR error 0x%08x"));
+    offset = dissect_werror(tvb, offset, pinfo, tree, di, drep,
+                            hf_netlogon_werr_rc, NULL);
 
     return offset;
 }
@@ -7231,9 +8173,12 @@ netlogon_dissect_netrserverauthenticatekerberos_rqst(tvbuff_t *tvb, int offset,
         cb_wstr_postprocess,
         GINT_TO_POINTER(CB_STR_COL_INFO |CB_STR_SAVE | 1));
 
-    ws_debug("1)Len %d offset %d txt %s",(int) strlen((char *)dcv->private_data),offset,(char*)dcv->private_data);
+    ws_debug("1)Len %zu offset %d txt %s",
+        dcv->private_data ? strlen((char *)dcv->private_data) : 0,
+        offset,
+        dcv->private_data ? (char*)dcv->private_data : "(null)");
     vars = create_global_netlogon_auth_vars(pinfo, (char*)dcv->private_data, 0);
-    ws_debug("2)Len %d offset %d txt %s",(int) strlen((char *)dcv->private_data),offset,vars->client_name);
+    ws_debug("2)Txt %s", vars->client_name);
 
     ALIGN_TO_4_BYTES;
 
@@ -8968,9 +9913,11 @@ static const dcerpc_sub_dissector dcerpc_netlogon_dissectors[] = {
       netlogon_dissect_netrservertrustpasswordsget_rqst,
       netlogon_dissect_netrservertrustpasswordsget_reply },
     { NETLOGON_DSRGETFORESTTRUSTINFORMATION, "DsrGetForestTrustInformation",
-      NULL, NULL },
+      netlogon_dissect_dsrgetforesttrustinformation_rqst,
+      netlogon_dissect_dsrgetforesttrustinformation_reply },
     { NETLOGON_NETRGETFORESTTRUSTINFORMATION, "NetrGetForestTrustInformation",
-      NULL, NULL },
+      netlogon_dissect_netrgetforesttrustinformation_rqst,
+      netlogon_dissect_netrgetforesttrustinformation_reply },
     { NETLOGON_NETRLOGONSAMLOGONWITHFLAGS, "NetrLogonSamLogonWithFlags",
       netlogon_dissect_netrlogonsamlogonflags_rqst,
       netlogon_dissect_netrlogonsamlogonflags_reply },
@@ -10124,7 +11071,7 @@ proto_register_dcerpc_netlogon(void)
 #endif
 
         { &hf_netlogon_neg_flags_1000000,
-          { "AES supported", "ntlmssp.neg_flags.na100000", FT_BOOLEAN, 32, TFS(&tfs_set_notset), NETLOGON_FLAG_AES, NULL, HFILL }},
+          { "AES supported", "ntlmssp.neg_flags.na1000000", FT_BOOLEAN, 32, TFS(&tfs_set_notset), NETLOGON_FLAG_AES, NULL, HFILL }},
 
 #if 0
         { &hf_netlogon_neg_flags_800000,
@@ -10755,6 +11702,203 @@ proto_register_dcerpc_netlogon(void)
         { &hf_netlogon_time_created,
           { "Time Created", "netlogon.time_created", FT_UINT32, BASE_DEC,
             NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claims_set_size,
+          { "Claims Set Size", "netlogon.claims_set_size", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claims_compression_format,
+          { "Claims Compression Format", "netlogon.claims_compression_format", FT_UINT1632, BASE_DEC,
+            VALS(netlogon_claims_compression_format_vals), 0, NULL, HFILL }},
+        { &hf_netlogon_claims_set_uncompressed_size,
+          { "Claims Set Uncompressed Size", "netlogon.claims_set_uncompressed_size", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claims_reserved_type,
+          { "Claims Reserved Type", "netlogon.claims_reserved_type", FT_UINT16, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claims_reserved_field_size,
+          { "Claims Reserved Field Size", "netlogon.claims_reserved_field_size", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claims_source_type,
+          { "Claims Source Type", "netlogon.claims_source_type", FT_UINT1632, BASE_DEC,
+            VALS(hf_netlogon_claims_source_type_vals), 0, NULL, HFILL }},
+        { &hf_netlogon_claims_count,
+          { "Claims Count", "netlogon.claims_count", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_id,
+          { "Claim ID", "netlogon.claim_id", FT_STRING, BASE_NONE,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_type,
+          { "Claim Type", "netlogon.claim_type", FT_UINT1632, BASE_DEC,
+            VALS(netlogon_claim_type_vals), 0, NULL, HFILL }},
+        { &hf_netlogon_claim_value_count,
+          { "Claim Value Count", "netlogon.claim_value_count", FT_UINT32, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_int64_value,
+          { "Claim INT64 Value", "netlogon.claim_int64_value", FT_INT64, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_uint64_value,
+          { "Claim UINT64 Value", "netlogon.claim_uint64_value", FT_UINT64, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_string_value,
+          { "Claim STRING Value", "netlogon.claim_string_value", FT_STRING, BASE_NONE,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_claim_boolean_value,
+          { "Claim BOOLEAN Value", "netlogon.claim_boolean_value", FT_UINT64, BASE_DEC,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options, {
+          "Request Options",
+          "netlogon.ticket_logon_options",
+          FT_UINT64, BASE_HEX, NULL, 0x0, "Requested Options", HFILL }},
+        { &hf_netlogon_ticket_logon_options_0000000000000001, {
+          "No Authorization Data",
+          "netlogon.ticket_logon_options.no_authorization_data",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000000000001, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0000000000010000, {
+          "Skip Resource Groups",
+          "netlogon.ticket_logon_options.skip_resource_groups",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000000010000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0000000000020000, {
+          "Skip A2A Checks",
+          "netlogon.ticket_logon_options.skip_a2a_checks",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000000020000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0000000100000000, {
+          "Skip SID Filtering",
+          "netlogon.ticket_logon_options.skip_sid_filter",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000100000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0000000200000000, {
+          "Skip Namespace Filtering",
+          "netlogon.ticket_logon_options.skip_namespace_filter",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000200000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0001000000000000, {
+          "Skip PAC Signatures",
+          "netlogon.ticket_logon_options.skip_pac_signatures",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0001000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_options_0002000000000000, {
+          "Remove Resource Groups",
+          "netlogon.ticket_logon_options.remove_resource_groups",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0002000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_service_ticket_size,
+          { "Service Ticket Size", "netlogon.ticket_logon_service_ticket_size",
+            FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_additional_ticket_size,
+          { "Additional Ticket Size", "netlogon.ticket_logon_additional_ticket_size",
+            FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results, {
+          "Results",
+          "netlogon.ticket_logon_results",
+          FT_UINT64, BASE_HEX, NULL, 0x0, "Request Results", HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000000000000001, {
+          "Failed_Logon",
+          "netlogon.ticket_logon_results.failed_logon",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000000000001, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000000100000000, {
+          "Ticket Decryption Failed",
+          "netlogon.ticket_logon_results.ticket_decryption_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000100000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000000200000000, {
+          "PAC Validation Failed",
+          "netlogon.ticket_logon_results.pac_validation_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000200000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000000400000000, {
+          "Compound Source",
+          "netlogon.ticket_logon_results.compound_source",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000400000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000000800000000, {
+          "Source User Claims",
+          "netlogon.ticket_logon_results.source_user_claims",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000000800000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000001000000000, {
+          "Source Device Claims",
+          "netlogon.ticket_logon_results.source_device_claims",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000001000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000002000000000, {
+          "Full Signature Present",
+          "netlogon.ticket_logon_results.full_signature_present",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000002000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0000004000000000, {
+          "Resource Groups Removed",
+          "netlogon.ticket_logon_results.resource_groups_removed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0000004000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0001000000000000, {
+          "User SIDS Failed",
+          "netlogon.ticket_logon_results.user_sids_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0001000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0002000000000000, {
+          "User Namespace Failed",
+          "netlogon.ticket_logon_results.user_namespace_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0002000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0004000000000000, {
+          "User Failed A2A",
+          "netlogon.ticket_logon_results.user_failed_a2a",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0004000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0008000000000000, {
+          "Device SIDS Failed",
+          "netlogon.ticket_logon_results.device_sids_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0008000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0010000000000000, {
+          "Device Namespace Failed",
+          "netlogon.ticket_logon_results.device_namespace_failed",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0010000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0020000000000000, {
+          "User SIDS Filtered",
+          "netlogon.ticket_logon_results.user_sids_filtered",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0020000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_results_0040000000000000, {
+          "Device SIDS Filtered",
+          "netlogon.ticket_logon_results.device_sids_filtered",
+          FT_BOOLEAN, 64, TFS(&tfs_set_notset),
+          0x0040000000000000, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_kerberos_status,
+          { "Kerberos NTSTATUS", "netlogon.ticket_logon_kerberos_status",
+            FT_UINT32, BASE_HEX|BASE_EXT_STRING, &NT_errors_ext, 0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_netlogon_status,
+          { "Netlogon NTSTATUS", "netlogon.ticket_logon_netlogon_status",
+            FT_UINT32, BASE_HEX|BASE_EXT_STRING, &NT_errors_ext, 0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_source_of_status,
+          { "Source Of Status", "netlogon.ticket_logon_source_of_status",
+            FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_user_claims_size,
+          { "User Claims Size", "netlogon.ticket_logon_user_claims_size",
+            FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_device_claims_size,
+          { "Device Claims Size", "netlogon.ticket_logon_device_claims_size",
+            FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_ticket_logon_claims,
+          { "Claims", "netlogon.ticket_logon_claims", FT_BYTES, BASE_NONE,
+            NULL, 0x0, NULL, HFILL }},
+        { &hf_netlogon_forest_trust_info_flags, {
+          "Flags",
+          "netlogon.forest_trust_info_flags",
+          FT_UINT32, BASE_HEX, NULL, 0x0, "Forest Trust Info Flags", HFILL }},
+        { &hf_netlogon_forest_trust_info_flags_00000001, {
+          "Update Trusted Domain Object",
+          "netlogon.forest_trust_info_flags.update_tdo",
+          FT_BOOLEAN, 32, TFS(&tfs_set_notset),
+          0x00000001, NULL, HFILL }},
+        { &hf_netlogon_forest_trust_info,
+          { "Forest Trust Info", "netlogon.forest_trust_info",
+            FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL }},
+
     };
 
     static int *ett[] = {
@@ -10795,6 +11939,10 @@ proto_register_dcerpc_netlogon(void)
         &ett_wstr_LOGON_IDENTITY_INFO_string,
         &ett_domain_group_memberships,
         &ett_domains_group_memberships,
+        &ett_netlogon_ticket_logon_options,
+        &ett_netlogon_ticket_logon_results,
+        &ett_netlogon_ticket_logon_claims,
+        &ett_netlogon_forest_trust_info_flags,
     };
     static ei_register_info ei[] = {
      { &ei_netlogon_auth_nthash, {

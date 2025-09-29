@@ -274,7 +274,7 @@ fill_prefs(module_t *module, void *root_ptr)
     for (GList *pref_l = module->prefs; pref_l && pref_l->data; pref_l = gxx_list_next(pref_l)) {
         pref_t *pref = gxx_list_data(pref_t *, pref_l);
 
-        if (prefs_get_type(pref) == PREF_OBSOLETE || prefs_get_type(pref) == PREF_STATIC_TEXT)
+        if (prefs_is_preference_obsolete(pref) || (prefs_get_type(pref) == PREF_STATIC_TEXT))
             continue;
 
         const char *type_name = prefs_pref_type_name(pref);
@@ -329,7 +329,7 @@ void PrefsModel::populate()
     root_->prependChild(special_item);
 }
 
-QString PrefsModel::typeToString(int type)
+QString PrefsModel::typeToString(PrefsModelType type)
 {
     QString typeStr;
 
@@ -349,7 +349,7 @@ QString PrefsModel::typeToString(int type)
     return typeStr;
 }
 
-QString PrefsModel::typeToHelp(int type)
+QString PrefsModel::typeToHelp(PrefsModelType type)
 {
     QString helpStr;
 
@@ -621,6 +621,7 @@ int AdvancedPrefsModel::columnCount(const QModelIndex&) const
     return colLast;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 void AdvancedPrefsModel::setFirstColumnSpanned(QTreeView* tree, const QModelIndex& mIndex)
 {
     int childCount, row;
@@ -630,6 +631,7 @@ void AdvancedPrefsModel::setFirstColumnSpanned(QTreeView* tree, const QModelInde
         if (item != NULL) {
             childCount = item->childCount();
             if (childCount > 0) {
+                // We recurse here, but our depth is limited
                 tree->setFirstColumnSpanned(mIndex.row(), mIndex.parent(), true);
                 for (row = 0; row < childCount; row++) {
                     setFirstColumnSpanned(tree, index(row, 0, mIndex));
@@ -643,6 +645,7 @@ void AdvancedPrefsModel::setFirstColumnSpanned(QTreeView* tree, const QModelInde
     }
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 bool AdvancedPrefsModel::filterAcceptItem(PrefsItem& item) const
 {
     if (filter_.isEmpty() && !show_changed_values_)
@@ -680,6 +683,7 @@ bool AdvancedPrefsModel::filterAcceptItem(PrefsItem& item) const
     for (int child_row = 0; child_row < item.childCount(); child_row++)
     {
         child_item = item.child(child_row);
+        // We recurse here, but our depth is limited
         if ((child_item != NULL) && (filterAcceptItem(*child_item)))
             return true;
     }
@@ -706,14 +710,28 @@ bool AdvancedPrefsModel::filterAcceptsRow(int sourceRow, const QModelIndex &sour
 
 void AdvancedPrefsModel::setFilter(const QString& filter)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    beginFilterChange();
+#endif
     filter_ = filter;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateFilter();
+#endif
 }
 
 void AdvancedPrefsModel::setShowChangedValues(bool show_changed_values)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    beginFilterChange();
+#endif
     show_changed_values_ = show_changed_values;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
     invalidateFilter();
+#endif
 }
 
 
@@ -767,7 +785,7 @@ Qt::ItemFlags ModulePrefsModel::flags(const QModelIndex &index) const
 #ifdef HAVE_LIBPCAP
 #ifdef _WIN32
     /* Is WPcap loaded? */
-    if (has_wpcap) {
+    if (has_npcap) {
 #endif /* _WIN32 */
         disable_capture = false;
 #ifdef _WIN32

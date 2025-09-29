@@ -36,6 +36,7 @@ ALLOWED_LICENSES = [
     'BSD (2 clause)',
     'BSD (2 clause) GPL (v2 or later)',
     'BSD (3 clause)',
+    'BSD (4 clause (University of California-Specific))',
     'GPL (v2 or later)',
     'ISC',
     'ISC GPL (v2 or later)',
@@ -51,6 +52,15 @@ ALLOWED_LICENSES = [
 
 
 PATH_SPECIFIC_ALLOWED_LICENSES = {
+    # Some of the libpcap include files (including pcap.h) have the
+    # 4-clause BSD license with an advertising clause for the Computer
+    # Systems Engineering Group at Lawrence Berkeley Laboratory.
+    # We have always distributed packages including the headers,
+    # so if this is a problem it's one even if these files aren't
+    # copied into our repository.
+    'libpcap/pcap': [
+        'BSD (4 clause)',
+    ],
     'wsutil/strnatcmp.c': [
         'Zlib',
     ],
@@ -141,6 +151,10 @@ PATH_SPECIFIC_ALLOWED_LICENSES = {
     ],
     'wsutil/safe-math.h': [ # Public domain (CC0)
         'UNKNOWN',
+    ],
+    # Bachmann M-module file example module
+    'test/captures/mfile_testapplication.m': [
+            'UNKNOWN',
     ],
 }
 

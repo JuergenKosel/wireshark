@@ -225,30 +225,6 @@ static const uint8_t Framebits_NB[] = {95, 103, 118, 134, 148, 159, 204, 244, 39
 static const unsigned int Framebits_WB[] = {132, 177, 253, 285, 317, 365, 397, 461, 477, 40, 0, 0, 0, 0, 0, 0};
 
 
-/** Return AMR narrowband Frame Type (FT) based on AMR speech data payload size.
- * The input size is the size of an octet aligned payload without the
- * CMR and TOC octets.
- *
- * @return AMR Frame Type (FT)
- */
-
-int amr_nb_bytes_to_ft(uint8_t bytes)
-{
-    int ft;
-
-    for (ft = 0; ft < AMR_FT_PDC_EFR_SID; ft++) {
-        if ((Framebits_NB[ft] + 7) / 8 == bytes) {
-            return ft;
-        }
-    }
-    /* 12-14 not used, jump to 15 (AMR_FT_NO_DATA): */
-    if (Framebits_NB[AMR_FT_NO_DATA] == bytes) {
-        return AMR_FT_NO_DATA;
-    }
-
-	return -1;
-}
-
 static void
 amr_apply_prefs(void) {
     wmem_map_insert(amr_default_fmtp, "octet-align", (amr_encoding_type == AMR_OA) ? "1" : "0");
@@ -331,7 +307,7 @@ dissect_amr_nb_if2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     proto_tree_add_item(tree, hf_amr_speech_data, tvb, offset+1, -1, ENC_NA);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
-            val_to_str_ext(octet, &amr_nb_codec_mode_request_vals_ext, "Unknown (%d)" ));
+            val_to_str_ext(pinfo->pool, octet, &amr_nb_codec_mode_request_vals_ext, "Unknown (%d)" ));
     return tvb_captured_length(tvb);
 }
 
@@ -354,7 +330,7 @@ dissect_amr_wb_if2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     proto_tree_add_item(tree, hf_amr_speech_data, tvb, offset+1, -1, ENC_NA);
 
     col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
-            val_to_str_ext(octet, &amr_wb_codec_mode_request_vals_ext, "Unknown (%d)" ));
+            val_to_str_ext(pinfo->pool, octet, &amr_wb_codec_mode_request_vals_ext, "Unknown (%d)" ));
     return tvb_captured_length(tvb);
 }
 

@@ -37,13 +37,13 @@ typedef struct {
 #define NSTIME_INIT_UNSET {0, INT_MAX}
 
 /* Initialize to a specified number of seconds and nanoseconds */
-#define NSTIME_INIT_SECS_NSECS(secs, nsecs)	{secs, nsecs}
+#define NSTIME_INIT_SECS_NSECS(secs, nsecs)	{(secs) + ((nsecs) / 1000000000), (nsecs) % 1000000000}
 
 /* Initialize to a specified number of seconds and microseconds */
-#define NSTIME_INIT_SECS_USECS(secs, usecs)	{secs, usecs*1000}
+#define NSTIME_INIT_SECS_USECS(secs, usecs)	{(secs) + ((usecs) / 1000000), ((usecs) % 1000000) * 1000}
 
 /* Initialize to a specified number of seconds and milliseconds */
-#define NSTIME_INIT_SECS_MSECS(secs, msecs)	{secs, msecs*1000000}
+#define NSTIME_INIT_SECS_MSECS(secs, msecs)	{(secs) + ((msecs) / 1000), ((msecs) % 1000) * 1000000}
 
 /* Initialize to a specified number of seconds */
 #define NSTIME_INIT_SECS(secs)			{secs, 0}
@@ -58,6 +58,9 @@ WS_DLL_PUBLIC void nstime_set_zero(nstime_t *nstime);
 
 /** is the given nstime_t currently zero? */
 WS_DLL_PUBLIC bool nstime_is_zero(const nstime_t *nstime);
+
+/** is the given nstime_t currently negative? */
+WS_DLL_PUBLIC bool nstime_is_negative(const nstime_t *nstime);
 
 /** set the given nstime_t to (0,maxint) to mark it as "unset"
  * That way we can find the first frame even when a timestamp
@@ -183,6 +186,17 @@ typedef enum {
  * Total number of valid precision values.
  */
 #define NUM_WS_TSPREC_VALS (WS_TSPREC_MAX + 1)
+
+/** round an nstime to a given precision
+ *
+ * a = b rounded to prec
+ *
+ * Note that it is acceptable for a and b to point at the same structure.
+ */
+WS_DLL_PUBLIC void nstime_rounded(nstime_t *a, const nstime_t *b, ws_tsprec_e prec);
+
+/** a rounded to prec */
+#define nstime_round(a, prec) nstime_rounded(a, a, prec)
 
 #ifdef __cplusplus
 }

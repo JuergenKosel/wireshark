@@ -28,6 +28,8 @@
 #include "capture_opts.h"
 #include "ringbuffer.h"
 
+#include <wiretap/wtap.h> /* For WTAP_MAX_PACKET_SIZE_STANDARD */
+
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/file_util.h>
@@ -57,6 +59,7 @@ capture_opts_init(capture_options *capture_opts, GList *(*get_iface_list)(int *,
     capture_opts->default_options.hardware        = NULL;
     capture_opts->default_options.display_name    = NULL;
     capture_opts->default_options.cfilter         = NULL;
+    capture_opts->default_options.optimize        = 1;
     capture_opts->default_options.has_snaplen     = false;
     capture_opts->default_options.snaplen         = WTAP_MAX_PACKET_SIZE_STANDARD;
     capture_opts->default_options.linktype        = -1; /* use interface default */
@@ -77,9 +80,7 @@ capture_opts_init(capture_options *capture_opts, GList *(*get_iface_list)(int *,
 #endif
     capture_opts->default_options.extcap_control_in  = NULL;
     capture_opts->default_options.extcap_control_out = NULL;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     capture_opts->default_options.buffer_size     = DEFAULT_CAPTURE_BUFFER_SIZE;
-#endif
     capture_opts->default_options.monitor_mode    = false;
 #ifdef HAVE_PCAP_REMOTE
     capture_opts->default_options.src_type        = CAPTURE_IFLOCAL;
@@ -197,16 +198,14 @@ capture_opts_log(const char *log_domain, enum ws_log_level log_level, capture_op
         ws_log(log_domain, log_level, "Interface description[%02d] : %s", i, interface_opts->descr ? interface_opts->descr : "(unspecified)");
         ws_log(log_domain, log_level, "Interface vendor description[%02d] : %s", i, interface_opts->hardware ? interface_opts->hardware : "(unspecified)");
         ws_log(log_domain, log_level, "Display name[%02d]: %s", i, interface_opts->display_name ? interface_opts->display_name : "(unspecified)");
-        ws_log(log_domain, log_level, "Capture filter[%02d]  : %s", i, interface_opts->cfilter ? interface_opts->cfilter : "(unspecified)");
+        ws_log(log_domain, log_level, "Capture filter[%02d]  : %s%s", i, interface_opts->cfilter ? interface_opts->cfilter : "(unspecified)", interface_opts->optimize ? "" : " (unoptimized)");
         ws_log(log_domain, log_level, "Snap length[%02d] (%u) : %d", i, interface_opts->has_snaplen, interface_opts->snaplen);
         ws_log(log_domain, log_level, "Link Type[%02d]       : %d", i, interface_opts->linktype);
         ws_log(log_domain, log_level, "Promiscuous Mode[%02d]: %s", i, interface_opts->promisc_mode?"TRUE":"FALSE");
         ws_log(log_domain, log_level, "Extcap[%02d]          : %s", i, interface_opts->extcap ? interface_opts->extcap : "(unspecified)");
         ws_log(log_domain, log_level, "Extcap FIFO[%02d]     : %s", i, interface_opts->extcap_fifo ? interface_opts->extcap_fifo : "(unspecified)");
         ws_log(log_domain, log_level, "Extcap PID[%02d]      : %"PRIdMAX, i, (intmax_t)interface_opts->extcap_pid);
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
         ws_log(log_domain, log_level, "Buffer size[%02d]     : %d (MB)", i, interface_opts->buffer_size);
-#endif
         ws_log(log_domain, log_level, "Monitor Mode[%02d]    : %s", i, interface_opts->monitor_mode?"TRUE":"FALSE");
 #ifdef HAVE_PCAP_REMOTE
         ws_log(log_domain, log_level, "Capture source[%02d]  : %s", i,
@@ -239,15 +238,13 @@ capture_opts_log(const char *log_domain, enum ws_log_level log_level, capture_op
     ws_log(log_domain, log_level, "Interface Descr[df] : %s", capture_opts->default_options.descr ? capture_opts->default_options.descr : "(unspecified)");
     ws_log(log_domain, log_level, "Interface Hardware Descr[df] : %s", capture_opts->default_options.hardware ? capture_opts->default_options.hardware : "(unspecified)");
     ws_log(log_domain, log_level, "Interface display name[df] : %s", capture_opts->default_options.display_name ? capture_opts->default_options.display_name : "(unspecified)");
-    ws_log(log_domain, log_level, "Capture filter[df]  : %s", capture_opts->default_options.cfilter ? capture_opts->default_options.cfilter : "(unspecified)");
+    ws_log(log_domain, log_level, "Capture filter[df]  : %s%s", capture_opts->default_options.cfilter ? capture_opts->default_options.cfilter : "(unspecified)", capture_opts->default_options.optimize ? "" : " (unoptimized)");
     ws_log(log_domain, log_level, "Snap length[df] (%u) : %d", capture_opts->default_options.has_snaplen, capture_opts->default_options.snaplen);
     ws_log(log_domain, log_level, "Link Type[df]       : %d", capture_opts->default_options.linktype);
     ws_log(log_domain, log_level, "Promiscuous Mode[df]: %s", capture_opts->default_options.promisc_mode?"TRUE":"FALSE");
     ws_log(log_domain, log_level, "Extcap[df]          : %s", capture_opts->default_options.extcap ? capture_opts->default_options.extcap : "(unspecified)");
     ws_log(log_domain, log_level, "Extcap FIFO[df]     : %s", capture_opts->default_options.extcap_fifo ? capture_opts->default_options.extcap_fifo : "(unspecified)");
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     ws_log(log_domain, log_level, "Buffer size[df]     : %d (MB)", capture_opts->default_options.buffer_size);
-#endif
     ws_log(log_domain, log_level, "Monitor Mode[df]    : %s", capture_opts->default_options.monitor_mode?"TRUE":"FALSE");
 #ifdef HAVE_PCAP_REMOTE
     ws_log(log_domain, log_level, "Capture source[df]  : %s",
@@ -335,20 +332,25 @@ set_autostop_criterion(capture_options *capture_opts, const char *autostoparg)
     }
     if (strcmp(autostoparg,"duration") == 0) {
         capture_opts->has_autostop_duration = true;
-        capture_opts->autostop_duration = get_positive_double(p,"autostop duration");
+        if (!get_positive_double(p,"autostop duration",&capture_opts->autostop_duration))
+            return false;
     } else if (strcmp(autostoparg,"filesize") == 0) {
         capture_opts->has_autostop_filesize = true;
-        capture_opts->autostop_filesize = get_nonzero_uint32(p,"autostop filesize");
+        if (!get_nonzero_uint32(p,"autostop filesize",&capture_opts->autostop_filesize))
+            return false;
     } else if (strcmp(autostoparg,"files") == 0) {
         capture_opts->multi_files_on = true;
         capture_opts->has_autostop_files = true;
-        capture_opts->autostop_files = get_positive_int(p,"autostop files");
+        if (!get_positive_int(p,"autostop files",&capture_opts->autostop_files))
+            return false;
     } else if (strcmp(autostoparg,"packets") == 0) {
         capture_opts->has_autostop_written_packets = true;
-        capture_opts->autostop_written_packets = get_positive_int(p,"packet write count");
+        if (!get_positive_int(p,"packet write count",&capture_opts->autostop_written_packets))
+            return false;
     } else if (strcmp(autostoparg,"events") == 0) {
         capture_opts->has_autostop_written_packets = true;
-        capture_opts->autostop_written_packets = get_positive_int(p,"event write count");
+        if (!get_positive_int(p,"event write count",&capture_opts->autostop_written_packets))
+            return false;
     } else {
         return false;
     }
@@ -472,22 +474,33 @@ get_ring_arguments(capture_options *capture_opts, const char *arg)
 
     if (strcmp(arg,"files") == 0) {
         capture_opts->has_ring_num_files = true;
-        capture_opts->ring_num_files = get_nonzero_uint32(p, "number of ring buffer files");
+        if (!get_nonzero_uint32(p, "number of ring buffer files",&capture_opts->ring_num_files))
+            return false;
     } else if (strcmp(arg,"filesize") == 0) {
         capture_opts->has_autostop_filesize = true;
-        capture_opts->autostop_filesize = get_nonzero_uint32(p, "ring buffer filesize");
+        if (!get_nonzero_uint32(p, "ring buffer filesize",&capture_opts->autostop_filesize))
+            return false;
     } else if (strcmp(arg,"duration") == 0) {
         capture_opts->has_file_duration = true;
-        capture_opts->file_duration = get_positive_double(p, "ring buffer duration");
+        if (!get_positive_double(p, "ring buffer duration",&capture_opts->file_duration))
+            return false;
     } else if (strcmp(arg,"interval") == 0) {
         capture_opts->has_file_interval = true;
-        capture_opts->file_interval = get_positive_int(p, "ring buffer interval");
+        if (!get_positive_int(p, "ring buffer interval",&capture_opts->file_interval))
+            return false;
     } else if (strcmp(arg,"nametimenum") == 0) {
-        int val = get_positive_int(p, "file name: time before num");
+        int val;
+        if (!get_positive_int(p, "file name: time before num", &val))
+            return false;
         capture_opts->has_nametimenum = (val > 1);
     } else if (strcmp(arg,"packets") == 0) {
         capture_opts->has_file_packets = true;
-        capture_opts->file_packets = get_positive_int(p, "ring buffer packet count");
+        if (!get_positive_int(p, "ring buffer packet count",&capture_opts->file_packets))
+            return false;
+    } else if (strcmp(arg,"events") == 0) {
+        capture_opts->has_file_packets = true;
+        if (!get_positive_int(p, "ring buffer event count",&capture_opts->file_packets))
+            return false;
     } else if (strcmp(arg,"printname") == 0) {
         capture_opts->print_file_names = true;
         capture_opts->print_name_to = g_strdup(p);
@@ -531,10 +544,12 @@ get_sampling_arguments(capture_options *capture_opts, const char *arg)
 
             interface_opts = &g_array_index(capture_opts->ifaces, interface_options, capture_opts->ifaces->len - 1);
             interface_opts->sampling_method = CAPTURE_SAMP_BY_COUNT;
-            interface_opts->sampling_param = get_positive_int(p, "sampling count");
+            if (!get_positive_int(p, "sampling count", &interface_opts->sampling_param))
+                return false;
         } else {
             capture_opts->default_options.sampling_method = CAPTURE_SAMP_BY_COUNT;
-            capture_opts->default_options.sampling_param = get_positive_int(p, "sampling count");
+            if (!get_positive_int(p, "sampling count", &capture_opts->default_options.sampling_param))
+                return false;
         }
     } else if (strcmp(arg, "timer") == 0) {
         if (capture_opts->ifaces->len > 0) {
@@ -542,10 +557,12 @@ get_sampling_arguments(capture_options *capture_opts, const char *arg)
 
             interface_opts = &g_array_index(capture_opts->ifaces, interface_options, capture_opts->ifaces->len - 1);
             interface_opts->sampling_method = CAPTURE_SAMP_BY_TIMER;
-            interface_opts->sampling_param = get_positive_int(p, "sampling timer");
+            if (!get_positive_int(p, "sampling timer", &interface_opts->sampling_param))
+                return false;
         } else {
             capture_opts->default_options.sampling_method = CAPTURE_SAMP_BY_TIMER;
-            capture_opts->default_options.sampling_param = get_positive_int(p, "sampling timer");
+            if (!get_positive_int(p, "sampling timer", &capture_opts->default_options.sampling_param))
+                return false;
         }
     }
     *colonp = ':';
@@ -621,6 +638,7 @@ fill_in_interface_opts_defaults(interface_options *interface_opts, const capture
 {
 
     interface_opts->cfilter = g_strdup(capture_opts->default_options.cfilter);
+    interface_opts->optimize = capture_opts->default_options.optimize;
     interface_opts->snaplen = capture_opts->default_options.snaplen;
     interface_opts->has_snaplen = capture_opts->default_options.has_snaplen;
     interface_opts->linktype = capture_opts->default_options.linktype;
@@ -639,9 +657,7 @@ fill_in_interface_opts_defaults(interface_options *interface_opts, const capture
 #endif
     interface_opts->extcap_control_in = g_strdup(capture_opts->default_options.extcap_control_in);
     interface_opts->extcap_control_out = g_strdup(capture_opts->default_options.extcap_control_out);
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     interface_opts->buffer_size = capture_opts->default_options.buffer_size;
-#endif
     interface_opts->monitor_mode = capture_opts->default_options.monitor_mode;
 #ifdef HAVE_PCAP_REMOTE
     interface_opts->src_type = capture_opts->default_options.src_type;
@@ -658,7 +674,7 @@ fill_in_interface_opts_defaults(interface_options *interface_opts, const capture
     interface_opts->sampling_method = capture_opts->default_options.sampling_method;
     interface_opts->sampling_param  = capture_opts->default_options.sampling_param;
 #endif
-    interface_opts->timestamp_type  = capture_opts->default_options.timestamp_type;
+    interface_opts->timestamp_type  = g_strdup(capture_opts->default_options.timestamp_type);
 }
 
 static void
@@ -977,28 +993,31 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
         break;
 #endif
     case 'b':        /* Ringbuffer option */
+        // XXX libscap and libsinsp don't support this, so we should probably error out if our flavor is Stratoshark.
         capture_opts->multi_files_on = true;
         if (get_ring_arguments(capture_opts, optarg_str_p) == false) {
             cmdarg_err("Invalid or unknown -b arg \"%s\"", optarg_str_p);
             return 1;
         }
         break;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     case 'B':        /* Buffer size */
+        // XXX Should we error out if our flavor is Stratoshark?
         if (capture_opts->ifaces->len > 0) {
             interface_options *interface_opts;
 
             interface_opts = &g_array_index(capture_opts->ifaces, interface_options, capture_opts->ifaces->len - 1);
-            interface_opts->buffer_size = get_positive_int(optarg_str_p, "buffer size");
+            if (!get_positive_int(optarg_str_p, "buffer size", &interface_opts->buffer_size))
+                return 1;
         } else {
-            capture_opts->default_options.buffer_size = get_positive_int(optarg_str_p, "buffer size");
+            if (!get_positive_int(optarg_str_p, "buffer size", &capture_opts->default_options.buffer_size))
+                return 1;
         }
         break;
-#endif
     case 'c':        /* Capture n packets */
         /* XXX Use set_autostop_criterion instead? */
         capture_opts->has_autostop_packets = true;
-        capture_opts->autostop_packets = get_positive_int(optarg_str_p, "packet count");
+        if (!get_positive_int(optarg_str_p, "packet count", &capture_opts->autostop_packets))
+            return 1;
         break;
     case 'f':        /* capture filter */
         get_filter_arguments(capture_opts, optarg_str_p);
@@ -1027,14 +1046,24 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
             capture_opts->default_options.timestamp_type = g_strdup(optarg_str_p);
         }
         break;
+    case LONGOPT_NO_OPTIMIZE:        /* Don't optimize capture filter */
+        if (capture_opts->ifaces->len > 0) {
+            interface_options *interface_opts;
+
+            interface_opts = &g_array_index(capture_opts->ifaces, interface_options, capture_opts->ifaces->len - 1);
+            interface_opts->optimize = 0;
+        } else {
+            capture_opts->default_options.optimize = 0;
+        }
+        break;
     case 'i':        /* Use interface x */
         status = capture_opts_add_iface_opt(capture_opts, optarg_str_p);
         if (status != 0) {
             return status;
         }
         break;
-#ifdef HAVE_PCAP_CREATE
     case 'I':        /* Capture in monitor mode */
+        // XXX Should we error out if our flavor is Stratoshark?
         if (capture_opts->ifaces->len > 0) {
             interface_options *interface_opts;
 
@@ -1044,7 +1073,6 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
             capture_opts->default_options.monitor_mode = true;
         }
         break;
-#endif
     case 'l':        /* tshark "Line-buffer" standard output */
         capture_opts->update_interval = 0;
         /* Wireshark uses 'l' for Automatic scrolling in live capture mode,
@@ -1065,6 +1093,7 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
         capture_opts->use_pcapng = true;
         break;
     case 'p':        /* Don't capture in promiscuous mode */
+        // XXX Should we error out if our flavor is Stratoshark?
         if (capture_opts->ifaces->len > 0) {
             interface_options *interface_opts;
 
@@ -1091,7 +1120,9 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
         break;
 #endif
     case 's':        /* Set the snapshot (capture) length */
-        snaplen = get_natural_int(optarg_str_p, "snapshot length");
+        // XXX Should we error out if our flavor is Stratoshark?
+        if (!get_natural_int(optarg_str_p, "snapshot length", &snaplen))
+            return 1;
         /*
          * Make a snapshot length of 0 equivalent to the maximum packet
          * length, mirroring what tcpdump does.
@@ -1156,21 +1187,18 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
             cmdarg_err("--compress-type can be set only once");
             return 1;
         }
-        if (strcmp(optarg_str_p, "none") == 0) {
-            ;
-        } else if (strcmp(optarg_str_p, "gzip") == 0) {
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-            ;
-#else
-            cmdarg_err("'gzip' compression is not supported");
-            return 1;
-#endif
-        } else {
-#if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-            cmdarg_err("parameter of --compress-type can be 'none' or 'gzip'");
-#else
-            cmdarg_err("parameter of --compress-type can only be 'none'");
-#endif
+        if (!wtap_can_write_compression_type(wtap_name_to_compression_type(optarg_str_p))) {
+            cmdarg_err("\"%s\" isn't a valid output compression mode", optarg_str_p);
+            cmdarg_err("The available output compression type(s) are:");
+            GSList *output_compression_types;
+            output_compression_types = wtap_get_all_output_compression_type_names_list();
+            for (GSList *compression_type = output_compression_types;
+                compression_type != NULL;
+                compression_type = g_slist_next(compression_type)) {
+
+                cmdarg_err_cont("    %s", (const char*)compression_type->data);
+            }
+            g_slist_free(output_compression_types);
             return 1;
         }
         capture_opts->compress_type = g_strdup(optarg_str_p);
@@ -1200,7 +1228,8 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
         capture_opts->temp_dir = g_strdup(optarg_str_p);
         break;
     case LONGOPT_UPDATE_INTERVAL:  /* capture update interval */
-        capture_opts->update_interval = get_natural_int(optarg_str_p, "update interval");
+        if (!get_natural_int(optarg_str_p, "update interval", &capture_opts->update_interval))
+            return false;
         break;
     default:
         /* the caller is responsible to send us only the right opt's */
@@ -1515,6 +1544,7 @@ collect_ifaces(capture_options *capture_opts)
             interface_opts.display_name = g_strdup(device->display_name);
             interface_opts.linktype = device->active_dlt;
             interface_opts.cfilter = g_strdup(device->cfilter);
+            interface_opts.optimize = device->optimize;
             interface_opts.timestamp_type = g_strdup(device->timestamp_type);
             interface_opts.snaplen = device->snaplen;
             interface_opts.has_snaplen = device->has_snaplen;
@@ -1536,12 +1566,8 @@ collect_ifaces(capture_options *capture_opts)
 #endif
             interface_opts.extcap_control_in = NULL;
             interface_opts.extcap_control_out = NULL;
-#ifdef CAN_SET_CAPTURE_BUFFER_SIZE
             interface_opts.buffer_size =  device->buffer;
-#endif
-#ifdef HAVE_PCAP_CREATE
             interface_opts.monitor_mode = device->monitor_mode_enabled;
-#endif
 #ifdef HAVE_PCAP_REMOTE
             interface_opts.src_type = CAPTURE_IFREMOTE;
             interface_opts.remote_host = g_strdup(device->remote_opts.remote_host_opts.remote_host);

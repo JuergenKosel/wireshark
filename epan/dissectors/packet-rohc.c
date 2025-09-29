@@ -24,12 +24,12 @@
 #include <epan/etypes.h>
 #include <epan/ipproto.h>
 #include <epan/addr_resolv.h>
-#include <epan/rtp_pt.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
 #include <wsutil/array.h>
 #include "packet-rohc.h"
+#include "packet-rtp_pt.h"
 
 void proto_register_rohc(void);
 void proto_reg_handoff_rohc(void);
@@ -3234,13 +3234,13 @@ proto_register_rohc(void)
             },
             { &hf_rohc_udp_src_port,
               { "Source Port","rohc.udp_src_port",
-                FT_UINT16, BASE_DEC, NULL, 0x0,
+                FT_UINT16, BASE_PT_UDP, NULL, 0x0,
                 NULL , HFILL
               }
             },
             { &hf_rohc_udp_dst_port,
               { "Destination Port","rohc.udp_dst_port",
-                FT_UINT16, BASE_DEC, NULL, 0x0,
+                FT_UINT16, BASE_PT_UDP, NULL, 0x0,
                 NULL , HFILL
               }
             },

@@ -23,7 +23,6 @@
 #include <QDesktopServices>
 #include <QTabWidget>
 
-#include "ringbuffer.h"
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
 #include "ui/iface_lists.h"
@@ -73,7 +72,8 @@ ExtcapOptionsDialog::ExtcapOptionsDialog(bool startCaptureOnClose, QWidget *pare
     }
 }
 
-ExtcapOptionsDialog * ExtcapOptionsDialog::createForDevice(QString &dev_name, bool startCaptureOnClose, QWidget *parent)
+ExtcapOptionsDialog * ExtcapOptionsDialog::createForDevice(QString &dev_name, bool startCaptureOnClose, QWidget *parent,
+    QString *option_name, QString *option_value)
 {
     interface_t *device;
     ExtcapOptionsDialog * resultDialog = NULL;
@@ -100,7 +100,24 @@ ExtcapOptionsDialog * ExtcapOptionsDialog::createForDevice(QString &dev_name, bo
     resultDialog->device_name = QString(dev_name);
     resultDialog->device_idx = if_idx;
 
-    resultDialog->setWindowTitle(mainApp->windowTitleString(tr("Interface Options") + ": " + device->display_name));
+    if (option_name != NULL && option_value != NULL)
+    {
+        // Sub argument is specified: this is an extcap popup created from a parent extcap popup,
+        // to configure a specific argument.
+        resultDialog->setWindowTitle(mainApp->windowTitleString(tr("Interface Sub-options") + ": " + (*option_name)));
+        resultDialog->option_name = *option_name;
+        resultDialog->option_value = *option_value;
+        resultDialog->ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Ok"));
+        resultDialog->ui->buttonBox->button(QDialogButtonBox::Save)->hide();
+        resultDialog->ui->buttonBox->button(QDialogButtonBox::Help)->hide();
+        resultDialog->ui->buttonBox->button(QDialogButtonBox::RestoreDefaults)->hide();
+        resultDialog->ui->checkSaveOnStart->setCheckState(Qt::Checked);
+        resultDialog->ui->checkSaveOnStart->hide();
+    }
+    else
+    {
+        resultDialog->setWindowTitle(mainApp->windowTitleString(tr("Interface Options") + ": " + device->display_name));
+    }
 
     resultDialog->updateWidgets();
 
@@ -187,8 +204,15 @@ void ExtcapOptionsDialog::loadArguments()
 
     extcapArguments.clear();
 
-    arguments = g_list_first(extcap_get_if_configuration(device_name.toUtf8().constData()));
-
+    if (!option_name.isEmpty())
+    {
+        arguments = g_list_first(extcap_get_if_configuration_option(device_name.toUtf8().constData(),
+            option_name.toUtf8().constData(), option_value.toUtf8().constData()));
+    }
+    else
+    {
+        arguments = g_list_first(extcap_get_if_configuration(device_name.toUtf8().constData()));
+    }
     ExtcapArgumentList required;
     ExtcapArgumentList optional;
 
@@ -227,6 +251,7 @@ void ExtcapOptionsDialog::updateWidgets()
     QWidget * lblWidget = NULL, *editWidget = NULL;
     ExtcapArgument * argument = NULL;
     bool allowStart = true;
+    extcap_argument_sufficient sufficient = EXTCAP_ARGUMENT_SUFFICIENT_NOTSET;
 
     unsigned int counter = 0;
 
@@ -257,7 +282,6 @@ void ExtcapOptionsDialog::updateWidgets()
         ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
         return;
     }
-    ui->checkSaveOnStart->setText(tr("Save parameter(s) on capture start", "", static_cast<int>(extcapArguments.count())));
 
     QStringList groupKeys;
     QString defaultKeyName(tr("Default"));
@@ -337,12 +361,22 @@ void ExtcapOptionsDialog::updateWidgets()
             if (argument->isRequired() && ! argument->isValid())
                 allowStart = false;
 
+            if (argument->isSufficient() && sufficient != EXTCAP_ARGUMENT_SUFFICIENT_OK)
+            {
+                sufficient = EXTCAP_ARGUMENT_SUFFICIENT_REQUIRED;
+                if (argument->isValid())
+                    sufficient = EXTCAP_ARGUMENT_SUFFICIENT_OK;
+            }
+
             connect(argument, &ExtcapArgument::valueChanged, this, &ExtcapOptionsDialog::anyValueChanged);
 
             counter++;
         }
         ++iter;
     }
+
+    if (sufficient == EXTCAP_ARGUMENT_SUFFICIENT_REQUIRED)
+        allowStart = false;
 
     if (counter > 0)
     {
@@ -614,7 +648,7 @@ GHashTable *ExtcapOptionsDialog::getArgumentSettings(bool useCallsAsKey, bool in
         else
             value = (*iter)->prefValue();
 
-        QString key = argument->prefKey(device_name);
+        QString key = argument->prefKey(device_name, option_name, option_value);
         if (useCallsAsKey)
             key = argument->call();
 

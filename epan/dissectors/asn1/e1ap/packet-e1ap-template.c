@@ -1,6 +1,6 @@
 /* packet-e1ap.c
  * Routines for E-UTRAN E1 Application Protocol (E1AP) packet dissection
- * Copyright 2018-2024, Pascal Quantin <pascal@wireshark.org>
+ * Copyright 2018-2025, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 37.483 V18.2.0 (2024-06)
+ * References: 3GPP TS 37.483 V18.5.0 (2025-06)
  */
 
 #include "config.h"
@@ -216,7 +216,7 @@ dissect_e1ap_tcp_pdu(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* 
 {
   tvbuff_t *new_tvb;
 
-  proto_tree_add_item(tree, hf_e1ap_tcp_pdu_len, tvb, 0, 4, ENC_NA);
+  proto_tree_add_item(tree, hf_e1ap_tcp_pdu_len, tvb, 0, 4, ENC_BIG_ENDIAN);
   new_tvb = tvb_new_subset_remaining(tvb, 4);
 
   return dissect_e1ap(new_tvb, pinfo, tree, data);

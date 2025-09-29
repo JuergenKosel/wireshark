@@ -139,8 +139,7 @@ a compression method as well; the list of supported compression methods
 for writing can be displayed by the *--compress* method without an
 argument. If the *--compress* option is not given, then the desired
 compression method, if any, is deduced from the extension of the filename
-given as argument to the *-w* option. Compression is not supported for
-live capture.
+given as argument to the *-w* option.
 
 When capturing packets, *TShark* writes to the standard error an
 initial line listing the interfaces from which packets are being
@@ -222,7 +221,7 @@ fills up, *TShark* will switch writing to the next file and so on.
 
 The created filenames are based on the filename given with the *-w* option,
 the number of the file and on the creation date and time,
-e.g. outfile_00001_20240714120117.pcap, outfile_00002_20240714120523.pcap, ...
+e.g. outfile_00001_20250714120117.pcap, outfile_00002_20250714120523.pcap, ...
 
 With the __files__ option it's also possible to form a "ring buffer".
 This will fill up new files until the number of files specified,
@@ -265,7 +264,7 @@ for standard output, or `stderr` for standard error.
 
 *nametimenum*:__value__ Choose between two save filename templates.  If
 __value__ is 1, make running file number part before start time part; this is
-the original and default behaviour (e.g. log_00001_20240714164426.pcap).  If
+the original and default behaviour (e.g. log_00001_20250714164426.pcap).  If
 __value__ is greater than 1, make start time part before running number part
 (e.g. log_20210828164426_00001.pcap).  The latter makes alphabetical sorting
 order equal to creation time order, and keeps related multiple file sets in
@@ -312,9 +311,13 @@ may differ from *-a packets:*<capture packet count>.
 -C  <configuration profile>::
 +
 --
-Run with the given configuration profile. If used in conjunction with
---global-profile, then the global profile with the associated name
-would be used.
+Run with the given configuration profile.
+
+If used in conjunction with --global-profile, the specified profile will be loaded from the global configuration directory instead of the user's personal configuration directory.
+(typically on UN*X'/usr/share/wireshark/profiles', On Windows, the directory is a profiles subdirectory of the directory in which Wireshark was installed, e.g., C:\Program Files\Wireshark\profiles.
+On macOS, when running from an app bundle, it is the Contents/Resources/share/wireshark/profiles subdirectory within the app bundle.)
+
+This option is useful in shared environments or automated testing setups where consistent configurations are needed, and user-specific settings should be avoided.
 --
 
 -D|--list-interfaces::
@@ -336,6 +339,7 @@ Add a field to the list of fields to display if *-T ek|fields|json|pdml*
 is selected.  This option can be used multiple times on the command line.
 At least one field must be provided if the *-T fields* option is
 selected. Column types may be used prefixed with "_ws.col."
+Prefixing the field name with an at sign (@) will display the data as hex bytes.
 
 Example: *tshark -T fields -e frame.number -e ip.addr -e udp -e _ws.col.info*
 
@@ -451,7 +455,7 @@ There is one record per line.  The fields are tab-delimited.
 
 [horizontal]
 Field 1:: layer type, e.g. "tcp.port"
-Field 2:: selector in decimal
+Field 2:: selector in the base for display
 Field 3:: "decode as" name, e.g. "http"
 
 *defaultprefs*  Dumps a default preferences file to stdout. This report
@@ -986,14 +990,14 @@ after printing the summary and/or details, if either are also being displayed.
 +
 --
 Cause *TShark* to print a hex and ASCII dump of the packet data
-with the ability to select which data sources to dump and how to
-format or exclude the ASCII dump text.
+with the ability to select which data sources to dump, how to
+format or exclude the ASCII dump text, and whether to print the
+frame timestamp as preamble.
 
-This option can be used multiple times where the data source *<hexoption>*
-is *all* or *frames* and the ASCII dump text *<hexoption>* is *ascii*,
-*delimit*, *noascii*.
-
-  Example:  tshark ... --hexdump frames --hexdump delimit ...
+This option (and *-x*) can occur multiple times on the command line,
+and the hex dump will only be printed once. In the case of conflicting
+options, the last options given will be used. The possible *<hexoption>*
+values are:
 
 *all*::
 
@@ -1004,7 +1008,7 @@ The *-x* option displays all data sources by default.
 *frames*::
 
 Enable hexdump, generate hexdump blocks only for the frame data. Use
-this option to exclude, from hexdump output, any hexdump blocks for
+this option to exclude from hexdump output any hexdump blocks for
 secondary data sources such as 'Bitstring tvb', 'Reassembled TCP',
 'De-chunked entity body', etc.
 
@@ -1024,6 +1028,15 @@ and start of the ASCII dump text.
 
 Enable hexdump without printing any ASCII dump text.
 
+*time*::
+
+Enable hexdump and print each frame timestamp as preamble. The *-t*
+option can be used to change the timestamp format.
+
+*notime*::
+
+Enable hexdump without print each frame timestamp as preamble.
+
 *help*::
 
 Display *--hexdump* specific help then exit.
@@ -1036,20 +1049,26 @@ directly do a "Save as" nor export packets from.
 Examples:
 
 Generate hexdump output, with only the frame data source, with delimited ASCII
-dump text, with each frame hex block preceded by a human readable timestamp that
-is directly usable by the *text2pcap* utility:
+dump text, and with each frame hex block preceded by a human readable timestamp
+in the local time zone that is directly usable by the *text2pcap* utility:
 
-  tshark ... --hexdump frames --hexdump delimit \
-      -P -t ad -o gui.column.format:"Time","%t" \
-      | text2pcap -n -t '%F %T.%f' - MYNEWPCAPNG
+  tshark ... --hexdump frames --hexdump delimit --hexdump time -t ad \
+      | text2pcap -t 'ISO' - MYNEWPCAPNG
 
-Generate hexdump output, with only the frame data source, with no ASCII dump text,
-with each frame hex block preceded by an epoch timestamp that is directly
-usable by the *text2pcap* utility:
+Generate hexdump output, with only the frame data source, with the default
+ASCII dump text with no delimiter, and with each frame hex block preceded by a
+human readable timestamp in UTC that is directly usable by the *text2pcap*
+utility with the *-a* option:
 
-  tshark ... --hexdump frames --hexdump noascii \
-      -P -t e -o gui.column.format:"Time","%t" \
-      | text2pcap -n -t %s.%f - MYNEWPCAPNG
+  tshark ... --hexdump frames --hexdump time -t ud \
+      | text2pcap -a -t 'ISO' - MYNEWPCAPNG
+
+Generate hexdump output, with only the frame data source, with no ASCII dump
+text, and with each frame hex block preceded by an epoch timestamp that is
+directly usable by the *text2pcap* utility:
+
+  tshark ... --hexdump frames --hexdump noascii --hexdump time -t e \
+      | text2pcap -t %s.%f - MYNEWPCAPNG
 --
 
 -X <eXtension options>::
@@ -1227,28 +1246,31 @@ Create a table that lists all conversations that could be seen in the
 capture.  __type__ specifies the conversation endpoint type for which we
 want to generate the statistics; currently the supported ones are:
 
-  "bluetooth" Bluetooth addresses
-  "dccp"      DCCP/IP socket pairs Both IPv4 and IPv6 are supported
-  "dnp3"      DNP3 addresses
-  "eth"       Ethernet addresses
-  "fc"        Fibre Channel addresses
-  "fddi"      FDDI addresses
-  "ip"        IPv4 addresses
-  "ipv6"      IPv6 addresses
-  "ipx"       IPX addresses
-  "jxta"      JXTA message addresses
-  "mptcp"     Multipath TCP connections
-  "ncp"       NCP connections
-  "rsvp"      RSVP connections
-  "sctp"      SCTP/IP socket pairs Both IPv4 and IPv6 are supported
-  "sll"       Linux "cooked mode" capture addresses
-  "tcp"       TCP/IP socket pairs  Both IPv4 and IPv6 are supported
-  "tr"        Token Ring addresses
-  "udp"       UDP/IP socket pairs  Both IPv4 and IPv6 are supported
-  "usb"       USB addresses
-  "wlan"      IEEE 802.11 addresses
-  "wpan"      IEEE 802.15.4 addresses
-  "zbee_nwk"  ZigBee Network Layer addresses
+  "bluetooth"  Bluetooth addresses
+  "bpv7"       Bundle Protocol Version 7 addresses
+  "dccp"       DCCP/IP socket pairs Both IPv4 and IPv6 are supported
+  "dnp3"       DNP3 addresses
+  "eth"        Ethernet addresses
+  "fc"         Fibre Channel addresses
+  "fddi"       FDDI addresses
+  "ip"         IPv4 addresses
+  "ipv6"       IPv6 addresses
+  "ipx"        IPX addresses
+  "jxta"       JXTA message addresses
+  "ltp"        LTP addresses
+  "mptcp"      Multipath TCP connections
+  "ncp"        NCP connections
+  "openSAFETY" openSAFETY addresses
+  "rsvp"       RSVP connections
+  "sctp"       SCTP/IP socket pairs Both IPv4 and IPv6 are supported
+  "sll"        Linux "cooked mode" capture addresses
+  "tcp"        TCP/IP socket pairs  Both IPv4 and IPv6 are supported
+  "tr"         Token Ring addresses
+  "udp"        UDP/IP socket pairs  Both IPv4 and IPv6 are supported
+  "usb"        USB addresses
+  "wlan"       IEEE 802.11 addresses
+  "wpan"       IEEE 802.15.4 addresses
+  "zbee_nwk"   ZigBee Network Layer addresses
 
 The table is presented with one line for each conversation which displays
 the number of frames/bytes in each direction, the total number of
@@ -1352,28 +1374,31 @@ Create a table that lists all endpoints that could be seen in the
 capture.  __type__ specifies the endpoint type for which we
 want to generate the statistics; currently the supported ones are:
 
-  "bluetooth" Bluetooth addresses
-  "dccp"      DCCP/IP socket pairs Both IPv4 and IPv6 are supported
-  "dnp3"      DNP3 addresses
-  "eth"       Ethernet addresses
-  "fc"        Fibre Channel addresses
-  "fddi"      FDDI addresses
-  "ip"        IPv4 addresses
-  "ipv6"      IPv6 addresses
-  "ipx"       IPX addresses
-  "jxta"      JXTA message addresses
-  "mptcp"     Multipath TCP connections
-  "ncp"       NCP connections
-  "rsvp"      RSVP connections
-  "sctp"      SCTP/IP socket pairs Both IPv4 and IPv6 are supported
-  "sll"       Linux "cooked mode" capture addresses
-  "tcp"       TCP/IP socket pairs  Both IPv4 and IPv6 are supported
-  "tr"        Token Ring addresses
-  "udp"       UDP/IP socket pairs  Both IPv4 and IPv6 are supported
-  "usb"       USB addresses
-  "wlan"      IEEE 802.11 addresses
-  "wpan"      IEEE 802.15.4 addresses
-  "zbee_nwk"  ZigBee Network Layer addresses
+  "bluetooth"  Bluetooth addresses
+  "bpv7"       Bundle Protocol Version 7 addresses
+  "dccp"       DCCP/IP socket pairs Both IPv4 and IPv6 are supported
+  "dnp3"       DNP3 addresses
+  "eth"        Ethernet addresses
+  "fc"         Fibre Channel addresses
+  "fddi"       FDDI addresses
+  "ip"         IPv4 addresses
+  "ipv6"       IPv6 addresses
+  "ipx"        IPX addresses
+  "jxta"       JXTA message addresses
+  "ltp"        LTP addresses
+  "mptcp"      Multipath TCP connections
+  "ncp"        NCP connections
+  "openSAFETY" openSAFETY addresses
+  "rsvp"       RSVP connections
+  "sctp"       SCTP/IP socket pairs Both IPv4 and IPv6 are supported
+  "sll"        Linux "cooked mode" capture addresses
+  "tcp"        TCP/IP socket pairs  Both IPv4 and IPv6 are supported
+  "tr"         Token Ring addresses
+  "udp"        UDP/IP socket pairs  Both IPv4 and IPv6 are supported
+  "usb"        USB addresses
+  "wlan"       IEEE 802.11 addresses
+  "wpan"       IEEE 802.15.4 addresses
+  "zbee_nwk"   ZigBee Network Layer addresses
 
 The table is presented with one line for each endpoint which displays
 the total number of packets/bytes and the number of packets/bytes in
@@ -1450,9 +1475,9 @@ Example: *-z flow,tcp,network* will show data flow for all TCP frames
 *-z* follow,__prot__,__mode__,__filter__[,__range__]::
 +
 --
-Displays the contents of a TCP or UDP stream between two nodes. The data
-sent by the second node is prefixed with a tab to differentiate it from the
-data sent by the first node.
+Displays the contents of a stream between two nodes. The data sent by the
+second node is prefixed with a tab to differentiate it from the data sent
+by the first node.
 
 __prot__ specifies the transport protocol.  It can be one of:
 
@@ -1460,6 +1485,7 @@ __prot__ specifies the transport protocol.  It can be one of:
   udp   UDP
   dccp  DCCP
   tls   TLS or SSL
+  dtls  DTLS
   http  HTTP streams
   http2 HTTP/2 streams
   quic  QUIC streams
@@ -1492,7 +1518,7 @@ __filter__ specifies the stream to be displayed. There are three formats:
   stream-index,substream-index
 
 The first format specifies IP addresses and TCP, UDP, or DCCP port pairs.
-(TCP ports are used for TLS, HTTP, and HTTP2; UDP ports are used for QUIC,
+(TCP ports are used for TLS, HTTP, and HTTP2; UDP ports are used for DTLS, QUIC,
 MP2T, and MPEG-PS.) Note that this format will include all streams multiplexed
 on the same address and port 5-tuple for transports with substreams such
 as HTTP/2, QUIC, and MP2T. In addition, for QUIC this format will include
@@ -1500,7 +1526,7 @@ all connections sharing the same 5-tuple, and will not follow connection
 migration.
 
 The second format specifies stream indices, and is used for TCP, UDP, DCCP,
-TLS, and HTTP. (TLS and HTTP use TCP stream indices.)
+TLS, DTLS, and HTTP. (HTTP uses TCP stream indices.)
 
 The third format, specifying streams and substreams, is used for HTTP/2,
 QUIC, MP2T, and MPEG-PES due to their use of multiplexing. (TCP stream and
@@ -2021,6 +2047,9 @@ Core Protocol.  Minimum SRT, maximum SRT, average SRT, and sum SRT is
 displayed for request/response pairs, organized by group, function and
 subfunction, and verb.  No statistics are gathered on unpaired messages.
 
+*-z* oran-fh-cus,stat[,__filter__]::
+Collect flow summaries for ORAN FH CUS traffic.
+
 *-z* osmux,tree[,__filter__]::
 Calculate statistics for the OSmux voice/signaling multiplex protocol.
 Displays the total number of OSmux packets, and displays for each stream
@@ -2267,6 +2296,18 @@ currently only displays the first comment of a capture file.
 List time stamp types supported for the interface. If no time stamp type can be
 set, no time stamp types are listed.
 
+--no-optimize::
+Do not run the libpcap optimizer when generating code for a capture filter.
+This is useful if you suspect a bug in the optimizer.
+// tshark does not support the -d option to dump the filter, so no need to
+// mention instructive purposes.
+
+This option can occur multiple times. If used before the first
+occurrence of the *-i* option, capture filters are not optimized for all
+interfaces. If used after an *-i* option, the capture filter for the interface
+specified by the last *-i* option occurring before this option is not optimized.
+// This is not supported for extcaps (yet)
+
 --time-stamp-type <type>::
 Change the interface's timestamp method.
 
@@ -2324,19 +2365,17 @@ Compress the output file using the type compression format.
 *--compress* with no argument provides a list of the compression formats supported
 for writing. The type given takes precedence over the extension of __outfile__.
 
-NOTE: This option only works with the *-r* option, i.e., when reading a
-capture file, not for live captures.
 ////
-The --compress-type option is not documented anywhere; it works with live captures,
-but only a limited set of capture options (multiple file mode (-b), but not
-ringbuffer mode (no -b files), and only compressed upon file rotation.)
-It works with TShark and dumpcap, but not from the command line in Wireshark
-(though the Wireshark GUI can pass the option to dumpcap.)
+The --compress-type option is not documented anywhere; it works with live
+captures only.
 
-Should we document it? Deprecate it in favor of also using compress? Do nothing
-until it has closer feature parity to *--compress* but for captures?
+Should we document it? Deprecate it in favor of also using compress?
 ////
 --
+
+// Add a "capture-options" group for the common capture options?
+// Note a few options have different behavior in tshark, like -w,
+// because they operate on both live capture and when reading from file.
 
 include::dissection-options.adoc[tags=**;!not_tshark]
 

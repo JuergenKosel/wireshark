@@ -7,12 +7,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
-if (HAVE_HFI_SECTION_INIT)
-	add_definitions(
-		-DHAVE_HFI_SECTION_INIT
-	)
-endif()
-
 add_definitions(
 		${LIBXML2_DEFINITIONS}
 		${KERBEROS_DEFINITIONS}
@@ -68,12 +62,9 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	crc6-tvb.h
 	crc8-tvb.h
 	decode_as.h
-	diam_dict.h
 	disabled_protos.h
 	conversation_filter.h
 	dccpservicecodes.h
-	dtd.h
-	dtd_parse.h
 	dvb_chartbl.h
 	eap.h
 	eapol_keydes_types.h
@@ -88,6 +79,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	exported_pdu.h
 	fifo_string_cache.h
 	filter_expressions.h
+	aggregation_fields.h
 	follow.h
 	frame_data.h
 	frame_data_sequence.h
@@ -127,12 +119,12 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	ps.h
 	ptvcursor.h
 	range.h
+	read_keytab_file.h
 	reassemble.h
 	reedsolomon.h
 	register.h
 	req_resp_hdrs.h
 	rtd_table.h
-	rtp_pt.h
 	sctpppids.h
 	secrets.h
 	show_exception.h
@@ -158,11 +150,9 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	uat.h
 	uat-int.h
 	unit_strings.h
-	value_string.h
 	wmem_scopes.h
 	wscbor.h
-	x264_prt_id.h
-	xdlc.h
+	wscbor_enc.h
 )
 
 set(LIBWIRESHARK_HEADER_FILES
@@ -201,6 +191,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	exported_pdu.c
 	fifo_string_cache.c
 	filter_expressions.c
+	aggregation_fields.c
 	follow.c
 	frame_data.c
 	frame_data_sequence.c
@@ -229,6 +220,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	proto.c
 	proto_data.c
 	range.c
+	read_keytab_file.c
 	reassemble.c
 	reedsolomon.c
 	register.c
@@ -266,11 +258,10 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	tvbuff_lznt1.c
 	tvbuff_rdp.c
 	uat.c
-	value_string.c
 	wscbor.c
+	wscbor_enc.c
 	unit_strings.c
 	wmem_scopes.c
-	xdlc.c
 	protobuf-helper.c
 	protobuf_lang_tree.c
 	${CMAKE_CURRENT_BINARY_DIR}/ps.c
@@ -279,16 +270,11 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 set(LIBWIRESHARK_FILES ${LIBWIRESHARK_NONGENERATED_FILES})
 
 add_lex_files(LEX_FILES LIBWIRESHARK_FILES
-	diam_dict.l
-	dtd_parse.l
-	dtd_preparse.l
-	radius_dict.l
 	uat_load.l
 	protobuf_lang_scanner.l
 )
 
 add_lemon_files(LEMON_FILES LIBWIRESHARK_FILES
-	dtd_grammar.lemon
 	protobuf_lang_parser.lemon
 )
 
@@ -350,6 +336,7 @@ target_link_libraries(epan
 		${SNAPPY_LIBRARIES}
 		${WIN_PSAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
+		${XXHASH_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${ZLIBNG_LIBRARIES}
 		${ZSTD_LIBRARIES}
@@ -372,6 +359,7 @@ target_include_directories(epan
 		${BROTLI_INCLUDE_DIRS}
 		${CARES_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
+		${KERBEROS_INCLUDE_DIRS}
 		${GLIB2_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 		${LIBXML2_INCLUDE_DIRS}
@@ -451,6 +439,14 @@ set_target_properties(tvbtest PROPERTIES
 add_executable(wscbor_test EXCLUDE_FROM_ALL wscbor_test.c)
 target_link_libraries(wscbor_test epan)
 set_target_properties(wscbor_test PROPERTIES
+    FOLDER "Tests"
+    EXCLUDE_FROM_DEFAULT_BUILD True
+    COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
+)
+
+add_executable(wscbor_enc_test EXCLUDE_FROM_ALL wscbor_enc_test.c)
+target_link_libraries(wscbor_enc_test epan)
+set_target_properties(wscbor_enc_test PROPERTIES
     FOLDER "Tests"
     EXCLUDE_FROM_DEFAULT_BUILD True
     COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"

@@ -116,8 +116,11 @@ main(int argc, char *argv[])
     static const struct ws_option long_options[] = {
         {"help", ws_no_argument, NULL, 'h'},
         {"version", ws_no_argument, NULL, 'v'},
+        LONGOPT_WSLOG
         {0, 0, 0, 0 }
     };
+#define OPTSTRING "b:c:F:ht:rv"
+    static const char optstring[] = OPTSTRING;
 
     /* Set the program name. */
     g_set_prgname("randpkt");
@@ -128,7 +131,7 @@ main(int argc, char *argv[])
     ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -159,10 +162,13 @@ main(int argc, char *argv[])
 
     ws_init_version_info("Randpkt", NULL, NULL);
 
-    while ((opt = ws_getopt_long(argc, argv, "b:c:F:ht:rv", long_options, NULL)) != -1) {
+    while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
             case 'b':	/* max bytes */
-                produce_max_bytes = get_positive_int(ws_optarg, "max bytes");
+                if (!get_positive_int(ws_optarg, "max bytes", &produce_max_bytes)) {
+                    ret = WS_EXIT_INVALID_OPTION;
+                    goto clean_exit;
+                }
                 if (produce_max_bytes > 65536) {
                     cmdarg_err("max bytes is > 65536");
                     ret = WS_EXIT_INVALID_OPTION;
@@ -171,7 +177,10 @@ main(int argc, char *argv[])
                 break;
 
             case 'c':	/* count */
-                produce_count = get_positive_int(ws_optarg, "count");
+                if (!get_positive_int(ws_optarg, "count", &produce_count)) {
+                    ret = WS_EXIT_INVALID_OPTION;
+                    goto clean_exit;
+                }
                 break;
 
             case 'F':
@@ -211,6 +220,10 @@ main(int argc, char *argv[])
                 /* FALLTHROUGH */
 
             default:
+                /* wslog arguments are okay */
+                if (ws_log_is_wslog_arg(opt))
+                    break;
+
                 usage(true);
                 ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;

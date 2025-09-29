@@ -982,8 +982,7 @@ static expert_field ei_hci_revision_changed;
 static expert_field ei_lmp_subversion_changed;
 static expert_field ei_bad_link_type;
 
-static dissector_table_t hci_cmd_vendor_dissector_table;
-static dissector_table_t hci_evt_vendor_dissector_table;
+static dissector_table_t hci_vendor_payload_table;
 static dissector_table_t hci_vendor_table;
 
 static int hf_bthci_evt_ext_advts_event_type;
@@ -1668,7 +1667,12 @@ static const value_string initiator_vals[] = {
 
 static void freq_compensation(char *buf, int16_t value) {
     if (value != -16384)
+    {
+        /* Sign-extend the 15-bit signed integer */
+        if (value & 0x4000)
+            value |= 0x8000;
         snprintf(buf, ITEM_LABEL_LENGTH, "%g ppm", 0.01 * value);
+    }
     else
         snprintf(buf, ITEM_LABEL_LENGTH, "Not Available");
 }
@@ -1680,8 +1684,11 @@ static void ref_power_level(char *buf, int8_t value) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Not Available");
 }
 
-static void convert_time_unit_0p5_ns(char *buf, uint16_t value) {
-    snprintf(buf, ITEM_LABEL_LENGTH, "%g ns (%u)", 0.5 * value, value);
+static void convert_time_unit_0p5_ns(char *buf, int16_t value) {
+    if (value != (int16_t)0x8000)
+        snprintf(buf, ITEM_LABEL_LENGTH, "%g ns (%i)", 0.5 * value, value);
+    else
+        snprintf(buf, ITEM_LABEL_LENGTH, "Not Available");
 }
 
 static void sint12_convert(char *buf, uint16_t value) {
@@ -1788,7 +1795,7 @@ static void send_hci_summary_status_tap(uint8_t status, packet_info *pinfo, blue
         tap_hci_summary->type = BLUETOOTH_HCI_SUMMARY_STATUS;
         tap_hci_summary->status = status;
         if (try_val_to_str_ext(status, &bthci_cmd_status_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(status, &bthci_cmd_status_vals_ext, "Unknown 0x%02x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, status, &bthci_cmd_status_vals_ext, "Unknown 0x%02x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -1825,7 +1832,7 @@ static void send_hci_summary_reason_tap(uint8_t reason, packet_info *pinfo, blue
         tap_hci_summary->type = BLUETOOTH_HCI_SUMMARY_REASON;
         tap_hci_summary->reason = reason;
         if (try_val_to_str_ext(reason, &bthci_cmd_status_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(reason, &bthci_cmd_status_vals_ext, "Unknown 0x%02x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, reason, &bthci_cmd_status_vals_ext, "Unknown 0x%02x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -2710,7 +2717,7 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
         tap_hci_summary->ocf = opcode & 0x03ff;
         tap_hci_summary->event = 0x0f; /* Command Status */
         if (try_val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -2749,7 +2756,7 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
     if (ogf == HCI_OGF_VENDOR_SPECIFIC) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (Vendor Command 0x%04X [(opcode 0x%04X])", opcode & 0x03ff, opcode);
 
-        if (!dissector_try_payload_with_data(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
+        if (!dissector_try_payload_with_data(hci_vendor_payload_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
             if (bluetooth_data) {
                 hci_vendor_data_t  *hci_vendor_data;
                 wmem_tree_key_t     key[3];
@@ -2770,11 +2777,7 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
                 if (hci_vendor_data) {
                     int sub_offset = 0;
 
-                    if (bthci_vendor_android) {
-                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
-                    } else {
-                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
-                    }
+                    sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
 
                     if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                         proto_tree_add_expert(tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -2785,7 +2788,7 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
         return tvb_captured_length(tvb);
     } else {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)",
-                val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
+                val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
     }
 
     return offset;
@@ -3077,16 +3080,16 @@ dissect_bthci_evt_cs_result_steps(tvbuff_t *tvb, int offset, packet_info *pinfo 
         return offset;
     }
 
-    if (step_mode != 2) {
+    if (step_mode != 2 && step_data_length) {
         pq_item = proto_tree_add_item(step_tree, hf_bthci_evt_packet_quality, tvb, offset, 1, ENC_NA);
         pq_tree = proto_item_add_subtree(pq_item, ett_packet_quality);
         proto_tree_add_item(pq_tree, hf_bthci_evt_packet_quality_aa_check, tvb, offset, 1, ENC_NA);
         proto_tree_add_item(pq_tree, hf_bthci_evt_packet_quality_bit_errors, tvb, offset, 1, ENC_NA);
-        proto_item_append_text(step_item, ", AA %s", val_to_str(tvb_get_uint8(tvb, offset) & 0xf, access_address_check_vals, "Unknown 0x%x"));
+        proto_item_append_text(step_item, ", AA %s", val_to_str(pinfo->pool, tvb_get_uint8(tvb, offset) & 0xf, access_address_check_vals, "Unknown 0x%x"));
         offset += 1;
     }
 
-    if (step_mode == 0) {
+    if (step_mode == 0 && step_data_length) {
         proto_tree_add_item(step_tree, hf_bthci_evt_rssi, tvb, offset, 1, ENC_NA);
         offset += 1;
         proto_tree_add_item(step_tree, hf_bthci_evt_antenna_id, tvb, offset, 1, ENC_NA);
@@ -3096,15 +3099,16 @@ dissect_bthci_evt_cs_result_steps(tvbuff_t *tvb, int offset, packet_info *pinfo 
             offset += 2;
         }
     }
-    else if (step_mode == 1) {
+    else if (step_mode == 1 && step_data_length) {
         offset = dissect_bthci_evt_cs_mode1_step(tvb, offset, pinfo, step_tree, initiator, sounding_seq);
     }
-    else if (step_mode == 2) {
+    else if (step_mode == 2 && step_data_length) {
         offset = dissect_bthci_evt_cs_mode2_step(tvb, offset, pinfo, step_tree, step_data_length);
     }
-    else {
+    else if (step_mode == 3 && step_data_length){
+        int mode1_step_data_offset = offset;
         offset = dissect_bthci_evt_cs_mode1_step(tvb, offset, pinfo, step_tree, initiator, sounding_seq);
-        offset = dissect_bthci_evt_cs_mode2_step(tvb, offset, pinfo, step_tree, step_data_length);
+        offset = dissect_bthci_evt_cs_mode2_step(tvb, offset, pinfo, step_tree, step_data_length - (offset - mode1_step_data_offset));
     }
     return offset;
 }
@@ -3134,13 +3138,13 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
         tap_hci_summary->event = 0x3E; /* LE Meta */
         tap_hci_summary->subevent = subevent_code;
         if (try_val_to_str(subevent_code, evt_le_meta_subevent))
-            tap_hci_summary->name = val_to_str(subevent_code, evt_le_meta_subevent, "Unknown 0x%04x");
+            tap_hci_summary->name = val_to_str(pinfo->pool, subevent_code, evt_le_meta_subevent, "Unknown 0x%04x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
     }
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", val_to_str(subevent_code, evt_le_meta_subevent, "Unknown 0x%02x"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", val_to_str(pinfo->pool, subevent_code, evt_le_meta_subevent, "Unknown 0x%02x"));
 
     offset += 1;
 
@@ -4051,7 +4055,7 @@ dissect_bthci_evt_le_meta(tvbuff_t *tvb, int offset, packet_info *pinfo,
                     report_item = proto_tree_add_none_format(tree, hf_bthci_evt_subevent_responses, tvb, offset, length,
                                                       "Sub-event Response Slot: %u, Data Status: %s",
                                                       tvb_get_uint8(tvb, offset+3),
-                                                      val_to_str(tvb_get_uint8(tvb, offset+4), ext_adv_data_status_vals, "0x%02x"));
+                                                      val_to_str(pinfo->pool, tvb_get_uint8(tvb, offset+4), ext_adv_data_status_vals, "0x%02x"));
                     report_tree = proto_item_add_subtree(report_item, ett_adv_subevent_responses);
 
                     proto_tree_add_item(report_tree, hf_bthci_evt_tx_power, tvb, offset, 1, ENC_NA);
@@ -4590,7 +4594,7 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
         tap_hci_summary->ocf = opcode & 0x03ff;
         tap_hci_summary->event = 0x0e; /* Command Complete */
         if (try_val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -4628,7 +4632,7 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
     if (ogf == HCI_OGF_VENDOR_SPECIFIC) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (Vendor Command 0x%04X [opcode 0x%04X])", opcode & 0x03ff, opcode);
 
-        if (!dissector_try_payload_with_data(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
+        if (!dissector_try_payload_with_data(hci_vendor_payload_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
             if (bluetooth_data) {
                 hci_vendor_data_t  *hci_vendor_data;
 
@@ -4646,11 +4650,7 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
                 if (hci_vendor_data) {
                     int sub_offset = 0;
 
-                    if (bthci_vendor_android) {
-                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
-                    } else {
-                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
-                    }
+                    sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
 
                     if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                         proto_tree_add_expert(tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -4662,7 +4662,7 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
         offset = tvb_captured_length(tvb);
     } else {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)",
-                val_to_str_ext(opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
+                val_to_str_ext(pinfo->pool, opcode, &bthci_cmd_opcode_vals_ext, "Unknown 0x%04x"));
     }
 
     if (ogf != HCI_OGF_VENDOR_SPECIFIC) switch(opcode) {
@@ -5516,9 +5516,9 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
             offset += 1;
             proto_tree_add_item(tree, hf_bthci_evt_location_domain_aware, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset += 1;
-            proto_tree_add_item(tree, hf_bthci_evt_location_domain, tvb, offset, 2, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_evt_location_domain, tvb, offset, 2, ENC_ASCII);
             offset += 2;
-            proto_tree_add_item(tree, hf_bthci_evt_location_domain_options, tvb, offset, 1, ENC_ASCII | ENC_NA);
+            proto_tree_add_item(tree, hf_bthci_evt_location_domain_options, tvb, offset, 1, ENC_ASCII);
             offset += 1;
             proto_tree_add_item(tree, hf_bthci_evt_location_options, tvb, offset, 1, ENC_LITTLE_ENDIAN);
             offset += 1;
@@ -7207,6 +7207,14 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             break;
     }
 
+    /* These *should* be P2P_DIR_RECV, and the vendor dissectors expect
+     * pinfo->p2p_dir to be set to that to dissect correctly. Not all
+     * link-layer and file types may set the direction correctly. Should
+     * we add an expert info if not? Note we set the addresses assuming
+     * the direction. Should we set pinfo->p2p_dir before calling the
+     * vendor dissectors?
+     */
+
     set_address(&pinfo->src, AT_STRINGZ,     11, "controller");
     set_address(&pinfo->dst, AT_STRINGZ,      5, "host");
     set_address(&pinfo->net_src, AT_STRINGZ, 11, "controller");
@@ -7227,7 +7235,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
     evt_code = tvb_get_uint8(tvb, offset);
     proto_tree_add_item(bthci_evt_tree, hf_bthci_evt_code, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-    proto_item_append_text(bthci_evt_tree, " - %s", val_to_str_ext(evt_code, &bthci_evt_evt_code_vals_ext,  "Unknown 0x%02x"));
+    proto_item_append_text(bthci_evt_tree, " - %s", val_to_str_ext(pinfo->pool, evt_code, &bthci_evt_evt_code_vals_ext,  "Unknown 0x%02x"));
     offset += 1;
 
     if (have_tap_listener(bluetooth_hci_summary_tap)) {
@@ -7241,7 +7249,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         tap_hci_summary->type = BLUETOOTH_HCI_SUMMARY_EVENT;
         tap_hci_summary->event = evt_code;
         if (try_val_to_str_ext(evt_code, &bthci_evt_evt_code_vals_ext))
-            tap_hci_summary->name = val_to_str_ext(evt_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%04x");
+            tap_hci_summary->name = val_to_str_ext(pinfo->pool, evt_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%04x");
         else
             tap_hci_summary->name = NULL;
         tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
@@ -7254,7 +7262,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "HCI_EVT");
 
-    col_append_str(pinfo->cinfo, COL_INFO, val_to_str_ext(evt_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%02x"));
+    col_append_str(pinfo->cinfo, COL_INFO, val_to_str_ext(pinfo->pool, evt_code, &bthci_evt_evt_code_vals_ext, "Unknown 0x%02x"));
 
     if (param_length > 0) {
         switch(evt_code) {
@@ -7680,11 +7688,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             break;
 
         case 0xff: /* Vendor-Specific */
-        {
-            tvbuff_t *vendor_payload_tvb;
-            vendor_payload_tvb = tvb_new_subset_remaining(tvb, 2); // Bytes after length byte.
-
-            if (!dissector_try_payload_with_data(hci_evt_vendor_dissector_table, vendor_payload_tvb, pinfo, tree, true, bluetooth_data)) {
+            if (!dissector_try_payload_with_data(hci_vendor_payload_table, tvb, pinfo, tree, true, bluetooth_data)) {
                 if (bluetooth_data) {
                     hci_vendor_data_t  *hci_vendor_data;
                     wmem_tree_key_t     key[3];
@@ -7705,11 +7709,10 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     if (hci_vendor_data) {
                         int sub_offset = 0;
 
-                        if (bthci_vendor_android) {
-                            sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
-                        } else {
-                            sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
-                        }
+                        // XXX - This is not correct, this should be a table
+                        // for dissecting vendor-specific events, not the same
+                        // table as used for vendor-specific commands.
+                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
 
                         if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                             proto_tree_add_expert(bthci_evt_tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -7720,7 +7723,6 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             proto_tree_add_expert(bthci_evt_tree, pinfo, &ei_event_undecoded, tvb, offset, tvb_captured_length_remaining(tvb, offset));
 
             return tvb_captured_length(tvb);
-        }
         default:
             proto_tree_add_expert(bthci_evt_tree, pinfo, &ei_event_unknown_event, tvb, offset, tvb_captured_length_remaining(tvb, offset));
             offset += tvb_reported_length_remaining(tvb, offset);
@@ -11643,12 +11645,12 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_toa_tod_initiator,
           { "ToA-ToD Time, Initiator", "bthci_evt.toa_tod_initiator",
-            FT_UINT16, BASE_CUSTOM, CF_FUNC(convert_time_unit_0p5_ns), 0x0,
+            FT_INT16, BASE_CUSTOM, CF_FUNC(convert_time_unit_0p5_ns), 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_tod_toa_reflector,
           { "ToD-ToA Time, Reflector", "bthci_evt.tod_toa_reflector",
-            FT_UINT16, BASE_CUSTOM, CF_FUNC(convert_time_unit_0p5_ns), 0x0,
+            FT_INT16, BASE_CUSTOM, CF_FUNC(convert_time_unit_0p5_ns), 0x0,
             NULL, HFILL }
         },
         { &hf_bthci_evt_pct1,
@@ -11832,7 +11834,11 @@ proto_register_bthci_evt(void)
 
     /* Decode As handling
        This doesn't use register_decode_as_next_proto because it shares a dissector table
-       with "bthci_cmd.vendor" */
+       with "bthci_cmd.vendor"
+       XXX - Since this table is registered to proto_bthci_cmd it doesn't get
+       put at the top of the table combobox by the Decode As dialog for BTHCI
+       EVT packets.
+      */
     static build_valid_func bthci_evt_vendor_da_build_value[1] = {bthci_evt_vendor_value};
     static decode_as_value_t bthci_evt_vendor_da_values = {bthci_evt_vendor_prompt, 1, bthci_evt_vendor_da_build_value};
     static decode_as_t bthci_evt_vendor_da = {"bthci_cmd", "bthci_cmd.vendor", 1, 0, &bthci_evt_vendor_da_values, NULL, NULL,
@@ -11858,15 +11864,16 @@ proto_register_bthci_evt(void)
 
     register_decode_as(&bthci_evt_vendor_da);
 
-    hci_evt_vendor_dissector_table = register_decode_as_next_proto(proto_bthci_evt, "bthci_evt.vendor",
-                                                           "BT HCI Event Vendor", bthci_evt_vendor_prompt);
+    register_external_value_string("bthci_evt_lmp_version", bthci_evt_lmp_version);
+    register_external_value_string("bthci_evt_hci_version", bthci_evt_hci_version);
 }
 
 
 void
 proto_reg_handoff_bthci_evt(void)
 {
-    hci_cmd_vendor_dissector_table = find_dissector_table("bthci_cmd.vendor");
+    /* See the comments in packet-bthci_cmd.c about these two tables. */
+    hci_vendor_payload_table = find_dissector_table("bthci_cmd.vendor");
     hci_vendor_table = find_dissector_table("bluetooth.vendor");
 
     dissector_add_uint("hci_h4.type", HCI_H4_TYPE_EVT, bthci_evt_handle);

@@ -101,24 +101,24 @@ DIAG_OFF_FLEX()
 
 directive ^#TEXT2PCAP.*\r?\n
 comment ^[\t ]*#.*\r?\n
-byte [0-9A-Fa-f][0-9A-Fa-f][ \t]?
-byte_eol [0-9A-Fa-f][0-9A-Fa-f]\r?\n
-offset [0-9A-Fa-f]+[: \t]
-offset_eol [0-9A-Fa-f]+\r?\n
-text [^ \n\t]+
+byte [[:xdigit:]]{2}
+offset (0[xX])?[[:xdigit:]]{3,8}:?
+text [^ \r\n\t]+
 mailfwd >
+mailspace [> \t]
 eol \r?\n\r?
 
 %%
 
 {byte}            { if (parse_token(T_BYTE, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
-{byte_eol}        { if (parse_token(T_BYTE, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE;
-	if (parse_token(T_EOL, NULL) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
+{byte}{2,4}       { if (parse_token(T_BYTES, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
 {offset}          { if (parse_token(T_OFFSET, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
-{offset_eol}      { if (parse_token(T_OFFSET, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE;
-	if (parse_token(T_EOL, NULL) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
-{mailfwd}{offset} { if (parse_token(T_OFFSET, yytext+1) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
+{mailfwd}+{offset} {
+	/* Handle the case where no blanks are between mailfwd and offset */
+	if (parse_token(T_OFFSET, yytext + strspn(yytext, ">")) != IMPORT_SUCCESS) return IMPORT_FAILURE;
+}
 {eol}             { if (parse_token(T_EOL, NULL) != IMPORT_SUCCESS) return IMPORT_FAILURE; }
+^{mailspace}+     ; /* ignore mailfwd characters (incl. separated by space) at line start */
 [ \t]             ; /* ignore whitespace */
 {directive}       { if (parse_token(T_DIRECTIVE, yytext) != IMPORT_SUCCESS) return IMPORT_FAILURE;
 	if (parse_token(T_EOL, NULL) != IMPORT_SUCCESS) return IMPORT_FAILURE; }

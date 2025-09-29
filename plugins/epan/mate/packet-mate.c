@@ -295,7 +295,7 @@ mate_pdu_tree(mate_pdu *pdu, packet_info *pinfo, tvbuff_t *tvb, proto_item *item
 static int
 mate_tree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	mate_pdu* pdus;
+	GPtrArray* pdus;
 	proto_item *mate_i;
 	proto_tree *mate_t;
 
@@ -310,10 +310,10 @@ mate_tree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	mate_analyze_frame(mc, pinfo,tree);
 
 	if (( pdus = mate_get_pdus(pinfo->num) )) {
-		for ( ; pdus; pdus = pdus->next_in_frame) {
+		for (unsigned i = 0; i < pdus->len; ++i) {
 			mate_i = proto_tree_add_protocol_format(tree,mc->hfid_mate,tvb,0,0,"MATE");
 			mate_t = proto_item_add_subtree(mate_i, mc->ett_root);
-			mate_pdu_tree(pdus,pinfo,tvb,mate_i,mate_t);
+			mate_pdu_tree(g_ptr_array_index(pdus, i),pinfo,tvb,mate_i,mate_t);
 		}
 	}
 	return tvb_captured_length(tvb);
@@ -438,16 +438,3 @@ proto_register_mate(void)
 
 	register_postdissector(mate_handle);
 }
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local variables:
- * c-basic-offset: 8
- * tab-width: 8
- * indent-tabs-mode: t
- * End:
- *
- * vi: set shiftwidth=8 tabstop=8 noexpandtab:
- * :indentSize=8:tabSize=8:noTabs=false:
- */

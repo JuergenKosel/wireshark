@@ -58,7 +58,6 @@ void clear_outstanding_FuncSavers(void) {
     }
 }
 
-
 WSLUA_CLASS_DEFINE(Proto,FAIL_ON_NULL("Proto"));
 /*
   A new protocol in Wireshark.

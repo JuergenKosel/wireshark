@@ -2536,7 +2536,7 @@ dissect_z3950_T_attributeElement_attributeType(bool implicit_tag _U_, tvbuff_t *
   atinfo_data = (z3950_atinfo_t *)p_get_proto_data(pinfo->pool, pinfo, proto_z3950, Z3950_ATINFO_KEY);
   if (atinfo_data && atinfo_data->atsetidx == Z3950_ATSET_BIB1) {
     proto_item_append_text(actx->created_item, " (%s)",
-      val_to_str(att_type, z3950_bib1_att_types, "Unknown bib-1 attributeType %d"));
+      val_to_str(actx->pinfo->pool, att_type, z3950_bib1_att_types, "Unknown bib-1 attributeType %d"));
     atinfo_data->attype = att_type;
   }
   return offset;
@@ -2579,7 +2579,7 @@ dissect_z3950_T_attributeValue_numeric(bool implicit_tag _U_, tvbuff_t *tvb _U_,
     }
     if (att_value_string) {
       proto_item_append_text(actx->created_item, " (%s)",
-        val_to_str(att_value, att_value_string, "Unknown bib-1 attributeValue %d"));
+        val_to_str(actx->pinfo->pool, att_value, att_value_string, "Unknown bib-1 attributeValue %d"));
     }
   }
   return offset;
@@ -3209,7 +3209,7 @@ dissect_z3950_T_condition(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
   diaginfo_data = (z3950_diaginfo_t *)p_get_proto_data(pinfo->pool, pinfo, proto_z3950, Z3950_DIAGSET_KEY);
   if (diaginfo_data && diaginfo_data->diagsetidx == Z3950_DIAGSET_BIB1) {
     proto_item_append_text(actx->created_item, " (%s)",
-      val_to_str(diag_condition, z3950_bib1_diagconditions, "Unknown bib-1 diagnostic %d"));
+      val_to_str(actx->pinfo->pool, diag_condition, z3950_bib1_diagconditions, "Unknown bib-1 diagnostic %d"));
     diaginfo_data->diagcondition = diag_condition;
   }
   return offset;
@@ -12548,11 +12548,11 @@ proto_reg_handoff_z3950(void)
     dissector_add_uint_with_preference("tcp.port",
 	global_z3950_port, z3950_handle);
 
-  register_ber_oid_dissector("1.2.840.10003.5.100", dissect_Explain_Record_PDU, proto_z3950, "Explain-record");
-  register_ber_oid_dissector("1.2.840.10003.5.101", dissect_SutrsRecord_PDU, proto_z3950, "Sutrs-record");
-  register_ber_oid_dissector("1.2.840.10003.5.102", dissect_OPACRecord_PDU, proto_z3950, "OPAC-record");
-  register_ber_oid_dissector("1.2.840.10003.5.103", dissect_BriefBib_PDU, proto_z3950, "Summary-record");
-  register_ber_oid_dissector("1.2.840.10003.5.105", dissect_GenericRecord_PDU, proto_z3950, "GRS-1-record");
+  register_ber_oid_dissector("1.2.840.10003.5.100", dissect_Explain_Record_PDU, proto_z3950, "Explain");
+  register_ber_oid_dissector("1.2.840.10003.5.101", dissect_SutrsRecord_PDU, proto_z3950, "SUTRS");
+  register_ber_oid_dissector("1.2.840.10003.5.102", dissect_OPACRecord_PDU, proto_z3950, "OPAC");
+  register_ber_oid_dissector("1.2.840.10003.5.103", dissect_BriefBib_PDU, proto_z3950, "Summary");
+  register_ber_oid_dissector("1.2.840.10003.5.105", dissect_GenericRecord_PDU, proto_z3950, "GRS-1");
   register_ber_oid_dissector("1.2.840.10003.5.106", dissect_TaskPackage_PDU, proto_z3950, "ESTaskPackage");
   register_ber_oid_dissector("1.2.840.10003.4.2", dissect_DiagnosticFormat_PDU, proto_z3950, "diag-1");
   register_ber_oid_dissector("1.2.840.10003.8.1", dissect_PromptObject_PDU, proto_z3950, "Prompt-1");
@@ -12562,7 +12562,7 @@ proto_reg_handoff_z3950(void)
   register_ber_oid_dissector("1.2.840.10003.10.1000.17.1", dissect_OCLC_UserInformation_PDU, proto_z3950, "OCLC-UserInfo-1");
 
 
-    register_ber_oid_dissector(Z3950_RECORDSYNTAX_MARC21_OID, dissect_marc_record, proto_z3950, "MARC21");
+    register_ber_oid_dissector(Z3950_RECORDSYNTAX_MARC21_OID, dissect_marc_record, proto_z3950, "MARC21 (formerly USMARC)");
 
     oid_add_from_string("Z39.50", "1.2.840.10003");
     oid_add_from_string("Z39.50-APDU", "1.2.840.10003.2");
@@ -12583,7 +12583,6 @@ proto_reg_handoff_z3950(void)
     oid_add_from_string("UNIMARC","1.2.840.10003.5.1");
     oid_add_from_string("INTERMARC","1.2.840.10003.5.2");
     oid_add_from_string("CCF","1.2.840.10003.5.3");
-    oid_add_from_string("MARC21 (formerly USMARC)",Z3950_RECORDSYNTAX_MARC21_OID);
     oid_add_from_string("UKMARC","1.2.840.10003.5.11");
     oid_add_from_string("NORMARC","1.2.840.10003.5.12");
     oid_add_from_string("Librismarc","1.2.840.10003.5.13");
@@ -12608,14 +12607,8 @@ proto_reg_handoff_z3950(void)
     oid_add_from_string("MARC21-fin","1.2.840.10003.5.32");
     oid_add_from_string("COMARC","1.2.840.10003.5.33");
     /* Non-MARC record syntaxes */
-    oid_add_from_string("Explain","1.2.840.10003.5.100");
     oid_add_from_string("Explain with ZSQL","1.2.840.10003.5.100.1");
-    oid_add_from_string("SUTRS","1.2.840.10003.5.101");
-    oid_add_from_string("OPAC","1.2.840.10003.5.102");
-    oid_add_from_string("Summary","1.2.840.10003.5.103");
     oid_add_from_string("GRS-0","1.2.840.10003.5.104");
-    oid_add_from_string("GRS-1","1.2.840.10003.5.105");
-    oid_add_from_string("ESTaskPackage","1.2.840.10003.5.106");
     oid_add_from_string("fragment","1.2.840.10003.5.108");
     /* Attribute sets */
     oid_add_from_string("bib-1",Z3950_ATSET_BIB1_OID);

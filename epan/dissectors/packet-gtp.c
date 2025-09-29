@@ -533,6 +533,7 @@ static int ett_gtp_lst_set_up_pfc;
 static int ett_gtp_rrc_cont;
 static int ett_gtp_rim_routing_adr;
 
+static expert_field ei_gtp_hdr_length_bad;
 static expert_field ei_gtp_ext_hdr_pdcpsn;
 static expert_field ei_gtp_ext_length_mal;
 static expert_field ei_gtp_ext_length_warn;
@@ -2289,14 +2290,6 @@ static const value_string qos_guar_dl[] = {
     {0, NULL}
 };
 
-static const value_string sel_mode_type[] = {
-    {0, "MS or network provided APN, subscribed verified"},
-    {1, "MS provided APN, subscription not verified"},
-    {2, "Network provided APN, subscription not verified"},
-    {3, "For future use (Network provided APN, subscription not verified"}, /* Shall not be sent. If received, shall be sent as value 2 */
-    {0, NULL}
-};
-
 static const value_string tr_comm_type[] = {
     {1, "Send data record packet"},
     {2, "Send possibly duplicated data record packet"},
@@ -2582,6 +2575,8 @@ uint32_t gtp_session_count;
 
 /* Relation between frame -> session */
 wmem_map_t* session_table;
+/* Relation between session -> imsi */
+wmem_map_t* session_imsi;
 /* Relation between <teid,ip> -> frame */
 wmem_map_t* frame_map;
 
@@ -2743,6 +2738,27 @@ is_cause_accepted(uint8_t cause, uint32_t version) {
         return cause == 16 || cause == 17 || cause == 18 || cause == 19;
     }
     return false;
+}
+
+/* Relation between teid -> imsi */
+static wmem_map_t* teid_imsi;
+
+void
+gtp_add_teid_imsi(uint32_t teid, const char* imsi)
+{
+    if(g_gtp_session) {
+        wmem_map_insert(teid_imsi, GUINT_TO_POINTER(teid), wmem_strdup(wmem_epan_scope(), imsi));
+    }
+}
+
+static char*
+gtp_get_imsi_from_teid(uint32_t teid)
+{
+    char *imsi = NULL;
+    if(g_gtp_session) {
+        imsi = (char *)wmem_map_lookup(teid_imsi, GUINT_TO_POINTER(teid));
+    }
+    return imsi;
 }
 
 static int decode_gtp_cause(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, session_args_t * args);
@@ -4586,12 +4602,16 @@ decode_gtp_cause(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree
  * UMTS:        29.060 v4.0, chapter 7.7.2
  */
 static int
-decode_gtp_imsi(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, session_args_t * args _U_)
+decode_gtp_imsi(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, session_args_t * args)
 {
-    /* const char *imsi_str; */
+    const char *imsi_str;
 
     /* Octets 2 - 9 IMSI */
-    /* imsi_str = */ dissect_e212_imsi(tvb, pinfo, tree,  offset+1, 8, false);
+    imsi_str = dissect_e212_imsi(tvb, pinfo, tree,  offset+1, 8, false);
+
+    if (g_gtp_session) {
+        args->imsi = imsi_str;
+    }
 
     return 9;
 }
@@ -4808,7 +4828,7 @@ dissect_radius_selection_mode(proto_tree * tree, tvbuff_t * tvb, packet_info* pi
     sel_mode = tvb_get_uint8(tvb, 0) - 0x30;
     proto_tree_add_uint(tree, hf_gtp_sel_mode, tvb, 0, 1, sel_mode);
 
-    return val_to_str_const(sel_mode, sel_mode_type, "Unknown");
+    return val_to_str_const(sel_mode, gtp_sel_mode_vals, "Unknown");
 }
 
 static int
@@ -4822,7 +4842,7 @@ decode_gtp_sel_mode(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_t
 
     ext_tree = proto_tree_add_subtree(tree, tvb, offset, 2, ett_gtp_ies[GTP_EXT_SEL_MODE], &te,
                             val_to_str_ext_const(GTP_EXT_SEL_MODE, &gtp_val_ext, "Unknown message"));
-    proto_item_append_text(te, ": %s", val_to_str_const(sel_mode, sel_mode_type, "Unknown"));
+    proto_item_append_text(te, ": %s", val_to_str_const(sel_mode, gtp_sel_mode_vals, "Unknown"));
     proto_tree_add_item(ext_tree, hf_gtp_sel_mode, tvb, offset+1, 1, ENC_BIG_ENDIAN);
 
     return 2;
@@ -6320,7 +6340,7 @@ decode_gtp_pdp_cntxt(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree
         if (pdp_addr_len > 0) {
             switch (pdp_type_num) {
             case 0x21:
-                proto_tree_add_item(ext_tree_pdp, hf_gtp_pdp_address_ipv4, tvb, offset + 2, 4, ENC_NA);
+                proto_tree_add_item(ext_tree_pdp, hf_gtp_pdp_address_ipv4, tvb, offset + 2, 4, ENC_BIG_ENDIAN);
                 break;
             case 0x57:
                 proto_tree_add_item(ext_tree_pdp, hf_gtp_pdp_address_ipv6, tvb, offset + 2, 16, ENC_NA);
@@ -9162,7 +9182,7 @@ decode_gtp_stn_sr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tre
  */
 
 static int
-decode_gtp_c_msisdn(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, session_args_t * args _U_)
+decode_gtp_c_msisdn(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, session_args_t * args _U_)
 {
     uint16_t    length;
     proto_tree *ext_tree;
@@ -9176,7 +9196,7 @@ decode_gtp_c_msisdn(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_t
     proto_tree_add_item(ext_tree, hf_gtp_ext_length, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    dissect_e164_msisdn(tvb, ext_tree, offset, length, E164_ENC_BCD);
+    dissect_e164_msisdn(tvb, pinfo, ext_tree, offset, length, E164_ENC_BCD);
 
     return 3 + length;
 }
@@ -9263,15 +9283,6 @@ decode_gtp_ext_enodeb_id(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, pr
 /*
  * 7.7.113 Selection Mode with NSAPI
  */
-
-static const value_string gtp_sel_mode_vals[] = {
-    { 0, "MS or network provided APN, subscription verified" },
-    { 1, "MS provided APN, subscription not verified" },
-    { 2, "Network provided APN, subscription not verified" },
-    { 3, "For future use. Shall not be sent. If received, shall be interpreted as the value 2" },
-    { 0, NULL }
-};
-
 static int
 decode_gtp_ext_sel_mode_w_nsapi(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, session_args_t * args _U_)
 {
@@ -9338,7 +9349,7 @@ decode_gtp_ext_lhn_id_w_sapi(tvbuff_t * tvb, int offset, packet_info * pinfo _U_
     proto_tree_add_item(ext_tree, hf_gtp_nsapi, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    proto_tree_add_item(ext_tree, hf_gtp_lhn_id, tvb, offset, length, ENC_APN_STR|ENC_NA);
+    proto_tree_add_item(ext_tree, hf_gtp_lhn_id, tvb, offset, length, ENC_APN_STR);
 
     return 3 + length;
 }
@@ -9515,7 +9526,7 @@ decode_gtp_scef_pdn_conn(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_
     proto_tree_add_item(ext_tree, hf_gtp_ext_length, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    proto_tree_add_item_ret_uint(ext_tree, hf_gtp_apn_length, tvb, offset, 1, ENC_NA, &apn_length);
+    proto_tree_add_item_ret_uint(ext_tree, hf_gtp_apn_length, tvb, offset, 1, ENC_BIG_ENDIAN, &apn_length);
     decode_apn(pinfo, tvb, offset + 1, (uint16_t)apn_length, ext_tree, NULL);
 
     offset += 1 + apn_length;
@@ -9938,21 +9949,13 @@ decode_gtp_unknown(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree *
 }
 
 static void
-track_gtp_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtp_hdr_t * gtp_hdr, wmem_list_t *teid_list, wmem_list_t *ip_list, uint32_t last_teid, address last_ip)
+track_gtp_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtp_hdr_t * gtp_hdr, session_args_t * args)
 {
     uint32_t session, frame_teid_cp;
     proto_item *it;
+    char *imsi = NULL;
 
     /* GTP session */
-    if (tree) {
-        session = GPOINTER_TO_UINT(wmem_map_lookup(session_table, GUINT_TO_POINTER(pinfo->num)));
-        if (session) {
-            it = proto_tree_add_uint(tree, hf_gtp_session, tvb, 0, 0, session);
-            proto_item_set_generated(it);
-        }
-    }
-
-
     if (!PINFO_FD_VISITED(pinfo) && gtp_version == 1) {
         /* If the message does not have any session ID */
         session = GPOINTER_TO_UINT(wmem_map_lookup(session_table, GUINT_TO_POINTER(pinfo->num)));
@@ -9969,22 +9972,34 @@ track_gtp_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtp_hd
             if ((gtp_hdr->message != GTP_MSG_CREATE_PDP_RESP && gtp_hdr->message != GTP_MSG_CREATE_PDP_REQ && gtp_hdr->message != GTP_MSG_UPDATE_PDP_RESP
                 && gtp_hdr->message != GTP_MSG_UPDATE_PDP_REQ)) {
                 /* If the lists are not empty*/
-                if (wmem_list_count(teid_list) && wmem_list_count(ip_list)) {
+                if (wmem_list_count(args->teid_list) && wmem_list_count(args->ip_list)) {
                     remove_frame_info(pinfo->num);
                 }
             }
 
             if (gtp_hdr->message == GTP_MSG_CREATE_PDP_REQ) {
                 /* If CPDPCREQ and not already in the list then we create a new session*/
-                add_gtp_session(pinfo->num, gtp_session_count++);
+                add_gtp_session(pinfo->num, gtp_session_count);
+
+                if (args->imsi) {
+                    imsi = wmem_strdup(wmem_file_scope(), args->imsi);
+                    wmem_map_insert(session_imsi, GUINT_TO_POINTER(gtp_session_count), imsi);
+                }
+                gtp_session_count++;
+
             } else if (gtp_hdr->message != GTP_MSG_CREATE_PDP_RESP) {
                 /* If this is an error indication then we have to check the session id that belongs to the message with the same data teid and ip */
                 if (gtp_hdr->message == GTP_MSG_ERR_IND) {
-                    if (get_frame(last_ip, last_teid, &frame_teid_cp) == 1) {
+                    if (get_frame(args->last_ip, args->last_teid, &frame_teid_cp) == 1) {
                         session = GPOINTER_TO_UINT(wmem_map_lookup(session_table, GUINT_TO_POINTER(frame_teid_cp)));
                         if (session) {
                             /* We add the corresponding session to the session list*/
                             add_gtp_session(pinfo->num, session);
+
+                            if (args->imsi) {
+                                imsi = wmem_strdup(wmem_file_scope(), args->imsi);
+                                wmem_map_insert(session_imsi, GUINT_TO_POINTER(session), imsi);
+                            }
                         }
                     }
                 }
@@ -9997,9 +10012,32 @@ track_gtp_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtp_hd
                         if (session) {
                             /* We add the corresponding session to the list so that when a response came we can associate its session ID*/
                             add_gtp_session(pinfo->num, session);
+
+                            if (args->imsi) {
+                                imsi = wmem_strdup(wmem_file_scope(), args->imsi);
+                                wmem_map_insert(session_imsi, GUINT_TO_POINTER(session), imsi);
+                            }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (tree) {
+        session = GPOINTER_TO_UINT(wmem_map_lookup(session_table, GUINT_TO_POINTER(pinfo->num)));
+        if (session) {
+            it = proto_tree_add_uint(tree, hf_gtp_session, tvb, 0, 0, session);
+            proto_item_set_generated(it);
+
+            imsi = wmem_map_lookup(session_imsi, GUINT_TO_POINTER(session));
+            if (imsi) {
+                add_assoc_imsi_item(tvb, tree, imsi);
+            }
+        } else {
+            imsi = gtp_get_imsi_from_teid((uint32_t)gtp_hdr->teid);
+            if (imsi) {
+                add_assoc_imsi_item(tvb, tree, imsi);
             }
         }
     }
@@ -10364,9 +10402,11 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
     gtp_hdr_t       *gtp_hdr = NULL;
     proto_tree      *gtp_tree = NULL, *ext_tree;
     proto_tree      *ran_cont_tree = NULL;
-    proto_item      *ti = NULL, *tf, *ext_hdr_len_item, *message_item;
+    proto_item      *ti = NULL, *tf, *hdr_len_item, *ext_hdr_len_item, *message_item;
     int              i, offset = 0, checked_field, mandatory;
     bool             gtp_prime, has_SN;
+    unsigned         reported_len     = 0;
+    unsigned         expected_gtp_payload_len = 0;
     unsigned         seq_no           = 0;
     unsigned         flow_label       = 0;
     unsigned         pdu_no, next_hdr = 0;
@@ -10379,6 +10419,8 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
     gtp_conv_info_t *gtp_info;
     session_args_t  *args             = NULL;
     ie_decoder      *decoder          = NULL;
+
+    reported_len = tvb_reported_length(tvb);
 
     /* Do we have enough bytes for the version and message type? */
     if (!tvb_bytes_exist(tvb, 0, 2)) {
@@ -10530,7 +10572,7 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
     message_item = proto_tree_add_uint(gtp_tree, hf_gtp_message_type, tvb, offset, 1, gtp_hdr->message);
     offset++;
 
-    proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_length, tvb, 2, 2, ENC_BIG_ENDIAN, &gtp_hdr->length);
+    hdr_len_item = proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_length, tvb, 2, 2, ENC_BIG_ENDIAN, &gtp_hdr->length);
     offset += 2;
 
     /* We initialize the sequence number*/
@@ -10563,6 +10605,21 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
             proto_tree_add_string(gtp_tree, hf_gtp_tid, tvb, offset, 8, tid_str);
             offset += 8;
 
+            /* GTP header length stops at the end of the TID field */
+            expected_gtp_payload_len = reported_len - offset;
+            if ((gtp_hdr->length > expected_gtp_payload_len) && (!pinfo->fragmented) && (!pinfo->flags.in_error_pkt)) {
+                /* Bogus length - it goes past the end of the UDP payload */
+                proto_item_append_text(hdr_len_item, " (bogus, expected payload length %u)", expected_gtp_payload_len);
+                expert_add_info_format(pinfo, hdr_len_item, &ei_gtp_hdr_length_bad, "Bad length value %u + GTP header offset %d > UDP payload length %u", gtp_hdr->length, offset, reported_len);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " [BAD GTP LENGTH %u + GTP HEADER OFFSET %d > UDP PAYLOAD LENGTH %u]", gtp_hdr->length, offset, reported_len);
+            }
+            if ((gtp_hdr->length < expected_gtp_payload_len) && (!pinfo->fragmented) && (!pinfo->flags.in_error_pkt)) {
+                /* Bogus length - GTP payload is too small */
+                proto_item_append_text(hdr_len_item, " (bogus, expected payload length %u)", expected_gtp_payload_len);
+                expert_add_info_format(pinfo, hdr_len_item, &ei_gtp_hdr_length_bad, "Bad length value %u + GTP header offset %d < UDP payload length %u", gtp_hdr->length, offset, reported_len);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " [BAD GTP LENGTH %u + GTP HEADER OFFSET %d < UDP PAYLOAD LENGTH %u]", gtp_hdr->length, offset, reported_len);
+            }
+
             set_actual_length(tvb, offset + gtp_hdr->length);
 
             break;
@@ -10570,6 +10627,23 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
             proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_teid, tvb, offset, 4, ENC_BIG_ENDIAN, &value);
             gtp_hdr->teid = value;
             offset += 4;
+
+            /* GTPv1-C header offset stops at the end of the TEID field, the following
+               Sequence Number/N-PDU Number/Extension headers are not included in the length count.
+            */
+            expected_gtp_payload_len = reported_len - offset;
+            if ((gtp_hdr->length > expected_gtp_payload_len) && (!pinfo->fragmented) && (!pinfo->flags.in_error_pkt)) {
+                /* Bogus length - it goes past the end of the UDP payload */
+                proto_item_append_text(hdr_len_item, " (bogus, expected payload length %u)", expected_gtp_payload_len);
+                expert_add_info_format(pinfo, hdr_len_item, &ei_gtp_hdr_length_bad, "Bad length value %u + GTPv1-C header offset %d > UDP payload length %u", gtp_hdr->length, offset, reported_len);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " [BAD GTP-C LENGTH %u + GTPV1-C HEADER OFFSET %d > UDP PAYLOAD LENGTH %u]", gtp_hdr->length, offset, reported_len);
+            }
+            if ((gtp_hdr->length < expected_gtp_payload_len) && (!pinfo->fragmented) && (!pinfo->flags.in_error_pkt)) {
+                /* Bogus length - GTPv1-C payload is too small */
+                proto_item_append_text(hdr_len_item, " (bogus, expected payload length %u)", expected_gtp_payload_len);
+                expert_add_info_format(pinfo, hdr_len_item, &ei_gtp_hdr_length_bad, "Bad length value %u + GTPv1-C header offset %d < UDP payload length %u", gtp_hdr->length, offset, reported_len);
+                col_append_fstr(pinfo->cinfo, COL_INFO, " [BAD GTP-C LENGTH %u + GTPV1-C HEADER OFFSET %d < UDP PAYLOAD LENGTH %u]", gtp_hdr->length, offset, reported_len);
+            }
 
             set_actual_length(tvb, offset + gtp_hdr->length);
 
@@ -10974,7 +11048,7 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
         }
     }
     if (args) {
-        track_gtp_session(tvb, pinfo, gtp_tree, gtp_hdr, args->teid_list, args->ip_list, args->last_teid, args->last_ip);
+        track_gtp_session(tvb, pinfo, gtp_tree, gtp_hdr, args);
     }
     proto_item_set_end(ti, tvb, offset);
 
@@ -11441,7 +11515,7 @@ proto_register_gtp(void)
         },
         {&hf_gtp_ext_hdr_udp_port,
          { "UDP Port", "gtp.ext_hdr.udp_port",
-           FT_UINT16, BASE_DEC, NULL, 0,
+           FT_UINT16, BASE_PT_UDP, NULL, 0,
            NULL, HFILL}
         },
         {&hf_gtp_ext_hdr_length,
@@ -11886,7 +11960,7 @@ proto_register_gtp(void)
         },
         {&hf_gtp_sel_mode,
          { "Selection mode", "gtp.sel_mode",
-           FT_UINT8, BASE_DEC, VALS(sel_mode_type), 0x03,
+           FT_UINT8, BASE_DEC, VALS(gtp_sel_mode_vals), 0x03,
            NULL, HFILL}
         },
         {&hf_gtp_seq_number,
@@ -12985,6 +13059,7 @@ proto_register_gtp(void)
 
 
     static ei_register_info ei[] = {
+        { &ei_gtp_hdr_length_bad, { "gtp.length.invalid", PI_MALFORMED, PI_ERROR, "Bad length value", EXPFILL }},
         { &ei_gtp_ext_length_mal, { "gtp.ext_length.invalid", PI_MALFORMED, PI_ERROR, "Malformed length", EXPFILL }},
         { &ei_gtp_ext_hdr_pdcpsn, { "gtp.ext_hdr.pdcp_sn.non_zero", PI_PROTOCOL, PI_NOTE, "3GPP TS 29.281 v9.0.0: When used between two eNBs at the X2 interface in E-UTRAN, bit 8 of octet 2 is spare. The meaning of the spare bits shall be set to zero.", EXPFILL }},
         { &ei_gtp_ext_length_warn, { "gtp.ext_length.invalid", PI_PROTOCOL, PI_WARN, "Length warning", EXPFILL }},
@@ -13197,7 +13272,9 @@ proto_register_gtp(void)
     gtp_hdr_ext_dissector_table = register_dissector_table("gtp.hdr_ext", "GTP Header Extension", proto_gtp, FT_UINT16, BASE_DEC);
 
     session_table = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
+    session_imsi = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
     frame_map = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), gtp_info_hash, gtp_info_equal);
+    teid_imsi = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
     register_init_routine(gtp_init);
     gtp_tap = register_tap("gtp");
     gtpv1_tap = register_tap("gtpv1");

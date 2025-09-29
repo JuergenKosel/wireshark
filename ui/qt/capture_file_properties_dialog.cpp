@@ -175,7 +175,7 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
     if (summary.file_encap_type == WTAP_ENCAP_PER_PACKET) {
         for (unsigned i = 0; i < summary.packet_encap_types->len; i++)
         {
-            encaps_str = QString(wtap_encap_description(g_array_index(summary.packet_encap_types, int, i)));
+            encaps_str.append(QStringLiteral("%1%2").arg(i > 0 ? ", " : "").arg(wtap_encap_description(g_array_index(summary.packet_encap_types, int, i))));
         }
     } else {
         encaps_str = QString(wtap_encap_description(summary.file_encap_type));
@@ -195,41 +195,45 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
     out << table_end;
 
     // Time Section
-    if (summary.packet_count_ts == summary.packet_count &&
-            summary.packet_count >= 1)
-    {
+    bool start_time_valid = summary.start_time != DBL_MAX;
+    bool stop_time_valid = summary.stop_time != DBL_MIN;
+
+    if (start_time_valid || stop_time_valid) {
         out << section_tmpl_.arg(tr("Time"));
         out << table_begin;
 
         // start time
-        out << table_row_begin;
-        if (application_flavor_is_wireshark()) {
-            out << table_vheader_tmpl.arg(tr("First packet"));
-        } else {
-            out << table_vheader_tmpl.arg(tr("First event"));
+        if (start_time_valid) {
+            out << table_row_begin;
+            if (application_flavor_is_wireshark()) {
+                out << table_vheader_tmpl.arg(tr("First packet"));
+            } else {
+                out << table_vheader_tmpl.arg(tr("First event"));
+            }
+            out << table_data_tmpl.arg(time_t_to_qstring((time_t)summary.start_time))
+                << table_row_end;
         }
-        out << table_data_tmpl.arg(time_t_to_qstring((time_t)summary.start_time))
-            << table_row_end;
 
         // stop time
-        out << table_row_begin;
-        if (application_flavor_is_wireshark()) {
-            out << table_vheader_tmpl.arg(tr("Last packet"));
-        } else {
-            out << table_vheader_tmpl.arg(tr("Last event"));
+        if (stop_time_valid) {
+            out << table_row_begin;
+            if (application_flavor_is_wireshark()) {
+                out << table_vheader_tmpl.arg(tr("Last packet"));
+            } else {
+                out << table_vheader_tmpl.arg(tr("Last event"));
+            }
+            out << table_data_tmpl.arg(time_t_to_qstring((time_t)summary.stop_time))
+                << table_row_end;
         }
-        out << table_data_tmpl.arg(time_t_to_qstring((time_t)summary.stop_time))
-            << table_row_end;
 
         // elapsed seconds (capture duration)
-        if (summary.packet_count_ts >= 2)
-        {
+        if (start_time_valid && stop_time_valid) {
             /* elapsed seconds */
             QString elapsed_str;
             unsigned int elapsed_time = (unsigned int)summary.elapsed_time;
-            if (elapsed_time/86400)
-            {
-                elapsed_str = QStringLiteral("%1 days ").arg(elapsed_time / 86400);
+            unsigned int days = elapsed_time / 86400;
+            if (days) {
+                elapsed_str = tr("%Ln day(s)", "", days) + " ";
             }
 
             elapsed_str += QStringLiteral("%1:%2:%3")
@@ -342,7 +346,7 @@ QString CaptureFilePropertiesDialog::summaryToHtml()
             if (iface.drops_known) {
                 interface_drops = QStringLiteral("%1 (%2%)").arg(iface.drops).arg(QString::number(
                     /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-                    summary.packet_count ? (100.0 * (int64_t)iface.drops)/summary.packet_count : 0, 'f', 1));
+                    summary.packet_count ? (100.0 * (int64_t)iface.drops)/(summary.packet_count + iface.drops) : 0, 'f', 1));
             }
 
             /* Capture filter */

@@ -21,7 +21,7 @@ jobs:
           go-version: '1.22.x'
           check-latest: true
       - name: Install deps
-        run: ./tools/macos-setup-brew.sh --install-optional --install-doc-deps --install-dmg-deps --install-test-deps --install-stratoshark
+        run: ./tools/macos-setup-brew.sh --install-required --install-optional --install-doc-deps --install-dmg-deps --install-test-deps --install-stratoshark
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
       - name: Install dmgbuild
@@ -40,10 +40,10 @@ jobs:
       - name: Build libcloudtrail
         shell: bash
         run: |
-          CLOUDTRAIL_VERSION="0.12.0"
-          curl -OL --remote-header-name "https://github.com/falcosecurity/plugins/archive/refs/tags/cloudtrail-${CLOUDTRAIL_VERSION?}.tar.gz"
-          tar xzf plugins-cloudtrail-${CLOUDTRAIL_VERSION?}.tar.gz
-          cd plugins-cloudtrail-${CLOUDTRAIL_VERSION?}/plugins/cloudtrail
+          CLOUDTRAIL_VERSION="0.12.5"
+          curl -OL --remote-header-name "https://github.com/falcosecurity/plugins/archive/refs/tags/plugins/cloudtrail/v${CLOUDTRAIL_VERSION?}.tar.gz"
+          tar xzf plugins-plugins-cloudtrail-v${CLOUDTRAIL_VERSION?}.tar.gz
+          cd plugins-plugins-cloudtrail-v${CLOUDTRAIL_VERSION?}/plugins/cloudtrail
           make
           cp libcloudtrail.so ../../../build/run/Stratoshark.app/Contents/PlugIns/stratoshark/falco/libcloudtrail.so
       - name: Build libgcpaudit

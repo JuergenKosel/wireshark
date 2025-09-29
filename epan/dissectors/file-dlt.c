@@ -14,8 +14,8 @@
 
  /*
   * Sources for specification:
-  * https://www.autosar.org/fileadmin/standards/classic/21-11/AUTOSAR_SWS_DiagnosticLogAndTrace.pdf
-  * https://www.autosar.org/fileadmin/standards/foundation/1-3/AUTOSAR_PRS_LogAndTraceProtocol.pdf
+  * https://www.autosar.org/fileadmin/standards/R22-11/CP/AUTOSAR_SWS_DiagnosticLogAndTrace.pdf
+  * https://www.autosar.org/fileadmin/standards/R22-11/FO/AUTOSAR_PRS_LogAndTraceProtocol.pdf
   * https://github.com/COVESA/dlt-viewer
   */
 
@@ -66,7 +66,7 @@ dissect_dlt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 
     while (offset + 20 <= tvb_length) {
         item_tree = proto_tree_add_subtree_format(dlt_tree, tvb, offset, -1, ett_dlt_item, &ti_item, "DLT Log Line");
-        proto_tree_add_item(item_tree, hf_dlt_file_magic, tvb, offset, 4, ENC_ASCII | ENC_NA);
+        proto_tree_add_item(item_tree, hf_dlt_file_magic, tvb, offset, 4, ENC_ASCII);
         offset += 4;
 
         uint32_t tstamp_s = 0;

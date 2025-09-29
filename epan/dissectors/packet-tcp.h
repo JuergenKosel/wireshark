@@ -21,16 +21,16 @@ extern "C" {
 #endif /* __cplusplus */
 
 /* TCP flags */
-#define TH_FIN  0x0001
-#define TH_SYN  0x0002
-#define TH_RST  0x0004
-#define TH_PUSH 0x0008
-#define TH_ACK  0x0010
-#define TH_URG  0x0020
-#define TH_ECE  0x0040
-#define TH_CWR  0x0080
-#define TH_AE   0x0100
-#define TH_RES  0x0E00 /* 3 reserved bits */
+#define TH_FIN   0x001
+#define TH_SYN   0x002
+#define TH_RST   0x004
+#define TH_PUSH  0x008
+#define TH_ACK   0x010
+#define TH_URG   0x020
+#define TH_ECE   0x040
+#define TH_CWR   0x080
+#define TH_AE    0x100
+#define TH_RES   0xE00 /* 3 reserved bits */
 #define TH_MASK 0x0FFF
 
 #define IS_TH_FIN(x) (x & TH_FIN)
@@ -42,6 +42,9 @@ extern "C" {
 #define GE_SEQ(x, y) ((int32_t)((y) - (x)) <= 0)
 #define LE_SEQ(x, y) ((int32_t)((x) - (y)) <= 0)
 #define EQ_SEQ(x, y) (x) == (y)
+
+/* Stop counting over 100 isolated parts, although it could technically reach 2^31 */
+#define MAX_CONTIGUOUS_SEQUENCES 100
 
 /* mh as in mptcp header */
 struct mptcpheader {
@@ -328,6 +331,17 @@ typedef struct tcp_analyze_seq_flow_info_t {
 
 	uint8_t lastacklen;     /* length of the last fwd ACK packet - 0 means pure ACK */
 
+	bool valid_bif;     /* if lost pkts, disable BiF until ACK is recvd */
+	bool push_set_last; /* tracking last time PSH flag was set */
+	uint32_t push_bytes_sent; /* bytes since the last PSH flag */
+
+	/*
+	 * Handling of contiguous SEQ ranges
+	 */
+	bool is_client;		/* tracking who initiated the conversation */
+	uint8_t  num_contiguous_ranges;
+	uint32_t contiguous_ranges[MAX_CONTIGUOUS_SEQUENCES][2];
+
 	/*
 	 * Handling of SACK blocks
 	 * Copied from tcpheader
@@ -354,11 +368,9 @@ typedef struct _tcp_flow_t {
 	uint32_t fin;		/* frame number of the final FIN */
 	uint32_t window;		/* last seen window */
 	int16_t	win_scale;	/* -1 is we don't know, -2 is window scaling is not used */
+	int16_t mss;  		/* maximum segment size, -1 unknown */
 	bool scps_capable;	/* flow advertised scps capabilities */
 	uint16_t maxsizeacked;  /* 0 if not yet known */
-	bool valid_bif;     /* if lost pkts, disable BiF until ACK is recvd */
-	uint32_t push_bytes_sent; /* bytes since the last PSH flag */
-	bool push_set_last; /* tracking last time PSH flag was set */
 	uint8_t mp_operations; /* tracking of the MPTCP operations */
 	bool is_first_ack;  /* indicates if this is the first ACK */
 	bool closing_initiator; /* tracking who is responsible of the connection end */
@@ -425,10 +437,10 @@ struct tcp_analysis {
 	 * the source and destination ports.
 	 *
 	 * If the source is greater than the destination, then stuff
-	 * sent from src is in ual1.
+	 * sent from src is in flow1.
 	 *
 	 * If the source is less than the destination, then stuff
-	 * sent from src is in ual2.
+	 * sent from src is in flow2.
 	 *
 	 * XXX - if the addresses and ports are equal, we don't guarantee
 	 * the behavior.
@@ -448,6 +460,7 @@ struct tcp_analysis {
 	 * similar
 	 */
 	struct tcp_acked *ta;
+
 	/* This structure contains a tree containing all the various ta's
 	 * keyed by frame number.
 	 */
@@ -487,6 +500,7 @@ struct tcp_analysis {
 	 * help determine which dissector to call
 	 */
 	uint16_t server_port;
+
 	/* Set when the client sends a SYN with data and the cookie in the Fast Open
 	 * option.
 	 */

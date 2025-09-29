@@ -10,7 +10,7 @@ import logging
 
 @pytest.fixture
 def dfilter_cmd(cmd_tshark, capture_file, request):
-    def wrapped(dfilter, frame_number=None, prefs=None, read_filter=False):
+    def wrapped(dfilter, frame_number=None, prefs=None, read_filter=False, decode_as=()):
         cmd = [
             cmd_tshark,
             "-n",       # No name resolution
@@ -38,6 +38,11 @@ def dfilter_cmd(cmd_tshark, capture_file, request):
                 "-o",
                 prefs
             ])
+        for decode in decode_as:
+            cmd.extend([
+                "-d",
+                decode
+            ])
         return cmd
     return wrapped
 
@@ -57,10 +62,34 @@ def dftest_cmd(cmd_dftest):
     return wrapped
 
 @pytest.fixture
+def dftest_cmd_log(cmd_dftest):
+    def wrapped(dfilter):
+        cmd = [
+            cmd_dftest,
+            "--log-level=message",
+            "--",
+            dfilter
+        ]
+        return cmd
+    return wrapped
+
+@pytest.fixture
+def checkDFLog(dftest_cmd_log, dfilter_env):
+    def checkDFLog_real(dfilter):
+        """Run a display filter and expect dftest to provide logging."""
+        proc = subprocesstest.run(dftest_cmd_log(dfilter),
+                                capture_output=True,
+                                universal_newlines=True,
+                                env=dfilter_env)
+        if proc.stderr:
+            logging.debug(proc.stderr)
+    return checkDFLog_real
+
+@pytest.fixture
 def checkDFilterCount(dfilter_cmd, dfilter_env):
-    def checkDFilterCount_real(dfilter, expected_count, prefs=None):
+    def checkDFilterCount_real(dfilter, expected_count, prefs=None, decode_as=()):
         """Run a display filter and expect a certain number of packets."""
-        proc = subprocesstest.check_run(dfilter_cmd(dfilter, prefs=prefs),
+        proc = subprocesstest.check_run(dfilter_cmd(dfilter, prefs=prefs, decode_as=decode_as),
                                          capture_output=True,
                                          universal_newlines=True,
                                          env=dfilter_env)
