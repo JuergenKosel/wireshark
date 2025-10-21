@@ -68,7 +68,6 @@
 #include <epan/expert.h>
 #include <epan/conversation_table.h>
 #include <epan/uat.h>
-#include <epan/eapol_keydes_types.h>
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
@@ -173,7 +172,7 @@ static bool wlan_key_mic_len_enable;
 static unsigned wlan_key_mic_len;
 
 /* Counter incremented on each (re)association
- * This value will be assiged to each packet's pinfo->srcport/pinfo->destport
+ * This value will be assigned to each packet's pinfo->srcport/pinfo->destport
  * as a way to uniquely make a one to one mapping between conversations and
  * associations
  */
@@ -3731,6 +3730,7 @@ static int proto_wlan;
 static int proto_centrino;
 static int proto_aggregate;
 static bool ieee80211_tvb_invalid;
+static int proto_eapol; /* Externally retrieved */
 
 /* ************************************************************************* */
 /*                Header field info values for FC-field                      */
@@ -6929,6 +6929,10 @@ static int hf_ieee80211_vs_apple_subtype;
 static int hf_ieee80211_vs_apple_length;
 static int hf_ieee80211_vs_apple_data;
 
+static int hf_ieee80211_vs_ubiquiti_type;
+static int hf_ieee80211_vs_ubiquiti_ap_name;
+static int hf_ieee80211_vs_ubiquiti_data;
+
 static int hf_ieee80211_rsn_ie_ptk_keyid;
 
 static int hf_ieee80211_rsn_ie_gtk_kde_data_type;
@@ -8934,13 +8938,6 @@ sta_is_s1g(packet_info *pinfo)
 
   data_p = p_get_proto_data(wmem_file_scope(), pinfo, proto_wlan, IS_S1G_KEY);
   return GPOINTER_TO_INT(data_p);
-}
-
-static const unsigned char bssid_broadcast_data[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-static address bssid_broadcast;
-bool
-is_broadcast_bssid(const address *bssid) {
-  return addresses_equal(&bssid_broadcast, bssid);
 }
 
 static heur_dissector_list_t heur_subdissector_list;
@@ -21322,7 +21319,7 @@ this supports:
 
     proto_tree_add_item_ret_string(ietree, hf_ieee80211_vs_cisco_ap_name_v2, tvb, offset, length, ENC_ASCII|ENC_NA, pinfo->pool,&apname);
     proto_item_append_text(ietree, ": AP name v2: %s", apname);
-    // Set to true, so we dont append "Aironet type"
+    // Set to true, so we don't append "Aironet type"
     dont_change = true;
   break;
 
@@ -21607,6 +21604,38 @@ dissect_vendor_ie_mist(proto_item *item _U_, proto_tree *ietree,
 
         default:
             proto_tree_add_item(ietree, hf_ieee80211_vs_mist_data, tvb, offset, tag_len, ENC_NA);
+            break;
+    }
+}
+
+#define UBIQUITI_APNAME 0x01
+static const value_string ieee80211_vs_ubiquiti_type_vals[] = {
+    { UBIQUITI_APNAME, "AP Name"},
+    { 0,           NULL }
+};
+static void
+dissect_vendor_ie_ubiquiti(proto_item *item _U_, proto_tree *ietree,
+                       tvbuff_t *tvb, int offset, uint32_t tag_len, packet_info *pinfo)
+{
+    uint32_t type, length;
+    const uint8_t* apname;
+
+    /* VS OUI Type */
+    type = tvb_get_uint8(tvb, offset);
+    proto_tree_add_item(ietree, hf_ieee80211_vs_ubiquiti_type, tvb, offset, 1, ENC_NA);
+    proto_item_append_text(item, ": %s", val_to_str_const(type, ieee80211_vs_ubiquiti_type_vals, "Unknown"));
+    offset += 1;
+    tag_len -= 1;
+
+    switch(type){
+        case UBIQUITI_APNAME:
+            length = tag_len;
+            proto_tree_add_item_ret_string(ietree, hf_ieee80211_vs_ubiquiti_ap_name, tvb, offset, length, ENC_ASCII|ENC_NA, pinfo->pool, &apname);
+            proto_item_append_text(item, " (%s)", apname);
+            break;
+
+        default:
+            proto_tree_add_item(ietree, hf_ieee80211_vs_ubiquiti_data, tvb, offset, tag_len, ENC_NA);
             break;
     }
 }
@@ -23663,17 +23692,21 @@ dissect_mmie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
   int tag_len = tvb_reported_length(tvb);
   ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
   int offset = 0;
+  int mic_len = 8;
 
-  if (tag_len < 16) {
+  if (!(tag_len == 16 || tag_len == 24)) {
     expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
-                          "MMIE content length must be at least 16 bytes");
+                          "MMIE content length must be 16 or 24 bytes");
     return 1;
   }
 
+  if (tag_len == 24) {
+    mic_len = 16;
+  }
   proto_tree_add_item(tree, hf_ieee80211_tag_mmie_keyid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
   proto_tree_add_item(tree, hf_ieee80211_tag_mmie_ipn, tvb, offset + 2, 6,
                       ENC_LITTLE_ENDIAN);
-  proto_tree_add_item(tree, hf_ieee80211_tag_mmie_mic, tvb, offset + 8, 8,
+  proto_tree_add_item(tree, hf_ieee80211_tag_mmie_mic, tvb, offset + 8, mic_len,
                       ENC_NA);
   return tvb_captured_length(tvb);
 }
@@ -28372,7 +28405,7 @@ has_comeback_after(uint8_t flags, tvbuff_t *tvb, int offset, int len _U_)
   }
 
   /*
-   * If there is a comeback field and the comback_after is present ...
+   * If there is a comeback field and the comeback_after is present ...
    */
   if (flags & 0x01) {
         /* Check if the comeback_after field is there? */
@@ -33895,6 +33928,9 @@ ieee80211_tag_vendor_specific_ie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
       break;
     case OUI_MIST:
       dissect_vendor_ie_mist(field_data->item_tag, tree, tvb, offset, tag_vs_len, pinfo);
+      break;
+    case OUI_UBIQUITI:
+      dissect_vendor_ie_ubiquiti(field_data->item_tag, tree, tvb, offset, tag_vs_len, pinfo);
       break;
     case OUI_RUCKUS:
       dissect_vendor_ie_ruckus(field_data->item_tag, tree, tvb, offset, tag_vs_len, pinfo);
@@ -54480,7 +54516,7 @@ proto_register_ieee80211(void)
       FT_UINT48, BASE_DEC, NULL, 0x0, NULL, HFILL }},
 
     {&hf_ieee80211_rsn_ie_bigtk_bigtk,
-     {"Key ID", "wlan.rsn.ie.bigtk_kde.bigtk",
+     {"BIGTK", "wlan.rsn.ie.bigtk_kde.bigtk",
       FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
     {&hf_ieee80211_rsn_ie_mlo_link_info,
@@ -55124,6 +55160,21 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_vs_mist_data,
      {"Data", "wlan.vs.mist.data",
+       FT_BYTES, BASE_NONE, NULL, 0,
+       NULL, HFILL }},
+
+    {&hf_ieee80211_vs_ubiquiti_type,
+     {"Subtype", "wlan.vs.ubiquiti.type",
+      FT_UINT8, BASE_DEC, VALS(ieee80211_vs_ubiquiti_type_vals), 0,
+      NULL, HFILL }},
+
+    {&hf_ieee80211_vs_ubiquiti_ap_name,
+     {"AP Name", "wlan.vs.ubiquiti.ap_name",
+       FT_STRING, BASE_NONE, NULL, 0,
+       NULL, HFILL }},
+
+    {&hf_ieee80211_vs_ubiquiti_data,
+     {"Data", "wlan.vs.ubiquiti.data",
        FT_BYTES, BASE_NONE, NULL, 0,
        NULL, HFILL }},
 
@@ -61057,7 +61108,7 @@ proto_register_ieee80211(void)
       FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL }},
 
     {&hf_ieee80211_eht_bw_indi_param_disabled_subchan_bitmap,
-     {"Disabled Subchannel Bitmap Present", "wlan.eht.bw_indication_params.disabled_subchan_bitamp",
+     {"Disabled Subchannel Bitmap Present", "wlan.eht.bw_indication_params.disabled_subchan_bitmap",
       FT_BOOLEAN, 8, NULL, 0x02, NULL, HFILL }},
 
     {&hf_ieee80211_eht_bw_indi_param_reserved1,
@@ -62051,7 +62102,6 @@ proto_register_ieee80211(void)
                                                             ether_len, ether_name_resolution_str, ether_name_resolution_len);
   wlan_bssid_address_type = address_type_dissector_register("AT_ETHER_BSSID", "WLAN BSSID Address", ether_to_str, ether_str_len, NULL, wlan_bssid_col_filter_str,
                                                             ether_len, ether_name_resolution_str, ether_name_resolution_len);
-  set_address(&bssid_broadcast, wlan_bssid_address_type, 6, bssid_broadcast_data);
 
   wlan_ra_ta_address_type = address_type_dissector_register("AT_ETHER_RA_TA", "WLAN RA/TA Address", ether_to_str, ether_str_len, NULL, wlan_ra_ta_col_filter_str,
                                                             ether_len, ether_name_resolution_str, ether_name_resolution_len);
@@ -62299,6 +62349,8 @@ proto_reg_handoff_ieee80211(void)
   epd_llc_handle        = find_dissector_add_dependency("epd_llc", proto_wlan);
   ipx_handle            = find_dissector_add_dependency("ipx", proto_wlan);
   eth_withoutfcs_handle = find_dissector_add_dependency("eth_withoutfcs", proto_wlan);
+
+  proto_eapol = proto_get_id_by_filter_name("eapol");
 
   /*
    * Get the Ethertype dissector table.

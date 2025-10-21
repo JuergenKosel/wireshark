@@ -1123,8 +1123,8 @@ static int dissect_ldap_Filter(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int
 dissect_ldap_MessageID(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                &MessageID);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            0U, maxInt, hf_index, &MessageID);
 
 
   ldm_tree = tree;
@@ -1137,8 +1137,8 @@ dissect_ldap_MessageID(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_ldap_INTEGER_1_127(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            1U, 127U, hf_index, NULL);
 
   return offset;
 }
@@ -1791,8 +1791,8 @@ dissect_ldap_T_derefAliases(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 static int
 dissect_ldap_INTEGER_0_maxInt(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            0U, maxInt, hf_index, NULL);
 
   return offset;
 }
@@ -2284,7 +2284,7 @@ dissect_ldap_AttributeValue(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
   /* attr_type, should be set before calling this function */
 
   /* extract the value of the octetstring */
-  offset = dissect_ber_octet_string(false, actx, NULL, tvb, offset, hf_index, &next_tvb);
+  offset = dissect_ber_octet_string(false, actx, tree, tvb, offset, -1, &next_tvb);
 
   /* first check if we have a custom attribute type configured */
   if ((hf_id = get_hf_for_header (attr_type)) != NULL)
@@ -3452,8 +3452,8 @@ dissect_ldap_T_state(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 
 static int
 dissect_ldap_SyncUUID(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   16, 16, hf_index, NULL);
 
   return offset;
 }

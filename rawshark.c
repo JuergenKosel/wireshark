@@ -52,6 +52,7 @@
 #include <wsutil/please_report_bug.h>
 #include <wsutil/wslog.h>
 #include <wsutil/clopts_common.h>
+#include <wsutil/report_message.h>
 
 #ifdef _WIN32
 #include <wsutil/unicode-utils.h>
@@ -939,7 +940,7 @@ load_cap_file(capture_file *cf)
     wtap_rec_cleanup(&rec);
     if (err != 0) {
         /* Print a message noting that the read failed somewhere along the line. */
-        cfile_read_failure_message(cf->filename, err, err_info);
+        report_cfile_read_failure(cf->filename, err, err_info);
         return false;
     }
 
@@ -1406,6 +1407,7 @@ raw_epan_new(capture_file *cf)
     static const struct packet_provider_funcs funcs = {
         cap_file_provider_get_frame_ts,
         cap_file_provider_get_start_ts,
+        cap_file_provider_get_end_ts,
         cap_file_provider_get_interface_name,
         cap_file_provider_get_interface_description,
         NULL,

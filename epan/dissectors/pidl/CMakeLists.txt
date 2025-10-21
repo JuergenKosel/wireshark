@@ -45,8 +45,6 @@ set(PIDL_DISSECTOR_NAMES
 #
 # These can give some (not-fatal) errors building from source:
 #
-# dnsserver - "dnsserver.idl:159: error: Inline arrays not supported"
-# eventlog - "eventlog.idl:54: error: Inline arrays not supported"
 # nspi - "nspi.idl:154: error: Syntax error near '/'"
 # mapi - includes nspi.idl, so it gets the above error
 # winspool - we have a hand-written spoolss dissector we use instead of spoolss.idl
@@ -54,7 +52,7 @@ set(PIDL_DISSECTOR_NAMES
 # XXX - the "Syntax error near '/'" errors show up if cpp doesn't strip
 # C99/C++ comments and the file in question - nspi.idl - contains
 # C99/C++ comments, because the parser runs cpp, by default, to strip
-# comments and proccess #includes.  Those errors may cause
+# comments and process #includes.  Those errors may cause
 # packet-dcerpc-nspi.c, and possibly packet-dcerpc-mapi.c not to be
 # generated.  GCC's cpp appears to strip them by default, but Xcode's
 # cpp, at least as of Xcode 15.2, does not - cc -E does, however,

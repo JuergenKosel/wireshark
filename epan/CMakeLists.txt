@@ -38,16 +38,10 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	address_types.h
 	afn.h
 	aftypes.h
-	app_mem_usage.h
-	arcnet_pids.h
 	arptypes.h
 	asn1.h
-	ax25_pids.h
-	bridged_pids.h
 	capture_dissectors.h
 	charsets.h
-	chdlctypes.h
-	cisco_pid.h
 	color_filters.h
 	column.h
 	column-info.h
@@ -55,7 +49,6 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	conversation.h
 	conversation_debug.h
 	conversation_table.h
-	conv_id.h
 	crc10-tvb.h
 	crc16-tvb.h
 	crc32-tvb.h
@@ -64,10 +57,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	decode_as.h
 	disabled_protos.h
 	conversation_filter.h
-	dccpservicecodes.h
 	dvb_chartbl.h
-	eap.h
-	eapol_keydes_types.h
 	epan.h
 	epan_dissect.h
 	etypes.h
@@ -88,28 +78,22 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	golay.h
 	guid-utils.h
 	iana_charsets.h
-	iax2_codec_type.h
 	in_cksum.h
 	introspection.h
 	iana-ip.h
 	ip_opts.h
 	ipproto.h
-	lapd_sapi.h
-	llcsaps.h
 	maxmind_db.h
 	media_params.h
 	next_tvb.h
 	nghttp2_hd_huffman.h
-	nlpid.h
 	oids.h
 	osi-utils.h
 	oui.h
 	packet.h
 	packet_info.h
 	params.h
-	pci-ids.h
 	plugin_if.h
-	ppptypes.h
 	print.h
 	print_stream.h
 	prefs.h
@@ -125,10 +109,8 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	register.h
 	req_resp_hdrs.h
 	rtd_table.h
-	sctpppids.h
 	secrets.h
 	show_exception.h
-	slow_protocol_subtypes.h
 	sminmpec.h
 	srt_table.h
 	stat_tap_ui.h
@@ -150,6 +132,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	uat.h
 	uat-int.h
 	unit_strings.h
+	uuid_types.h
 	wmem_scopes.h
 	wscbor.h
 	wscbor_enc.h
@@ -164,7 +147,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	address_types.c
 	afn.c
 	aftypes.c
-	app_mem_usage.c
 	asn1.c
 	capture_dissectors.c
 	charsets.c
@@ -212,7 +194,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	oids.c
 	osi-utils.c
 	packet.c
-	pci-ids.c
 	plugin_if.c
 	print.c
 	print_stream.c
@@ -226,7 +207,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	register.c
 	req_resp_hdrs.c
 	rtd_table.c
-	sctpppids.c
 	secrets.c
 	sequence_analysis.c
 	services.c
@@ -258,6 +238,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	tvbuff_lznt1.c
 	tvbuff_rdp.c
 	uat.c
+	uuid_types.c
 	wscbor.c
 	wscbor_enc.c
 	unit_strings.c
@@ -334,7 +315,6 @@ target_link_libraries(epan
 		${NGHTTP3_LIBRARIES}
 		${SMI_LIBRARIES}
 		${SNAPPY_LIBRARIES}
-		${WIN_PSAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
 		${XXHASH_LIBRARIES}
 		${ZLIB_LIBRARIES}

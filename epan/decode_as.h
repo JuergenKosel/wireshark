@@ -47,6 +47,8 @@ typedef void (*decode_as_free_func)(void *value);
 typedef bool (*decode_as_reset_func)(const char *name, const void *pattern);
 /** callback function definition: Apply value to dissector table */
 typedef bool (*decode_as_change_func)(const char *name, const void *pattern, const void *handle, const char *list_name);
+/** callback function definition: Remove all protocol specific bindings */
+typedef void (*decode_as_reset_all_func)(void);
 
 /**
 Contains all of the function pointers (typically just 1) that
@@ -62,7 +64,7 @@ typedef struct decode_as_value_s {
 /**
 Pulls everything together including the dissector (protocol) name, the
 "layer type" of the dissector, the dissector table name, the function pointer
-values as well as handlers for populating, applying and reseting the changes
+values as well as handlers for populating, applying and resetting the changes
 to the dissector table through Decode As GUI functionality. For dissector
 tables that are an integer or string type, the provided "default" handling
 functions should suffice.
@@ -80,6 +82,7 @@ typedef struct decode_as_s {
     decode_as_reset_func reset_value;               /**< function pointer to the function used resetting the value, NULL if none */
     decode_as_change_func change_value;             /**< function pointer to the function used resetting the value, NULL if none */
     decode_as_free_func free_func;                  /**< function pointer to the function used freeing the entry, NULL if none */
+    decode_as_reset_all_func reset_all;             /**< function pointer to the function used remove all protocol specific bindings, NULL if none */
 
 } decode_as_t;
 

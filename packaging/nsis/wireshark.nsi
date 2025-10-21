@@ -313,7 +313,7 @@ Function .onInit
 
   ; This should match the following:
   ; - The NTDDI_VERSION and _WIN32_WINNT parts of cmakeconfig.h.in
-  ; - The <compatibility><application> section in image\wireshark.exe.manifest.in
+  ; - The <compatibility><application> section in resources\wireshark.exe.manifest.in
   ; - The VersionNT parts of packaging\wix\Prerequisites.wxi
 
   ; Uncomment to test.
@@ -360,6 +360,20 @@ ${If} ${AtMostWin8.1}
 ${OrIf} ${AtMostWin2012R2}
   MessageBox MB_OK \
     "Windows 7, 8, 8.1, Server 2008R2, and Server 2012 are no longer supported.$\nPlease install ${PROGRAM_NAME} 4.0 instead." \
+    /SD IDOK
+  Quit
+${EndIf}
+
+${IfNot} ${AtLeastBuild} 14393
+  MessageBox MB_OK \
+    "Windows 10 versions before 1607 are no longer supported.$\nPlease install ${PROGRAM_NAME} 4.0 instead." \
+    /SD IDOK
+  Quit
+${EndIf}
+
+${IfNot} ${AtLeastBuild} 17763
+  MessageBox MB_OK \
+    "Windows 10 versions before 1809 and Windows Server 2016 are no longer supported.$\nPlease install ${PROGRAM_NAME} 4.4 instead." \
     /SD IDOK
   Quit
 ${EndIf}

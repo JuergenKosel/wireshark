@@ -24,6 +24,7 @@
 #include <epan/etypes.h>
 #include <epan/to_str.h>
 #include <epan/iana_charsets.h>
+#include <epan/exceptions.h>
 
 #include "packet-btsdp.h"
 #include "packet-btl2cap.h"
@@ -1376,7 +1377,7 @@ get_int_by_size(tvbuff_t *tvb, int off, int size)
 }
 
 static int
-dissect_uuid(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int offset, int size, bluetooth_uuid_t *uuid)
+dissect_uuid(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, int offset, int size, bluetooth_uuid_t *uuid)
 {
     proto_item  *item;
 
@@ -1398,7 +1399,7 @@ dissect_uuid(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int offset, in
         item = proto_tree_add_item(tree, hf_data_element_value_uuid, tvb, offset, size, ENC_NA);
         x_uuid = get_bluetooth_uuid(tvb, offset, size);
 
-        proto_item_append_text(item, " (%s)", print_bluetooth_uuid(pinfo->pool, &x_uuid));
+        proto_item_append_text(item, " (%s)", print_bluetooth_uuid(&x_uuid));
 
         uuid->bt_uuid = 0;
     }
@@ -1900,29 +1901,34 @@ dissect_data_element(proto_tree *tree, proto_tree **next_tree,
     uint8_t     type;
     uint8_t     size;
 
-    new_offset = get_type_length(tvb, offset, &length) - 1;
     type = tvb_get_uint8(tvb, offset);
     size = type & 0x07;
     type = type >> 3;
 
-    pitem = proto_tree_add_none_format(tree, hf_data_element, tvb, offset, 0, "Data Element: %s %s",
+    pitem = proto_tree_add_none_format(tree, hf_data_element, tvb, offset, 1, "Data Element: %s %s",
             val_to_str_const(type, vs_data_element_type, "Unknown Type"),
             val_to_str_const(size, vs_data_element_size, "Unknown Size"));
     ptree = proto_item_add_subtree(pitem, ett_btsdp_data_element);
 
-    len = (new_offset - offset) + length;
-
-    proto_item_set_len(pitem, len + 1);
-
     proto_tree_add_item(ptree, hf_data_element_type, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(ptree, hf_data_element_size, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+    new_offset = get_type_length(tvb, offset, &length);
+
+    if (tvb_reported_length_remaining(tvb, new_offset) < length) {
+        len = tvb_reported_length_remaining(tvb, offset);
+    } else {
+        len = new_offset - offset + length;
+    }
+    proto_item_set_len(pitem, len);
+
     offset += 1;
 
-    if (new_offset > offset - 1) {
+    if (new_offset > offset) {
         proto_tree_add_uint(ptree, hf_data_element_var_size, tvb,
-                offset, len - length, length);
+                offset, new_offset - offset, length);
         proto_item_append_text(pitem, (length != 1) ? " %u bytes" : " %u byte", length);
-        offset += len - length;
+        offset = new_offset;
     }
 
     pitem = proto_tree_add_item(ptree, hf_data_element_value, tvb, offset, length, ENC_NA);
@@ -1933,7 +1939,16 @@ dissect_data_element(proto_tree *tree, proto_tree **next_tree,
         proto_item_append_text(pitem, ": MISSING");
 
     if (next_tree) *next_tree = proto_item_add_subtree(pitem, ett_btsdp_data_element_value);
-    offset += length;
+
+    /* XXX - proto_tree_add_item above does not throw an exception because
+     * hf_data_element_value is a FT_NONE. Normally that works because
+     * dissectors do not advance the offset until after dissecting the
+     * contained items. However, some callers do not check the length,
+     * assuming the expected type, so we have to check for overflow here.
+     */
+    if (ckd_add(&offset, offset, length)) {
+        THROW(ReportedBoundsError);
+    }
 
     return offset;
 }
@@ -2013,7 +2028,7 @@ dissect_protocol_descriptor_list(proto_tree *next_tree, tvbuff_t *tvb,
 
         dissect_uuid(sub_tree, pinfo, tvb, entry_offset, length, &uuid);
 
-        uuid_str = print_bluetooth_uuid(pinfo->pool, &uuid);
+        uuid_str = print_bluetooth_uuid(&uuid);
         wmem_strbuf_append(info_buf, uuid_str);
         proto_item_append_text(feature_item, ": %s", uuid_str);
         proto_item_append_text(entry_item, ": %s", uuid_str);
@@ -3308,7 +3323,7 @@ dissect_sdp_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
 
                 dissect_uuid(entry_tree, pinfo, tvb, list_offset, list_length, &uuid);
 
-                wmem_strbuf_append(info_buf, print_bluetooth_uuid(pinfo->pool, &uuid));
+                wmem_strbuf_append(info_buf, print_bluetooth_uuid(&uuid));
                 list_offset += list_length;
 
                 if (list_offset - offset < size)
@@ -3322,7 +3337,7 @@ dissect_sdp_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
             break;
         case 0x003:
             dissect_uuid(next_tree, pinfo, tvb, offset, size, &uuid);
-            wmem_strbuf_append(info_buf, print_bluetooth_uuid(pinfo->pool, &uuid));
+            wmem_strbuf_append(info_buf, print_bluetooth_uuid(&uuid));
             break;
         case 0x004:
             protocol_order = 0;
@@ -3337,7 +3352,7 @@ dissect_sdp_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
 
                 dissect_uuid(entry_tree, pinfo, tvb, list_offset, list_length, &uuid);
 
-                wmem_strbuf_append(info_buf, print_bluetooth_uuid(pinfo->pool, &uuid));
+                wmem_strbuf_append(info_buf, print_bluetooth_uuid(&uuid));
                 list_offset += list_length;
 
                 if (list_offset - offset < size)
@@ -3406,7 +3421,7 @@ dissect_sdp_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
 
                 dissect_uuid(sub_tree, pinfo, tvb, entry_offset, entry_length, &uuid);
 
-                uuid_str = print_bluetooth_uuid(pinfo->pool, &uuid);
+                uuid_str = print_bluetooth_uuid(&uuid);
                 wmem_strbuf_append(info_buf, uuid_str);
                 proto_item_append_text(entry_item, ": %s", uuid_str);
 
@@ -3500,7 +3515,7 @@ dissect_sdp_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
     }
     case 3:
         dissect_uuid(next_tree, pinfo, tvb, offset, size, &uuid);
-        wmem_strbuf_append_printf(info_buf, ": %s", print_bluetooth_uuid(pinfo->pool, &uuid));
+        wmem_strbuf_append_printf(info_buf, ": %s", print_bluetooth_uuid(&uuid));
         break;
     case 8: /* fall through */
     case 4: {
@@ -4026,7 +4041,7 @@ dissect_sdp_service_attribute_list(proto_tree *tree, tvbuff_t *tvb, int offset,
 
     if (uuid.size)
         proto_item_append_text(list_tree, " [count = %2u] (%s%s)",
-                number_of_attributes, (uuid.bt_uuid) ? "" : "CustomUUID: ", print_bluetooth_uuid(pinfo->pool, &uuid));
+                number_of_attributes, (uuid.bt_uuid) ? "" : "CustomUUID: ", print_bluetooth_uuid(&uuid));
     else
         proto_item_append_text(list_tree, " [count = %2u]",
                 number_of_attributes);
@@ -6532,7 +6547,7 @@ proto_register_btsdp(void)
 
     static ei_register_info ei[] = {
         { &ei_btsdp_continuation_state_none,  { "btsdp.expert.continuation_state_none",  PI_MALFORMED, PI_WARN,      "There is no Continuation State", EXPFILL }},
-        { &ei_btsdp_continuation_state_large, { "btsdp.expert.continuation_state_large", PI_MALFORMED, PI_WARN,      "Continuation State data is longer then 16", EXPFILL }},
+        { &ei_btsdp_continuation_state_large, { "btsdp.expert.continuation_state_large", PI_MALFORMED, PI_WARN,      "Continuation State data is longer than 16", EXPFILL }},
         { &ei_data_element_value_large,       { "btsdp.expert.data_element.value.large", PI_MALFORMED, PI_WARN,      "Data size exceeds the length of payload", EXPFILL }},
         { &ei_length_bad,      { "btsdp.expert.length.bad",      PI_MALFORMED, PI_WARN, "Invalid length", EXPFILL }},
     };

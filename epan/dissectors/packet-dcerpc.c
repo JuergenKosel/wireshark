@@ -37,6 +37,7 @@
 #include <epan/srt_table.h>
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
+#include <epan/uuid_types.h>
 #include <epan/show_exception.h>
 #include <epan/decode_as.h>
 #include <epan/proto_data.h>
@@ -851,7 +852,7 @@ dcerpc_decode_as_free(void *value)
 }
 
 /* removes all bindings */
-void
+static void
 decode_dcerpc_reset_all(void)
 {
     decode_dcerpc_bind_values_t *binding;
@@ -932,6 +933,8 @@ struct dcerpc_decode_as_populate
     void *ui_element;
 };
 
+static int dcerpc_uuid_id;
+
 static void
 decode_dcerpc_add_to_list(void *key, void *value, void *user_data)
 {
@@ -952,7 +955,7 @@ dcerpc_populate_list(const char *table_name _U_, decode_as_add_to_list_func add_
     populate.add_to_list = add_to_list;
     populate.ui_element = ui_element;
 
-    g_hash_table_foreach(dcerpc_uuids, decode_dcerpc_add_to_list, &populate);
+    uuid_type_foreach_by_id(dcerpc_uuid_id, decode_dcerpc_add_to_list, &populate);
 }
 
 /* compare two bindings (except the interface related things, e.g. uuid) */
@@ -1358,9 +1361,6 @@ typedef struct _dcerpc_dissector_data
 
 static dissector_table_t    uuid_dissector_table;
 
-/* the registered subdissectors */
-GHashTable *dcerpc_uuids;
-
 static int
 dcerpc_uuid_equal(const void *k1, const void *k2)
 {
@@ -1377,6 +1377,13 @@ dcerpc_uuid_hash(const void *k)
     /* This isn't perfect, but the Data1 part of these is almost always
        unique. */
     return key->guid.data1;
+}
+
+static const char*
+dcerpc_uuid_tostr(void* uuid, wmem_allocator_t* scope)
+{
+    const guid_key* key = (const guid_key*)uuid;
+    return wmem_strdup_printf(scope, "%s:%u", guids_get_guid_name(&key->guid, scope), key->ver);
 }
 
 
@@ -1679,33 +1686,36 @@ dissect_dcerpc_guid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
 static void
 dcerpc_init_finalize(dissector_handle_t guid_handle, guid_key *key, dcerpc_uuid_value *value)
 {
-    g_hash_table_insert(dcerpc_uuids, key, value);
+    guid_key* perm_key = wmem_memdup(wmem_epan_scope(), key, sizeof(guid_key));
+    dcerpc_uuid_value* perm_value = wmem_memdup(wmem_epan_scope(), value, sizeof(dcerpc_uuid_value));
+
+    uuid_type_insert(dcerpc_uuid_id, perm_key, perm_value);
 
     /* Register the GUID with the dissector table */
-    dissector_add_guid( "dcerpc.uuid", key, guid_handle );
+    dissector_add_guid( "dcerpc.uuid", perm_key, guid_handle );
 
     /* add this GUID to the global name resolving */
-    guids_add_uuid(&key->guid, proto_get_protocol_short_name(value->proto));
+    guids_add_guid(&perm_key->guid, proto_get_protocol_short_name(perm_value->proto));
 }
 
 void
 dcerpc_init_uuid(int proto, int ett, e_guid_t *uuid, uint16_t ver,
                  const dcerpc_sub_dissector *procs, int opnum_hf)
 {
-    guid_key   *key         = (guid_key *)g_malloc(sizeof (*key));
-    dcerpc_uuid_value *value       = (dcerpc_uuid_value *)g_malloc(sizeof (*value));
+    guid_key key;
+    dcerpc_uuid_value value;
     header_field_info *hf_info;
     dissector_handle_t guid_handle;
 
-    key->guid = *uuid;
-    key->ver = ver;
+    key.guid = *uuid;
+    key.ver = ver;
 
-    value->proto    = find_protocol_by_id(proto);
-    value->proto_id = proto;
-    value->ett      = ett;
-    value->name     = proto_get_protocol_short_name(value->proto);
-    value->procs    = procs;
-    value->opnum_hf = opnum_hf;
+    value.proto    = find_protocol_by_id(proto);
+    value.proto_id = proto;
+    value.ett      = ett;
+    value.name     = proto_get_protocol_short_name(value.proto);
+    value.procs    = procs;
+    value.opnum_hf = opnum_hf;
 
     hf_info = proto_registrar_get_nth(opnum_hf);
     hf_info->strings = value_string_from_subdissectors(procs);
@@ -1713,31 +1723,30 @@ dcerpc_init_uuid(int proto, int ett, e_guid_t *uuid, uint16_t ver,
     /* Register the GUID with the dissector table */
     guid_handle = create_dissector_handle( dissect_dcerpc_guid, proto);
 
-    dcerpc_init_finalize(guid_handle, key, value);
+    dcerpc_init_finalize(guid_handle, &key, &value);
 }
 
 void
 dcerpc_init_from_handle(int proto, e_guid_t *uuid, uint16_t ver,
                 dissector_handle_t guid_handle)
 {
-    guid_key   *key         = (guid_key *)g_malloc(sizeof (*key));
-    dcerpc_uuid_value *value       = (dcerpc_uuid_value *)g_malloc(sizeof (*value));
+    guid_key key;
+    dcerpc_uuid_value value;
 
-    key->guid = *uuid;
-    key->ver = ver;
+    key.guid = *uuid;
+    key.ver = ver;
 
-    value->proto    = find_protocol_by_id(proto);
-    value->proto_id = proto;
-    value->ett      = -1;
-    value->name     = proto_get_protocol_short_name(value->proto);
-    value->opnum_hf = 0;
+    value.proto    = find_protocol_by_id(proto);
+    value.proto_id = proto;
+    value.ett      = -1;
+    value.name     = proto_get_protocol_short_name(value.proto);
+    value.opnum_hf = 0;
 
-    if (g_hash_table_contains(dcerpc_uuids, key)) {
-        g_hash_table_remove(dcerpc_uuids, key);
+    if (uuid_type_remove_if_present(dcerpc_uuid_id, &key)) {
         guids_delete_guid(uuid);
     }
 
-    dcerpc_init_finalize(guid_handle, key, value);
+    dcerpc_init_finalize(guid_handle, &key, &value);
 }
 
 /* Function to find the name of a registered protocol
@@ -1771,7 +1780,7 @@ dcerpc_get_proto_hf_opnum(e_guid_t *uuid, uint16_t ver)
 
     key.guid = *uuid;
     key.ver = ver;
-    if (!(sub_proto = (dcerpc_uuid_value *)g_hash_table_lookup(dcerpc_uuids, &key))) {
+    if (!(sub_proto = (dcerpc_uuid_value *)uuid_type_lookup(dcerpc_uuid_id, &key))) {
         return -1;
     }
     return sub_proto->opnum_hf;
@@ -1817,7 +1826,7 @@ dcerpc_get_proto_sub_dissector(e_guid_t *uuid, uint16_t ver)
 
     key.guid = *uuid;
     key.ver = ver;
-    if (!(sub_proto = (dcerpc_uuid_value *)g_hash_table_lookup(dcerpc_uuids, &key))) {
+    if (!(sub_proto = (dcerpc_uuid_value *)uuid_type_lookup(dcerpc_uuid_id, &key))) {
         return NULL;
     }
     return sub_proto->procs;
@@ -3023,7 +3032,7 @@ dissect_deferred_pointers(packet_info *pinfo, tvbuff_t *tvb, int offset, dcerpc_
     GSList      *current_ndr_pointer_list;
 
     /*
-     * pidl has a difficiency of unconditionally emitting calls
+     * pidl has a deficiency of unconditionally emitting calls
      * dissect_deferred_pointers() to the generated dissectors.
      */
     if (di->pointers.list_list == NULL) {
@@ -3094,7 +3103,7 @@ process_list:
                  *
                  * All dissect_ndr_<type> dissectors are already prepared
                  * for this and knows when it should eat data from the tvb
-                 * and when not to, so implementors of dissectors will
+                 * and when not to, so implementers of dissectors will
                  * normally not need to worry about this or even know about
                  * it. However, if a dissector for an aggregate type calls
                  * a subdissector from outside packet-dcerpc.c, such as
@@ -3546,7 +3555,7 @@ dissect_sec_vt_pcontext(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb)
     const char *uuid_name;
 
     tvb_get_letohguid(tvb, offset, &uuid);
-    uuid_name = guids_get_uuid_name(&uuid, pinfo->pool);
+    uuid_name = guids_get_guid_name(&uuid, pinfo->pool);
     if (!uuid_name) {
             uuid_name = guid_to_str(pinfo->pool, &uuid);
     }
@@ -3560,7 +3569,7 @@ dissect_sec_vt_pcontext(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb)
     offset += 4;
 
     tvb_get_letohguid(tvb, offset, &uuid);
-    uuid_name = guids_get_uuid_name(&uuid, pinfo->pool);
+    uuid_name = guids_get_guid_name(&uuid, pinfo->pool);
     if (!uuid_name) {
             uuid_name = guid_to_str(pinfo->pool, &uuid);
     }
@@ -3786,7 +3795,7 @@ dcerpc_try_handoff(packet_info *pinfo, proto_tree *tree,
     memcpy(&key.guid, &info->call_data->uuid, sizeof(key.guid));
     key.ver = info->call_data->ver;
 
-    dissector_data.sub_proto = (dcerpc_uuid_value *)g_hash_table_lookup(dcerpc_uuids, &key);
+    dissector_data.sub_proto = (dcerpc_uuid_value *)uuid_type_lookup(dcerpc_uuid_id, &key);
     dissector_data.info = info;
     dissector_data.decrypted = decrypted;
     dissector_data.auth_info = auth_info;
@@ -4144,7 +4153,7 @@ dissect_dcerpc_cn_bind(tvbuff_t *tvb, int offset, packet_info *pinfo,
             iface_tree = proto_item_add_subtree(iface_item, ett_dcerpc_cn_iface);
 
             uuid_str = guid_to_str(pinfo->pool, (e_guid_t*)&if_id);
-            uuid_name = guids_get_uuid_name(&if_id, pinfo->pool);
+            uuid_name = guids_get_guid_name(&if_id, pinfo->pool);
             if (uuid_name) {
                 proto_tree_add_guid_format(iface_tree, hf_dcerpc_cn_bind_if_id, tvb,
                                            offset, 16, (e_guid_t *) &if_id, "Interface: %s UUID: %s", uuid_name, uuid_str);
@@ -4188,7 +4197,7 @@ dissect_dcerpc_cn_bind(tvbuff_t *tvb, int offset, packet_info *pinfo,
                 trans_tree = proto_item_add_subtree(trans_item, ett_dcerpc_cn_trans_syntax);
 
                 uuid_str = guid_to_str(pinfo->pool, (e_guid_t *) &trans_id);
-                uuid_name = guids_get_uuid_name(&trans_id, pinfo->pool);
+                uuid_name = guids_get_guid_name(&trans_id, pinfo->pool);
 
                 /* check for [MS-RPCE] 3.3.1.5.3 Bind Time Feature Negotiation */
                 if (trans_id.data1 == 0x6cb71c2c && trans_id.data2 == 0x9812 && trans_id.data3 == 0x4540) {
@@ -4351,7 +4360,7 @@ dissect_dcerpc_cn_bind_ack(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
         if (ctx_tree) {
             dcerpc_tvb_get_uuid(tvb, offset, hdr->drep, &trans_id);
-            uuid_name = guids_get_uuid_name(&trans_id, pinfo->pool);
+            uuid_name = guids_get_guid_name(&trans_id, pinfo->pool);
             if (! uuid_name) {
                 uuid_name = guid_to_str(pinfo->pool, (e_guid_t *) &trans_id);
             }
@@ -6614,7 +6623,7 @@ dissect_dcerpc_dg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
     if (tree) {
         uuid_str = guid_to_str(pinfo->pool, (e_guid_t*)&hdr.if_id);
-        uuid_name = guids_get_uuid_name(&hdr.if_id, pinfo->pool);
+        uuid_name = guids_get_guid_name(&hdr.if_id, pinfo->pool);
         if (uuid_name) {
             proto_tree_add_guid_format(dcerpc_tree, hf_dcerpc_dg_if_id, tvb,
                                        offset, 16, (e_guid_t *) &hdr.if_id, "Interface: %s UUID: %s", uuid_name, uuid_str);
@@ -6793,7 +6802,6 @@ dcerpc_shutdown(void)
 {
     g_slist_foreach(dcerpc_auth_subdissector_list, dcerpc_auth_subdissector_list_free, NULL);
     g_slist_free(dcerpc_auth_subdissector_list);
-    g_hash_table_destroy(dcerpc_uuids);
     tvb_free(tvb_trailer_signature);
 }
 
@@ -7241,7 +7249,7 @@ proto_register_dcerpc(void)
     static decode_as_value_t dcerpc_da_values = {dcerpc_prompt, 1, dcerpc_da_build_value};
     static decode_as_t dcerpc_da = {"dcerpc", "dcerpc.uuid",
                                     1, 0, &dcerpc_da_values, NULL, NULL,
-                                    dcerpc_populate_list, decode_dcerpc_binding_reset, dcerpc_decode_as_change, dcerpc_decode_as_free};
+                                    dcerpc_populate_list, decode_dcerpc_binding_reset, dcerpc_decode_as_change, dcerpc_decode_as_free, decode_dcerpc_reset_all };
 
     module_t *dcerpc_module;
     expert_module_t* expert_dcerpc;
@@ -7308,8 +7316,7 @@ proto_register_dcerpc(void)
                           &addresses_reassembly_table_functions);
     reassembly_table_register(&dcerpc_cl_reassembly_table,
                           &dcerpc_cl_reassembly_table_functions);
-
-    dcerpc_uuids = g_hash_table_new_full(dcerpc_uuid_hash, dcerpc_uuid_equal, g_free, g_free);
+    dcerpc_uuid_id = uuid_type_dissector_register("dcerpc", dcerpc_uuid_hash, dcerpc_uuid_equal, dcerpc_uuid_tostr);
     dcerpc_tap = register_tap("dcerpc");
 
     register_decode_as(&dcerpc_da);
@@ -7338,9 +7345,9 @@ proto_reg_handoff_dcerpc(void)
 
     dissector_add_for_decode_as("tcp.port", dcerpc_tcp_handle);
 
-    guids_add_uuid(&uuid_data_repr_proto, "32bit NDR");
-    guids_add_uuid(&uuid_ndr64, "64bit NDR");
-    guids_add_uuid(&uuid_asyncemsmdb, "async MAPI");
+    guids_add_guid(&uuid_data_repr_proto, "32bit NDR");
+    guids_add_guid(&uuid_ndr64, "64bit NDR");
+    guids_add_guid(&uuid_asyncemsmdb, "async MAPI");
 }
 
 /*

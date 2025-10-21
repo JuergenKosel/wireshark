@@ -18,6 +18,7 @@
 #include <errno.h>
 
 #include <wsutil/file_util.h>
+#include <wsutil/file_compressed.h>
 #include <wsutil/tempfile.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
@@ -102,6 +103,7 @@
 #include "ttl.h"
 #include "peak-trc.h"
 #include "netlog.h"
+#include "procmon.h"
 
 /*
  * Add an extension, and all compressed versions thereof if requested,
@@ -183,7 +185,7 @@ static const struct file_extension_info wireshark_file_type_extensions_base[] = 
 	{ "JPEG/JFIF files", false, "jpg;jpeg;jfif" },
 	{ "NetLog file", true, "json" },
 	{ "JavaScript Object Notation file", false, "json" },
-	{ "JSON Lines", true, "jsonl;log" },
+	{ "JSON Log", true, "json;jsonl;log" },
 	{ "MP4 file", false, "mp4" },
 	{ "RTPDump file", false, "rtp;rtpdump" },
 	{ "EMS file", false, "ems" },
@@ -196,7 +198,8 @@ static const struct file_extension_info wireshark_file_type_extensions_base[] = 
 
 static const struct file_extension_info stratoshark_file_type_extensions_base[] = {
 	{ "Stratoshark/... - scap", true, "scap"},
-	{ "JSON Lines", true, "jsonl;log" },
+	{ "JSON Log", true, "json;jsonl;log" },
+	{"MS Procmon", true, "pml"},
 };
 
 #define N_STRATOSHARK_FILE_TYPE_EXTENSIONS array_length(stratoshark_file_type_extensions_base)
@@ -294,7 +297,7 @@ wtap_get_file_extension_type_extensions(unsigned extension_type)
 	/*
 	 * Get compression-type extensions, if any.
 	 */
-	compression_type_extensions = wtap_get_all_compression_type_extensions_list();
+	compression_type_extensions = ws_get_all_compression_type_extensions_list();
 
 	/*
 	 * Add all this file extension type's extensions, with compressed
@@ -387,6 +390,7 @@ static const struct open_info open_info_base[] = {
 	{ "Micropross mplog",                       OPEN_INFO_MAGIC,     mplog_open,               NULL,   NULL, NULL },
 	{ "Unigraf DPA-400 capture",                OPEN_INFO_MAGIC,     dpa400_open,              NULL,       NULL, NULL },
 	{ "RFC 7468 files",                         OPEN_INFO_MAGIC,     rfc7468_open,             NULL,  NULL, NULL },
+	{ "MS Procmon Files",                       OPEN_INFO_MAGIC,     procmon_open,             NULL,  NULL, NULL },
 
 	/* Open routines that have no magic numbers and require heuristics. */
 	{ "Novell LANalyzer",                       OPEN_INFO_HEURISTIC, lanalyzer_open,           "tr1",      NULL, NULL },
@@ -450,7 +454,7 @@ static const struct open_info open_info_base[] = {
 	/* NetLog needs to be before JSON because it is a specifically formatted JSON file */
 	{ "NetLog",                                 OPEN_INFO_HEURISTIC, netlog_open,              "json",     NULL, NULL },
 	/* JSON Log needs to be before JSON because it handles a variety of JSON logs */
-	{ "JSON Log",                               OPEN_INFO_HEURISTIC, json_log_open,            "jsonl;log", NULL, NULL },
+	{ "JSON Log",                               OPEN_INFO_HEURISTIC, json_log_open,            "json;jsonl;log", NULL, NULL },
 	{ "JavaScript Object Notation",             OPEN_INFO_HEURISTIC, json_open,                "json",     NULL, NULL },
 	{ "Bachmann M-Module File",                 OPEN_INFO_HEURISTIC, mmodule_open,             "m",        NULL, NULL },
 	{ "Ruby Marshal Object",                    OPEN_INFO_HEURISTIC, ruby_marshal_open,        "",         NULL, NULL },
@@ -727,7 +731,7 @@ get_file_extension(const char *pathname)
 	/*
 	 * Get compression-type extensions, if any.
 	 */
-	GSList *compression_type_extensions = wtap_get_all_compression_type_extensions_list();
+	GSList *compression_type_extensions = ws_get_all_compression_type_extensions_list();
 
 	/*
 	 * Is the last component one of the extensions used for compressed
@@ -1047,6 +1051,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 	wth->subtype_close = NULL;
 	wth->file_tsprec = WTAP_TSPREC_USEC;
 	nstime_set_unset(&wth->file_start_ts);
+	nstime_set_unset(&wth->file_end_ts);
 	wth->pathname = g_strdup(filename);
 	wth->priv = NULL;
 	wth->wslua_data = NULL;
@@ -1999,7 +2004,7 @@ wtap_get_file_extensions_list(int file_type_subtype, bool include_compressed)
 		/*
 		 * Get compression-type extensions, if any.
 		 */
-		compression_type_extensions = wtap_get_all_compression_type_extensions_list();
+		compression_type_extensions = ws_get_all_compression_type_extensions_list();
 	} else {
 		/*
 		 * We don't want the compressed file extensions.
@@ -2047,7 +2052,7 @@ wtap_get_all_capture_file_extensions_list(void)
 	/*
 	 * Get compression-type extensions, if any.
 	 */
-	compression_type_extensions = wtap_get_all_compression_type_extensions_list();
+	compression_type_extensions = ws_get_all_compression_type_extensions_list();
 
 	for (i = 0; i < file_type_extensions_arr->len; i++) {
 		/*
@@ -2095,7 +2100,7 @@ wtap_get_all_file_extensions_list(void)
 	/*
 	 * Get compression-type extensions, if any.
 	 */
-	compression_type_extensions = wtap_get_all_compression_type_extensions_list();
+	compression_type_extensions = ws_get_all_compression_type_extensions_list();
 
 	for (int ft = 0; ft < (int)file_type_subtype_table_arr->len; ft++) {
 		extensions = add_extensions_for_file_type_subtype(ft, extensions,
@@ -2189,7 +2194,7 @@ static int wtap_dump_file_close(wtap_dumper *wdh);
 static bool wtap_dump_fix_idb(wtap_dumper *wdh, wtap_block_t idb, int *err);
 
 static wtap_dumper *
-wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_type,
+wtap_dump_init_dumper(int file_type_subtype, ws_compression_type compression_type,
                       const wtap_dump_params *params, int *err)
 {
 	wtap_dumper *wdh;
@@ -2239,7 +2244,7 @@ wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_t
 	 * because we can't go back and overwrite something we've
 	 * already written.
 	 */
-	if (compression_type != WTAP_UNCOMPRESSED &&
+	if (compression_type != WS_FILE_UNCOMPRESSED &&
 	    !wtap_dump_can_compress(file_type_subtype)) {
 		*err = WTAP_ERR_COMPRESSION_NOT_SUPPORTED;
 		return NULL;
@@ -2314,7 +2319,7 @@ wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_t
 
 wtap_dumper *
 wtap_dump_open(const char *filename, int file_type_subtype,
-    wtap_compression_type compression_type, const wtap_dump_params *params,
+    ws_compression_type compression_type, const wtap_dump_params *params,
     int *err, char **err_info)
 {
 	wtap_dumper *wdh;
@@ -2353,7 +2358,7 @@ wtap_dump_open(const char *filename, int file_type_subtype,
 
 wtap_dumper *
 wtap_dump_open_tempfile(const char *tmpdir, char **filenamep, const char *pfx,
-    int file_type_subtype, wtap_compression_type compression_type,
+    int file_type_subtype, ws_compression_type compression_type,
     const wtap_dump_params *params, int *err, char **err_info)
 {
 	int fd;
@@ -2414,7 +2419,7 @@ wtap_dump_open_tempfile(const char *tmpdir, char **filenamep, const char *pfx,
 }
 
 wtap_dumper *
-wtap_dump_fdopen(int fd, int file_type_subtype, wtap_compression_type compression_type,
+wtap_dump_fdopen(int fd, int file_type_subtype, ws_compression_type compression_type,
     const wtap_dump_params *params, int *err, char **err_info)
 {
 	wtap_dumper *wdh;
@@ -2449,7 +2454,7 @@ wtap_dump_fdopen(int fd, int file_type_subtype, wtap_compression_type compressio
 }
 
 wtap_dumper *
-wtap_dump_open_stdout(int file_type_subtype, wtap_compression_type compression_type,
+wtap_dump_open_stdout(int file_type_subtype, ws_compression_type compression_type,
     const wtap_dump_params *params, int *err, char **err_info)
 {
 	int new_fd;
@@ -2499,7 +2504,7 @@ wtap_dump_open_finish(wtap_dumper *wdh, int *err, char **err_info)
 
 	/* Can we do a seek on the file descriptor?
 	   If not, note that fact. */
-	if (wdh->compression_type != WTAP_UNCOMPRESSED) {
+	if (wdh->compression_type != WS_FILE_UNCOMPRESSED) {
 		cant_seek = true;
 	} else {
 		fd = ws_fileno((FILE *)wdh->fh);
@@ -2626,7 +2631,7 @@ wtap_dump_flush(wtap_dumper *wdh, int *err)
 {
 	switch (wdh->compression_type) {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-	case WTAP_GZIP_COMPRESSED:
+	case WS_FILE_GZIP_COMPRESSED:
 		if (gzwfile_flush((GZWFILE_T)wdh->fh) == -1) {
 			*err = gzwfile_geterr((GZWFILE_T)wdh->fh);
 			return false;
@@ -2634,7 +2639,7 @@ wtap_dump_flush(wtap_dumper *wdh, int *err)
 		break;
 #endif
 #ifdef HAVE_LZ4FRAME_H
-	case WTAP_LZ4_COMPRESSED:
+	case WS_FILE_LZ4_COMPRESSED:
 		if (lz4wfile_flush((LZ4WFILE_T)wdh->fh) == -1) {
 			*err = lz4wfile_geterr((LZ4WFILE_T)wdh->fh);
 			return false;
@@ -2772,11 +2777,11 @@ wtap_dump_file_open(const wtap_dumper *wdh, const char *filename)
 {
 	switch (wdh->compression_type) {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-	case WTAP_GZIP_COMPRESSED:
+	case WS_FILE_GZIP_COMPRESSED:
 		return gzwfile_open(filename);
 #endif /* defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG) */
 #ifdef HAVE_LZ4FRAME_H
-	case WTAP_LZ4_COMPRESSED:
+	case WS_FILE_LZ4_COMPRESSED:
 		return lz4wfile_open(filename);
 #endif /* HAVE_LZ4FRAME_H */
 	default:
@@ -2790,11 +2795,11 @@ wtap_dump_file_fdopen(const wtap_dumper *wdh, int fd)
 {
 	switch (wdh->compression_type) {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-	case WTAP_GZIP_COMPRESSED:
+	case WS_FILE_GZIP_COMPRESSED:
 		return gzwfile_fdopen(fd);
 #endif /* defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG) */
 #ifdef HAVE_LZ4FRAME_H
-	case WTAP_LZ4_COMPRESSED:
+	case WS_FILE_LZ4_COMPRESSED:
 		return lz4wfile_fdopen(fd);
 #endif /* HAVE_LZ4FRAME_H */
 	default:
@@ -2810,7 +2815,7 @@ wtap_dump_file_write(wtap_dumper *wdh, const void *buf, size_t bufsize, int *err
 
 	switch (wdh->compression_type) {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-	case WTAP_GZIP_COMPRESSED:
+	case WS_FILE_GZIP_COMPRESSED:
 		nwritten = gzwfile_write((GZWFILE_T)wdh->fh, buf, (unsigned int) bufsize);
 		/*
 		 * gzwfile_write() returns 0 on error.
@@ -2822,7 +2827,7 @@ wtap_dump_file_write(wtap_dumper *wdh, const void *buf, size_t bufsize, int *err
 		break;
 #endif
 #ifdef HAVE_LZ4FRAME_H
-	case WTAP_LZ4_COMPRESSED:
+	case WS_FILE_LZ4_COMPRESSED:
 		nwritten = lz4wfile_write((LZ4WFILE_T)wdh->fh, buf, bufsize);
 		/*
 		 * lz4wfile_write() returns 0 on error.
@@ -2858,11 +2863,11 @@ wtap_dump_file_close(wtap_dumper *wdh)
 {
 	switch (wdh->compression_type) {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG)
-	case WTAP_GZIP_COMPRESSED:
+	case WS_FILE_GZIP_COMPRESSED:
 		return gzwfile_close((GZWFILE_T)wdh->fh);
 #endif
 #ifdef HAVE_LZ4FRAME_H
-	case WTAP_LZ4_COMPRESSED:
+	case WS_FILE_LZ4_COMPRESSED:
 		return lz4wfile_close((LZ4WFILE_T)wdh->fh);
 #endif /* HAVE_LZ4FRAME_H */
 	default:
@@ -2874,7 +2879,7 @@ int64_t
 wtap_dump_file_seek(wtap_dumper *wdh, int64_t offset, int whence, int *err)
 {
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG) || defined (HAVE_LZ4FRAME_H)
-	if (wdh->compression_type != WTAP_UNCOMPRESSED) {
+	if (wdh->compression_type != WS_FILE_UNCOMPRESSED) {
 		*err = WTAP_ERR_CANT_SEEK_COMPRESSED;
 		return -1;
 	} else
@@ -2895,7 +2900,7 @@ wtap_dump_file_tell(wtap_dumper *wdh, int *err)
 {
 	int64_t rval;
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG) || defined (HAVE_LZ4FRAME_H)
-	if (wdh->compression_type != WTAP_UNCOMPRESSED) {
+	if (wdh->compression_type != WS_FILE_UNCOMPRESSED) {
 		*err = WTAP_ERR_CANT_SEEK_COMPRESSED;
 		return -1;
 	} else
@@ -2937,7 +2942,7 @@ cleanup_open_routines(void)
  * code should use wtap_name_to_file_type_subtype() to look up
  * file types by their name, just as C code should.
  *
- * The backwards-ccmpatibility names are the old WTAP_FILE_TYPE_SUBTYPE_
+ * The backwards-compatibility names are the old WTAP_FILE_TYPE_SUBTYPE_
  * #define name, with WTAP_FILE_TYPE_SUBTYPE_ removed.
  */
 

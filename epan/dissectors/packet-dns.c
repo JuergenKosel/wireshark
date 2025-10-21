@@ -609,6 +609,12 @@ static int hf_dns_caa_unknown;
 static int hf_dns_caa_tag_length;
 static int hf_dns_caa_tag;
 static int hf_dns_caa_value;
+static int hf_dns_amtrelay_precedence;
+static int hf_dns_amtrelay_disc_opt;
+static int hf_dns_amtrelay_relay_type;
+static int hf_dns_amtrelay_relay_ipv4;
+static int hf_dns_amtrelay_relay_ipv6;
+static int hf_dns_amtrelay_relay_dns;
 static int hf_dns_extraneous_data;
 static int hf_dns_extraneous_length;
 
@@ -1416,6 +1422,14 @@ static const value_string gw_type_vals[] = {
   { 2,     "IPv6 Gateway" },
   { 3,     "DNS Gateway" },
   { 0,      NULL }
+};
+
+static const value_string amtrelay_type_vals[] = {
+  { 0,     "No Relay" },
+  { 1,     "IPv4 Relay" },
+  { 2,     "IPv6 Relay" },
+  { 3,     "DNS Relay" },
+  { 0,     NULL }
 };
 
 const value_string dns_classes[] = {
@@ -4442,6 +4456,54 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
     }
     break;
 
+    case T_AMTRELAY: /* Automatic Multicast Tunneling Relay (260) */
+    {
+      uint32_t    relay_type;
+      const char  *relay_name;
+      int         relay_name_len;
+
+      proto_tree_add_item(rr_tree, hf_dns_amtrelay_precedence, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
+      cur_offset += 1;
+
+      proto_tree_add_item(rr_tree, hf_dns_amtrelay_disc_opt, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(rr_tree, hf_dns_amtrelay_relay_type, tvb, cur_offset, 1, ENC_BIG_ENDIAN, &relay_type);
+      cur_offset += 1;
+
+      switch (relay_type) {
+
+        case 0:
+        {
+          /* No relay */
+        }
+        break;
+
+        case 1:
+        {
+          proto_tree_add_item(rr_tree, hf_dns_amtrelay_relay_ipv4, tvb, cur_offset, 4, ENC_BIG_ENDIAN);
+        }
+        break;
+
+        case 2:
+        {
+          proto_tree_add_item(rr_tree, hf_dns_amtrelay_relay_ipv6, tvb, cur_offset, 16, ENC_NA);
+        }
+        break;
+
+        case 3:
+        {
+          used_bytes = get_dns_name(pinfo->pool, tvb, cur_offset, 0, dns_data_offset, &relay_name, &relay_name_len);
+          name_out = format_text(pinfo->pool, (const unsigned char *)relay_name, relay_name_len);
+          proto_tree_add_string(rr_tree, hf_dns_amtrelay_relay_dns, tvb, cur_offset, used_bytes, name_out);
+        }
+        break;
+
+        default:
+        break;
+      }
+    }
+    break;
+
+
     case T_WINS:  /* Microsoft's WINS (65281)*/
     {
       int     rr_len = data_len;
@@ -4721,7 +4783,36 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   /*
    * Do we have a conversation for this connection?
    */
-  conversation = find_or_create_conversation(pinfo);
+  if (is_llmnr && transport == DNS_TRANSPORT_UDP) {
+    /* LLMNR over UDP: requests are sent to link-scope multicast addresses
+     * and "an LLMNR response MUST be sent to the sender via unicast."
+     * (RFC 4795, 2.3)
+     *
+     * XXX - What about mDNS? It sends responses over multicast, so the opposite
+     * logic could be used. However, mDNS does not use the transaction ID at all
+     * nor is the question repeated in the response, so requests and responses
+     * are harder to associate. Perhaps requests and responses should not be
+     * tracked in mDNS at all.
+     */
+    conversation_element_t *conv_key = wmem_alloc_array(pinfo->pool, conversation_element_t, 3);
+    conv_key[0].type = CE_ADDRESS;
+    conv_key[1].type = CE_PORT;
+    conv_key[2].type = CE_CONVERSATION_TYPE;
+    conv_key[2].conversation_type_val = CONVERSATION_UDP;
+    if (flags & F_RESPONSE) {
+      conv_key[0].addr_val = pinfo->dst;
+      conv_key[1].port_val = pinfo->destport;
+    } else {
+      conv_key[0].addr_val = pinfo->src;
+      conv_key[1].port_val = pinfo->srcport;
+    }
+    conversation = find_conversation_full(pinfo->num, conv_key);
+    if (!conversation) {
+      conversation = conversation_new_full(pinfo->num, conv_key);
+    }
+  } else {
+    conversation = find_or_create_conversation(pinfo);
+  }
 
   /*
    * DoH: Each DNS query-response pair is mapped into an HTTP exchange.
@@ -7650,7 +7741,7 @@ proto_register_dns(void)
         NULL, HFILL }},
 
     { &hf_dns_hip_pk_algo,
-      { "HIT length", "dns.hip.hit.pk.algo",
+      { "PK algorithm", "dns.hip.hit.pk.algo",
         FT_UINT8, BASE_DEC, VALS(hip_algo_vals), 0,
         NULL, HFILL }},
 
@@ -7877,6 +7968,36 @@ proto_register_dns(void)
     { &hf_dns_caa_value,
       { "Value", "dns.caa.value",
         FT_STRING, BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_precedence,
+      { "Precedence", "dns.amtrelay.precedence",
+        FT_UINT8, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_disc_opt,
+      { "Discovery Optional", "dns.amtrelay.disc_opt",
+        FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x80,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_relay_type,
+      { "Relay Type", "dns.amtrelay.relay_type",
+        FT_UINT8, BASE_DEC, VALS(amtrelay_type_vals), 0x7f,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_relay_ipv4,
+      { "IPv4 Relay", "dns.amtrelay.relay_ipv4",
+        FT_IPv4, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_relay_ipv6,
+      { "IPv6 Relay", "dns.amtrelay.relay_ipv6",
+        FT_IPv6, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+
+    { &hf_dns_amtrelay_relay_dns,
+      { "DNS Relay", "dns.amtrelay.relay_dns",
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
 
     { &hf_dns_extraneous_data,

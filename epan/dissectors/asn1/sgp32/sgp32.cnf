@@ -3,17 +3,37 @@
 #.MODULE_IMPORT
 PKIX1Explicit88 pkix1explicit
 PKIX1Implicit88 pkix1implicit
-RSPDefinitions sgp22
 
 #.INCLUDE ../pkix1explicit/pkix1explicit_exp.cnf
 #.INCLUDE ../pkix1implicit/pkix1implicit_exp.cnf
-#.INCLUDE ../sgp22/sgp22_exp.cnf
+#.INCLUDE ../sgp22/sgp22-exp.cnf
 
 #.OMIT_ASSIGNMENT
 AuthenticateClientRequest
+
+#.PDU
 EsipaMessageFromIpaToEim
 EsipaMessageFromEimToIpa
-#.END
+
+#.FN_PARS
+EsipaMessageFromIpaToEim VAL_PTR = &choice
+EsipaMessageFromEimToIpa VAL_PTR = &choice
+
+#.FN_HDR EsipaMessageFromIpaToEim
+  int choice;
+
+#.FN_FTR EsipaMessageFromIpaToEim
+  if (choice != -1) {
+    col_append_str(actx->pinfo->cinfo, COL_INFO, val_to_str_const(EsipaMessageFromIpaToEim_choice[choice].value, sgp32_EsipaMessageFromIpaToEim_vals, "Unknown"));
+  }
+
+#.FN_HDR EsipaMessageFromEimToIpa
+  int choice;
+
+#.FN_FTR EsipaMessageFromEimToIpa
+  if (choice != -1) {
+    col_append_str(actx->pinfo->cinfo, COL_INFO, val_to_str_const(EsipaMessageFromEimToIpa_choice[choice].value, sgp32_EsipaMessageFromEimToIpa_vals, "Unknown"));
+  }
 
 #.REGISTER
 ISDRProprietaryApplicationTemplateIoT      N sgp32.request   0xE1

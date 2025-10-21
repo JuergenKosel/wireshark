@@ -25,7 +25,7 @@
 #include <epan/addr_resolv.h>
 #include <epan/ipproto.h>
 #include <epan/expert.h>
-#include <epan/eap.h>
+#include <epan/dissectors/packet-eap.h>
 
 #include <wsutil/filesystem.h>
 #include <wsutil/report_message.h>
@@ -540,7 +540,7 @@ wimaxasncp_find_tlv_info(void* data, void* user_data)
         /* if the TLV is defined for current NWG version */
         if (tlv->since <= global_wimaxasncp_nwg_ver)
         {
-            /* if the current TLV is newer then last found TLV, save it */
+            /* if the current TLV is newer than last found TLV, save it */
             if ((info_data->res == NULL) || (tlv->since > info_data->res->since))
             {
                 info_data->res = tlv;
@@ -1423,7 +1423,7 @@ static void wimaxasncp_dissect_tlv_value(
     case WIMAXASNCP_TLV_IP_ADDRESS_MASK_LIST:
     {
         /* --------------------------------------------------------------------
-         * The definion of these TLVs are ambiguous. The length in octets is
+         * The definition of these TLVs are ambiguous. The length in octets is
          * described as Nx8 (IPv4) or Nx32 (IPv6), but this function cannot
          * always differentiate between IPv4 and IPv6. For example, if length
          * = 32, then is it IPv4 where N=4 (4x8) or IPv6 where N=1 (1x32)?
@@ -2125,7 +2125,7 @@ dissect_wimaxasncp(
     col_clear(pinfo->cinfo, COL_INFO);
 
     /* ========================================================================
-     * Disesction starts here
+     * Dissection starts here
      * ========================================================================
      */
 

@@ -14,6 +14,7 @@
 #include <wsutil/buffer.h>
 #include <wsutil/nstime.h>
 #include <wsutil/inet_addr.h>
+#include <wsutil/file_compressed.h>
 #include "wtap_opttypes.h"
 
 #ifdef __cplusplus
@@ -300,7 +301,7 @@ extern "C" {
 #define WTAP_ENCAP_ZWAVE_SERIAL                 211
 #define WTAP_ENCAP_ETW                          212
 #define WTAP_ENCAP_ERI_ENB_LOG                  213
-#define WTAP_ENCAP_ZBNCP			214
+#define WTAP_ENCAP_ZBNCP                        214
 #define WTAP_ENCAP_USB_2_0_LOW_SPEED            215
 #define WTAP_ENCAP_USB_2_0_FULL_SPEED           216
 #define WTAP_ENCAP_USB_2_0_HIGH_SPEED           217
@@ -313,6 +314,7 @@ extern "C" {
 #define WTAP_ENCAP_EMS                          224
 #define WTAP_ENCAP_DECT_NR                      225
 #define WTAP_ENCAP_MMODULE                      226
+#define WTAP_ENCAP_PROCMON                      227
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -1191,6 +1193,12 @@ struct netmon_phdr {
     } subheader;
 };
 
+/* Record "pseudo-header" information for header data from MS ProcMon files. */
+
+struct procmon_phdr {
+	bool system_bitness;     /* System bitness: 1 if the system is 64 bit, 0 otherwise. */
+};
+
 /* File "pseudo-header" for BER data files. */
 struct ber_phdr {
     const char *pathname;   /* Path name of file. */
@@ -1228,6 +1236,7 @@ union wtap_pseudo_header {
     struct llcp_phdr    llcp;
     struct logcat_phdr  logcat;
     struct netmon_phdr  netmon;
+    struct procmon_phdr procmon;
     struct ber_phdr     ber;
     struct mmodule_phdr mmodule;
 };
@@ -1377,6 +1386,8 @@ typedef struct {
     int      file_type_subtype; /* the type of file this is for */
     unsigned record_type;       /* the type of record this is - file type-specific value */
     uint32_t record_len;        /* length of the record */
+    union wtap_pseudo_header  pseudo_header;
+
 } wtap_ft_specific_header;
 
 typedef struct {
@@ -1610,7 +1621,7 @@ typedef struct wtap_wslua_file_info {
  * whose contents we can dissect, and a list of extensions files of
  * that type might have.
  *
- * Note that entries in this table do *not* necessarily correspoond
+ * Note that entries in this table do *not* necessarily correspond
  * to single file types; for example, the entry that lists just "cap"
  * is for several file formats, all of which use the extension ".cap".
  *
@@ -2018,35 +2029,8 @@ WS_DLL_PUBLIC
 void wtap_setup_custom_block_rec(wtap_rec *rec, uint32_t pen,
                                  uint32_t payload_length, bool copy_allowed);
 
-/*
- * Types of compression for a file, including "none".
- */
-typedef enum {
-    WTAP_UNCOMPRESSED,
-    WTAP_GZIP_COMPRESSED,
-    WTAP_ZSTD_COMPRESSED,
-    WTAP_LZ4_COMPRESSED,
-    WTAP_UNKNOWN_COMPRESSION,
-} wtap_compression_type;
-
 WS_DLL_PUBLIC
-wtap_compression_type wtap_get_compression_type(wtap *wth);
-WS_DLL_PUBLIC
-wtap_compression_type wtap_name_to_compression_type(const char *name);
-WS_DLL_PUBLIC
-wtap_compression_type wtap_extension_to_compression_type(const char *ext);
-WS_DLL_PUBLIC
-const char *wtap_compression_type_description(wtap_compression_type compression_type);
-WS_DLL_PUBLIC
-const char *wtap_compression_type_extension(wtap_compression_type compression_type);
-WS_DLL_PUBLIC
-const char *wtap_compression_type_name(wtap_compression_type compression_type);
-WS_DLL_PUBLIC
-GSList *wtap_get_all_compression_type_extensions_list(void);
-WS_DLL_PUBLIC
-GSList *wtap_get_all_output_compression_type_names_list(void);
-WS_DLL_PUBLIC
-bool wtap_can_write_compression_type(wtap_compression_type compression_type);
+ws_compression_type wtap_get_compression_type(wtap *wth);
 
 /*** get various information snippets about the current file ***/
 
@@ -2066,6 +2050,8 @@ WS_DLL_PUBLIC
 int wtap_file_tsprec(wtap *wth);
 WS_DLL_PUBLIC
 const nstime_t* wtap_file_start_ts(wtap *wth);
+WS_DLL_PUBLIC
+const nstime_t* wtap_file_end_ts(wtap *wth);
 
 /**
  * @brief Gets number of section header blocks.
@@ -2166,7 +2152,7 @@ void wtap_free_idb_info(wtapng_iface_descriptions_t *idb_info);
 /**
  * @brief Gets a debug string of an interface description.
  * @details Returns a newly allocated string of debug information about
- *          the given interface descrption, useful for debugging.
+ *          the given interface description, useful for debugging.
  * @note The returned pointer must be g_free'd.
  *
  * @param if_descr The interface description.
@@ -2352,7 +2338,7 @@ void wtap_dump_params_cleanup(wtap_dump_params *params);
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype,
-    wtap_compression_type compression_type, const wtap_dump_params *params,
+    ws_compression_type compression_type, const wtap_dump_params *params,
     int *err, char **err_info);
 
 /**
@@ -2373,7 +2359,7 @@ wtap_dumper* wtap_dump_open(const char *filename, int file_type_subtype,
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open_tempfile(const char *tmpdir, char **filenamep,
     const char *pfx,
-    int file_type_subtype, wtap_compression_type compression_type,
+    int file_type_subtype, ws_compression_type compression_type,
     const wtap_dump_params *params, int *err, char **err_info);
 
 /**
@@ -2390,7 +2376,7 @@ wtap_dumper* wtap_dump_open_tempfile(const char *tmpdir, char **filenamep,
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype,
-    wtap_compression_type compression_type, const wtap_dump_params *params,
+    ws_compression_type compression_type, const wtap_dump_params *params,
     int *err, char **err_info);
 
 /**
@@ -2406,7 +2392,7 @@ wtap_dumper* wtap_dump_fdopen(int fd, int file_type_subtype,
  */
 WS_DLL_PUBLIC
 wtap_dumper* wtap_dump_open_stdout(int file_type_subtype,
-    wtap_compression_type compression_type, const wtap_dump_params *params,
+    ws_compression_type compression_type, const wtap_dump_params *params,
     int *err, char **err_info);
 
 /*
@@ -2566,7 +2552,7 @@ block_support_t wtap_file_type_subtype_supports_block(int file_type_subtype,
 
 /**
  * Return an indication of whether this capture file format supports
- * the option in queston for the block in question.
+ * the option in question for the block in question.
  */
 WS_DLL_PUBLIC
 option_support_t wtap_file_type_subtype_supports_option(int file_type_subtype,

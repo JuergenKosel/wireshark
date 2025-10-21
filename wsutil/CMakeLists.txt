@@ -81,6 +81,7 @@ set(WMEM_FILES
 set(WSUTIL_PUBLIC_HEADERS
 	802_11-utils.h
 	adler32.h
+	app_mem_usage.h
 	application_flavor.h
 	array.h
 	base32.h
@@ -104,11 +105,14 @@ set(WSUTIL_PUBLIC_HEADERS
 	crc16-plain.h
 	crc32.h
 	curve25519.h
+	dtoa.h
 	eax.h
 	epochs.h
 	exported_pdu_tlvs.h
 	failure_message_simple.h
 	feature_list.h
+	file_compressed.h
+	file_util.h
 	filesystem.h
 	g711.h
 	inet_addr.h
@@ -162,6 +166,7 @@ set(WSUTIL_PUBLIC_HEADERS
 set(WSUTIL_COMMON_FILES
 	802_11-utils.c
 	adler32.c
+	app_mem_usage.c
 	application_flavor.c
 	base32.c
 	bitswap.c
@@ -185,6 +190,7 @@ set(WSUTIL_COMMON_FILES
 	eax.c
 	failure_message_simple.c
 	feature_list.c
+	file_compressed.c
 	filesystem.c
 	filter_files.c
 	g711.c
@@ -415,9 +421,11 @@ target_link_libraries(wsutil
 		${M_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${ZLIBNG_LIBRARIES}
+		${LZ4_LIBRARIES}
 		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
+		${WIN_PSAPI_LIBRARY}
 )
 
 target_include_directories(wsutil SYSTEM
@@ -430,6 +438,8 @@ target_include_directories(wsutil SYSTEM
 		${GMODULE2_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
 		${ZLIBNG_INCLUDE_DIRS}
+		${ZSTD_INCLUDE_DIRS}
+		${LZ4_INCLUDE_DIRS}
 		${PCRE2_INCLUDE_DIRS}
 )
 
@@ -474,9 +484,11 @@ target_link_libraries(wsutil_static
 		${XXHASH_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${ZLIBNG_LIBRARIES}
+		${LZ4_LIBRARIES}
 		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
+		${WIN_PSAPI_LIBRARY}
 )
 
 target_include_directories(wsutil_static SYSTEM
@@ -489,6 +501,8 @@ target_include_directories(wsutil_static SYSTEM
 		${XXHASH_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
 		${ZLIBNG_INCLUDE_DIRS}
+		${ZSTD_INCLUDE_DIRS}
+		${LZ4_INCLUDE_DIRS}
 		${PCRE2_INCLUDE_DIRS}
 )
 

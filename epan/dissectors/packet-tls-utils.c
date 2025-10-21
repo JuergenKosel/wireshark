@@ -6356,22 +6356,29 @@ tls_add_packet_info(int proto, packet_info *pinfo, uint8_t curr_layer_num_ssl)
  *
  * @param proto The protocol identifier (proto_ssl or proto_dtls).
  * @param pinfo The packet where the record originates from.
- * @param data Decrypted data to store in the record.
- * @param data_len Length of decrypted record data.
+ * @param plain_data Decrypted plaintext to store in the record.
+ * @param plain_data_len Total length of the plaintext.
+ * @param content_len Length of the plaintext section corresponding to the record content.
  * @param record_id The identifier for this record within the current packet.
  * @param flow Information about sequence numbers, etc.
  * @param type TLS Content Type (such as handshake or application_data).
  * @param curr_layer_num_ssl The layer identifier for this TLS session.
  */
 void
-ssl_add_record_info(int proto, packet_info *pinfo, const unsigned char *data, int data_len, int record_id, SslFlow *flow, ContentType type, uint8_t curr_layer_num_ssl, uint64_t record_seq)
+ssl_add_record_info(int proto, packet_info *pinfo,
+                    const unsigned char *plain_data, int plain_data_len, int content_len,
+                    int record_id, SslFlow *flow, ContentType type, uint8_t curr_layer_num_ssl,
+                    uint64_t record_seq)
 {
     SslRecordInfo* rec, **prec;
     SslPacketInfo *pi = tls_add_packet_info(proto, pinfo, curr_layer_num_ssl);
 
+    ws_assert(content_len <= plain_data_len);
+
     rec = wmem_new(wmem_file_scope(), SslRecordInfo);
-    rec->plain_data = (unsigned char *)wmem_memdup(wmem_file_scope(), data, data_len);
-    rec->data_len = data_len;
+    rec->plain_data = (unsigned char *)wmem_memdup(wmem_file_scope(), plain_data, plain_data_len);
+    rec->plain_data_len = plain_data_len;
+    rec->content_len = content_len;
     rec->id = record_id;
     rec->type = type;
     rec->next = NULL;
@@ -6380,9 +6387,9 @@ ssl_add_record_info(int proto, packet_info *pinfo, const unsigned char *data, in
     if (flow && type == SSL_ID_APP_DATA) {
         rec->seq = flow->byte_seq;
         rec->flow = flow;
-        flow->byte_seq += data_len;
+        flow->byte_seq += content_len;
         ssl_debug_printf("%s stored decrypted record seq=%d nxtseq=%d flow=%p\n",
-                         G_STRFUNC, rec->seq, rec->seq + data_len, (void*)flow);
+                         G_STRFUNC, rec->seq, rec->seq + content_len, (void*)flow);
     }
 
     /* Remember decrypted records. */
@@ -6406,7 +6413,7 @@ ssl_get_record_info(tvbuff_t *parent_tvb, int proto, packet_info *pinfo, int rec
         if (rec->id == record_id) {
             *matched_record = rec;
             /* link new real_data_tvb with a parent tvb so it is freed when frame dissection is complete */
-            return tvb_new_child_real_data(parent_tvb, rec->plain_data, rec->data_len, rec->data_len);
+            return tvb_new_child_real_data(parent_tvb, rec->plain_data, rec->plain_data_len, rec->plain_data_len);
         }
 
     return NULL;
@@ -11177,6 +11184,14 @@ ssl_dissect_hnd_new_ses_ticket(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_i
                         tvb, offset, ticket_len, ENC_NA);
     /* save the session ticket to cache for ssl_finalize_decryption */
     if (ssl && !is_tls13) {
+        if (ssl->session.is_session_resumed) {
+            /* NewSessionTicket is received in ServerHello before ChangeCipherSpec
+             * (Abbreviated Handshake Using New Session Ticket).
+             * Restore the master key for this session ticket before saving
+             * it to the new session ticket. */
+            ssl_restore_master_key(ssl, "Session Ticket", false,
+                                   session_hash, &ssl->session_ticket);
+        }
         tvb_ensure_bytes_exist(tvb, offset, ticket_len);
         ssl->session_ticket.data = (unsigned char*)wmem_realloc(wmem_file_scope(),
                                     ssl->session_ticket.data, ticket_len);
@@ -11613,7 +11628,7 @@ ssl_dissect_hnd_cert_url(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *tr
      *
      * struct {
      *     opaque url<1..2^16-1>;
-     *     unint8 padding;
+     *     uint8 padding;
      *     opaque SHA1Hash[20];
      * } URLAndHash;
      */
@@ -12688,8 +12703,17 @@ ssl_dissect_hnd_cli_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb,
         dissect_ssl3_hnd_cli_keyex_ecc_sm2(hf, tvb, tree, offset, length);
         break;
     default:
-        proto_tree_add_expert(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
-                              tvb, offset, length);
+        if (session->cipher == 0) {
+            proto_tree_add_expert_format(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
+                                  tvb, offset, length,
+                                  "Cipher Suite not found");
+        } else {
+            proto_tree_add_expert_format(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
+                                  tvb, offset, length,
+                                  "Cipher Suite 0x%04x is not implemented, "
+                                  "contact Wireshark developers if you want this to be supported",
+                                  session->cipher);
+        }
         break;
     }
 }
@@ -12754,8 +12778,17 @@ ssl_dissect_hnd_srv_keyex(ssl_common_dissect_t *hf, tvbuff_t *tvb, packet_info *
         dissect_ssl3_hnd_srv_keyex_ecjpake(hf, tvb, tree, offset, offset_end);
         break;
     default:
-        proto_tree_add_expert(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
-                              tvb, offset, offset_end - offset);
+        if (session->cipher == 0) {
+            proto_tree_add_expert_format(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
+                                  tvb, offset, offset_end - offset,
+                                  "Cipher Suite not found");
+        } else {
+            proto_tree_add_expert_format(tree, NULL, &hf->ei.hs_ciphersuite_undecoded,
+                                  tvb, offset, offset_end - offset,
+                                  "Cipher Suite 0x%04x is not implemented, "
+                                  "contact Wireshark developers if you want this to be supported",
+                                  session->cipher);
+        }
         break;
     }
 }

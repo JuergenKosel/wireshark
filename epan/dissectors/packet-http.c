@@ -332,12 +332,12 @@ typedef enum _http_transfer_coding {
 typedef struct {
 	char	*content_type;
 	char	*content_type_parameters;
-	bool have_content_length;
 	int64_t  content_length;
 	char     *content_encoding;
-	bool transfer_encoding_chunked;
-	http_transfer_coding transfer_encoding;
 	char    *upgrade;
+	http_transfer_coding transfer_encoding;
+	bool have_content_length;
+	bool transfer_encoding_chunked;
 } headers_t;
 
 /* request or response streaming reassembly data */
@@ -365,9 +365,9 @@ typedef struct {
 
  typedef struct _request_trans_t {
 	uint64_t first_range_num;
-	uint32_t req_frame;
 	nstime_t abs_time;
 	char *request_uri;
+	uint32_t req_frame;
 } request_trans_t;
 
  typedef struct _match_trans_t {
@@ -2623,7 +2623,7 @@ dissecting_body:
 			conv_data->server_port = pinfo->srcport;
 			/* Prepare structure for upgrade protocol data */
 			conv_data->upgrade_info = wmem_new0(wmem_file_scope(), http_upgrade_info_t);
-			conv_data->upgrade_info->server_port = pinfo->destport;
+			conv_data->upgrade_info->server_port = pinfo->srcport;
 			conv_data->upgrade_info->http_version = 1;
 			conv_data->upgrade_info->get_header_value = http_get_header_value;
 		}

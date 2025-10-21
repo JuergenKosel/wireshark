@@ -13,8 +13,6 @@
 #include "config.h"
 
 #include <epan/packet.h>
-#include <epan/llcsaps.h>
-#include <epan/ppptypes.h>
 #include <epan/address_types.h>
 #include <epan/prefs.h>
 #include <epan/reassemble.h>
@@ -22,6 +20,8 @@
 #include <epan/tfs.h>
 #include <wsutil/array.h>
 #include "wsutil/pint.h"
+#include "packet-ppp.h"
+#include "packet-llc.h"
 
 /*
  * See:

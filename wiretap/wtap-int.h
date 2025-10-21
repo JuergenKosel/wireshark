@@ -80,6 +80,12 @@ struct wtap {
                                                 * that of the first record with
                                                 * a timestamp. (Can be unset.)
                                                 */
+    nstime_t                    file_end_ts;   /**< Per-file end time, for
+                                                * those file formats that have
+                                                * a end time distinct from
+                                                * that of the last record with
+                                                * a timestamp. (Can be unset.)
+                                                */
     wtap_new_ipv4_callback_t    add_new_ipv4;
     wtap_new_ipv6_callback_t    add_new_ipv6;
     wtap_new_secrets_callback_t add_new_secrets;
@@ -111,7 +117,7 @@ struct wtap_dumper {
                                               * types rather than per-packet
                                               * encapsulation types
                                               */
-    wtap_compression_type   compression_type;
+    ws_compression_type     compression_type;
     bool                    needs_reload;    /* true if the file requires re-loading after saving with wtap */
     int64_t                 bytes_dumped;
 

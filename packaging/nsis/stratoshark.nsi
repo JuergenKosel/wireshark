@@ -279,7 +279,7 @@ Function .onInit
 
   ; This should match the following:
   ; - The NTDDI_VERSION and _WIN32_WINNT parts of cmakeconfig.h.in
-  ; - The <compatibility><application> section in image\wireshark.exe.manifest.in
+  ; - The <compatibility><application> section in resources\stratoshark.exe.manifest.in
   ; - The VersionNT parts of packaging\wix\Prerequisites.wxi
 
   ; Uncomment to test.
@@ -287,8 +287,9 @@ Function .onInit
 
 ${If} ${AtMostWin8.1}
 ${OrIf} ${AtMostWin2012R2}
+${OrIfNot} ${AtLeastBuild} 17763
   MessageBox MB_OK \
-    "Windows 10, Server 2016, and later are required." /SD IDOK
+    "Windows 10, version 1809 or Server 2019 and later are required." /SD IDOK
   Quit
 ${EndIf}
 
@@ -1006,6 +1007,8 @@ File "${STAGING_DIR}\text2pcap.html"
 SectionEnd ; "Tools"
 
 SectionGroup /e "External capture tools (extcap)" SecExtcapGroup
+
+; Dumpcalls is Linux-only
 
 Section "Falcodump" SecFalcodump
 ;-------------------------------------------

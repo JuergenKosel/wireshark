@@ -2175,7 +2175,7 @@ dissect_ieee802154_nofcs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
  * @param tvb pointer to buffer containing raw packet.
  * @param pinfo pointer to packet information fields
  * @param tree pointer to data tree wireshark uses to display packet.
- * @return new tvb subset if this is really ZBOSS dump, else oririnal tvb.
+ * @return new tvb subset if this is really ZBOSS dump, else original tvb.
  */
 static tvbuff_t *
 dissect_zboss_specific(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
@@ -7397,7 +7397,7 @@ void proto_register_ieee802154(void)
     static decode_as_t          ieee802154_da = {
         IEEE802154_PROTOABBREV_WPAN, IEEE802154_PROTOABBREV_WPAN_PANID,
         1, 0, &ieee802154_da_values, NULL, NULL,
-        decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL
+        decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL
     };
 
     /* Register the init routine. */

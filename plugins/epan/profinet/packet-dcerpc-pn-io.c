@@ -66,6 +66,8 @@
 #include <epan/conversation_filter.h>
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
+#include <epan/asn1.h>
+#include <epan/dissectors/packet-ber.h>
 
 #include <wsutil/array.h>
 #include <wsutil/file_util.h>
@@ -216,7 +218,7 @@ static int hf_pn_io_iocr_properties_full_subframe_structure;
 static int hf_pn_io_data_length;
 static int hf_pn_io_ir_frame_data;
 static int hf_pn_io_frame_id;
-static int hf_pn_io_gating_cycle;
+static int hf_pn_io_send_clock_factor;
 static int hf_pn_io_reduction_ratio;
 static int hf_pn_io_phase;
 static int hf_pn_io_sequence;
@@ -433,6 +435,7 @@ static int hf_pn_io_yellowtime;
 static int hf_pn_io_reserved_interval_begin;
 static int hf_pn_io_reserved_interval_end;
 static int hf_pn_io_pllwindow;
+static int hf_pn_io_gating_cycle;
 static int hf_pn_io_sync_send_factor;
 static int hf_pn_io_sync_properties;
 static int hf_pn_io_sync_frame_address;
@@ -991,6 +994,14 @@ static int hf_pn_io_snmp_write_community_name;
 
 static int hf_pn_io_snmp_control;
 static int hf_pn_io_eap_data;
+static int hf_pn_io_security_pdu;
+static int hf_pn_io_managing_roles_pdu;
+static int hf_pn_io_usage_roles_pdu;
+static int hf_pn_io_uniform_component_identifier_pdu;
+static int hf_pn_io_nameofstation_pdu;
+static int hf_pn_io_managing_role;
+static int hf_pn_io_usage_role;
+
 /* static int hf_pn_io_packedframe_SFCRC; */
 static int ett_pn_io;
 static int ett_pn_io_block;
@@ -1099,7 +1110,8 @@ static int ett_pn_io_time_sync_properties;
 static int ett_pn_io_cim_station_element_id;
 
 static int ett_pn_io_snmp_command_name;
-
+static int ett_pn_io_managing_roles;
+static int ett_pn_io_usage_roles;
 
 #define PD_SUB_FRAME_BLOCK_FIOCR_PROPERTIES_LENGTH 4
 #define PD_SUB_FRAME_BLOCK_FRAME_ID_LENGTH 2
@@ -2056,7 +2068,7 @@ static const value_string pn_io_index[] = {
     { 0xF8F3, "Stream Renew using UNIRenewStreamReq and UNIRenewStreamRsp" },
     { 0xF900, "Security request using CIMSecurityServiceReq and CIMSecurityServiceRsp" },
     { 0xF901, "CIMDCPService" },
-    { 0xF902, "Read Aurditable Event using CIMAurditableEventServiceReq and CIMAuditableEventServiceRsp" },
+    { 0xF902, "Read Auditable Event using CIMAuditableEventServiceReq and CIMAuditableEventServiceRsp" },
     { 0xF920, "CIMElectricPowerReal" },
     { 0xFBFF, "Trigger index for RPC connection monitoring" },
     /*0xFC00 - 0xFFFF reserved for profiles */
@@ -2325,7 +2337,7 @@ static const value_string pn_io_channel_error_type[] = {
     { 0x919C, "Density change or displac config" },
     { 0x919D, "Sticking of torque or spring" },
     { 0x919E, "Displacer swinging freedomly" },
-    { 0x919F, "Displac mounting faulty" },
+    { 0x919F, "Displacer mounting faulty" },
     { 0x91A0, "Displacer blocked or bended" },
     { 0x91A1, "Displacer too light, corrosion" },
     { 0x91A2, "Displacer leakage" },
@@ -3615,8 +3627,8 @@ static const range_string pn_io_certificate_validity_period_check[] = {
 
 static const range_string pn_io_sack_degradation_threshold[] = {
     { 0x00, 0x00, "Preserve stored value" },
-    { 0x01, 0x3F, "SACKDegredationThresholdFactor" },
-    { 0xFF, 0xFF, "Disable SACKDegredationThresholdFactor Default Value" },
+    { 0x01, 0x3F, "SACKDegradationThresholdFactor" },
+    { 0xFF, 0xFF, "Disable SACKDegradationThresholdFactor Default Value" },
     { 0, 0, NULL }
 };
 
@@ -4267,6 +4279,20 @@ static const value_string pn_io_snmp_control[] = {
     { 0x01, "Enable SNMP read only" },
     { 0x02, "Enable SNMP read/write" },
     { 0x03, "Reserved" },
+    { 0, NULL }
+};
+
+const value_string managing_role_vals[] = {
+    { 0, "CredentialManager" },
+    { 1, "securityConfigurationManager" },
+    { 2, "networkManager" },
+    { 0, NULL }
+};
+
+const value_string usage_role_vals[] = {
+    { 0, "controller" },
+    { 1, "diagnostics" },
+    { 2, "operatorStation" },
     { 0, NULL }
 };
 
@@ -8349,7 +8375,7 @@ dissect_SecurityRequest_block(tvbuff_t* tvb, int offset,
     uint64_t     u64SecurityMode;
     uint64_t     u64CertificateValidityPeriodCheck;
     uint64_t     u64Reserved1;
-    uint64_t     u64SACKDegredationThreshold;
+    uint64_t     u64SACKDegradationThreshold;
     uint64_t     u64Reserved2;
 
     dcerpc_info di; /* fake dcerpc_info struct */
@@ -8475,9 +8501,9 @@ dissect_SecurityRequest_block(tvbuff_t* tvb, int offset,
                 dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
                     hf_pn_io_security_configuration_parameters_reserved1, &u64Reserved1);
 
-                /* SACKDegredationThreshold */
+                /* SACKDegradationThreshold */
                 dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
-                    hf_pn_io_sack_degradation_threshold, &u64SACKDegredationThreshold);
+                    hf_pn_io_sack_degradation_threshold, &u64SACKDegradationThreshold);
 
                 /* Reserved2 */
                 offset = dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
@@ -8529,7 +8555,7 @@ dissect_SecurityResponse_block(tvbuff_t* tvb, int offset,
     uint64_t     u64SecurityMode;
     uint64_t     u64CertificateValidityPeriodCheck;
     uint64_t     u64Reserved1;
-    uint64_t     u64SACKDegredationThreshold;
+    uint64_t     u64SACKDegradationThreshold;
     uint64_t     u64Reserved2;
 
     dcerpc_info di; /* fake dcerpc_info struct */
@@ -8653,9 +8679,9 @@ dissect_SecurityResponse_block(tvbuff_t* tvb, int offset,
                 dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
                     hf_pn_io_security_configuration_parameters_reserved1, &u64Reserved1);
 
-                /* SACKDegredationThreshold */
+                /* SACKDegradationThreshold */
                 dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
-                    hf_pn_io_sack_degradation_threshold, &u64SACKDegredationThreshold);
+                    hf_pn_io_sack_degradation_threshold, &u64SACKDegradationThreshold);
 
                 /* Reserved2 */
                 offset = dissect_dcerpc_uint64(tvb, offset, pinfo, configuration_tree, &di, drep,
@@ -13804,7 +13830,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
     uint16_t    u16LT;
     uint16_t    u16DataLength;
     uint16_t    u16FrameID;
-    uint16_t    u16GatingCycle;
+    uint16_t    u16SendClockFactor;
     uint16_t    u16ReductionRatio;
     uint16_t    u16Phase;
     uint16_t    u16Sequence;
@@ -13864,7 +13890,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_frame_id, &u16FrameID);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
-                        hf_pn_io_gating_cycle, &u16GatingCycle);
+                        hf_pn_io_send_clock_factor, &u16SendClockFactor);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
                         hf_pn_io_reduction_ratio, &u16ReductionRatio);
     offset = dissect_dcerpc_uint16(tvb, offset, pinfo, tree, drep,
@@ -13907,7 +13933,7 @@ dissect_IOCRBlockReq_block(tvbuff_t *tvb, int offset,
     proto_item_append_text(item, ": %s, Ref:0x%x, Len:%u, FrameID:0x%x, Clock:%u, Ratio:%u, Phase:%u APIs:%u",
         val_to_str(pinfo->pool, u16IOCRType, pn_io_iocr_type, "0x%x"),
         u16IOCRReference, u16DataLength, u16FrameID,
-        u16GatingCycle, u16ReductionRatio, u16Phase, u16NumberOfAPIs);
+        u16SendClockFactor, u16ReductionRatio, u16Phase, u16NumberOfAPIs);
 
     while (u16NumberOfAPIs--) {
         api_item = proto_tree_add_item(tree, hf_pn_io_api_tree, tvb, offset, 0, ENC_NA);
@@ -15172,7 +15198,7 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
 
             /* Search the moduleID and subModuleID, find if PROFIsafe and also search for F-Par. Indexnumber
              * ---------------------------------------------------------------------------------------------
-             * Speical case: Module has several ModuleIdentNr. in one GSD-file
+             * Special case: Module has several ModuleIdentNr. in one GSD-file
              * Also with the given parameters of wireshark, some modules were completely equal. For this
              * special case a compromise for this problem has been made, to set the module name will
              * be more generally displayed.
@@ -17827,6 +17853,97 @@ dissect_PNIO_RTA_with_security(tvbuff_t* tvb, int offset,
 
 }
 
+int dissect_PnoSecurity(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+
+  return offset;
+}
+
+int dissect_PnoManagingRole(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+
+  return offset;
+}
+
+static const ber_sequence_t managingroles_sequence_of[1] = {
+  { &hf_pn_io_managing_role, BER_CLASS_UNI, BER_UNI_TAG_ENUMERATED, BER_FLAGS_NOOWNTAG, dissect_PnoManagingRole }
+};
+
+int dissect_PnoManagingRoles(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+
+  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset, managingroles_sequence_of, hf_index, ett_pn_io_managing_roles);
+
+  return offset;
+}
+
+int dissect_PnoUsageRole(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+
+  return offset;
+}
+
+static const ber_sequence_t usageroles_sequence_of[1] = {
+  { &hf_pn_io_usage_role, BER_CLASS_UNI, BER_UNI_TAG_ENUMERATED, BER_FLAGS_NOOWNTAG, dissect_PnoUsageRole }
+};
+
+int dissect_PnoUsageRoles(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset, usageroles_sequence_of, hf_index, ett_pn_io_usage_roles);
+
+  return offset;
+}
+
+int dissect_PnoUniformComponentIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+
+  return offset;
+}
+
+int dissect_PnoNameOfStation(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
+
+  return offset;
+}
+
+static int dissect_PnoSecurity_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+    int offset = 0;
+    asn1_ctx_t asn1_ctx;
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    offset = dissect_PnoSecurity(FALSE, tvb, offset, &asn1_ctx, tree, hf_pn_io_security_pdu);
+    return offset;
+}
+
+static int dissect_PnoManagingRoles_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+    int offset = 0;
+    asn1_ctx_t asn1_ctx;
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    offset = dissect_PnoManagingRoles(FALSE, tvb, offset, &asn1_ctx, tree, hf_pn_io_managing_roles_pdu);
+    return offset;
+}
+
+static int dissect_PnoUsageRoles_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+    int offset = 0;
+    asn1_ctx_t asn1_ctx;
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    offset = dissect_PnoUsageRoles(FALSE, tvb, offset, &asn1_ctx, tree, hf_pn_io_usage_roles_pdu);
+    return offset;
+}
+
+static int dissect_PnouniformComponentIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+    int offset = 0;
+    asn1_ctx_t asn1_ctx;
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    offset = dissect_PnoUniformComponentIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_pn_io_uniform_component_identifier_pdu);
+    return offset;
+}
+
+static int dissect_PnonameOfStation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+    int offset = 0;
+    asn1_ctx_t asn1_ctx;
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    offset = dissect_PnoNameOfStation(FALSE, tvb, offset, &asn1_ctx, tree, hf_pn_io_nameofstation_pdu);
+    return offset;
+}
+
 /* possibly dissect a PN-IO related PN-RT packet */
 static bool
 dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
@@ -18516,8 +18633,8 @@ proto_register_pn_io (void)
         FT_UINT16, BASE_HEX, NULL, 0x0,
         NULL, HFILL }
     },
-    { &hf_pn_io_gating_cycle,
-      { "GatingCycle", "pn_io.gating_cycle",
+    { &hf_pn_io_send_clock_factor,
+      { "SendClockFactor", "pn_io.send_clock_factor",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     }, /* XXX - special values */
@@ -19422,6 +19539,11 @@ proto_register_pn_io (void)
     { &hf_pn_io_pllwindow,
       { "PLLWindow", "pn_io.pllwindow",
         FT_UINT32, BASE_DEC, NULL, 0x0,
+        NULL, HFILL }
+    },
+    { &hf_pn_io_gating_cycle,
+      { "GatingCycle", "pn_io.gating_cycle",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_pn_io_sync_send_factor,
@@ -21833,7 +21955,7 @@ proto_register_pn_io (void)
         NULL, HFILL }
     },
     { &hf_pn_io_certificate_validity_period_check,
-    { "SecurityConfigurationParameters.CertificateVelidityPeriodCheck", "pn_io.security_configuration_parameters.certificate_validity_period_check",
+    { "SecurityConfigurationParameters.CertificateValidityPeriodCheck", "pn_io.security_configuration_parameters.certificate_validity_period_check",
         FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_certificate_validity_period_check), 0x000000000000000C,
         NULL, HFILL }
     },
@@ -21843,7 +21965,7 @@ proto_register_pn_io (void)
         NULL, HFILL }
     },
     { &hf_pn_io_sack_degradation_threshold,
-    { "SecurityConfigurationParameters.SACKDegredationThreshold", "pn_io.security_configuration_parameters.SACKDegredationThreshold",
+    { "SecurityConfigurationParameters.SACKDegradationThreshold", "pn_io.security_configuration_parameters.SACKDegradationThreshold",
         FT_UINT64, BASE_HEX | BASE_RANGE_STRING, RVALS(pn_io_sack_degradation_threshold), 0x000000000000FF00,
         NULL, HFILL }
     },
@@ -21938,6 +22060,34 @@ proto_register_pn_io (void)
           FT_BYTES, BASE_NONE, NULL, 0x00,
           NULL, HFILL }
     },
+    { &hf_pn_io_security_pdu,
+    { "Security", "pn_io.security",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_pn_io_managing_roles_pdu,
+    { "ManagingRoles", "pn_io.managing_roles",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_pn_io_managing_role,
+    { "ManagingRole", "pn_io.managing_role",
+        FT_UINT32, BASE_DEC, VALS(managing_role_vals), 0,
+        NULL, HFILL }},
+    { &hf_pn_io_usage_roles_pdu,
+    { "UsageRoles", "pn_io.usage_roles",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_pn_io_usage_role,
+    { "UsageRole", "pn_io.usage_role",
+        FT_UINT32, BASE_DEC, VALS(usage_role_vals), 0,
+        NULL, HFILL }},
+    { &hf_pn_io_uniform_component_identifier_pdu,
+    { "UniformComponentIdentifier", "pn_io.uniform_component_identifier",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_pn_io_nameofstation_pdu,
+    { "NameOfStation", "pn_io.nameofstation",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
     };
 
     static int *ett[] = {
@@ -22041,7 +22191,9 @@ proto_register_pn_io (void)
         &ett_pn_io_port_queue_egress_rate_limiter,
         &ett_pn_io_time_sync_properties,
 		&ett_pn_io_cim_station_element_id,
-        &ett_pn_io_snmp_command_name
+        &ett_pn_io_snmp_command_name,
+        &ett_pn_io_managing_roles,
+        &ett_pn_io_usage_roles
     };
 
     static ei_register_info ei[] = {
@@ -22131,6 +22283,12 @@ proto_reg_handoff_pn_io (void)
     dcerpc_init_uuid (proto_pn_io_supervisor, ett_pn_io, &uuid_pn_io_supervisor, ver_pn_io_supervisor, pn_io_dissectors, hf_pn_io_opnum);
     dcerpc_init_uuid (proto_pn_io_parameterserver, ett_pn_io, &uuid_pn_io_parameterserver, ver_pn_io_parameterserver, pn_io_dissectors, hf_pn_io_opnum);
     dcerpc_init_uuid (proto_pn_io_implicitar, ett_pn_io, &uuid_pn_io_implicitar, ver_pn_io_implicitar, pn_io_dissectors, hf_pn_io_opnum);
+
+    register_ber_oid_dissector("1.3.6.1.4.1.24686.1",   dissect_PnoSecurity_PDU, proto_pn_io, "id-pno-security");
+    register_ber_oid_dissector("1.3.6.1.4.1.24686.1.1", dissect_PnoManagingRoles_PDU, proto_pn_io, "id-pno-managingRoles");
+    register_ber_oid_dissector("1.3.6.1.4.1.24686.1.2", dissect_PnoUsageRoles_PDU, proto_pn_io, "id-pno-usageRoles");
+    register_ber_oid_dissector("1.3.6.1.4.1.24686.1.3", dissect_PnouniformComponentIdentifier_PDU, proto_pn_io, "id-pno-uniformComponentIdentifier");
+    register_ber_oid_dissector("1.3.6.1.4.1.24686.1.4", dissect_PnonameOfStation_PDU, proto_pn_io, "id-pno-nameOfStation");
 
     heur_dissector_add("pn_rt", dissect_PNIO_heur, "PROFINET IO", "pn_io_pn_rt", proto_pn_io, HEURISTIC_ENABLE);
 }

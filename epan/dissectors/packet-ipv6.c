@@ -30,10 +30,7 @@
 #include <epan/reassemble.h>
 #include <epan/ipproto.h>
 #include <epan/etypes.h>
-#include <epan/ppptypes.h>
 #include <epan/aftypes.h>
-#include <epan/nlpid.h>
-#include <epan/arcnet_pids.h>
 #include <epan/decode_as.h>
 #include <epan/proto_data.h>
 #include <epan/to_str.h>
@@ -50,6 +47,10 @@
 #include "packet-vxlan.h"
 #include "packet-mpls.h"
 #include "packet-nsh.h"
+#include "packet-osi.h"
+#include "packet-ppp.h"
+#include "packet-arcnet.h"
+
 
 void proto_register_ipv6(void);
 void proto_reg_handoff_ipv6(void);
@@ -5575,19 +5576,19 @@ proto_register_ipv6(void)
     static decode_as_value_t ipv6_da_values = {ipv6_prompt, 1, ipv6_da_build_value};
 
     static decode_as_t ipv6_da = {"ipv6", "ip.proto", 1, 0, &ipv6_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static decode_as_t ipv6_hopopts_da = {"ipv6.hopopts", "ip.proto", 1, 0, &ipv6_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static decode_as_t ipv6_routing_da = {"ipv6.routing", "ip.proto", 1, 0, &ipv6_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static decode_as_t ipv6_fraghdr_da = {"ipv6.fraghdr", "ip.proto", 1, 0, &ipv6_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static decode_as_t ipv6_dstopts_da = {"ipv6.dstopts", "ip.proto", 1, 0, &ipv6_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     module_t *ipv6_module;
     expert_module_t* expert_ipv6;

@@ -1075,11 +1075,10 @@ static const value_string apdu_ins_vals[] = {
 
 /* Section 7.3.7 */
 
-static const range_string search_ef_identifier_vals[] = {
-	{ 0, 0, "Currently selected EF" },
-	{ 1, 30, "Short EF identifier" },
-	{ 31, 31, "Reserved for future use" },
-	{ 0, 0, NULL}
+static const value_string search_ef_identifier_vals[] = {
+	{ 0, "Currently selected EF" },
+	{ 31, "Reserved for future use" },
+	{ 0, NULL}
 };
 
 static const value_string search_mode_vals[] = {
@@ -1519,10 +1518,9 @@ static const value_string status_return_data_vals[] = {
 	{ 0, NULL }
 };
 
-static const range_string record_file_vals[] = {
-	{ 0, 0, "Currently selected EF" },
-	{ 1, 31, "Short File identifier" },
-	{ 0, 0, NULL}
+static const value_string record_file_vals[] = {
+	{ 0, "Currently selected EF" },
+	{ 0, NULL}
 };
 
 static const value_string record_mode_vals[] = {
@@ -1569,20 +1567,20 @@ static const char *get_sw_string(wmem_allocator_t *scope, uint16_t sw)
 	case 0x9e:
 		return "Length of the response data given / SIM data download error";
 	case 0x9f:
-		return wmem_strdup_printf(scope, "Length of the response data, Length is %u", sw2);
+		return wmem_strdup_printf(scope, "Length of the response data, Length is %u", sw2 ? sw2 : 256);
 	case 0x92:
 		if ((sw & 0xf0) == 0x00)
 			return "Command successful but after internal retry routine";
 		break;
 	case 0x61:
-		return wmem_strdup_printf(scope, "Response ready, Response length is %u", sw2);
+		return wmem_strdup_printf(scope, "Response ready, Response length is %u", sw2 ? sw2 : 256);
 	case 0x67:
 		if (sw2 == 0x00)
 			return "Wrong length"; /* TS 102.221 / Section 10.2.1.5 */
 		else
 			return "Incorrect parameter P3"; /* TS 51.011 / Section 9.4.6 */
 	case 0x6c:
-		return wmem_strdup_printf(scope, "Terminal should repeat command, Length for repeated command is %u", sw2);
+		return wmem_strdup_printf(scope, "Terminal should repeat command, Length for repeated command is %u", sw2 ? sw2 : 256);
 	case 0x6d:
 		return "Unknown instruction code";
 	case 0x6e:
@@ -1946,9 +1944,11 @@ dissect_gsm_apdu(uint8_t ins, uint8_t p1, uint8_t p2, uint16_t p3, bool extended
 
 	switch (ins) {
 	case 0xA4: /* SELECT */
-		if (p3 < 2)
-			break;
 		dissect_apdu_lc(sim_tree, tvb, offset+P3_OFFS, extended_len);
+		if (p3 < 2) {
+			offset += data_offs;
+			break;
+		}
 		switch (p1) {
 		case 0x03:	/* parent DF */
 			col_append_str(pinfo->cinfo, COL_INFO, "Parent DF ");
@@ -2050,6 +2050,10 @@ dissect_gsm_apdu(uint8_t ins, uint8_t p1, uint8_t p2, uint16_t p3, bool extended
 			dissect_auth_challenge(p2 & 0x07, tvb, sim_tree, offset, p3);
 			offset += p3;
 		}
+		if (tvb_reported_length_remaining(tvb, offset)) {
+			dissect_apdu_le(sim_tree, tvb, offset, extended_len, false);
+			offset += (extended_len ? 2 : 1);
+		}
 		break;
 	case 0x10: /* TERMINAL PROFILE */
 		dissect_apdu_lc(sim_tree, tvb, offset+P3_OFFS, extended_len);
@@ -2101,7 +2105,8 @@ dissect_gsm_apdu(uint8_t ins, uint8_t p1, uint8_t p2, uint16_t p3, bool extended
 	case 0x14: /* TERMINAL RESPONSE */
 		dissect_apdu_lc(sim_tree, tvb, offset+P3_OFFS, extended_len);
 		subtvb = tvb_new_subset_length(tvb, offset+data_offs, p3);
-		call_dissector_with_data(sub_handle_cap, subtvb, pinfo, sim_tree, GUINT_TO_POINTER(0x14));
+		call_dissector_with_data(sub_handle_cap, subtvb, pinfo, tree, GUINT_TO_POINTER(0x14));
+		proto_tree_add_item(sim_tree, hf_apdu_data, tvb, offset+data_offs, p3, ENC_NA);
 		offset += data_offs + p3;
 		break;
 	case 0x70: /* MANAGE CHANNEL */
@@ -2269,8 +2274,8 @@ dissect_rsp_apdu_tvb(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
 
 	/* obtain status word */
 	sw = tvb_get_ntohs(tvb, offset);
-	proto_tree_add_uint_format(sim_tree, hf_apdu_sw, tvb, offset, 2, sw,
-							"Status Word: %04x %s", sw, get_sw_string(pinfo->pool, sw));
+	proto_tree_add_uint_format_value(sim_tree, hf_apdu_sw, tvb, offset, 2, sw,
+					 "%04x %s", sw, get_sw_string(pinfo->pool, sw));
 	/* XXX - Add a PI_RESPONSE_CODE expert info for a non normal sw */
 
 	offset += 2;
@@ -2578,7 +2583,7 @@ proto_register_gsm_sim(void)
 			  "ISO 7816-4 APDU Data Payload", HFILL }
 		},
 		{ &hf_apdu_sw,
-			{ "Status Word (SW1:SW2)", "gsm_sim.apdu.sw",
+			{ "Status Word", "gsm_sim.apdu.sw",
 			  FT_UINT16, BASE_HEX, VALS(sw_vals), 0,
 			  "ISO 7816-4 APDU Status Word", HFILL }
 		},
@@ -2624,7 +2629,7 @@ proto_register_gsm_sim(void)
 		},
 		{ &hf_record_file,
 			{ "File", "gsm_sim.record_file",
-			FT_UINT8, BASE_DEC|BASE_RANGE_STRING, RVALS(record_file_vals), 0xF8,
+			FT_UINT8, BASE_DEC|BASE_SPECIAL_VALS, VALS(record_file_vals), 0xF8,
 			NULL, HFILL }
 		},
 		{ &hf_record_mode,
@@ -4332,7 +4337,7 @@ proto_register_gsm_sim(void)
 
 		{ &hf_search_ef_identifier,
 			{ "EF Identifier", "gsm_sim.search_ef_identifier",
-			FT_UINT8, BASE_DEC|BASE_RANGE_STRING, RVALS(search_ef_identifier_vals), 0xF8,
+			FT_UINT8, BASE_DEC|BASE_SPECIAL_VALS, VALS(search_ef_identifier_vals), 0xF8,
 			NULL, HFILL },
 		},
 		{ &hf_search_mode,

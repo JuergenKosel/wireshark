@@ -20,7 +20,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "packet.h"
+#include <epan/packet.h>
 #include "timestamp.h"
 
 #include "osi-utils.h"
@@ -629,7 +629,7 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype, wtap_rec *rec,
 
 	case REC_TYPE_FT_SPECIFIC_EVENT:
 	case REC_TYPE_FT_SPECIFIC_REPORT:
-		edt->pi.pseudo_header = NULL;
+		edt->pi.pseudo_header = &rec->rec_header.ft_specific_header.pseudo_header;
 		break;
 
 	case REC_TYPE_SYSCALL:
@@ -3110,7 +3110,7 @@ dissector_try_heuristic(heur_dissector_list_t sub_dissectors, tvbuff_t *tvb,
 		if (hdtbl_entry->protocol != NULL) {
 			proto_id = proto_get_id(hdtbl_entry->protocol);
 			/* do NOT change this behavior - wslua uses the protocol short name set here in order
-			   to determine which Lua-based heurisitc dissector to call */
+			   to determine which Lua-based heuristic dissector to call */
 			pinfo->current_proto =
 				proto_get_protocol_short_name(hdtbl_entry->protocol);
 

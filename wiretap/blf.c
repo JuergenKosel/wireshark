@@ -98,6 +98,7 @@ typedef struct blf_data {
     int64_t     start_of_last_obj;
     int64_t     current_real_seek_pos;
     uint64_t    start_offset_ns;
+    uint64_t    end_offset_ns;
 
     GArray     *log_containers;
 
@@ -149,32 +150,36 @@ blf_calc_key_value(int pkt_encap, uint16_t channel, uint16_t hwchannel) {
     return (int64_t)(((uint64_t)pkt_encap << 32) | ((uint64_t)hwchannel << 16) | (uint64_t)channel);
 }
 
-/** Return the Epoch ns time of the capture start
+static time_t
+blf_date_to_sec(const blf_date_t *date) {
+    struct tm timestamp;
+    timestamp.tm_year = (date->year > 1970) ? date->year - 1900 : 70;
+    timestamp.tm_mon = date->month - 1;
+    timestamp.tm_mday = date->day;
+    timestamp.tm_hour = date->hour;
+    timestamp.tm_min = date->mins;
+    timestamp.tm_sec = date->sec;
+    timestamp.tm_isdst = -1;
+
+    return mktime(&timestamp);
+}
+
+/** Return the Epoch ns time of the blf date
  *
  * This is not intended to fully validate the date and time,
  * but just to check if the values are plausible.
  */
 static uint64_t
-blf_get_start_offset_ns(const blf_date_t* start_date) {
-    struct tm timestamp;
-    time_t start_offset_s;
-
-    if (start_date != NULL &&
-        (start_date->month >= 1 && start_date->month <= 12) &&
-        (start_date->day >= 1 && start_date->day <= 31) &&
-        (start_date->hour <= 23) && (start_date->mins <= 59) &&
-        (start_date->sec <= 61)  /* Apparently can be up to 61 on certain systems */
+blf_data_to_ns(const blf_date_t *date) {
+    if (date != NULL &&
+        (date->month >= 1 && date->month <= 12) &&
+        (date->day >= 1 && date->day <= 31) &&
+        (date->hour <= 23) && (date->mins <= 59) &&
+        (date->sec <= 61)  /* Apparently can be up to 61 on certain systems */
         ) { /* Not checking if milliseconds are actually less than 1000 */
-        timestamp.tm_year = (start_date->year > 1970) ? start_date->year - 1900 : 70;
-        timestamp.tm_mon = start_date->month - 1;
-        timestamp.tm_mday = start_date->day;
-        timestamp.tm_hour = start_date->hour;
-        timestamp.tm_min = start_date->mins;
-        timestamp.tm_sec = start_date->sec;
-        timestamp.tm_isdst = -1;
-        start_offset_s = mktime(&timestamp);
-        if (start_offset_s >= 0) {
-            return (1000 * 1000 * (start_date->ms + (1000 * (uint64_t)start_offset_s)));
+        time_t offset_s = blf_date_to_sec(date);
+        if (offset_s >= 0) {
+            return (1000 * 1000 * (date->ms + (1000 * (uint64_t)offset_s)));
         }
     }
 
@@ -1410,7 +1415,7 @@ blf_init_rec(blf_params_t *params, uint32_t flags, uint64_t object_timestamp, in
 
 static void
 blf_add_direction_option(blf_params_t *params, uint16_t direction) {
-    uint32_t tmp = PACK_FLAGS_DIRECTION_INBOUND; /* dont care */
+    uint32_t tmp = PACK_FLAGS_DIRECTION_INBOUND; /* don't care */
 
     switch (direction) {
     case BLF_DIR_RX:
@@ -3899,7 +3904,8 @@ blf_open(wtap *wth, int *err, char **err_info) {
     blf = g_new(blf_t, 1);
     blf->log_containers = g_array_new(false, false, sizeof(blf_log_container_t));
     blf->current_real_seek_pos = 0;
-    blf->start_offset_ns = blf_get_start_offset_ns(&header.start_date);
+    blf->start_offset_ns = blf_data_to_ns(&header.start_date);
+    blf->end_offset_ns = blf_data_to_ns(&header.end_date);
 
     blf->channel_to_iface_ht = g_hash_table_new_full(g_int64_hash, g_int64_equal, &blf_free_key, &blf_free_channel_to_iface_entry);
     blf->channel_to_name_ht = g_hash_table_new_full(g_int64_hash, g_int64_equal, &blf_free_key, &blf_free_channel_to_name_entry);
@@ -3911,6 +3917,8 @@ blf_open(wtap *wth, int *err, char **err_info) {
     wth->file_tsprec = WTAP_TSPREC_UNKNOWN;
     wth->file_start_ts.secs = blf->start_offset_ns / (1000 * 1000 * 1000);
     wth->file_start_ts.nsecs = blf->start_offset_ns % (1000 * 1000 * 1000);
+    wth->file_end_ts.secs = blf->end_offset_ns / (1000 * 1000 * 1000);
+    wth->file_end_ts.nsecs = blf->end_offset_ns % (1000 * 1000 * 1000);
     wth->subtype_read = blf_read;
     wth->subtype_seek_read = blf_seek_read;
     wth->subtype_close = blf_close;
@@ -4092,7 +4100,7 @@ blf_write_date_to_blf_header(blf_fileheader_t *fileheader, bool start, uint64_t 
         target->mins = tmp.tm_min;
         target->sec = tmp.tm_sec;
 
-        uint64_t tmp_date = blf_get_start_offset_ns((const blf_date_t *)target);
+        uint64_t tmp_date = blf_data_to_ns((const blf_date_t *)target);
 
         target->ms = (uint16_t)((ns_timestamp - tmp_date) / (1000 * 1000));
     }
@@ -4478,7 +4486,7 @@ static bool blf_dump_socketcan(wtap_dumper *wdh, const wtap_rec *rec, int *err, 
         }
     }
 
-    /* XXX endianess is not defined. Assuming BE as this seems the common choice*/
+    /* XXX endianness is not defined. Assuming BE as this seems the common choice*/
     uint32_t can_id = pntohu32(pd);
 
     /* lets check if can_id makes sense
@@ -5055,7 +5063,7 @@ static bool blf_dump_interface_setup_by_blf_based_idb_desc(wtap_dumper *wdh, int
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     bool iface_descr_found;
 
-    /* check all interfaces first to avoid inconstistent state */
+    /* check all interfaces first to avoid inconsistent state */
     for (unsigned i = 0; i < wdh->interface_data->len; i++) {
         ws_debug("interface: %d (pass 1)", i);
 

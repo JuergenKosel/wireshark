@@ -17,6 +17,7 @@
 #include <tchar.h>
 #include <wchar.h>
 #include <shellapi.h>
+#include <shobjidl.h>
 #include <wsutil/console_win32.h>
 #endif
 
@@ -531,6 +532,9 @@ int main(int argc, char *qt_argv[])
 
 #ifdef _WIN32
     restore_pipes();
+    // This lets us set our taskbar icon with setWindowIcon. (Is the version needed?)
+    // https://stackoverflow.com/a/1552105
+    SetCurrentProcessExplicitAppUserModelID(L"org.Wireshark.Wireshark." VERSION);
 #endif
 
 #ifdef DEBUG_STARTUP_TIME
@@ -801,7 +805,9 @@ int main(int argc, char *qt_argv[])
     stat_tap_iterate_tables(register_simple_stat_tables, NULL);
 
     if (ex_opt_count("read_format") > 0) {
-        in_file_type = open_info_name_to_type(ex_opt_get_next("read_format"));
+        char *name = ex_opt_get_next("read_format");
+        in_file_type = open_info_name_to_type(name);
+        g_free(name);
     }
 
     splash_update(RA_PREFERENCES, NULL, NULL);

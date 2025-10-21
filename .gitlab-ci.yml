@@ -24,8 +24,8 @@ variables:
   CCACHE_DIR: "${CI_PROJECT_DIR}/ccache"
   GIT_SUBMODULE_STRATEGY: normal
   # The Qt versions that we ship in the development installers.
-  WINDOWS_QT_VERSION: "6.9.2"
-  MACOS_QT_VERSION: "6.9.2"
+  WINDOWS_QT_VERSION: "6.9.3"
+  MACOS_QT_VERSION: "6.9.3"
   # Enable color output in various tools.
   # CMake, Ninja, and others: https://bixense.com/clicolors/
   CLICOLOR_FORCE: "1"
@@ -74,9 +74,13 @@ workflow:
   - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "master" && $CI_PROJECT_URL =~ /.*gitlab.com\/wireshark\/wireshark/'
   - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "master" && $CI_PROJECT_URL =~ /.*gitlab.com\/wireshark\/wireshark/'
   - if: '$CI_PIPELINE_SOURCE == "api"'
-# Incoming merge requests.
+# Incoming merge requests, including merge trains
 .if-merge-request:
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    interruptible: true
+# Incoming merge requests, excluding merge trains.
+.if-plain-merge-request:
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_EVENT_TYPE != "merge_train"'
     interruptible: true
 # Incoming non-detached merge requests. Must be used for runners which are only
 # available in wireshark/wireshark, e.g. wireshark-windows-*
@@ -185,6 +189,7 @@ workflow:
     AQT_HOST: "windows"
     AQT_ARCH: "msvc2022_64"
     VCVARS_ARCH: "64"
+    WIRESHARK_BASE_DIR: "$CI_PROJECT_DIR\\.."
   stage: build
   retry: 1
   before_script:
@@ -194,8 +199,6 @@ workflow:
         & $env:TEMP\aqt.venv\Scripts\pip3.exe install aqtinstall ;
         & $env:TEMP\aqt.venv\Scripts\aqt.exe install-qt --outputdir C:\Qt $env:AQT_HOST desktop $env:WINDOWS_QT_VERSION "win64_$($env:AQT_ARCH)" --modules qt5compat qtmultimedia ;
       }
-    - if (-Not (Test-Path C:\Development)) { New-Item -Path C:\Development -ItemType "directory" }
-    - $env:WIRESHARK_BASE_DIR = "C:\Development"
     - $env:Configuration = "RelWithDebInfo"
     - $env:Path += ";C:\Program Files\CMake\bin"
     - $env:CMAKE_PREFIX_PATH = "C:\Qt\$($env:WINDOWS_QT_VERSION)\$($env:AQT_ARCH)"
@@ -241,7 +244,7 @@ workflow:
     - printf "\e[0Ksection_end:%s:ci_env_section\r\e[0K" "$(date +%s)"
     - brew --version
     - printf "\e[0Ksection_start:%s:brew_section[collapsed=true]\r\e[0KInstalling prerequisites" "$( date +%s)"
-    - brew install ccache cmake ninja qt6
+    - brew install ccache cmake ninja
     # - ./tools/macos-setup-brew.sh --install-optional --install-test-deps
     - printf "\e[0Ksection_end:%s:brew_section\r\e[0K" "$( date +%s)"
     - python3 -m venv $CI_PROJECT_DIR/.venv
@@ -254,6 +257,12 @@ workflow:
     - cd build
   script:
     - if [ ! -d $WIRESHARK_BASE_DIR ] ; then mkdir $WIRESHARK_BASE_DIR ; fi
+    - if [ ! -d "$WIRESHARK_BASE_DIR/Qt" ] ; then mkdir "$WIRESHARK_BASE_DIR/Qt" ; fi
+    - if [ ! -d "$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos/lib/QtCore.framework" ] ; then
+        pip3 install aqtinstall ;
+        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia ;
+      fi
+    - export CMAKE_PREFIX_PATH="$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos"
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     - cmake -G Ninja
       -DENABLE_CCACHE=ON
@@ -322,7 +331,6 @@ Source Package:
     - cp -v "doc/Stratoshark Release Notes.html" ../stratoshark-release-notes-${STRATOSHARK_VERSION}.html
     - cp -v "doc/Stratoshark Release Notes.txt" ../stratoshark-release-notes-${STRATOSHARK_VERSION}.txt
     - cd ..
-    - zstdcat --threads=0 wireshark-${WIRESHARK_VERSION}.tar.zst | xz --threads=0 > wireshark-${WIRESHARK_VERSION}.tar.xz
   after_script:
     # - ccache --max-size $( du --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
     - if [ "$CI_JOB_STATUS" != "success" ]; then exit 0 ; fi
@@ -401,6 +409,9 @@ openSUSE 15.6 RPM Package:
   image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.6-dev
   script:
     - source /gcc-latest.env
+    # Shared GitLab runners limit the log size to 4M, so reduce verbosity. See
+    # https://gitlab.com/gitlab-com/support-forum/issues/2790
+    - export FORCE_CMAKE_NINJA_NON_VERBOSE=1
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     - cmake -G Ninja ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
@@ -418,8 +429,11 @@ Rocky Linux 9 RPM Package:
   extends: .build-rpm
   image: registry.gitlab.com/wireshark/wireshark-containers/rockylinux-9-dev
   script:
+    # Shared GitLab runners limit the log size to 4M, so reduce verbosity. See
+    # https://gitlab.com/gitlab-com/support-forum/issues/2790
+    - export FORCE_CMAKE_NINJA_NON_VERBOSE=1
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DUSE_qt6=OFF -DBUILD_stratoshark=ON ..
+    - cmake -G Ninja -DBUILD_stratoshark=ON ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja wireshark_rpm
 
@@ -550,13 +564,13 @@ Windows x64 Package:
     - C:\gitlab-builds\bin\mse-scan.ps1
     - run\RelWithDebInfo\tshark --version
     - $packages = Get-ChildItem "packaging\nsis\Wireshark-*-x64.exe", "packaging\nsis\Stratoshark-*-x64.exe", "packaging\wix\Wireshark-*-x64.msi", "packaging\portableapps\WiresharkPortable??_*.paf.exe", "Wireshark-pdb-*x64.zip"
-    - foreach ($package in $packages) { Write-Host $package.name $(Get-Filehash -Algorithm SHA256 $package).Hash $package.length "bytes" }
+    - foreach ($package in $packages) { Write-Host $package.name $(Get-Filehash -Algorithm SHA256 $package).Hash.ToLower() $package.length "bytes" }
     - if (Test-Path env:MC_DESTINATION_WINDOWS_X64) { C:\gitlab-builds\bin\mc --quiet cp $packages "$env:MC_DESTINATION_WINDOWS_X64/" }
     - $wiresharkVersion = Get-Content .\wireshark_version.txt
-    - $wiresharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Wireshark-*-x64.exe).Hash
+    - $wiresharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Wireshark-*-x64.exe).Hash.ToLower()
     - Set-Content -Path wireshark-release-info-$($wiresharkVersion)-windows-x64.ini -Value ("[DEFAULT]`nnsis_sha256 = $wiresharkNsisSha256")
     - $stratosharkVersion = Get-Content .\stratoshark_version.txt
-    - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-x64.exe).Hash
+    - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-x64.exe).Hash.ToLower()
     - Set-Content -Path stratoshark-release-info-$($stratosharkVersion)-windows-x64.ini -Value ("[DEFAULT]`nnsis_sha256 = $stratosharkNsisSha256")
     - if (Test-Path env:MC_DESTINATION_RELEASE) { C:\gitlab-builds\bin\mc --quiet cp $(Get-ChildItem "*shark-release-info-*-windows-*.ini") "$env:MC_DESTINATION_RELEASE/" }
     - C:\Windows\py.exe -m pytest
@@ -593,13 +607,13 @@ Windows Arm64 Package:
     - C:\gitlab-builds\bin\mse-scan.ps1
     - run\RelWithDebInfo\tshark --version
     - $packages = Get-ChildItem "packaging\nsis\Wireshark-*-arm64.exe", "packaging\nsis\Stratoshark-*-arm64.exe", "Wireshark-pdb-*arm64.zip"
-    - foreach ($package in $packages) { Write-Host $package.name $(Get-Filehash -Algorithm SHA256 $package).Hash $package.length "bytes" }
+    - foreach ($package in $packages) { Write-Host $package.name $(Get-Filehash -Algorithm SHA256 $package).Hash.ToLower() $package.length "bytes" }
     - if (Test-Path env:MC_DESTINATION_WINDOWS_ARM64) { C:\gitlab-builds\bin\mc --quiet cp $packages "$env:MC_DESTINATION_WINDOWS_ARM64/" }
     - $wiresharkVersion = Get-Content .\wireshark_version.txt
-    - $wiresharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Wireshark-*-arm64.exe).Hash
+    - $wiresharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Wireshark-*-arm64.exe).Hash.ToLower()
     - Set-Content -Path wireshark-release-info-$($wiresharkVersion)-windows-arm64.ini -Value ("[DEFAULT]`nnsis_sha256 = $wiresharkNsisSha256")
     - $stratosharkVersion = Get-Content .\stratoshark_version.txt
-    - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-arm64.exe).Hash
+    - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-arm64.exe).Hash.ToLower()
     - Set-Content -Path stratoshark-release-info-$($stratosharkVersion)-windows-arm64.ini -Value ("[DEFAULT]`nnsis_sha256 = $stratosharkNsisSha256")
     - if (Test-Path env:MC_DESTINATION_RELEASE) { C:\gitlab-builds\bin\mc --quiet cp $(Get-ChildItem "*shark-release-info-*-windows-*.ini") "$env:MC_DESTINATION_RELEASE/" }
     - C:\Windows\py.exe -m pytest
@@ -633,15 +647,17 @@ macOS Universal Package:
   tags:
     - wireshark-macos-arm-package
   retry: 1
-  script:
+  before_script:
     - export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:$PATH:$HOME/bin"
+    - python3 -m venv $CI_PROJECT_DIR/.venv
+    - source $CI_PROJECT_DIR/.venv/bin/activate
+    - pip3 install pytest pytest-xdist
+  script:
     - if [[ $MACOS_REINSTALL_THIRD_PARTY == true ]] ; then rm -rf "$WIRESHARK_BASE_DIR" ; fi
-    - if [ ! -d "$WIRESHARK_BASE_DIR" ] ; then mkdir -p "$WIRESHARK_BASE_DIR/Qt" ; fi
+    - if [ ! -d "$WIRESHARK_BASE_DIR/Qt" ] ; then mkdir -p "$WIRESHARK_BASE_DIR/Qt" ; fi
     - if [ ! -d "$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos/lib/QtCore.framework" ] ; then
-        rm -rf /tmp/aqt.venv ;
-        python3 -m venv /tmp/aqt.venv ;
-        /tmp/aqt.venv/bin/pip3 install aqtinstall ;
-        /tmp/aqt.venv/bin/aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia ;
+        pip3 install aqtinstall ;
+        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia ;
       fi
     - export CMAKE_PREFIX_PATH="$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos"
     - export PKG_CONFIG_PATH=
@@ -776,7 +792,7 @@ WSAR:
 
 Commit Check:
   extends: .build-ubuntu
-  rules: !reference [.if-merge-request]
+  rules: !reference [.if-plain-merge-request]
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
@@ -824,7 +840,9 @@ Ubuntu GCC Build:
   variables:
     CC: "gcc"
     CXX: "g++"
-  needs: [ 'Commit Check' ]
+  needs:
+    - job: "Commit Check"
+      optional: true
   script:
     - source /gcc-latest.env
     # build-ubuntu puts us in `build`.
@@ -867,8 +885,11 @@ Ubuntu Qt5 Build:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
-  needs: [ 'Commit Check' ]
+  needs:
+    - job: "Commit Check"
+      optional: true
   script:
+    - ../tools/debian-setup.sh --install-qt5-deps
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     - cmake -G Ninja -DENABLE_CCACHE=ON -DENABLE_WERROR=ON -DUSE_qt6=OFF ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
@@ -879,15 +900,17 @@ Ubuntu Qt5 Build:
 # packages work, so disable the MinGW builds for now.
 .Fedora MinGW Build:
   extends: .build-mingw
-  rules: !reference [.if-merge-request]
-  needs: [ 'Commit Check' ]
+  rules: !reference [.if-plain-merge-request]
+  needs:
+    - job: "Commit Check"
+      optional: true
 
 Clang + Code Checks:
   extends: .build-ubuntu
   tags:
     - saas-linux-medium-amd64
-  rules: !reference [.if-merge-request]
-  needs: [ 'Commit Check' ]
+  rules: !reference [.if-plain-merge-request]
+  # needs: [ 'Commit Check' ]
   script:
     - source /clang-latest.env
     - apt-get update && apt-get --yes install python3-venv
@@ -945,8 +968,10 @@ Clang + Code Checks:
 
 No options:
   extends: .build-ubuntu
-  rules: !reference [.if-merge-request]
-  needs: [ 'Commit Check' ]
+  rules: !reference [.if-plain-merge-request]
+  needs:
+    - job: "Commit Check"
+      optional: true
   script: |
     cmake -GNinja -DENABLE_CCACHE=ON \
       -DENABLE_BROTLI=OFF -DENABLE_CAP=OFF -DENABLE_CHECKHF_CONFLICT=ON -DENABLE_GNUTLS=OFF \
@@ -964,7 +989,9 @@ Windows Build:
   rules: !reference [.if-w-w-only-merge-request]
   tags:
     - wireshark-windows-merge-req
-  needs: [ 'Commit Check' ]
+  needs:
+    - job: "Commit Check"
+      optional: true
   script:
     # lib{sinsp,scap} don't support Configuration=Debug, so we can't enable
     # BUILD_stratoshark or BUILD_falcodump here just yet.
@@ -984,7 +1011,9 @@ macOS Build:
     when: always
     reports:
       junit: macos_tests.xml
-  needs: [ 'Commit Check' ]
+  needs:
+    - job: "Commit Check"
+      optional: true
 
 # Adapted from https://www.synopsys.com/blogs/software-security/integrating-coverity-scan-with-gitlab-ci/
 # and https://gitlab.gnome.org/GNOME/glib/-/blob/8f57a5b9/.gitlab-ci.yml#L481

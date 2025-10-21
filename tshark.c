@@ -50,6 +50,7 @@
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/report_message.h>
 #include <cli_main.h>
 #include <wsutil/version_info.h>
 #include <wiretap/wtap_opttypes.h>
@@ -69,6 +70,7 @@
 #include <epan/enterprises.h>
 #include <epan/manuf.h>
 #include <epan/services.h>
+#include <epan/secrets.h>
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_ui_utils.h"
 #endif
@@ -81,7 +83,6 @@
 #include "ui/cli/tap-exportobject.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/dissect_opts.h"
-#include "ui/ssl_key_export.h"
 #include "ui/failure_message.h"
 #include "ui/capture_opts.h"
 #if defined(HAVE_LIBSMI)
@@ -252,7 +253,7 @@ typedef enum {
     PROCESS_FILE_ERROR,
     PROCESS_FILE_INTERRUPTED
 } process_file_status_t;
-static process_file_status_t process_cap_file(capture_file *, char *, int, bool, int, int64_t, int, wtap_compression_type);
+static process_file_status_t process_cap_file(capture_file *, char *, int, bool, int, int64_t, int, ws_compression_type);
 
 static bool process_packet_single_pass(capture_file *cf,
         epan_dissect_t *edt, int64_t offset, wtap_rec *rec, unsigned tap_flags);
@@ -354,7 +355,7 @@ list_output_compression_types(void) {
     GSList *output_compression_types;
 
     cmdarg_err("The available output compression type(s) are:");
-    output_compression_types = wtap_get_all_output_compression_type_names_list();
+    output_compression_types = ws_get_all_output_compression_type_names_list();
     for (GSList *compression_type = output_compression_types;
         compression_type != NULL;
         compression_type = g_slist_next(compression_type)) {
@@ -1098,7 +1099,7 @@ main(int argc, char *argv[])
     exp_pdu_t             exp_pdu_tap_data;
     const char*           glossary = NULL;
     const char*           elastic_mapping_filter = NULL;
-    wtap_compression_type volatile compression_type = WTAP_UNKNOWN_COMPRESSION;
+    ws_compression_type   volatile compression_type = WS_FILE_UNKNOWN_COMPRESSION;
 
     /*
      * The leading + ensures that getopt_long() does not permute the argv[]
@@ -1934,8 +1935,8 @@ main(int argc, char *argv[])
                 /* already processed; just ignore it now */
                 break;
             case LONGOPT_COMPRESS:        /* compress type */
-                compression_type = wtap_name_to_compression_type(ws_optarg);
-                if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+                compression_type = ws_name_to_compression_type(ws_optarg);
+                if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
                     cmdarg_err("\"%s\" isn't a valid output compression mode",
                                ws_optarg);
                     list_output_compression_types();
@@ -1992,7 +1993,7 @@ main(int argc, char *argv[])
     }
 
     /* If we specified output fields, but not the output field type... */
-    /* XXX: If we specfied both output fields with -e *and* protocol filters
+    /* XXX: If we specified both output fields with -e *and* protocol filters
      * with -j/-J, only the former are used. Should we warn or abort?
      * This also doesn't distinguish PDML from PSML, but shouldn't allow the
      * latter.
@@ -2077,29 +2078,29 @@ main(int argc, char *argv[])
             exit_status = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
-        if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+        if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
             /* An explicitly specified compression type overrides filename
              * magic. (Should we allow a way to specify "no" compression
              * with, e.g. a ".gz" extension?) */
             const char *sfx = strrchr(save_file, '.');
             if (sfx) {
-                compression_type = wtap_extension_to_compression_type(sfx + 1);
+                compression_type = ws_extension_to_compression_type(sfx + 1);
             }
         }
     }
 
-    if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
-        compression_type = WTAP_UNCOMPRESSED;
+    if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
+        compression_type = WS_FILE_UNCOMPRESSED;
     }
 
-    if (!wtap_can_write_compression_type(compression_type)) {
+    if (!ws_can_write_compression_type(compression_type)) {
         cmdarg_err("Output files can't be written as %s",
-                wtap_compression_type_description(compression_type));
+                ws_compression_type_description(compression_type));
         exit_status = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
-    if (compression_type != WTAP_UNCOMPRESSED && !wtap_dump_can_compress(out_file_type)) {
+    if (compression_type != WS_FILE_UNCOMPRESSED && !wtap_dump_can_compress(out_file_type)) {
         cmdarg_err("The file format %s can't be written to output compressed format",
                 wtap_file_type_subtype_name(out_file_type));
         exit_status = WS_EXIT_INVALID_OPTION;
@@ -2111,9 +2112,9 @@ main(int argc, char *argv[])
      * LONGOPT_COMPRESS doesn't set "capture_option_specified" because it can be
      * used when capturing or when not capturing.
      */
-    if (compression_type != WTAP_UNCOMPRESSED && is_capturing) {
+    if (compression_type != WS_FILE_UNCOMPRESSED && is_capturing) {
 #ifdef HAVE_LIBPCAP
-        exit_status = capture_opts_add_opt(&global_capture_opts, LONGOPT_COMPRESS_TYPE, wtap_compression_type_name(compression_type));
+        exit_status = capture_opts_add_opt(&global_capture_opts, LONGOPT_COMPRESS_TYPE, ws_compression_type_name(compression_type));
         if (exit_status != 0) {
             goto clean_exit;
         }
@@ -2420,14 +2421,16 @@ main(int argc, char *argv[])
     }
 
     if (ex_opt_count("read_format") > 0) {
-        const char* name = ex_opt_get_next("read_format");
+        char* name = ex_opt_get_next("read_format");
         in_file_type = open_info_name_to_type(name);
         if (in_file_type == WTAP_TYPE_AUTO) {
             cmdarg_err("\"%s\" isn't a valid read file format type", name? name : "");
+            g_free(name);
             list_read_capture_types();
             exit_status = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
+        g_free(name);
     }
 
     if (global_dissect_options.time_format != TS_NOT_SET)
@@ -2573,7 +2576,7 @@ main(int argc, char *argv[])
                 &err, &err_info);
         g_free(comment);
         if (!exp_pdu_status) {
-            cfile_dump_open_failure_message(exp_pdu_filename, err, err_info,
+            report_cfile_dump_open_failure(exp_pdu_filename, err, err_info,
                     out_file_type);
             exit_status = INVALID_EXPORT;
             goto clean_exit;
@@ -2622,7 +2625,7 @@ main(int argc, char *argv[])
             max_packet_count,
                 0,
                 0,
-                WTAP_UNCOMPRESSED);
+                WS_FILE_UNCOMPRESSED);
 #endif
         }
         CATCH(OutOfMemoryError) {
@@ -2666,7 +2669,7 @@ main(int argc, char *argv[])
 
         if (pdu_export_arg) {
             if (!exp_pdu_close(&exp_pdu_tap_data, &err, &err_info)) {
-                cfile_close_failure_message(exp_pdu_filename, err, err_info);
+                report_cfile_close_failure(exp_pdu_filename, err, err_info);
                 exit_status = 2;
             }
             g_free(pdu_export_arg);
@@ -2888,9 +2891,12 @@ main(int argc, char *argv[])
         draw_tap_listeners(true);
 
     if (tls_session_keys_file) {
-        size_t keylist_length;
-        char *keylist = ssl_export_sessions(&keylist_length);
-        write_file_binary_mode(tls_session_keys_file, keylist, keylist_length);
+        size_t keylist_length = 0;
+        unsigned num_keys = 0;
+        char* keylist = NULL;
+        secrets_export_values ret = secrets_export("TLS", &keylist, &keylist_length, &num_keys);
+        if ((ret == SECRETS_EXPORT_SUCCESS) && (keylist_length > 0))
+            write_file_binary_mode(tls_session_keys_file, keylist, keylist_length);
         g_free(keylist);
     }
 
@@ -2943,6 +2949,7 @@ tshark_epan_new(capture_file *cf)
     static const struct packet_provider_funcs funcs = {
         cap_file_provider_get_frame_ts,
         cap_file_provider_get_start_ts,
+        cap_file_provider_get_end_ts,
         cap_file_provider_get_interface_name,
         cap_file_provider_get_interface_description,
         NULL,
@@ -2958,7 +2965,6 @@ tshark_epan_new(capture_file *cf)
 static bool
 capture(void)
 {
-    volatile bool ret = true;
     GString          *str;
     GMainContext     *ctx;
 #ifndef _WIN32
@@ -3014,10 +3020,8 @@ capture(void)
     fflush(stderr);
     g_string_free(str, TRUE);
 
-    ret = sync_pipe_start(&global_capture_opts, capture_comments,
-            &global_capture_session, &global_info_data, NULL);
-
-    if (!ret)
+    if (!sync_pipe_start(&global_capture_opts, capture_comments,
+                         &global_capture_session, &global_info_data, NULL))
         return false;
 
     /*
@@ -3049,7 +3053,7 @@ capture(void)
         abort();
     }
     ENDTRY;
-    return ret;
+    return true;
 }
 
 /* capture child detected an error */
@@ -4059,7 +4063,7 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
 static process_file_status_t
 process_cap_file(capture_file *cf, char *save_file, int out_file_type,
         bool out_file_name_res, int max_packet_count, int64_t max_byte_count,
-        int max_write_packet_count, wtap_compression_type compression_type)
+        int max_write_packet_count, ws_compression_type compression_type)
 {
     process_file_status_t status = PROCESS_FILE_SUCCEEDED;
     wtap_dumper *pdh;
@@ -4106,7 +4110,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
         if (pdh == NULL) {
             /* We couldn't set up to write to the capture file. */
-            cfile_dump_open_failure_message(save_file, err, err_info,
+            report_cfile_dump_open_failure(save_file, err, err_info,
                     out_file_type);
             status = PROCESS_FILE_NO_FILE_PROCESSED;
             goto out;
@@ -4240,7 +4244,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
             case PASS_READ_ERROR:
                 /* Read error. */
-                cfile_read_failure_message(cf->filename, err_pass1, err_info_pass1);
+                report_cfile_read_failure(cf->filename, err_pass1, err_info_pass1);
                 status = PROCESS_FILE_ERROR;
                 break;
 
@@ -4264,7 +4268,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
             case PASS_READ_ERROR:
                 /* Read error. */
-                cfile_read_failure_message(cf->filename, err, err_info);
+                report_cfile_read_failure(cf->filename, err, err_info);
                 status = PROCESS_FILE_ERROR;
                 break;
 
@@ -4272,7 +4276,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
                 /* Write error.
                    XXX - framenum is not necessarily the frame number in
                    the input file if there was a read filter. */
-                cfile_write_failure_message(cf->filename, save_file, err, err_info,
+                report_cfile_write_failure(cf->filename, save_file, err, err_info,
                         err_framenum, out_file_type);
                 status = PROCESS_FILE_ERROR;
                 break;
@@ -4313,7 +4317,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
             }
             /* Now close the capture file. */
             if (!wtap_dump_close(pdh, NULL, &err, &err_info)) {
-                cfile_close_failure_message(save_file, err, err_info);
+                report_cfile_close_failure(save_file, err, err_info);
                 status = PROCESS_FILE_ERROR;
             }
         } else {
@@ -4982,7 +4986,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     return CF_OK;
 
 fail:
-    cfile_open_failure_message(fname, *err, err_info);
+    report_cfile_open_failure(fname, *err, err_info);
     return CF_ERROR;
 }
 

@@ -24,7 +24,6 @@
 #include <epan/packet.h>
 
 #include "packet-gsm_a_common.h"
-#include "lapd_sapi.h"
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/conversation.h>
@@ -33,6 +32,7 @@
 
 #include <wsutil/array.h>
 
+#include "packet-lapd.h"
 #include "packet-rtp.h"
 #include "packet-rtcp.h"
 
@@ -1661,7 +1661,7 @@ dissect_rsl_phy_ctx_ab_rx_lvl_err_bits(tvbuff_t *tvb, packet_info *pinfo _U_, pr
     offset++;
     return offset;
 }
-/* Physcial Context dissection*
+/* Physical Context dissection*
  * Ext RandAccess *
  *
  */

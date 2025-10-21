@@ -16,13 +16,13 @@
  * This code was updated to include DOCSIS 3.1 specification details available at:
  * http://www.cablelabs.com/wp-content/uploads/specdocs/CM-SP-MULPIv3.1-I09-160602.pdf
  *
- * Updates are backward compatible with previous DOCSIS spcifications.
+ * Updates are backward compatible with previous DOCSIS specifications.
  *
  * DOCSIS Captures can be facilitated using the Cable Monitor Feature
  * available on Cisco Cable Modem Termination Systems:
  * https://www.cisco.com/c/en/us/td/docs/cable/cmts/config_guide/b_cmts_security_and_cable_monitoring_features/b_cmts_security_and_cable_monitoring_features_chapter_010.html
  *
- * This dissector depends on the presence of a DOCSIS enapsulation type.
+ * This dissector depends on the presence of a DOCSIS encapsulation type.
  * There is no simple way to distinguish DOCSIS Frames from Ethernet frames,
  * since the frames are copied from the RF interface on the CMTS to
  * a Fast Ethernet interface; thus a preference was needed to enable
@@ -227,16 +227,6 @@ static const value_string pkt_fcparm_vals[] = {
 static const true_false_string exthdr_tfs = {
   "Extended Header Present",
   "Extended Header Absent"
-};
-
-
-static const value_string local_proto_checksum_vals[] = {
-  { PROTO_CHECKSUM_E_BAD,        "Bad"  },
-  { PROTO_CHECKSUM_E_GOOD,       "Good" },
-  { PROTO_CHECKSUM_E_UNVERIFIED, "Unverified" },
-  { PROTO_CHECKSUM_E_NOT_PRESENT, "Not present" },
-
-  { 0,        NULL }
 };
 
 static const true_false_string qind_tfs = {
@@ -1105,7 +1095,7 @@ proto_register_docsis (void)
     },
     { &hf_docsis_hcs_status,
      { "HCS Status", "docsis.hcs.status",
-       FT_UINT8, BASE_NONE, VALS(local_proto_checksum_vals), 0x0,
+       FT_UINT8, BASE_NONE, VALS(proto_checksum_vals), 0x0,
        NULL, HFILL}
     },
     { &hf_docsis_bpi_en,
@@ -1180,7 +1170,7 @@ proto_register_docsis (void)
     },
     { &hf_docsis_frag_fcs_status,
      { "Fragment FCS Status", "docsis.frag.fcs.status",
-       FT_UINT8, BASE_NONE, VALS(local_proto_checksum_vals), 0x0,
+       FT_UINT8, BASE_NONE, VALS(proto_checksum_vals), 0x0,
        NULL, HFILL}
     },
     { &hf_docsis_encrypted_payload,

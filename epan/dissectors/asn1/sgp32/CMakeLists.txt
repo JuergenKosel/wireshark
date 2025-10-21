@@ -30,8 +30,9 @@ set( SRC_FILES
 )
 
 set( EXTRA_CNF
-        ../pkix1explicit/pkix1explicit_exp.cnf
-        ../pkix1implicit/pkix1implicit_exp.cnf
+	../pkix1explicit/pkix1explicit_exp.cnf
+	../pkix1implicit/pkix1implicit_exp.cnf
+	../sgp22/sgp22-exp.cnf
 )
 
 set( A2W_FLAGS -b )

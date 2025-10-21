@@ -28,6 +28,7 @@ DIAG_ON(frame-larger-than=)
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
 #include <epan/export_object.h>
+#include <epan/secrets.h>
 
 #include "ui/iface_toolbar.h"
 
@@ -36,7 +37,6 @@ DIAG_ON(frame-larger-than=)
 #include <capture/capture_session.h>
 #endif
 
-#include "ui/alert_box.h"
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_ui_utils.h"
 #endif
@@ -1505,7 +1505,7 @@ bool WiresharkMainWindow::saveCaptureFile(capture_file *cf, bool dont_reopen) {
 bool WiresharkMainWindow::saveAsCaptureFile(capture_file *cf, bool must_support_comments, bool dont_reopen) {
     QString file_name = "";
     int file_type;
-    wtap_compression_type compression_type;
+    ws_compression_type compression_type;
     cf_write_status_t status;
     char    *dirname;
     bool discard_comments = false;
@@ -1623,7 +1623,7 @@ bool WiresharkMainWindow::saveAsCaptureFile(capture_file *cf, bool must_support_
 void WiresharkMainWindow::exportSelectedPackets() {
     QString file_name = "";
     int file_type;
-    wtap_compression_type compression_type;
+    ws_compression_type compression_type;
     packet_range_t range;
     cf_write_status_t status;
     char    *dirname;
@@ -2426,10 +2426,7 @@ void WiresharkMainWindow::setMenusForCaptureFile(bool force_disable)
 
     main_ui_->actionFileExportPDU->setEnabled(enable);
     main_ui_->actionFileStripHeaders->setEnabled(enable);
-    /* XXX: "Export TLS Session Keys..." should be enabled only if
-     * ssl_session_key_count() > 0.
-     */
-    main_ui_->actionFileExportTLSSessionKeys->setEnabled(enable);
+    main_ui_->actionFileExportTLSSessionKeys->setEnabled(enable && secrets_get_count("TLS") > 0);
 
     foreach(QAction *eo_action, main_ui_->menuFileExportObjects->actions()) {
         eo_action->setEnabled(enable);

@@ -26,7 +26,7 @@ enum application_flavor_e {
 };
 
 /**
- * Initialize our application flavor.
+ * @brief Initialize our application flavor.
  *
  * Set our application flavor, which determines the top-level
  * configuration directory name and environment variable prefixes.
@@ -37,13 +37,18 @@ enum application_flavor_e {
 WS_DLL_PUBLIC void set_application_flavor(enum application_flavor_e flavor);
 
 /**
- * Get our application flavor.
- * @return The flavor.
+ * @brief Initialize our application flavor by name
+ *
+ * Set our application flavor, which determines the top-level
+ * configuration directory name and environment variable prefixes.
+ * Default is APPLICATION_FLAVOR_WIRESHARK.
+ *
+ * @param app_name Application name to determine flavor.
  */
-WS_DLL_PUBLIC enum application_flavor_e get_application_flavor(void);
+WS_DLL_PUBLIC void set_application_flavor_by_name(const char* app_name);
 
 /**
- * Get the proper (capitalized) application name, suitable for user
+ * @brief Get the proper (capitalized) application name, suitable for user
  * presentation.
  *
  * @return The application name. Must not be freed.
@@ -51,28 +56,36 @@ WS_DLL_PUBLIC enum application_flavor_e get_application_flavor(void);
 WS_DLL_PUBLIC const char *application_flavor_name_proper(void);
 
 /**
- * Get the lower-case application name.
+ * @brief Get the lower-case application name.
  *
  * @return The application name. Must not be freed.
  */
 WS_DLL_PUBLIC const char *application_flavor_name_lower(void);
 
 /**
- * Get an application flavor from its name.
+ * @brief Get the application specific environment variable used to retrieve configuration.
  *
- * @param name The application name. Case insensitive.
- * @return The application flavor, or APPLICATION_FLAVOR_WIRESHARK if there is no match.
+ * @param suffix The suffix appended to the application specific environment variable
+ * @return The application name. Must be freed.
  */
-WS_DLL_PUBLIC enum application_flavor_e application_name_to_flavor(const char * name);
+WS_DLL_PUBLIC char* application_configuration_environment_variable(const char* suffix);
 
 /**
- * Convenience routine for checking the application flavor.
+ * @brief Get the application specific directory where extcaps can be found
+ *
+ * @param install_prefix The prefix prepended to the extcap directory
+ * @return The application directory name. Must be freed.
+ */
+WS_DLL_PUBLIC char* application_extcap_dir(const char* install_prefix);
+
+/**
+ * @brief Convenience routine for checking the application flavor.
  * @return true if the application flavor is APPLICATION_FLAVOR_WIRESHARK.
  */
 WS_DLL_PUBLIC bool application_flavor_is_wireshark(void);
 
 /**
- * Convenience routine for checking the application flavor.
+ * @brief Convenience routine for checking the application flavor.
  * @return true if the application flavor is APPLICATION_FLAVOR_STRATOSHARK.
  */
 WS_DLL_PUBLIC bool application_flavor_is_stratoshark(void);

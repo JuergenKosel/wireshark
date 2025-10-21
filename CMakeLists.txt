@@ -83,7 +83,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # We require minimum C++11. libscap and libsinsp require C++ 17.
-if(BUILD_stratoshark OR BUILD_falcodump)
+if(BUILD_stratoshark OR BUILD_falcodump OR BUILD_dumpcalls)
 	set(CMAKE_CXX_STANDARD 17)
 else()
 	set(CMAKE_CXX_STANDARD 11)
@@ -1410,30 +1410,14 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 		if (APPLE AND Qt6Widgets_VERSION VERSION_LESS 6.5.3)
 			message(WARNING "Qt 6.5.3 or later is required.")
 		endif()
-	else(USE_qt6)
+	else() # USE_qt6
 		set(qtver 5)
 		if(DEFINED ENV{WIRESHARK_QT5_PREFIX_PATH})
 			list(APPEND CMAKE_PREFIX_PATH $ENV{WIRESHARK_QT5_PREFIX_PATH})
 		endif()
-		if(APPLE)
-			# Homebrew installs Qt5 in different locations for different
-			# versions and architectures. Ensure that it can be found by
-			# CMake since it is not in the default /usr/local prefix.
-			set(QT5_APPLE_PATHS
-				/opt/homebrew/opt/qt@5
-				/opt/homebrew/opt/qt5
-				/usr/local/opt/qt@5
-				/usr/local/opt/qt5
-			)
-			foreach(_qt5_apple_path in QT5_APPLE_PATHS)
-				if(EXISTS ${_qt5_apple_path})
-					# Add it to PATHS so that it doesn't override the
-					# CMAKE_PREFIX_PATH environment variable.
-					# QT_FIND_PACKAGE_OPTIONS should be passed to find_package,
-					# e.g. find_package(Qt5Core ${QT_FIND_PACKAGE_OPTIONS})
-					list(APPEND QT5_FIND_PACKAGE_OPTIONS PATHS ${_qt5_apple_path})
-				endif()
-			endforeach()
+		message(DEPRECATION "Support for building with Qt 5 will be removed in the future.")
+		if(APPLE OR WIN32)
+			message(FATAL_ERROR "Qt 6 is required to build on ${CMAKE_SYSTEM_NAME}.")
 		endif()
 
 		set(QT5_PACKAGELIST
@@ -1445,15 +1429,10 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 			Qt5Concurrent
 		)
 		set(QT5_OPTIONAL_PACKAGELIST
+			# DBus is a core component of Qt6, but was an add-on in Qt5.
+			Qt5DBus
 			Qt5Multimedia
 		)
-		if(WIN32)
-			list(APPEND QT5_PACKAGELIST Qt5WinExtras)
-		endif()
-		if(NOT WIN32 AND NOT APPLE)
-			# DBus is a core component of Qt6, but was an add-on in Qt5.
-			list(APPEND QT5_OPTIONAL_PACKAGELIST Qt5DBus)
-		endif()
 		foreach(_qt5_package IN LISTS QT5_PACKAGELIST)
 			find_package(${_qt5_package} REQUIRED ${QT5_FIND_PACKAGE_OPTIONS})
 			list(APPEND QT5_LIBRARIES ${${_qt5_package}_LIBRARIES})
@@ -1480,7 +1459,7 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 			# of the Qt6 headers. Resolve this by explicit including Qt5.
 			list(APPEND QT5_INCLUDE_DIRS /usr/local/opt/qt5/include)
 		endif()
-	endif(USE_qt6)
+	endif() # USE_qt6
 
 	set(QT_FOUND ON)
 	if(APPLE)
@@ -1891,6 +1870,7 @@ if(ENABLE_PLUGINS)
 		plugins/wiretap/usbdump
 		plugins/codecs/G711
 		plugins/codecs/l16_mono
+		plugins/codecs/l24
 		${CUSTOM_PLUGIN_SRC_DIR}
 	)
 	set(STRATOSHARK_PLUGIN_SRC_DIRS)
@@ -2317,9 +2297,14 @@ if (ASCIIDOCTOR_FOUND)
 			${CMAKE_BINARY_DIR}/doc/man_pages/idl2deb.html
 		)
 	endif()
-	if (BUILD_stratoshark)
+	if (BUILD_falcodump)
 		list(APPEND DOC_FILES
 			${CMAKE_BINARY_DIR}/doc/man_pages/falcodump.html
+		)
+	endif()
+	if (BUILD_dumpcalls)
+		list(APPEND DOC_FILES
+			${CMAKE_BINARY_DIR}/doc/man_pages/dumpcalls.html
 		)
 	endif()
 endif()
@@ -4006,8 +3991,16 @@ if(RPMBUILD_EXECUTABLE)
 	else()
 		list(APPEND _rpmbuild_with_args --with qt5 --without qt6)
 	endif()
-	if(SINSP_FOUND AND BUILD_stratoshark AND BUILD_falcodump)
-		list(APPEND _rpmbuild_with_args --with stratoshark)
+	if(SINSP_FOUND)
+		if(BUILD_stratoshark)
+			list(APPEND _rpmbuild_with_args --with stratoshark)
+		endif()
+		if(BUILD_falcodump)
+			list(APPEND _rpmbuild_with_args --with falcodump)
+		endif()
+		if(BUILD_dumpcalls)
+			list(APPEND _rpmbuild_with_args --with dumpcalls)
+		endif()
 	endif()
 	if (MAXMINDDB_FOUND)
 		list(APPEND _rpmbuild_with_args --with mmdbresolve)
@@ -4181,6 +4174,7 @@ set(CLEAN_C_FILES
 	${randpktdump_FILES}
 	${etwdump_FILES}
 	${falcodump_FILES}
+	${dumpcalls_FILES}
 	${udpdump_FILES}
 	${text2pcap_FILES}
 	${mergecap_FILES}
@@ -4263,25 +4257,16 @@ endif()
 set(SHARK_PUBLIC_HEADERS
 	cfile.h
 	cli_main.h
-	file.h
-	include/c128/bits.h
-	include/c128/endian.h
-	include/c128/integer.h
-	include/c128/types.h
-	include/jtckdint.h
-	include/ws_attributes.h
-	include/ws_codepoints.h
-	include/ws_compiler_tests.h
-	include/ws_diag_control.h
-	include/ws_exit_codes.h
-	include/ws_log_defs.h
-	include/ws_posix_compat.h
-	include/ws_symbol_export.h
-	include/wireshark.h
 	${CMAKE_BINARY_DIR}/ws_version.h
 )
 
 install(FILES ${SHARK_PUBLIC_HEADERS}
+	DESTINATION ${PROJECT_INSTALL_INCLUDEDIR}
+	COMPONENT "Development"
+	EXCLUDE_FROM_ALL
+)
+
+install(DIRECTORY include/
 	DESTINATION ${PROJECT_INSTALL_INCLUDEDIR}
 	COMPONENT "Development"
 	EXCLUDE_FROM_ALL

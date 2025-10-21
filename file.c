@@ -72,9 +72,12 @@
 # include <ws2tcpip.h>
 #endif
 
-static bool read_record(capture_file *cf, wtap_rec *rec, dfilter_t *dfcode,
-    epan_dissect_t *edt, column_info *cinfo, int64_t offset,
-    fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum);
+static void add_new_record_to_record_list(capture_file *cf, wtap_rec *rec,
+                                          dfilter_t *dfcode,
+                                          epan_dissect_t *edt,
+                                          column_info *cinfo, int64_t offset,
+                                          fifo_string_cache_t *frame_dup_cache,
+                                          GChecksum *frame_cksum);
 
 static void rescan_packets(capture_file *cf, const char *action, const char *action_item, bool redissect);
 
@@ -230,6 +233,7 @@ ws_epan_new(capture_file *cf)
     static const struct packet_provider_funcs funcs = {
         cap_file_provider_get_frame_ts,
         cap_file_provider_get_start_ts,
+        cap_file_provider_get_end_ts,
         cap_file_provider_get_interface_name,
         cap_file_provider_get_interface_description,
         cap_file_provider_get_modified_block,
@@ -644,9 +648,10 @@ cf_read(capture_file *cf, bool reloading)
                     g_timer_start(prog_timer);
                 }
                 /*
-                 * The previous GUI triggers should not have destroyed the running
-                 * session. If that did happen, it could blow up when read_record tries
-                 * to use the destroyed edt.session, so detect it right here.
+                 * The previous GUI triggers should not have destroyed the
+                 * running session. If that did happen, it could blow up
+                 * when add_new_record_to_record_list tries to use the
+                 * destroyed edt.session, so detect it right here.
                  */
                 ws_assert(edt.session == cf->epan);
             }
@@ -667,7 +672,8 @@ cf_read(capture_file *cf, bool reloading)
                    hours even on fast machines) just to see that it was the wrong file. */
                 break;
             }
-            read_record(cf, &rec, cf->dfcode, &edt, cinfo, data_offset, &frame_dup_cache, cksum);
+            add_new_record_to_record_list(cf, &rec, cf->dfcode, &edt, cinfo,
+                                          data_offset, &frame_dup_cache, cksum);
             wtap_rec_reset(&rec);
         }
     }
@@ -797,7 +803,6 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
         int *err, fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum)
 {
     char             *err_info;
-    volatile int      newly_displayed_packets = 0;
     epan_dissect_t    edt;
     bool              create_proto_tree;
     unsigned          tap_flags;
@@ -877,9 +882,9 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
                    aren't any packets left to read) exit. */
                 break;
             }
-            if (read_record(cf, rec, cf->dfcode, &edt, cinfo, data_offset, frame_dup_cache, frame_cksum)) {
-                newly_displayed_packets++;
-            }
+            add_new_record_to_record_list(cf, rec, cf->dfcode, &edt, cinfo,
+                                          data_offset, frame_dup_cache,
+                                          frame_cksum);
             to_read--;
         }
         wtap_rec_reset(rec);
@@ -994,7 +999,9 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, int *err,
                aren't any packets left to read) exit. */
             break;
         }
-        read_record(cf, rec, cf->dfcode, &edt, cinfo, data_offset, frame_dup_cache, frame_cksum);
+        add_new_record_to_record_list(cf, rec, cf->dfcode, &edt, cinfo,
+                                      data_offset, frame_dup_cache,
+                                      frame_cksum);
         wtap_rec_reset(rec);
     }
 
@@ -1271,19 +1278,19 @@ add_packet_to_packet_list(frame_data *fdata, capture_file *cf,
 }
 
 /*
- * Read in a new record.
- * Returns true if the packet was added to the packet (record) list,
- * false otherwise.
+ * Add a newly-read record to the packet (record) list if there's no
+ * read filter or if there is and the packet matches the filter.
  */
-static bool
-read_record(capture_file *cf, wtap_rec *rec, dfilter_t *dfcode,
-        epan_dissect_t *edt, column_info *cinfo, int64_t offset,
-        fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum)
+static void
+add_new_record_to_record_list(capture_file *cf, wtap_rec *rec,
+                              dfilter_t *dfcode, epan_dissect_t *edt,
+                              column_info *cinfo, int64_t offset,
+                              fifo_string_cache_t *frame_dup_cache,
+                              GChecksum *frame_cksum)
 {
     frame_data    fdlocal;
     frame_data   *fdata;
     bool          passed = true;
-    bool          added = false;
     const char    *cksum_string;
     bool          was_in_cache;
 
@@ -1316,8 +1323,6 @@ read_record(capture_file *cf, wtap_rec *rec, dfilter_t *dfcode,
     }
 
     if (passed) {
-        added = true;
-
         /* This does a shallow copy of fdlocal, which is good enough. */
         fdata = frame_data_sequence_add(cf->provider.frames, &fdlocal);
 
@@ -1353,8 +1358,6 @@ read_record(capture_file *cf, wtap_rec *rec, dfilter_t *dfcode,
             add_packet_to_packet_list(fdata, cf, edt, dfcode, cinfo, rec, true);
         }
     }
-
-    return added;
 }
 
 
@@ -5521,7 +5524,7 @@ rescan_file(capture_file *cf, const char *fname, bool is_tempfile)
 
 cf_write_status_t
 cf_save_records(capture_file *cf, const char *fname, unsigned save_format,
-        wtap_compression_type compression_type,
+        ws_compression_type compression_type,
         bool discard_comments, bool dont_reopen)
 {
     char            *err_info = "Unknown error";
@@ -5743,7 +5746,7 @@ cf_save_records(capture_file *cf, const char *fname, unsigned save_format,
     }
 
     /* If this was a temporary file, and we didn't do the save by doing
-       a move, so the tempoary file is still around under its old name,
+       a move, so the temporary file is still around under its old name,
        remove it. */
     if (cf->is_tempfile && how_to_save != SAVE_WITH_MOVE) {
         /* If this fails, there's not much we can do, so just ignore errors. */
@@ -5876,7 +5879,7 @@ fail:
 cf_write_status_t
 cf_export_specified_packets(capture_file *cf, const char *fname,
         packet_range_t *range, unsigned save_format,
-        wtap_compression_type compression_type)
+        ws_compression_type compression_type)
 {
     char                        *fname_new = NULL;
     int                          err;

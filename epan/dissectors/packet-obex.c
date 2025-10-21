@@ -2353,7 +2353,7 @@ dissect_obex(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             if (frag_msg) {
                 /* not the first fragment */
 
-                /* packet stream is guaranted to be sequence of fragments, one by one,
+                /* packet stream is guaranteed to be sequence of fragments, one by one,
                    so find last fragment for its offset and length */
                 for (frag = frag_msg->next; frag->next; frag = frag->next) {}
 
@@ -3785,13 +3785,13 @@ proto_register_obex(void)
     static build_valid_func obex_profile_da_build_value[1] = {obex_profile_value};
     static decode_as_value_t obex_profile_da_values = {obex_profile_prompt, 1, obex_profile_da_build_value};
     static decode_as_t obex_profile_da = {"obex", "obex.profile", 1, 0, &obex_profile_da_values, NULL, NULL,
-            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static build_valid_func media_type_da_build_value[1] = {media_type_value};
     static decode_as_value_t media_type_da_values = {media_type_prompt, 1, media_type_da_build_value};
     static decode_as_t media_type_da = {"obex", "media_type",
             1, 0, &media_type_da_values, NULL, NULL,
-            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
 
     obex_path        = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());

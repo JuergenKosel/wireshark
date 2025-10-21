@@ -25,6 +25,45 @@
 #include <ui/qt/widgets/hex_data_source_view.h>
 #include <ui/qt/widgets/json_data_source_view.h>
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+// Short-circuit minimumTabSizeHint and tabSizeHint if the TabBar is not
+// to workaround https://bugreports.qt.io/browse/QTBUG-141187
+// The real fix still needs to be done in Qt - there's still an unneeded
+// O(N^2) number of layoutTabs() calls, but at least the ones where it's
+// not visible are much faster. The functions that most need fixing are
+// not virtual and can't be overridden, unlike these two.
+class DataSourceTabBar : public QTabBar
+{
+    Q_OBJECT
+
+public:
+    explicit DataSourceTabBar(QWidget *parent = nullptr);
+
+protected:
+    virtual QSize minimumTabSizeHint(int) const override;
+    virtual QSize tabSizeHint(int) const override;
+};
+
+DataSourceTabBar::DataSourceTabBar(QWidget *parent) :
+    QTabBar(parent) {}
+
+QSize DataSourceTabBar::minimumTabSizeHint(int index) const
+{
+    if (!isVisible()) {
+        return QSize();
+    }
+    return QTabBar::minimumTabSizeHint(index);
+}
+
+QSize DataSourceTabBar::tabSizeHint(int index) const
+{
+    if (!isVisible()) {
+        return QSize();
+    }
+    return QTabBar::tabSizeHint(index);
+}
+#endif
+
 DataSourceTab::DataSourceTab(QWidget *parent, epan_dissect_t *edt_fixed) :
     QTabWidget(parent),
     cap_file_(0),
@@ -32,6 +71,9 @@ DataSourceTab::DataSourceTab(QWidget *parent, epan_dissect_t *edt_fixed) :
     edt_(edt_fixed),
     disable_hover_(false)
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+    setTabBar(new DataSourceTabBar(this));
+#endif
     if (application_flavor_is_wireshark()) {
         setAccessibleName(tr("Packet bytes"));
     } else {
@@ -280,11 +322,25 @@ void DataSourceTab::selectedFrameChanged(QList<int> frames)
         }
     }
 
-    /* We don't need to call clear() because Qt will remove the child widgets
-     * when they're deleted (calling clear() seems to fire leaveEvent() that
-     * isn't called if just deleted.) https://stackoverflow.com/a/76848495 */
+    /* We don't need to call clear() on Linux because Qt will remove the child
+     * widgets when they're deleted, but need to on MacOS and maybe Windows.
+     * We want to hide the QTabWidget so that the QTabBar doesn't calculate
+     * the sizeHint for each tab remaining every time a tab is removed, instead
+     * deferring until later. */
+    setVisible(false);
+#if QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
+    /* Pick up this performance improvement from Qt 6.8.2:
+     * https://github.com/qt/qtbase/commit/8717c1752f9b72ac7c028b722f0a068e84e64eca
+     * https://github.com/qt/qtbase/commit/828ece4743a0d44f7f37f1a980dec076783a8abe
+     */
+    int c = count();
+    while (c)
+        removeTab(--c);
+#else
     clear();
-    qDeleteAll(findChildren<BaseDataSourceView *>());
+#endif
+    qDeleteAll(findChildren<BaseDataSourceView *>(QString(), Qt::FindDirectChildrenOnly));
+    setVisible(true);
 
     /* only show the bytes for single selections */
     if (frames.count() == 1)
@@ -292,6 +348,12 @@ void DataSourceTab::selectedFrameChanged(QList<int> frames)
         if (! cap_file_ || ! cap_file_->edt)
             return;
 
+        /* Unfortunately in Qt 6.3 and later adding a tab still causes a
+         * relayout thanks to the following commit:
+         * https://github.com/qt/qtbase/commit/02164b292f002b051f34a88871145415fad94f32
+         * Filed: https://bugreports.qt.io/browse/QTBUG-141187
+         */
+        setVisible(false);
         /* This code relies on a dissection, which had happened somewhere else. It also does not
          * really check, if the dissection happened for the correct frame. In the future we might
          * rewrite this for directly calling the dissection engine here. */
@@ -304,6 +366,7 @@ void DataSourceTab::selectedFrameChanged(QList<int> frames)
             addTab(source_description, source);
             wmem_free(NULL, source_description);
         }
+        setVisible(true);
     }
     else
         addTab("PlaceHolder", 0);
@@ -398,3 +461,7 @@ void DataSourceTab::captureFileClosing()
 {
     emit detachData();
 }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+#include "data_source_tab.moc"
+#endif

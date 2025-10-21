@@ -39,7 +39,6 @@ void proto_reg_handoff_x509if(void);
 /* Initialize the protocol and registered fields */
 static int proto_x509if;
 static int hf_x509if_object_identifier_id;
-static int hf_x509if_any_string;
 static int hf_x509if_DistinguishedName_PDU;       /* DistinguishedName */
 static int hf_x509if_SubtreeSpecification_PDU;    /* SubtreeSpecification */
 static int hf_x509if_HierarchyLevel_PDU;          /* HierarchyLevel */
@@ -343,8 +342,8 @@ static const ber_sequence_t T_values_set_of[1] = {
 
 static int
 dissect_x509if_T_values(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_values_set_of, hf_index, ett_x509if_T_values);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             0, NO_BOUND, T_values_set_of, hf_index, ett_x509if_T_values);
 
   return offset;
 }
@@ -385,8 +384,8 @@ static const ber_sequence_t T_contextValues_set_of[1] = {
 
 static int
 dissect_x509if_T_contextValues(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_contextValues_set_of, hf_index, ett_x509if_T_contextValues);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_contextValues_set_of, hf_index, ett_x509if_T_contextValues);
 
   return offset;
 }
@@ -423,8 +422,8 @@ static const ber_sequence_t SET_SIZE_1_MAX_OF_Context_set_of[1] = {
 
 static int
 dissect_x509if_SET_SIZE_1_MAX_OF_Context(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 SET_SIZE_1_MAX_OF_Context_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_Context);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, SET_SIZE_1_MAX_OF_Context_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_Context);
 
   return offset;
 }
@@ -451,8 +450,8 @@ static const ber_sequence_t T_valuesWithContext_set_of[1] = {
 
 static int
 dissect_x509if_T_valuesWithContext(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_valuesWithContext_set_of, hf_index, ett_x509if_T_valuesWithContext);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_valuesWithContext_set_of, hf_index, ett_x509if_T_valuesWithContext);
 
   return offset;
 }
@@ -550,8 +549,8 @@ static const ber_sequence_t T_ca_contextValues_set_of[1] = {
 
 static int
 dissect_x509if_T_ca_contextValues(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_ca_contextValues_set_of, hf_index, ett_x509if_T_ca_contextValues);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_ca_contextValues_set_of, hf_index, ett_x509if_T_ca_contextValues);
 
   return offset;
 }
@@ -578,8 +577,8 @@ static const ber_sequence_t SET_SIZE_1_MAX_OF_ContextAssertion_set_of[1] = {
 
 static int
 dissect_x509if_SET_SIZE_1_MAX_OF_ContextAssertion(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 SET_SIZE_1_MAX_OF_ContextAssertion_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_ContextAssertion);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, SET_SIZE_1_MAX_OF_ContextAssertion_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_ContextAssertion);
 
   return offset;
 }
@@ -647,8 +646,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_ContextAssertion_sequence_of[
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextAssertion(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_ContextAssertion_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextAssertion);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_ContextAssertion_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextAssertion);
 
   return offset;
 }
@@ -728,7 +727,7 @@ dissect_x509if_T_atadv_value(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
   actx->external.direct_reference = orig_oid;
 
   /* try and dissect as a string */
-  dissect_ber_octet_string(false, actx, NULL, tvb, old_offset, hf_x509if_any_string, &out_tvb);
+  dissect_ber_octet_string(false, actx, tree, tvb, old_offset, -1, &out_tvb);
 
   /* should also try and dissect as an OID and integer */
   /* of course, if I can look up the syntax .... */
@@ -796,8 +795,8 @@ static const ber_sequence_t T_valWithContext_set_of[1] = {
 
 static int
 dissect_x509if_T_valWithContext(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_valWithContext_set_of, hf_index, ett_x509if_T_valWithContext);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_valWithContext_set_of, hf_index, ett_x509if_T_valWithContext);
 
   return offset;
 }
@@ -854,8 +853,8 @@ dissect_x509if_RelativeDistinguishedName(bool implicit_tag _U_, tvbuff_t *tvb _U
   last_rdn_buf = wmem_strbuf_new(actx->pinfo->pool, "");
   register_frame_end_routine (actx->pinfo, x509if_frame_end);
 
-    offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 RelativeDistinguishedName_set_of, hf_index, ett_x509if_RelativeDistinguishedName);
+    offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, RelativeDistinguishedName_set_of, hf_index, ett_x509if_RelativeDistinguishedName);
 
 
   /* we've finished - close the bracket */
@@ -1000,8 +999,8 @@ static const ber_sequence_t T_specificExclusions_set_of[1] = {
 
 static int
 dissect_x509if_T_specificExclusions(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_specificExclusions_set_of, hf_index, ett_x509if_T_specificExclusions);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_specificExclusions_set_of, hf_index, ett_x509if_T_specificExclusions);
 
   return offset;
 }
@@ -1010,8 +1009,8 @@ dissect_x509if_T_specificExclusions(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 static int
 dissect_x509if_BaseDistance(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer64(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer64(implicit_tag, actx, tree, tvb, offset,
+                                                            0U, NO_BOUND, hf_index, NULL);
 
   return offset;
 }
@@ -1107,8 +1106,8 @@ static const ber_sequence_t T_chopSpecificExclusions_set_of[1] = {
 
 static int
 dissect_x509if_T_chopSpecificExclusions(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_chopSpecificExclusions_set_of, hf_index, ett_x509if_T_chopSpecificExclusions);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_chopSpecificExclusions_set_of, hf_index, ett_x509if_T_chopSpecificExclusions);
 
   return offset;
 }
@@ -1164,8 +1163,8 @@ static const ber_sequence_t SET_SIZE_1_MAX_OF_RuleIdentifier_set_of[1] = {
 
 static int
 dissect_x509if_SET_SIZE_1_MAX_OF_RuleIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 SET_SIZE_1_MAX_OF_RuleIdentifier_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_RuleIdentifier);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, SET_SIZE_1_MAX_OF_RuleIdentifier_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_RuleIdentifier);
 
   return offset;
 }
@@ -1193,8 +1192,8 @@ static const ber_sequence_t T_auxiliaries_set_of[1] = {
 
 static int
 dissect_x509if_T_auxiliaries(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_auxiliaries_set_of, hf_index, ett_x509if_T_auxiliaries);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_auxiliaries_set_of, hf_index, ett_x509if_T_auxiliaries);
 
   return offset;
 }
@@ -1206,8 +1205,8 @@ static const ber_sequence_t T_mandatory_set_of[1] = {
 
 static int
 dissect_x509if_T_mandatory(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_mandatory_set_of, hf_index, ett_x509if_T_mandatory);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_mandatory_set_of, hf_index, ett_x509if_T_mandatory);
 
   return offset;
 }
@@ -1219,8 +1218,8 @@ static const ber_sequence_t T_optional_set_of[1] = {
 
 static int
 dissect_x509if_T_optional(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_optional_set_of, hf_index, ett_x509if_T_optional);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_optional_set_of, hf_index, ett_x509if_T_optional);
 
   return offset;
 }
@@ -1232,8 +1231,8 @@ static const ber_sequence_t T_precluded_set_of[1] = {
 
 static int
 dissect_x509if_T_precluded(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_precluded_set_of, hf_index, ett_x509if_T_precluded);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_precluded_set_of, hf_index, ett_x509if_T_precluded);
 
   return offset;
 }
@@ -1263,8 +1262,8 @@ static const ber_sequence_t T_mandatoryContexts_set_of[1] = {
 
 static int
 dissect_x509if_T_mandatoryContexts(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_mandatoryContexts_set_of, hf_index, ett_x509if_T_mandatoryContexts);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_mandatoryContexts_set_of, hf_index, ett_x509if_T_mandatoryContexts);
 
   return offset;
 }
@@ -1276,8 +1275,8 @@ static const ber_sequence_t T_optionalContexts_set_of[1] = {
 
 static int
 dissect_x509if_T_optionalContexts(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 T_optionalContexts_set_of, hf_index, ett_x509if_T_optionalContexts);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, T_optionalContexts_set_of, hf_index, ett_x509if_T_optionalContexts);
 
   return offset;
 }
@@ -1334,8 +1333,8 @@ static const ber_sequence_t T_ra_selectedValues_sequence_of[1] = {
 
 static int
 dissect_x509if_T_ra_selectedValues(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      T_ra_selectedValues_sequence_of, hf_index, ett_x509if_T_ra_selectedValues);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  0, NO_BOUND, T_ra_selectedValues_sequence_of, hf_index, ett_x509if_T_ra_selectedValues);
 
   return offset;
 }
@@ -1394,8 +1393,8 @@ static const ber_sequence_t T_defaultValues_sequence_of[1] = {
 
 static int
 dissect_x509if_T_defaultValues(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      T_defaultValues_sequence_of, hf_index, ett_x509if_T_defaultValues);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  0, NO_BOUND, T_defaultValues_sequence_of, hf_index, ett_x509if_T_defaultValues);
 
   return offset;
 }
@@ -1426,8 +1425,8 @@ static const ber_sequence_t T_contextValue_sequence_of[1] = {
 
 static int
 dissect_x509if_T_contextValue(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      T_contextValue_sequence_of, hf_index, ett_x509if_T_contextValue);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, T_contextValue_sequence_of, hf_index, ett_x509if_T_contextValue);
 
   return offset;
 }
@@ -1454,8 +1453,8 @@ static const ber_sequence_t SEQUENCE_SIZE_0_MAX_OF_ContextProfile_sequence_of[1]
 
 static int
 dissect_x509if_SEQUENCE_SIZE_0_MAX_OF_ContextProfile(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_0_MAX_OF_ContextProfile_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_0_MAX_OF_ContextProfile);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  0, NO_BOUND, SEQUENCE_SIZE_0_MAX_OF_ContextProfile_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_0_MAX_OF_ContextProfile);
 
   return offset;
 }
@@ -1545,8 +1544,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_MatchingUse_sequence_of[1] = 
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_MatchingUse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_MatchingUse_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MatchingUse);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_MatchingUse_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MatchingUse);
 
   return offset;
 }
@@ -1578,8 +1577,8 @@ static const ber_sequence_t SEQUENCE_SIZE_0_MAX_OF_RequestAttribute_sequence_of[
 
 static int
 dissect_x509if_SEQUENCE_SIZE_0_MAX_OF_RequestAttribute(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_0_MAX_OF_RequestAttribute_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_0_MAX_OF_RequestAttribute);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  0, NO_BOUND, SEQUENCE_SIZE_0_MAX_OF_RequestAttribute_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_0_MAX_OF_RequestAttribute);
 
   return offset;
 }
@@ -1689,8 +1688,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_ContextProfile_sequence_of[1]
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextProfile(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_ContextProfile_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextProfile);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_ContextProfile_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextProfile);
 
   return offset;
 }
@@ -1718,8 +1717,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_ResultAttribute_sequence_of[1
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_ResultAttribute(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_ResultAttribute_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ResultAttribute);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_ResultAttribute_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ResultAttribute);
 
   return offset;
 }
@@ -1762,8 +1761,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_Mapping_sequence_of[1] = {
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_Mapping(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_Mapping_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_Mapping);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_Mapping_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_Mapping);
 
   return offset;
 }
@@ -1791,8 +1790,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_MRSubstitution_sequence_of[1]
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_MRSubstitution(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_MRSubstitution_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRSubstitution);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_MRSubstitution_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRSubstitution);
 
   return offset;
 }
@@ -1819,8 +1818,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_MRMapping_sequence_of[1] = {
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_MRMapping(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_MRMapping_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRMapping);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_MRMapping_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRMapping);
 
   return offset;
 }
@@ -1850,8 +1849,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_AttributeType_sequence_of[1] 
 
 static int
 dissect_x509if_SEQUENCE_SIZE_1_MAX_OF_AttributeType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_AttributeType_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_AttributeType);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_AttributeType_sequence_of, hf_index, ett_x509if_SEQUENCE_SIZE_1_MAX_OF_AttributeType);
 
   return offset;
 }
@@ -1912,8 +1911,8 @@ static const ber_sequence_t SET_SIZE_1_MAX_OF_DirectoryString_set_of[1] = {
 
 static int
 dissect_x509if_SET_SIZE_1_MAX_OF_DirectoryString(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_set_of(implicit_tag, actx, tree, tvb, offset,
-                                 SET_SIZE_1_MAX_OF_DirectoryString_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_DirectoryString);
+  offset = dissect_ber_constrained_set_of(implicit_tag, actx, tree, tvb, offset,
+                                             1, NO_BOUND, SET_SIZE_1_MAX_OF_DirectoryString_set_of, hf_index, ett_x509if_SET_SIZE_1_MAX_OF_DirectoryString);
 
   return offset;
 }
@@ -2084,11 +2083,7 @@ void proto_register_x509if(void) {
   static hf_register_info hf[] = {
     { &hf_x509if_object_identifier_id,
       { "Object Id", "x509if.oid", FT_OID, BASE_NONE, NULL, 0,
-	"Object identifier Id", HFILL }},
-    { &hf_x509if_any_string,
-      { "AnyString", "x509if.any.String", FT_BYTES, BASE_NONE,
-	    NULL, 0, "This is any String", HFILL }},
-
+        "Object identifier Id", HFILL }},
     { &hf_x509if_DistinguishedName_PDU,
       { "DistinguishedName", "x509if.DistinguishedName",
         FT_UINT32, BASE_DEC, NULL, 0,

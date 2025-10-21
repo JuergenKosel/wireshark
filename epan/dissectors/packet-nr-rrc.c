@@ -6,7 +6,7 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V18.6.0 Release 18) packet dissection
+ * (3GPP TS 38.331 V18.7.0 Release 18) packet dissection
  * Copyright 2018-2025, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
@@ -3031,7 +3031,7 @@ static int hf_nr_rrc_nid_List_r17;                /* SEQUENCE_SIZE_1_maxGIN_r17_
 static int hf_nr_rrc_nid_List_r17_item;           /* NID_r16 */
 static int hf_nr_rrc_supportedGINs_r17;           /* BIT_STRING_SIZE_1_maxGIN_r17 */
 static int hf_nr_rrc_ntn_Config_r17;              /* NTN_Config_r17 */
-static int hf_nr_rrc_t_Service_r17;               /* INTEGER_0_549755813887 */
+static int hf_nr_rrc_t_Service_r17;               /* T_t_Service_r17 */
 static int hf_nr_rrc_referenceLocation_r17;       /* ReferenceLocation_r17 */
 static int hf_nr_rrc_distanceThresh_r17;          /* INTEGER_0_65525 */
 static int hf_nr_rrc_ntn_NeighCellConfigList_r17;  /* NTN_NeighCellConfigList_r17 */
@@ -3043,7 +3043,7 @@ static int hf_nr_rrc_NTN_NeighCellConfigList_r17_item;  /* NTN_NeighCellConfig_r
 static int hf_nr_rrc_numberOfMsg4HARQ_ACK_Repetitions_r18;  /* BIT_STRING_SIZE_4 */
 static int hf_nr_rrc_rsrp_ThresholdMsg4HARQ_ACK_r18;  /* RSRP_Range */
 static int hf_nr_rrc_ntn_Config_r18;              /* NTN_Config_r17 */
-static int hf_nr_rrc_t_ServiceStart_r18;          /* INTEGER_0_549755813887 */
+static int hf_nr_rrc_t_ServiceStart_r18;          /* T_t_ServiceStart_r18 */
 static int hf_nr_rrc_ssb_TimeOffset_r18;          /* INTEGER_0_159 */
 static int hf_nr_rrc_mcch_Config_r17;             /* MCCH_Config_r17 */
 static int hf_nr_rrc_cfr_ConfigMCCH_MTCH_r17;     /* CFR_ConfigMCCH_MTCH_r17 */
@@ -6678,7 +6678,7 @@ static int hf_nr_rrc_referenceLocation1_r17;      /* ReferenceLocation_r17 */
 static int hf_nr_rrc_referenceLocation2_r17;      /* ReferenceLocation_r17 */
 static int hf_nr_rrc_hysteresisLocation_r17;      /* HysteresisLocation_r17 */
 static int hf_nr_rrc_condEventT1_r17;             /* T_condEventT1_r17 */
-static int hf_nr_rrc_t1_Threshold_r17;            /* INTEGER_0_549755813887 */
+static int hf_nr_rrc_t1_Threshold_r17;            /* T_t1_Threshold_r17 */
 static int hf_nr_rrc_duration_r17_01;             /* INTEGER_1_6000 */
 static int hf_nr_rrc_condEventD2_r18;             /* T_condEventD2_r18 */
 static int hf_nr_rrc_distanceThreshFromReference1_r18;  /* INTEGER_0_65535 */
@@ -7543,10 +7543,10 @@ static int hf_nr_rrc_inactivePosSRS_TimeAlignmentTimer_r18;  /* TimeAlignmentTim
 static int hf_nr_rrc_inactivePosSRS_RSRP_ChangeThreshold_r18;  /* RSRP_ChangeThreshold_r17 */
 static int hf_nr_rrc_srs_PosUplinkTransmissionWindowConfig_r18;  /* T_srs_PosUplinkTransmissionWindowConfig_r18 */
 static int hf_nr_rrc_setup_167;                   /* SRS_PosUplinkTransmissionWindowConfig_r18 */
-static int hf_nr_rrc_startSFN_r18;                /* INTEGER_0_1023 */
+static int hf_nr_rrc_dummy_04;                    /* INTEGER_0_1023 */
 static int hf_nr_rrc_windowPeriodicityAndOffset_r18;  /* T_windowPeriodicityAndOffset_r18 */
 static int hf_nr_rrc_periodicityAndOffset_r18_02;  /* SRS_PeriodicityAndOffset_r16 */
-static int hf_nr_rrc_periodicityAndOffset_Ext_r18;  /* SRS_PeriodicityAndOffsetExt_r16 */
+static int hf_nr_rrc_periodicityAndOffsetExt_r18;  /* SRS_PeriodicityAndOffsetExt_r16 */
 static int hf_nr_rrc_duration_r18;                /* T_duration_r18 */
 static int hf_nr_rrc_srs_PosResourceSetLinked_r18;  /* SRS_PosResourceSetId_r16 */
 static int hf_nr_rrc_srs_LinkedConfig_r18;        /* T_srs_LinkedConfig_r18 */
@@ -7871,7 +7871,7 @@ static int hf_nr_rrc_ca_ParametersNRDC_v1640;     /* CA_ParametersNRDC_v1640 */
 static int hf_nr_rrc_ca_ParametersNRDC_v1650;     /* CA_ParametersNRDC_v1650 */
 static int hf_nr_rrc_intrabandConcurrentOperationPowerClass_r16;  /* SEQUENCE_SIZE_1_maxBandComb_OF_IntraBandPowerClass_r16 */
 static int hf_nr_rrc_intrabandConcurrentOperationPowerClass_r16_item;  /* IntraBandPowerClass_r16 */
-static int hf_nr_rrc_dummy_04;                    /* CA_ParametersNR_v1690 */
+static int hf_nr_rrc_dummy_05;                    /* CA_ParametersNR_v1690 */
 static int hf_nr_rrc_ca_ParametersNR_v16a0;       /* CA_ParametersNR_v16a0 */
 static int hf_nr_rrc_ca_ParametersNRDC_v16a0;     /* CA_ParametersNRDC_v16a0 */
 static int hf_nr_rrc_ca_ParametersNR_v16j0;       /* CA_ParametersNR_v1690 */
@@ -7889,7 +7889,7 @@ static int hf_nr_rrc_ca_ParametersNR_v1730;       /* CA_ParametersNR_v1730 */
 static int hf_nr_rrc_ca_ParametersNRDC_v1730;     /* CA_ParametersNRDC_v1730 */
 static int hf_nr_rrc_bandList_v1730;              /* SEQUENCE_SIZE_1_maxSimultaneousBands_OF_BandParameters_v1730 */
 static int hf_nr_rrc_bandList_v1730_item;         /* BandParameters_v1730 */
-static int hf_nr_rrc_dummy_05;                    /* CA_ParametersNR_v1740 */
+static int hf_nr_rrc_dummy_06;                    /* CA_ParametersNR_v1740 */
 static int hf_nr_rrc_ca_ParametersNR_v1760;       /* CA_ParametersNR_v1760 */
 static int hf_nr_rrc_ca_ParametersNRDC_v1760;     /* CA_ParametersNRDC_v1760 */
 static int hf_nr_rrc_bandList_v1770;              /* SEQUENCE_SIZE_1_maxSimultaneousBands_OF_BandParameters_v1770 */
@@ -8387,7 +8387,7 @@ static int hf_nr_rrc_supportedMaxNeighCellsPerFreqLayersWithoutGaps_r18;  /* INT
 static int hf_nr_rrc_supportedMaxNeighCellsPerFreqLayersWithGaps_r18;  /* INTEGER_1_8 */
 static int hf_nr_rrc_supportedMaxCellsWithoutGapsL1_Meas_r18;  /* INTEGER_1_24 */
 static int hf_nr_rrc_supportedMaxSSB_WithinSlotL1_Meas_r18;  /* T_supportedMaxSSB_WithinSlotL1_Meas_r18 */
-static int hf_nr_rrc_dummy_06;                    /* T_dummy_01 */
+static int hf_nr_rrc_dummy_07;                    /* T_dummy_01 */
 static int hf_nr_rrc_supportedMaxSSB_PerFreqLayerWithoutGaps_r18;  /* INTEGER_1_8 */
 static int hf_nr_rrc_supportedMaxSSB_PerFreqLayerWithGaps_r18;  /* INTEGER_1_8 */
 static int hf_nr_rrc_supportedMaxSSB_L1_Meas_r18;  /* T_supportedMaxSSB_L1_Meas_r18 */
@@ -9015,7 +9015,7 @@ static int hf_nr_rrc_scs_30kHz_r18_03;            /* PDCCH_RepetitionParameters_
 static int hf_nr_rrc_scellWithoutSSB_InterBandCA_r18;  /* T_scellWithoutSSB_InterBandCA_r18 */
 static int hf_nr_rrc_supportOfSingleGroup;        /* T_supportOfSingleGroup */
 static int hf_nr_rrc_supportOfMultipleGroups;     /* T_supportOfMultipleGroups */
-static int hf_nr_rrc_dummy_07;                    /* SEQUENCE_SIZE_1_maxBandsMRDC_OF_Dummy_PDCCH_RACH_DL_Info_r18 */
+static int hf_nr_rrc_dummy_08;                    /* SEQUENCE_SIZE_1_maxBandsMRDC_OF_Dummy_PDCCH_RACH_DL_Info_r18 */
 static int hf_nr_rrc_dummy_item_01;               /* Dummy_PDCCH_RACH_DL_Info_r18 */
 static int hf_nr_rrc_pdcch_RACH_AffectedBands_TargetBandList_r18;  /* T_pdcch_RACH_AffectedBands_TargetBandList_r18 */
 static int hf_nr_rrc_pdcch_RACH_AffectedBands_TargetBandList_r18_item;  /* T_pdcch_RACH_AffectedBands_TargetBandList_r18_item */
@@ -9206,7 +9206,7 @@ static int hf_nr_rrc_featureSetUplink_v1610_cbgPUSCH_ProcessingType2_DifferentTB
 static int hf_nr_rrc_featureSetUplink_v1610_cbgPUSCH_ProcessingType2_DifferentTB_PerSlot_r16_scs_120kHz_r16;  /* T_featureSetUplink_v1610_cbgPUSCH_ProcessingType2_DifferentTB_PerSlot_r16_scs_120kHz_r16 */
 static int hf_nr_rrc_supportedSRS_PosResources_r16;  /* SRS_AllPosResources_r16 */
 static int hf_nr_rrc_intraFreqDAPS_UL_r16;        /* T_intraFreqDAPS_UL_r16 */
-static int hf_nr_rrc_dummy_08;                    /* T_dummy_02 */
+static int hf_nr_rrc_dummy_09;                    /* T_dummy_02 */
 static int hf_nr_rrc_intraFreqTwoTAGs_DAPS_r16;   /* T_intraFreqTwoTAGs_DAPS_r16 */
 static int hf_nr_rrc_dummy1_02;                   /* T_dummy1_02 */
 static int hf_nr_rrc_dummy2;                      /* T_dummy2 */
@@ -9250,7 +9250,7 @@ static int hf_nr_rrc_offsetSRS_CB_PUSCH_Ant_Switch_fr1_r16_01;  /* T_offsetSRS_C
 static int hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorSingleOcc_fr1_r16_01;  /* T_offsetSRS_CB_PUSCH_PDCCH_MonitorSingleOcc_fr1_r16_01 */
 static int hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithoutGap_fr1_r16_01;  /* T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithoutGap_fr1_r16_01 */
 static int hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01;  /* T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01 */
-static int hf_nr_rrc_dummy_09;                    /* T_dummy_03 */
+static int hf_nr_rrc_dummy_10;                    /* T_dummy_03 */
 static int hf_nr_rrc_partialCancellationPUCCH_PUSCH_PRACH_TX_r16;  /* T_partialCancellationPUCCH_PUSCH_PRACH_TX_r16 */
 static int hf_nr_rrc_twoHARQ_ACK_Codebook_type1_r16;  /* SubSlot_Config_r16 */
 static int hf_nr_rrc_twoHARQ_ACK_Codebook_type2_r16;  /* SubSlot_Config_r16 */
@@ -9296,7 +9296,7 @@ static int hf_nr_rrc_pusch_2SymbolFL_DMRS_r18;    /* T_pusch_2SymbolFL_DMRS_r18 
 static int hf_nr_rrc_pusch_2SymbolFL_DMRS_Addition2Symbol_r18;  /* T_pusch_2SymbolFL_DMRS_Addition2Symbol_r18 */
 static int hf_nr_rrc_pusch_1SymbolFL_DMRS_Addition3Symbol_r18;  /* T_pusch_1SymbolFL_DMRS_Addition3Symbol_r18 */
 static int hf_nr_rrc_pusch_1SymbolFL_DMRS_BeyondOnePort_r18;  /* T_pusch_1SymbolFL_DMRS_BeyondOnePort_r18 */
-static int hf_nr_rrc_dummy_10;                    /* T_dummy_04 */
+static int hf_nr_rrc_dummy_11;                    /* T_dummy_04 */
 static int hf_nr_rrc_pusch_TypeB_DMRS_r18;        /* T_pusch_TypeB_DMRS_r18 */
 static int hf_nr_rrc_pusch_rank_1_4_1Port_r18;    /* T_pusch_rank_1_4_1Port_r18 */
 static int hf_nr_rrc_pusch_rank_5_8_1Port_r18;    /* T_pusch_rank_5_8_1Port_r18 */
@@ -9729,7 +9729,7 @@ static int hf_nr_rrc_handoverLTE_EPC;             /* T_handoverLTE_EPC */
 static int hf_nr_rrc_handoverLTE_5GC;             /* T_handoverLTE_5GC */
 static int hf_nr_rrc_sftd_MeasNR_Neigh;           /* T_sftd_MeasNR_Neigh */
 static int hf_nr_rrc_sftd_MeasNR_Neigh_DRX;       /* T_sftd_MeasNR_Neigh_DRX */
-static int hf_nr_rrc_dummy_11;                    /* T_dummy_05 */
+static int hf_nr_rrc_dummy_12;                    /* T_dummy_05 */
 static int hf_nr_rrc_ss_SINR_Meas;                /* T_ss_SINR_Meas */
 static int hf_nr_rrc_csi_RSRP_AndRSRQ_MeasWithSSB;  /* T_csi_RSRP_AndRSRQ_MeasWithSSB */
 static int hf_nr_rrc_csi_RSRP_AndRSRQ_MeasWithoutSSB;  /* T_csi_RSRP_AndRSRQ_MeasWithoutSSB */
@@ -9744,7 +9744,7 @@ static int hf_nr_rrc_nr_AutonomousGaps_r16;       /* T_nr_AutonomousGaps_r16 */
 static int hf_nr_rrc_nr_AutonomousGaps_ENDC_r16;  /* T_nr_AutonomousGaps_ENDC_r16 */
 static int hf_nr_rrc_nr_AutonomousGaps_NEDC_r16;  /* T_nr_AutonomousGaps_NEDC_r16 */
 static int hf_nr_rrc_nr_AutonomousGaps_NRDC_r16;  /* T_nr_AutonomousGaps_NRDC_r16 */
-static int hf_nr_rrc_dummy_12;                    /* T_dummy_06 */
+static int hf_nr_rrc_dummy_13;                    /* T_dummy_06 */
 static int hf_nr_rrc_cli_RSSI_Meas_r16;           /* T_cli_RSSI_Meas_r16 */
 static int hf_nr_rrc_cli_SRS_RSRP_Meas_r16;       /* T_cli_SRS_RSRP_Meas_r16 */
 static int hf_nr_rrc_interFrequencyMeas_NoGap_r16;  /* T_interFrequencyMeas_NoGap_r16 */
@@ -10248,7 +10248,7 @@ static int hf_nr_rrc_intraBandENDC_Support_UL_v1790;  /* T_intraBandENDC_Support
 static int hf_nr_rrc_intraBandENDC_NominalSpacing_r18;  /* T_intraBandENDC_NominalSpacing_r18 */
 static int hf_nr_rrc_inactiveStateNCR_r18;        /* T_inactiveStateNCR_r18 */
 static int hf_nr_rrc_supportedNumberOfDRBs_NCR_r18;  /* T_supportedNumberOfDRBs_NCR_r18 */
-static int hf_nr_rrc_dummy_13;                    /* T_dummy_07 */
+static int hf_nr_rrc_dummy_14;                    /* T_dummy_07 */
 static int hf_nr_rrc_measAndMobParametersNRDC;    /* MeasAndMobParametersMRDC */
 static int hf_nr_rrc_generalParametersNRDC;       /* GeneralParametersMRDC_XDD_Diff */
 static int hf_nr_rrc_fdd_Add_UE_NRDC_Capabilities;  /* UE_MRDC_CapabilityAddXDD_Mode */
@@ -10628,8 +10628,8 @@ static int hf_nr_rrc_rf_TxRetuneTimeFR1_r18_01;   /* T_rf_TxRetuneTimeFR1_r18_01
 static int hf_nr_rrc_rf_TxRetuneTimeFR2_r18_01;   /* T_rf_TxRetuneTimeFR2_r18_01 */
 static int hf_nr_rrc_switchTimeBetweenActiveBWP_FrequencyHop_r18_01;  /* T_switchTimeBetweenActiveBWP_FrequencyHop_r18_01 */
 static int hf_nr_rrc_numOfOverlappingPRB_r18_02;  /* T_numOfOverlappingPRB_r18_02 */
-static int hf_nr_rrc_maximumSRS_Resource_Periodic_r18;  /* T_maximumSRS_Resource_Periodic_r18 */
-static int hf_nr_rrc_maximumSRS_Resource_Semipersistent_r18;  /* T_maximumSRS_Resource_Semipersistent_r18 */
+static int hf_nr_rrc_maximumSRS_ResourcePeriodic_r18_01;  /* T_maximumSRS_ResourcePeriodic_r18_01 */
+static int hf_nr_rrc_maximumSRS_ResourceSemipersistent_r18_01;  /* T_maximumSRS_ResourceSemipersistent_r18_01 */
 static int hf_nr_rrc_powSav_ParametersCommon_r16;  /* PowSav_ParametersCommon_r16 */
 static int hf_nr_rrc_powSav_ParametersFRX_Diff_r16;  /* PowSav_ParametersFRX_Diff_r16 */
 static int hf_nr_rrc_powSav_ParametersFR2_2_r17;  /* PowSav_ParametersFR2_2_r17 */
@@ -11142,6 +11142,7 @@ static int hf_nr_rrc_ltm_MAC_CE_SeparateTCI_r18;  /* T_ltm_MAC_CE_SeparateTCI_r1
 static int hf_nr_rrc_qcl_Resource_r18_05;         /* T_qcl_Resource_r18_05 */
 static int hf_nr_rrc_maxNumberDL_TCI_AcrossCells_r18_02;  /* INTEGER_1_32 */
 static int hf_nr_rrc_maxNumberUL_TCI_AcrossCells_r18_02;  /* INTEGER_1_32 */
+static int hf_nr_rrc_eventA4BasedCondHandoverATG_r18;  /* T_eventA4BasedCondHandoverATG_r18 */
 static int hf_nr_rrc_pusch_RepetitionTypeA_v16c0;  /* T_pusch_RepetitionTypeA_v16c0 */
 static int hf_nr_rrc_mimo_ParametersPerBand_v17b0;  /* MIMO_ParametersPerBand_v17b0 */
 static int hf_nr_rrc_aggressorband1_r18;          /* T_aggressorband1_r18 */
@@ -11214,7 +11215,7 @@ static int hf_nr_rrc_enhancedDynamicHARQ_codebook_r16;  /* T_enhancedDynamicHARQ
 static int hf_nr_rrc_oneShotHARQ_feedback_r16;    /* T_oneShotHARQ_feedback_r16 */
 static int hf_nr_rrc_multiPUSCH_UL_grant_r16;     /* T_multiPUSCH_UL_grant_r16 */
 static int hf_nr_rrc_csi_RS_RLM_r16;              /* T_csi_RS_RLM_r16 */
-static int hf_nr_rrc_dummy_14;                    /* T_dummy_08 */
+static int hf_nr_rrc_dummy_15;                    /* T_dummy_08 */
 static int hf_nr_rrc_periodicAndSemi_PersistentCSI_RS_r16;  /* T_periodicAndSemi_PersistentCSI_RS_r16 */
 static int hf_nr_rrc_pusch_PRB_interlace_r16;     /* T_pusch_PRB_interlace_r16 */
 static int hf_nr_rrc_pucch_F0_F1_PRB_Interlace_r16;  /* T_pucch_F0_F1_PRB_Interlace_r16 */
@@ -11532,7 +11533,7 @@ static int hf_nr_rrc_generalParametersMRDC_XDD_Diff;  /* GeneralParametersMRDC_X
 static int hf_nr_rrc_splitSRB_WithOneUL_Path;     /* T_splitSRB_WithOneUL_Path */
 static int hf_nr_rrc_splitDRB_withUL_Both_MCG_SCG;  /* T_splitDRB_withUL_Both_MCG_SCG */
 static int hf_nr_rrc_srb3;                        /* T_srb3 */
-static int hf_nr_rrc_dummy_15;                    /* T_dummy_09 */
+static int hf_nr_rrc_dummy_16;                    /* T_dummy_09 */
 static int hf_nr_rrc_f1c_OverEUTRA_r16;           /* T_f1c_OverEUTRA_r16 */
 static int hf_nr_rrc_accessStratumRelease;        /* AccessStratumRelease */
 static int hf_nr_rrc_pdcp_Parameters;             /* PDCP_Parameters */
@@ -11668,7 +11669,7 @@ static int hf_nr_rrc_inDeviceCoexIndFDM_r18;      /* T_inDeviceCoexIndFDM_r18 */
 static int hf_nr_rrc_inDeviceCoexIndTDM_r18;      /* T_inDeviceCoexIndTDM_r18 */
 static int hf_nr_rrc_musim_GapPriorityPreference_r18;  /* T_musim_GapPriorityPreference_r18 */
 static int hf_nr_rrc_musim_CapabilityRestriction_r18;  /* T_musim_CapabilityRestriction_r18 */
-static int hf_nr_rrc_dummy_16;                    /* T_dummy_10 */
+static int hf_nr_rrc_dummy_17;                    /* T_dummy_10 */
 static int hf_nr_rrc_ra_InsteadCG_SDT_r18;        /* T_ra_InsteadCG_SDT_r18 */
 static int hf_nr_rrc_resumeAfterSDT_Release_r18;  /* T_resumeAfterSDT_Release_r18 */
 static int hf_nr_rrc_ul_TrafficInfo_r18_01;       /* T_ul_TrafficInfo_r18 */
@@ -11875,9 +11876,9 @@ static int hf_nr_rrc_maxCC_PreferenceProhibitTimer_r16;  /* T_maxCC_PreferencePr
 static int hf_nr_rrc_maxMIMO_LayerPreferenceProhibitTimer_r16;  /* T_maxMIMO_LayerPreferenceProhibitTimer_r16 */
 static int hf_nr_rrc_minSchedulingOffsetPreferenceProhibitTimer_r16;  /* T_minSchedulingOffsetPreferenceProhibitTimer_r16 */
 static int hf_nr_rrc_releasePreferenceProhibitTimer_r16;  /* T_releasePreferenceProhibitTimer_r16 */
-static int hf_nr_rrc_connectedReporting;          /* T_connectedReporting */
-static int hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer;  /* T_rlm_RelaxtionReportingProhibitTimer */
-static int hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer;  /* T_bfd_RelaxtionReportingProhibitTimer */
+static int hf_nr_rrc_connectedReporting_r16;      /* T_connectedReporting_r16 */
+static int hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer_r17;  /* T_rlm_RelaxtionReportingProhibitTimer_r17 */
+static int hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer_r17;  /* T_bfd_RelaxtionReportingProhibitTimer_r17 */
 static int hf_nr_rrc_scg_DeactivationPreferenceProhibitTimer_r17;  /* T_scg_DeactivationPreferenceProhibitTimer_r17 */
 static int hf_nr_rrc_s_SearchDeltaP_Stationary_r17_01;  /* T_s_SearchDeltaP_Stationary_r17_01 */
 static int hf_nr_rrc_t_SearchDeltaP_Stationary_r17_01;  /* T_t_SearchDeltaP_Stationary_r17_01 */
@@ -12009,7 +12010,7 @@ static int hf_nr_rrc_sl_CBR_RangeDedicatedSL_PRS_RP_List_r18;  /* SEQUENCE_SIZE_
 static int hf_nr_rrc_sl_CBR_RangeDedicatedSL_PRS_RP_List_r18_item;  /* SL_CBR_LevelsDedicatedSL_PRS_RP_r18 */
 static int hf_nr_rrc_sl_CBR_SL_PRS_TxConfigList_r18;  /* SEQUENCE_SIZE_1_maxNrofSL_PRS_TxConfig_r18_OF_SL_CBR_SL_PRS_TxConfig_r18 */
 static int hf_nr_rrc_sl_CBR_SL_PRS_TxConfigList_r18_item;  /* SL_CBR_SL_PRS_TxConfig_r18 */
-static int hf_nr_rrc_SL_CBR_LevelsDedicatedSL_PRS_RP_r18_item;  /* SL_CBR_Dedicated_SL_PRS_RP_r18 */
+static int hf_nr_rrc_SL_CBR_LevelsDedicatedSL_PRS_RP_r18_item;  /* SL_CBR_DedicatedSL_PRS_RP_r18 */
 static int hf_nr_rrc_sl_PRS_CR_Limit_r18;         /* INTEGER_0_10000 */
 static int hf_nr_rrc_sl_PRS_MaxTx_power_r18;      /* INTEGER_M30_33 */
 static int hf_nr_rrc_sl_PRS_MaxNum_Transmissions_r18;  /* INTEGER_1_32 */
@@ -12110,7 +12111,7 @@ static int hf_nr_rrc_sl_PeriodCG2_r16;            /* INTEGER_1_99 */
 static int hf_nr_rrc_sl_PRS_ConfigIndexCG_r18;    /* SL_ConfigIndexCG_r16 */
 static int hf_nr_rrc_sl_PRS_PeriodCG_r18;         /* SL_PeriodCG_r16 */
 static int hf_nr_rrc_sl_PRS_ResourcePoolID_r18_01;  /* SL_ResourcePoolID_r16 */
-static int hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18;  /* T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18 */
+static int hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18;  /* T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18 */
 static int hf_nr_rrc_sl_TimeOffsetCG_Type1_r18;   /* INTEGER_0_7999 */
 static int hf_nr_rrc_sl_TimeReferenceSFN_Type1_r18;  /* T_sl_TimeReferenceSFN_Type1_r18 */
 static int hf_nr_rrc_sl_TimeResourceCG_Type1_r18;  /* INTEGER_0_496 */
@@ -12336,8 +12337,8 @@ static int hf_nr_rrc_sl_TimeWindowSizeCR_DedicatedSL_PRS_RP_r18;  /* T_sl_TimeWi
 static int hf_nr_rrc_sl_CBR_CommonTxDedicatedSL_PRS_RP_List_r18;  /* SL_CBR_CommonTxDedicatedSL_PRS_RP_List_r18 */
 static int hf_nr_rrc_sl_PriorityThreshold_UL_URLLC_r18;  /* INTEGER_1_9 */
 static int hf_nr_rrc_sl_PriorityThreshold_r18;    /* INTEGER_1_9 */
-static int hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18;  /* SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18 */
-static int hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18_item;  /* SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18 */
+static int hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18;  /* SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18 */
+static int hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18_item;  /* SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18 */
 static int hf_nr_rrc_sl_Thres_RSRP_ListDedicatedSL_PRS_RP_r18;  /* SEQUENCE_SIZE_64_OF_SL_PRS_ThresRSRP_r18 */
 static int hf_nr_rrc_sl_Thres_RSRP_ListDedicatedSL_PRS_RP_r18_item;  /* SL_PRS_ThresRSRP_r18 */
 static int hf_nr_rrc_sl_PreemptionEnableDedicatedSL_PRS_RP_r18;  /* T_sl_PreemptionEnableDedicatedSL_PRS_RP_r18 */
@@ -12592,7 +12593,7 @@ static int hf_nr_rrc_sl_PSFCH_ToPUCCH_r16_item;   /* INTEGER_0_15 */
 static int hf_nr_rrc_sl_ConfiguredGrantConfigList_r16;  /* SL_ConfiguredGrantConfigList_r16 */
 static int hf_nr_rrc_sl_DCI_ToSL_Trans_r16;       /* T_sl_DCI_ToSL_Trans_r16 */
 static int hf_nr_rrc_sl_DCI_ToSL_Trans_r16_item;  /* INTEGER_1_32 */
-static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18;  /* SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18 */
+static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18;  /* SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18 */
 static int hf_nr_rrc_sl_PRS_RNTI_r18;             /* RNTI_Value */
 static int hf_nr_rrc_sl_PRS_CS_RNTI_r18;          /* RNTI_Value */
 static int hf_nr_rrc_sl_BSR_Config_r16;           /* BSR_Config */
@@ -12602,10 +12603,10 @@ static int hf_nr_rrc_sl_ConfiguredGrantConfigToReleaseList_r16;  /* SEQUENCE_SIZ
 static int hf_nr_rrc_sl_ConfiguredGrantConfigToReleaseList_r16_item;  /* SL_ConfigIndexCG_r16 */
 static int hf_nr_rrc_sl_ConfiguredGrantConfigToAddModList_r16;  /* SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfig_r16 */
 static int hf_nr_rrc_sl_ConfiguredGrantConfigToAddModList_r16_item;  /* SL_ConfiguredGrantConfig_r16 */
-static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18;  /* SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16 */
-static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18_item;  /* SL_ConfigIndexCG_r16 */
-static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18;  /* SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 */
-static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18_item;  /* SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 */
+static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18;  /* SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16 */
+static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18_item;  /* SL_ConfigIndexCG_r16 */
+static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18;  /* SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 */
+static int hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18_item;  /* SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 */
 static int hf_nr_rrc_sl_SDAP_Header_r16;          /* T_sl_SDAP_Header_r16 */
 static int hf_nr_rrc_sl_DefaultRB_r16;            /* BOOLEAN */
 static int hf_nr_rrc_sl_MappedQoS_Flows_r16;      /* T_sl_MappedQoS_Flows_r16 */
@@ -12896,7 +12897,7 @@ static int hf_nr_rrc_criticalExtensions_57;       /* T_criticalExtensions_57 */
 static int hf_nr_rrc_rrcReconfigurationCompleteSidelink_r16;  /* RRCReconfigurationCompleteSidelink_r16_IEs */
 static int hf_nr_rrc_criticalExtensionsFuture_57;  /* T_criticalExtensionsFuture_57 */
 static int hf_nr_rrc_nonCriticalExtension_204;    /* RRCReconfigurationCompleteSidelink_v1710_IEs */
-static int hf_nr_rrc_dummy_17;                    /* T_dummy_11 */
+static int hf_nr_rrc_dummy_18;                    /* T_dummy_11 */
 static int hf_nr_rrc_nonCriticalExtension_205;    /* RRCReconfigurationCompleteSidelink_v1720_IEs */
 static int hf_nr_rrc_sl_DRX_ConfigReject_v1720;   /* T_sl_DRX_ConfigReject_v1720 */
 static int hf_nr_rrc_nonCriticalExtension_206;    /* T_nonCriticalExtension_69 */
@@ -17300,7 +17301,7 @@ static int ett_nr_rrc_SL_CG_MaxTransNumList_r16;
 static int ett_nr_rrc_SL_CG_MaxTransNum_r16;
 static int ett_nr_rrc_SL_PeriodCG_r16;
 static int ett_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18;
-static int ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18;
+static int ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SL_DRX_Config_r17;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofSL_Dest_r16_OF_SL_DRX_ConfigUC_Info_r17;
 static int ett_nr_rrc_SL_DRX_ConfigUC_Info_r17;
@@ -17377,7 +17378,7 @@ static int ett_nr_rrc_SEQUENCE_SIZE_1_16_OF_SL_ReservationPeriodAllowedDedicated
 static int ett_nr_rrc_SEQUENCE_SIZE_1_12_OF_SL_PRS_ResourceDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_TxPercentageDedicatedSL_PRS_RP_Config_r18;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_8_OF_SL_PriorityTxConfigIndexDedicatedSL_PRS_RP_r18;
-static int ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18;
+static int ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SEQUENCE_SIZE_64_OF_SL_PRS_ThresRSRP_r18;
 static int ett_nr_rrc_SL_PSCCH_ConfigDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SL_ReservationPeriodAllowedDedicatedSL_PRS_RP_r18;
@@ -17386,7 +17387,7 @@ static int ett_nr_rrc_SL_PRS_PowerControl_r18;
 static int ett_nr_rrc_SL_TxPercentageDedicatedSL_PRS_RP_Config_r18;
 static int ett_nr_rrc_SL_PriorityTxConfigIndexDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_maxCBR_LevelDedSL_PRS_1_r18_OF_SL_PRS_TxConfigIndex_r18;
-static int ett_nr_rrc_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18;
+static int ett_nr_rrc_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SL_PSBCH_Config_r16;
 static int ett_nr_rrc_SL_PSSCH_TxConfigList_r16;
 static int ett_nr_rrc_SL_PSSCH_TxConfig_r16;
@@ -17466,7 +17467,7 @@ static int ett_nr_rrc_MAC_MainConfigSL_r16;
 static int ett_nr_rrc_SL_ConfiguredGrantConfigList_r16;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfig_r16;
-static int ett_nr_rrc_SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18;
+static int ett_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18;
 static int ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18;
 static int ett_nr_rrc_SL_SDAP_Config_r16;
 static int ett_nr_rrc_T_sl_MappedQoS_Flows_r16;
@@ -17728,6 +17729,9 @@ static int ett_nr_rrc_sl_MeasResultsCandRelay_r17;
 static int ett_nr_rrc_sl_MeasResultServingRelay_r17;
 static int ett_nr_rrc_ReferenceLocation_r17;
 static int ett_nr_rrc_wayPointLocation_r18;
+static int ett_nr_rrc_t1_Threshold_r17;
+static int ett_nr_rrc_t_Service_r17;
+static int ett_nr_rrc_t_ServiceStart_r18;
 
 static expert_field ei_nr_rrc_number_pages_le15;
 
@@ -20232,9 +20236,21 @@ dissect_nr_rrc_T_condEventD1_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 static int
-dissect_nr_rrc_INTEGER_0_549755813887(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_t1_Threshold_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  uint64_t val;
+  proto_tree *subtree;
+  nstime_t ts;
+  uint32_t old_offset = offset;
   offset = dissect_per_constrained_integer_64b(tvb, offset, actx, tree, hf_index,
-                                                            0U, UINT64_C(549755813887), NULL, false);
+                                                            0U, UINT64_C(549755813887), &val, false);
+
+
+
+  subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_t1_Threshold_r17);
+  ts.secs = (time_t)(val/100)-EPOCH_DELTA_1900_01_01_00_00_00_UTC; /* epoch is 00:00:00 (midnight) UTC on 1900-01-01 */
+  ts.nsecs = (int)(val%100)*10000000;
+  proto_tree_add_time(subtree, hf_nr_rrc_utc_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
+  proto_tree_add_time(subtree, hf_nr_rrc_local_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
 
   return offset;
 }
@@ -20251,7 +20267,7 @@ dissect_nr_rrc_INTEGER_1_6000(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
 static const per_sequence_t T_condEventT1_r17_sequence[] = {
-  { &hf_nr_rrc_t1_Threshold_r17, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_INTEGER_0_549755813887 },
+  { &hf_nr_rrc_t1_Threshold_r17, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_t1_Threshold_r17 },
   { &hf_nr_rrc_duration_r17_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_INTEGER_1_6000 },
   { NULL, 0, 0, NULL }
 };
@@ -36577,6 +36593,28 @@ dissect_nr_rrc_NTN_Config_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 }
 
 
+
+static int
+dissect_nr_rrc_T_t_Service_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  uint64_t val;
+  proto_tree *subtree;
+  nstime_t ts;
+  uint32_t old_offset = offset;
+  offset = dissect_per_constrained_integer_64b(tvb, offset, actx, tree, hf_index,
+                                                            0U, UINT64_C(549755813887), &val, false);
+
+
+
+  subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_t_Service_r17);
+  ts.secs = (time_t)(val/100)-EPOCH_DELTA_1900_01_01_00_00_00_UTC; /* epoch is 00:00:00 (midnight) UTC on 1900-01-01 */
+  ts.nsecs = (int)(val%100)*10000000;
+  proto_tree_add_time(subtree, hf_nr_rrc_utc_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
+  proto_tree_add_time(subtree, hf_nr_rrc_local_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
+
+  return offset;
+}
+
+
 static const per_sequence_t NTN_NeighCellConfig_r17_sequence[] = {
   { &hf_nr_rrc_ntn_Config_r17, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_NTN_Config_r17 },
   { &hf_nr_rrc_carrierFreq_r17, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_ARFCN_ValueNR },
@@ -36635,9 +36673,31 @@ dissect_nr_rrc_NTN_CovEnh_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 }
 
 
+
+static int
+dissect_nr_rrc_T_t_ServiceStart_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  uint64_t val;
+  proto_tree *subtree;
+  nstime_t ts;
+  uint32_t old_offset = offset;
+  offset = dissect_per_constrained_integer_64b(tvb, offset, actx, tree, hf_index,
+                                                            0U, UINT64_C(549755813887), &val, false);
+
+
+
+  subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_t_ServiceStart_r18);
+  ts.secs = (time_t)(val/100)-EPOCH_DELTA_1900_01_01_00_00_00_UTC; /* epoch is 00:00:00 (midnight) UTC on 1900-01-01 */
+  ts.nsecs = (int)(val%100)*10000000;
+  proto_tree_add_time(subtree, hf_nr_rrc_utc_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
+  proto_tree_add_time(subtree, hf_nr_rrc_local_time, tvb, old_offset>>3, (old_offset&0x07) ? 6 : 5, &ts);
+
+  return offset;
+}
+
+
 static const per_sequence_t SatSwitchWithReSync_r18_sequence[] = {
   { &hf_nr_rrc_ntn_Config_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_NTN_Config_r17 },
-  { &hf_nr_rrc_t_ServiceStart_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_549755813887 },
+  { &hf_nr_rrc_t_ServiceStart_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_t_ServiceStart_r18 },
   { &hf_nr_rrc_ssb_TimeOffset_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_159 },
   { NULL, 0, 0, NULL }
 };
@@ -36668,7 +36728,7 @@ dissect_nr_rrc_SIB19_r17_eag_2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 static const per_sequence_t SIB19_r17_sequence[] = {
   { &hf_nr_rrc_ntn_Config_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_NTN_Config_r17 },
-  { &hf_nr_rrc_t_Service_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_549755813887 },
+  { &hf_nr_rrc_t_Service_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_t_Service_r17 },
   { &hf_nr_rrc_referenceLocation_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_ReferenceLocation_r17 },
   { &hf_nr_rrc_distanceThresh_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_65525 },
   { &hf_nr_rrc_ntn_NeighCellConfigList_r17, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_NTN_NeighCellConfigList_r17 },
@@ -50075,7 +50135,7 @@ dissect_nr_rrc_INTEGER_0_143(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 }
 
 
-static const per_sequence_t T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18_sequence[] = {
+static const per_sequence_t T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18_sequence[] = {
   { &hf_nr_rrc_sl_TimeOffsetCG_Type1_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_7999 },
   { &hf_nr_rrc_sl_TimeReferenceSFN_Type1_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_sl_TimeReferenceSFN_Type1_r18 },
   { &hf_nr_rrc_sl_TimeResourceCG_Type1_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_0_496 },
@@ -50085,9 +50145,9 @@ static const per_sequence_t T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18
 };
 
 static int
-dissect_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18, T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18_sequence);
+                                   ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18, T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18_sequence);
 
   return offset;
 }
@@ -50097,7 +50157,7 @@ static const per_sequence_t SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18_seque
   { &hf_nr_rrc_sl_PRS_ConfigIndexCG_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_ConfigIndexCG_r16 },
   { &hf_nr_rrc_sl_PRS_PeriodCG_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SL_PeriodCG_r16 },
   { &hf_nr_rrc_sl_PRS_ResourcePoolID_r18_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SL_ResourcePoolID_r16 },
-  { &hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18 },
+  { &hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18 },
   { NULL, 0, 0, NULL }
 };
 
@@ -50111,7 +50171,7 @@ dissect_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18(tvbuff_t *tvb _U_,
 
 
 static const per_sequence_t SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18_sequence_of[1] = {
-  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 },
+  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 },
 };
 
 static int
@@ -50124,23 +50184,23 @@ dissect_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedic
 }
 
 
-static const per_sequence_t SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18_sequence[] = {
-  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16 },
-  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 },
+static const per_sequence_t SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18_sequence[] = {
+  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16 },
+  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18 },
   { NULL, 0, 0, NULL }
 };
 
 static int
-dissect_nr_rrc_SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_nr_rrc_SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18, SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18_sequence);
+                                   ett_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18, SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18_sequence);
 
   return offset;
 }
 
 
 static const per_sequence_t SL_ScheduledConfig_r16_eag_2_sequence[] = {
-  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18 },
+  { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18 },
   { &hf_nr_rrc_sl_PRS_RNTI_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_RNTI_Value },
   { &hf_nr_rrc_sl_PRS_CS_RNTI_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_RNTI_Value },
   { NULL, 0, 0, NULL }
@@ -50525,7 +50585,7 @@ dissect_nr_rrc_SL_CBR_CommonTxConfigList_r16(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static int
-dissect_nr_rrc_SL_CBR_Dedicated_SL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_SL_CBR_DedicatedSL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 100U, NULL, false);
 
@@ -50534,7 +50594,7 @@ dissect_nr_rrc_SL_CBR_Dedicated_SL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_,
 
 
 static const per_sequence_t SL_CBR_LevelsDedicatedSL_PRS_RP_r18_sequence_of[1] = {
-  { &hf_nr_rrc_SL_CBR_LevelsDedicatedSL_PRS_RP_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_CBR_Dedicated_SL_PRS_RP_r18 },
+  { &hf_nr_rrc_SL_CBR_LevelsDedicatedSL_PRS_RP_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_CBR_DedicatedSL_PRS_RP_r18 },
 };
 
 static int
@@ -54180,29 +54240,29 @@ dissect_nr_rrc_T_sl_PRS_SelectionWindow_r18(tvbuff_t *tvb _U_, int offset _U_, a
 }
 
 
-static const per_sequence_t SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18_sequence[] = {
+static const per_sequence_t SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18_sequence[] = {
   { &hf_nr_rrc_sl_PRS_Priority_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_INTEGER_1_8 },
   { &hf_nr_rrc_sl_PRS_SelectionWindow_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_sl_PRS_SelectionWindow_r18 },
   { NULL, 0, 0, NULL }
 };
 
 static int
-dissect_nr_rrc_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_nr_rrc_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18, SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18_sequence);
+                                   ett_nr_rrc_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18, SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18_sequence);
 
   return offset;
 }
 
 
-static const per_sequence_t SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18_sequence_of[1] = {
-  { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18 },
+static const per_sequence_t SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18_sequence_of[1] = {
+  { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18 },
 };
 
 static int
-dissect_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
-                                                  ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18, SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18_sequence_of,
+                                                  ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18, SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18_sequence_of,
                                                   8, 8, false);
 
   return offset;
@@ -54281,7 +54341,7 @@ static const per_sequence_t SL_PRS_ResourcePool_r18_sequence[] = {
   { &hf_nr_rrc_sl_CBR_CommonTxDedicatedSL_PRS_RP_List_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SL_CBR_CommonTxDedicatedSL_PRS_RP_List_r18 },
   { &hf_nr_rrc_sl_PriorityThreshold_UL_URLLC_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_1_9 },
   { &hf_nr_rrc_sl_PriorityThreshold_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_1_9 },
-  { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18 },
+  { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18 },
   { &hf_nr_rrc_sl_Thres_RSRP_ListDedicatedSL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_64_OF_SL_PRS_ThresRSRP_r18 },
   { &hf_nr_rrc_sl_PreemptionEnableDedicatedSL_PRS_RP_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_sl_PreemptionEnableDedicatedSL_PRS_RP_r18 },
   { NULL, 0, 0, NULL }
@@ -63587,14 +63647,14 @@ dissect_nr_rrc_T_releasePreferenceProhibitTimer_r16(tvbuff_t *tvb _U_, int offse
 }
 
 
-static const value_string nr_rrc_T_connectedReporting_vals[] = {
+static const value_string nr_rrc_T_connectedReporting_r16_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_nr_rrc_T_connectedReporting(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_connectedReporting_r16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -63604,7 +63664,7 @@ dissect_nr_rrc_T_connectedReporting(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static const per_sequence_t ReleasePreferenceConfig_r16_sequence[] = {
   { &hf_nr_rrc_releasePreferenceProhibitTimer_r16, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_releasePreferenceProhibitTimer_r16 },
-  { &hf_nr_rrc_connectedReporting, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_connectedReporting },
+  { &hf_nr_rrc_connectedReporting_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_connectedReporting_r16 },
   { NULL, 0, 0, NULL }
 };
 
@@ -64927,7 +64987,7 @@ dissect_nr_rrc_T_minSchedulingOffsetPreferenceConfigExt_r17(tvbuff_t *tvb _U_, i
 }
 
 
-static const value_string nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_vals[] = {
+static const value_string nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_r17_vals[] = {
   {   0, "s0" },
   {   1, "s0dot5" },
   {   2, "s1" },
@@ -64949,7 +65009,7 @@ static const value_string nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_vals[] = 
 
 
 static int
-dissect_nr_rrc_T_rlm_RelaxtionReportingProhibitTimer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      16, NULL, false, 0, NULL);
 
@@ -64958,7 +65018,7 @@ dissect_nr_rrc_T_rlm_RelaxtionReportingProhibitTimer(tvbuff_t *tvb _U_, int offs
 
 
 static const per_sequence_t RLM_RelaxationReportingConfig_r17_sequence[] = {
-  { &hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_rlm_RelaxtionReportingProhibitTimer },
+  { &hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer_r17, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_r17 },
   { NULL, 0, 0, NULL }
 };
 
@@ -64993,7 +65053,7 @@ dissect_nr_rrc_T_rlm_RelaxationReportingConfig_r17(tvbuff_t *tvb _U_, int offset
 }
 
 
-static const value_string nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_vals[] = {
+static const value_string nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_r17_vals[] = {
   {   0, "s0" },
   {   1, "s0dot5" },
   {   2, "s1" },
@@ -65015,7 +65075,7 @@ static const value_string nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_vals[] = 
 
 
 static int
-dissect_nr_rrc_T_bfd_RelaxtionReportingProhibitTimer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_r17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      16, NULL, false, 0, NULL);
 
@@ -65024,7 +65084,7 @@ dissect_nr_rrc_T_bfd_RelaxtionReportingProhibitTimer(tvbuff_t *tvb _U_, int offs
 
 
 static const per_sequence_t BFD_RelaxationReportingConfig_r17_sequence[] = {
-  { &hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_bfd_RelaxtionReportingProhibitTimer },
+  { &hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer_r17, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_r17 },
   { NULL, 0, 0, NULL }
 };
 
@@ -95432,13 +95492,13 @@ dissect_nr_rrc_T_srs_PosRRC_InactiveAggBW_ConfigList_r18(tvbuff_t *tvb _U_, int 
 
 static const value_string nr_rrc_T_windowPeriodicityAndOffset_r18_vals[] = {
   {   0, "periodicityAndOffset-r18" },
-  {   1, "periodicityAndOffset-Ext-r18" },
+  {   1, "periodicityAndOffsetExt-r18" },
   { 0, NULL }
 };
 
 static const per_choice_t T_windowPeriodicityAndOffset_r18_choice[] = {
   {   0, &hf_nr_rrc_periodicityAndOffset_r18_02, ASN1_NO_EXTENSIONS     , dissect_nr_rrc_SRS_PeriodicityAndOffset_r16 },
-  {   1, &hf_nr_rrc_periodicityAndOffset_Ext_r18, ASN1_NO_EXTENSIONS     , dissect_nr_rrc_SRS_PeriodicityAndOffsetExt_r16 },
+  {   1, &hf_nr_rrc_periodicityAndOffsetExt_r18, ASN1_NO_EXTENSIONS     , dissect_nr_rrc_SRS_PeriodicityAndOffsetExt_r16 },
   { 0, NULL, 0, NULL }
 };
 
@@ -95453,10 +95513,10 @@ dissect_nr_rrc_T_windowPeriodicityAndOffset_r18(tvbuff_t *tvb _U_, int offset _U
 
 
 static const value_string nr_rrc_T_duration_r18_vals[] = {
-  {   0, "s1" },
-  {   1, "s2" },
-  {   2, "s4" },
-  {   3, "s6" },
+  {   0, "sl1" },
+  {   1, "sl2" },
+  {   2, "sl4" },
+  {   3, "sl6" },
   { 0, NULL }
 };
 
@@ -95471,7 +95531,7 @@ dissect_nr_rrc_T_duration_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
 static const per_sequence_t SRS_PosUplinkTransmissionWindowConfig_r18_sequence[] = {
-  { &hf_nr_rrc_startSFN_r18 , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_nr_rrc_INTEGER_0_1023 },
+  { &hf_nr_rrc_dummy_04     , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_nr_rrc_INTEGER_0_1023 },
   { &hf_nr_rrc_windowPeriodicityAndOffset_r18, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_windowPeriodicityAndOffset_r18 },
   { &hf_nr_rrc_duration_r18 , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_duration_r18 },
   { NULL, 0, 0, NULL }
@@ -124734,7 +124794,7 @@ dissect_nr_rrc_CA_ParametersNR_v1690(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t BandCombination_v1690_sequence[] = {
-  { &hf_nr_rrc_dummy_04     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_CA_ParametersNR_v1690 },
+  { &hf_nr_rrc_dummy_05     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_CA_ParametersNR_v1690 },
   { NULL, 0, 0, NULL }
 };
 
@@ -127354,7 +127414,7 @@ dissect_nr_rrc_CA_ParametersNR_v1740(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t BandCombination_v1740_sequence[] = {
-  { &hf_nr_rrc_dummy_05     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_CA_ParametersNR_v1740 },
+  { &hf_nr_rrc_dummy_06     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_CA_ParametersNR_v1740 },
   { NULL, 0, 0, NULL }
 };
 
@@ -131253,7 +131313,7 @@ static const per_sequence_t CA_ParametersNR_v1830_sequence[] = {
   { &hf_nr_rrc_maxNeighCellsPerFreqLayerL1_Meas_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_maxNeighCellsPerFreqLayerL1_Meas_r18 },
   { &hf_nr_rrc_supportedMaxCellsWithoutGapsL1_Meas_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_INTEGER_1_24 },
   { &hf_nr_rrc_supportedMaxSSB_WithinSlotL1_Meas_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_supportedMaxSSB_WithinSlotL1_Meas_r18 },
-  { &hf_nr_rrc_dummy_06     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_01 },
+  { &hf_nr_rrc_dummy_07     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_01 },
   { &hf_nr_rrc_supportedMaxSSB_L1_Meas_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_supportedMaxSSB_L1_Meas_r18 },
   { &hf_nr_rrc_qcl_MultiCellDCI_1_3_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_qcl_MultiCellDCI_1_3_r18 },
   { &hf_nr_rrc_bwp_SwitchingDCI_0_3_And_1_3_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_bwp_SwitchingDCI_0_3_And_1_3_r18 },
@@ -138841,7 +138901,7 @@ static const per_sequence_t FeatureSetDownlink_v1800_sequence[] = {
   { &hf_nr_rrc_pdcch_MonitoringMixed_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pdcch_MonitoringMixed_r18 },
   { &hf_nr_rrc_mTRP_PDCCH_legacyMonitoring_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_mTRP_PDCCH_legacyMonitoring_r18 },
   { &hf_nr_rrc_scellWithoutSSB_InterBandCA_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_scellWithoutSSB_InterBandCA_r18 },
-  { &hf_nr_rrc_dummy_07     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxBandsMRDC_OF_Dummy_PDCCH_RACH_DL_Info_r18 },
+  { &hf_nr_rrc_dummy_08     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_SEQUENCE_SIZE_1_maxBandsMRDC_OF_Dummy_PDCCH_RACH_DL_Info_r18 },
   { NULL, 0, 0, NULL }
 };
 
@@ -140846,7 +140906,7 @@ dissect_nr_rrc_T_dummy3_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
 static const per_sequence_t T_intraFreqDAPS_UL_r16_sequence[] = {
-  { &hf_nr_rrc_dummy_08     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_02 },
+  { &hf_nr_rrc_dummy_09     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_02 },
   { &hf_nr_rrc_intraFreqTwoTAGs_DAPS_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_intraFreqTwoTAGs_DAPS_r16 },
   { &hf_nr_rrc_dummy1_02    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy1_02 },
   { &hf_nr_rrc_dummy2       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy2 },
@@ -141582,7 +141642,7 @@ static const per_sequence_t FeatureSetUplink_v1630_sequence[] = {
   { &hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorSingleOcc_fr1_r16_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_offsetSRS_CB_PUSCH_PDCCH_MonitorSingleOcc_fr1_r16_01 },
   { &hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithoutGap_fr1_r16_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithoutGap_fr1_r16_01 },
   { &hf_nr_rrc_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01 },
-  { &hf_nr_rrc_dummy_09     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_03 },
+  { &hf_nr_rrc_dummy_10     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_03 },
   { &hf_nr_rrc_partialCancellationPUCCH_PUSCH_PRACH_TX_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_partialCancellationPUCCH_PUSCH_PRACH_TX_r16 },
   { NULL, 0, 0, NULL }
 };
@@ -142713,7 +142773,7 @@ dissect_nr_rrc_T_pusch_rank_5_8_2Port_r18(tvbuff_t *tvb _U_, int offset _U_, asn
 static const per_sequence_t T_pusch_DMRS_TypeEnh_r18_sequence[] = {
   { &hf_nr_rrc_dmrs_Type_r18, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_dmrs_Type_r18 },
   { &hf_nr_rrc_pusch_TypeA_DMRS_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pusch_TypeA_DMRS_r18 },
-  { &hf_nr_rrc_dummy_10     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_04 },
+  { &hf_nr_rrc_dummy_11     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_04 },
   { &hf_nr_rrc_pusch_TypeB_DMRS_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pusch_TypeB_DMRS_r18 },
   { &hf_nr_rrc_pusch_rank_1_4_1Port_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pusch_rank_1_4_1Port_r18 },
   { &hf_nr_rrc_pusch_rank_5_8_1Port_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pusch_rank_5_8_1Port_r18 },
@@ -149662,7 +149722,7 @@ dissect_nr_rrc_T_dummy_05(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 static const per_sequence_t MeasAndMobParametersXDD_Diff_eag_3_sequence[] = {
-  { &hf_nr_rrc_dummy_11     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_05 },
+  { &hf_nr_rrc_dummy_12     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_05 },
   { NULL, 0, 0, NULL }
 };
 
@@ -150056,7 +150116,7 @@ static const per_sequence_t MeasAndMobParametersFRX_Diff_eag_4_sequence[] = {
   { &hf_nr_rrc_nr_AutonomousGaps_ENDC_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_nr_AutonomousGaps_ENDC_r16 },
   { &hf_nr_rrc_nr_AutonomousGaps_NEDC_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_nr_AutonomousGaps_NEDC_r16 },
   { &hf_nr_rrc_nr_AutonomousGaps_NRDC_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_nr_AutonomousGaps_NRDC_r16 },
-  { &hf_nr_rrc_dummy_12     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_06 },
+  { &hf_nr_rrc_dummy_13     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_06 },
   { &hf_nr_rrc_cli_RSSI_Meas_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_cli_RSSI_Meas_r16 },
   { &hf_nr_rrc_cli_SRS_RSRP_Meas_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_cli_SRS_RSRP_Meas_r16 },
   { &hf_nr_rrc_interFrequencyMeas_NoGap_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_interFrequencyMeas_NoGap_r16 },
@@ -156734,7 +156794,7 @@ dissect_nr_rrc_T_dummy_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 static const per_sequence_t NCR_Parameters_r18_sequence[] = {
   { &hf_nr_rrc_inactiveStateNCR_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_inactiveStateNCR_r18 },
   { &hf_nr_rrc_supportedNumberOfDRBs_NCR_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_supportedNumberOfDRBs_NCR_r18 },
-  { &hf_nr_rrc_dummy_13     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_07 },
+  { &hf_nr_rrc_dummy_14     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_07 },
   { NULL, 0, 0, NULL }
 };
 
@@ -156811,7 +156871,7 @@ static const per_sequence_t GeneralParametersMRDC_XDD_Diff_sequence[] = {
   { &hf_nr_rrc_splitSRB_WithOneUL_Path, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_splitSRB_WithOneUL_Path },
   { &hf_nr_rrc_splitDRB_withUL_Both_MCG_SCG, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_splitDRB_withUL_Both_MCG_SCG },
   { &hf_nr_rrc_srb3         , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_srb3 },
-  { &hf_nr_rrc_dummy_15     , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_09 },
+  { &hf_nr_rrc_dummy_16     , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_09 },
   { NULL, 0, 0, NULL }
 };
 
@@ -163932,7 +163992,7 @@ dissect_nr_rrc_T_numOfOverlappingPRB_r18_02(tvbuff_t *tvb _U_, int offset _U_, a
 }
 
 
-static const value_string nr_rrc_T_maximumSRS_Resource_Periodic_r18_vals[] = {
+static const value_string nr_rrc_T_maximumSRS_ResourcePeriodic_r18_01_vals[] = {
   {   0, "n1" },
   {   1, "n2" },
   {   2, "n4" },
@@ -163945,7 +164005,7 @@ static const value_string nr_rrc_T_maximumSRS_Resource_Periodic_r18_vals[] = {
 
 
 static int
-dissect_nr_rrc_T_maximumSRS_Resource_Periodic_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_maximumSRS_ResourcePeriodic_r18_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      7, NULL, false, 0, NULL);
 
@@ -163953,7 +164013,7 @@ dissect_nr_rrc_T_maximumSRS_Resource_Periodic_r18(tvbuff_t *tvb _U_, int offset 
 }
 
 
-static const value_string nr_rrc_T_maximumSRS_Resource_Semipersistent_r18_vals[] = {
+static const value_string nr_rrc_T_maximumSRS_ResourceSemipersistent_r18_01_vals[] = {
   {   0, "n0" },
   {   1, "n1" },
   {   2, "n2" },
@@ -163967,7 +164027,7 @@ static const value_string nr_rrc_T_maximumSRS_Resource_Semipersistent_r18_vals[]
 
 
 static int
-dissect_nr_rrc_T_maximumSRS_Resource_Semipersistent_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_nr_rrc_T_maximumSRS_ResourceSemipersistent_r18_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      8, NULL, false, 0, NULL);
 
@@ -163983,8 +164043,8 @@ static const per_sequence_t PosSRS_TxFrequencyHoppingRRC_Inactive_r18_sequence[]
   { &hf_nr_rrc_rf_TxRetuneTimeFR2_r18_01, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_rf_TxRetuneTimeFR2_r18_01 },
   { &hf_nr_rrc_switchTimeBetweenActiveBWP_FrequencyHop_r18_01, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_switchTimeBetweenActiveBWP_FrequencyHop_r18_01 },
   { &hf_nr_rrc_numOfOverlappingPRB_r18_02, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_numOfOverlappingPRB_r18_02 },
-  { &hf_nr_rrc_maximumSRS_Resource_Periodic_r18, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_maximumSRS_Resource_Periodic_r18 },
-  { &hf_nr_rrc_maximumSRS_Resource_Semipersistent_r18, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_maximumSRS_Resource_Semipersistent_r18 },
+  { &hf_nr_rrc_maximumSRS_ResourcePeriodic_r18_01, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_maximumSRS_ResourcePeriodic_r18_01 },
+  { &hf_nr_rrc_maximumSRS_ResourceSemipersistent_r18_01, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_T_maximumSRS_ResourceSemipersistent_r18_01 },
   { NULL, 0, 0, NULL }
 };
 
@@ -165804,7 +165864,7 @@ static const per_sequence_t SharedSpectrumChAccessParamsPerBand_r16_sequence[] =
   { &hf_nr_rrc_oneShotHARQ_feedback_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_oneShotHARQ_feedback_r16 },
   { &hf_nr_rrc_multiPUSCH_UL_grant_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_multiPUSCH_UL_grant_r16 },
   { &hf_nr_rrc_csi_RS_RLM_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_csi_RS_RLM_r16 },
-  { &hf_nr_rrc_dummy_14     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_08 },
+  { &hf_nr_rrc_dummy_15     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_08 },
   { &hf_nr_rrc_periodicAndSemi_PersistentCSI_RS_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_periodicAndSemi_PersistentCSI_RS_r16 },
   { &hf_nr_rrc_pusch_PRB_interlace_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pusch_PRB_interlace_r16 },
   { &hf_nr_rrc_pucch_F0_F1_PRB_Interlace_r16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_pucch_F0_F1_PRB_Interlace_r16 },
@@ -171825,6 +171885,34 @@ dissect_nr_rrc_BandNR_eag_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 }
 
 
+static const value_string nr_rrc_T_eventA4BasedCondHandoverATG_r18_vals[] = {
+  {   0, "supported" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_nr_rrc_T_eventA4BasedCondHandoverATG_r18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
+                                     1, NULL, false, 0, NULL);
+
+  return offset;
+}
+
+
+static const per_sequence_t BandNR_eag_19_sequence[] = {
+  { &hf_nr_rrc_eventA4BasedCondHandoverATG_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_eventA4BasedCondHandoverATG_r18 },
+  { NULL, 0, 0, NULL }
+};
+
+static int
+dissect_nr_rrc_BandNR_eag_19(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_sequence_eag(tvb, offset, actx, tree, BandNR_eag_19_sequence);
+
+  return offset;
+}
+
+
 static const per_sequence_t BandNR_sequence[] = {
   { &hf_nr_rrc_bandNR       , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_nr_rrc_FreqBandIndicatorNR },
   { &hf_nr_rrc_modifiedMPR_Behaviour, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_nr_rrc_BIT_STRING_SIZE_8 },
@@ -171859,6 +171947,7 @@ static const per_sequence_t BandNR_sequence[] = {
   { &dummy_hf_nr_rrc_eag_field, ASN1_NOT_EXTENSION_ROOT, ASN1_NOT_OPTIONAL, dissect_nr_rrc_BandNR_eag_16 },
   { &dummy_hf_nr_rrc_eag_field, ASN1_NOT_EXTENSION_ROOT, ASN1_NOT_OPTIONAL, dissect_nr_rrc_BandNR_eag_17 },
   { &dummy_hf_nr_rrc_eag_field, ASN1_NOT_EXTENSION_ROOT, ASN1_NOT_OPTIONAL, dissect_nr_rrc_BandNR_eag_18 },
+  { &dummy_hf_nr_rrc_eag_field, ASN1_NOT_EXTENSION_ROOT, ASN1_NOT_OPTIONAL, dissect_nr_rrc_BandNR_eag_19 },
   { NULL, 0, 0, NULL }
 };
 
@@ -177233,7 +177322,7 @@ static const per_sequence_t UE_NR_Capability_v1800_sequence[] = {
   { &hf_nr_rrc_inDeviceCoexIndTDM_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_inDeviceCoexIndTDM_r18 },
   { &hf_nr_rrc_musim_GapPriorityPreference_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_musim_GapPriorityPreference_r18 },
   { &hf_nr_rrc_musim_CapabilityRestriction_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_musim_CapabilityRestriction_r18 },
-  { &hf_nr_rrc_dummy_16     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_10 },
+  { &hf_nr_rrc_dummy_17     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_dummy_10 },
   { &hf_nr_rrc_ra_InsteadCG_SDT_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_ra_InsteadCG_SDT_r18 },
   { &hf_nr_rrc_resumeAfterSDT_Release_r18, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_resumeAfterSDT_Release_r18 },
   { &hf_nr_rrc_ul_TrafficInfo_r18_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_T_ul_TrafficInfo_r18 },
@@ -178918,7 +179007,7 @@ dissect_nr_rrc_RRCReconfigurationCompleteSidelink_v1720_IEs(tvbuff_t *tvb _U_, i
 
 
 static const per_sequence_t RRCReconfigurationCompleteSidelink_v1710_IEs_sequence[] = {
-  { &hf_nr_rrc_dummy_17     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_dummy_11 },
+  { &hf_nr_rrc_dummy_18     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_nr_rrc_T_dummy_11 },
   { &hf_nr_rrc_nonCriticalExtension_205, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_nr_rrc_RRCReconfigurationCompleteSidelink_v1720_IEs },
   { NULL, 0, 0, NULL }
 };
@@ -192632,7 +192721,7 @@ proto_register_nr_rrc(void) {
     { &hf_nr_rrc_t_Service_r17,
       { "t-Service-r17", "nr-rrc.t_Service_r17",
         FT_UINT64, BASE_DEC, NULL, 0,
-        "INTEGER_0_549755813887", HFILL }},
+        "T_t_Service_r17", HFILL }},
     { &hf_nr_rrc_referenceLocation_r17,
       { "referenceLocation-r17", "nr-rrc.referenceLocation_r17",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -192680,7 +192769,7 @@ proto_register_nr_rrc(void) {
     { &hf_nr_rrc_t_ServiceStart_r18,
       { "t-ServiceStart-r18", "nr-rrc.t_ServiceStart_r18",
         FT_UINT64, BASE_DEC, NULL, 0,
-        "INTEGER_0_549755813887", HFILL }},
+        "T_t_ServiceStart_r18", HFILL }},
     { &hf_nr_rrc_ssb_TimeOffset_r18,
       { "ssb-TimeOffset-r18", "nr-rrc.ssb_TimeOffset_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -207220,7 +207309,7 @@ proto_register_nr_rrc(void) {
     { &hf_nr_rrc_t1_Threshold_r17,
       { "t1-Threshold-r17", "nr-rrc.t1_Threshold_r17",
         FT_UINT64, BASE_DEC, NULL, 0,
-        "INTEGER_0_549755813887", HFILL }},
+        NULL, HFILL }},
     { &hf_nr_rrc_duration_r17_01,
       { "duration-r17", "nr-rrc.duration_r17",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -210677,8 +210766,8 @@ proto_register_nr_rrc(void) {
       { "setup", "nr-rrc.setup_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SRS_PosUplinkTransmissionWindowConfig_r18", HFILL }},
-    { &hf_nr_rrc_startSFN_r18,
-      { "startSFN-r18", "nr-rrc.startSFN_r18",
+    { &hf_nr_rrc_dummy_04,
+      { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_1023", HFILL }},
     { &hf_nr_rrc_windowPeriodicityAndOffset_r18,
@@ -210689,8 +210778,8 @@ proto_register_nr_rrc(void) {
       { "periodicityAndOffset-r18", "nr-rrc.periodicityAndOffset_r18",
         FT_UINT32, BASE_DEC|BASE_EXT_STRING, &nr_rrc_SRS_PeriodicityAndOffset_r16_vals_ext, 0,
         "SRS_PeriodicityAndOffset_r16", HFILL }},
-    { &hf_nr_rrc_periodicityAndOffset_Ext_r18,
-      { "periodicityAndOffset-Ext-r18", "nr-rrc.periodicityAndOffset_Ext_r18",
+    { &hf_nr_rrc_periodicityAndOffsetExt_r18,
+      { "periodicityAndOffsetExt-r18", "nr-rrc.periodicityAndOffsetExt_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_SRS_PeriodicityAndOffsetExt_r16_vals), 0,
         "SRS_PeriodicityAndOffsetExt_r16", HFILL }},
     { &hf_nr_rrc_duration_r18,
@@ -211989,7 +212078,7 @@ proto_register_nr_rrc(void) {
       { "IntraBandPowerClass-r16", "nr-rrc.IntraBandPowerClass_r16",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_IntraBandPowerClass_r16_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_04,
+    { &hf_nr_rrc_dummy_05,
       { "dummy", "nr-rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CA_ParametersNR_v1690", HFILL }},
@@ -212061,7 +212150,7 @@ proto_register_nr_rrc(void) {
       { "BandParameters-v1730", "nr-rrc.BandParameters_v1730_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_05,
+    { &hf_nr_rrc_dummy_06,
       { "dummy", "nr-rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CA_ParametersNR_v1740", HFILL }},
@@ -214053,7 +214142,7 @@ proto_register_nr_rrc(void) {
       { "supportedMaxSSB-WithinSlotL1-Meas-r18", "nr-rrc.supportedMaxSSB_WithinSlotL1_Meas_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_supportedMaxSSB_WithinSlotL1_Meas_r18_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_06,
+    { &hf_nr_rrc_dummy_07,
       { "dummy", "nr-rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_dummy_01", HFILL }},
@@ -216565,7 +216654,7 @@ proto_register_nr_rrc(void) {
       { "supportOfMultipleGroups", "nr-rrc.supportOfMultipleGroups",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_supportOfMultipleGroups_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_07,
+    { &hf_nr_rrc_dummy_08,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_SIZE_1_maxBandsMRDC_OF_Dummy_PDCCH_RACH_DL_Info_r18", HFILL }},
@@ -217329,7 +217418,7 @@ proto_register_nr_rrc(void) {
       { "intraFreqDAPS-UL-r16", "nr-rrc.intraFreqDAPS_UL_r16_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_08,
+    { &hf_nr_rrc_dummy_09,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_02_vals), 0,
         "T_dummy_02", HFILL }},
@@ -217505,7 +217594,7 @@ proto_register_nr_rrc(void) {
       { "offsetSRS-CB-PUSCH-PDCCH-MonitorAnyOccWithGap-fr1-r16", "nr-rrc.offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01_vals), 0,
         "T_offsetSRS_CB_PUSCH_PDCCH_MonitorAnyOccWithGap_fr1_r16_01", HFILL }},
-    { &hf_nr_rrc_dummy_09,
+    { &hf_nr_rrc_dummy_10,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_03_vals), 0,
         "T_dummy_03", HFILL }},
@@ -217689,7 +217778,7 @@ proto_register_nr_rrc(void) {
       { "pusch-1SymbolFL-DMRS-BeyondOnePort-r18", "nr-rrc.pusch_1SymbolFL_DMRS_BeyondOnePort_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_pusch_1SymbolFL_DMRS_BeyondOnePort_r18_vals), 0,
         "T_pusch_1SymbolFL_DMRS_BeyondOnePort_r18", HFILL }},
-    { &hf_nr_rrc_dummy_10,
+    { &hf_nr_rrc_dummy_11,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_04_vals), 0,
         "T_dummy_04", HFILL }},
@@ -219421,7 +219510,7 @@ proto_register_nr_rrc(void) {
       { "sftd-MeasNR-Neigh-DRX", "nr-rrc.sftd_MeasNR_Neigh_DRX",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_sftd_MeasNR_Neigh_DRX_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_11,
+    { &hf_nr_rrc_dummy_12,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_05_vals), 0,
         "T_dummy_05", HFILL }},
@@ -219481,7 +219570,7 @@ proto_register_nr_rrc(void) {
       { "nr-AutonomousGaps-NRDC-r16", "nr-rrc.nr_AutonomousGaps_NRDC_r16",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_nr_AutonomousGaps_NRDC_r16_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_12,
+    { &hf_nr_rrc_dummy_13,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_06_vals), 0,
         "T_dummy_06", HFILL }},
@@ -221497,7 +221586,7 @@ proto_register_nr_rrc(void) {
       { "supportedNumberOfDRBs-NCR-r18", "nr-rrc.supportedNumberOfDRBs_NCR_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_supportedNumberOfDRBs_NCR_r18_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_13,
+    { &hf_nr_rrc_dummy_14,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_07_vals), 0,
         "T_dummy_07", HFILL }},
@@ -223017,14 +223106,14 @@ proto_register_nr_rrc(void) {
       { "numOfOverlappingPRB-r18", "nr-rrc.numOfOverlappingPRB_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_numOfOverlappingPRB_r18_02_vals), 0,
         "T_numOfOverlappingPRB_r18_02", HFILL }},
-    { &hf_nr_rrc_maximumSRS_Resource_Periodic_r18,
-      { "maximumSRS-Resource-Periodic-r18", "nr-rrc.maximumSRS_Resource_Periodic_r18",
-        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_maximumSRS_Resource_Periodic_r18_vals), 0,
-        NULL, HFILL }},
-    { &hf_nr_rrc_maximumSRS_Resource_Semipersistent_r18,
-      { "maximumSRS-Resource-Semipersistent-r18", "nr-rrc.maximumSRS_Resource_Semipersistent_r18",
-        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_maximumSRS_Resource_Semipersistent_r18_vals), 0,
-        "T_maximumSRS_Resource_Semipersistent_r18", HFILL }},
+    { &hf_nr_rrc_maximumSRS_ResourcePeriodic_r18_01,
+      { "maximumSRS-ResourcePeriodic-r18", "nr-rrc.maximumSRS_ResourcePeriodic_r18",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_maximumSRS_ResourcePeriodic_r18_01_vals), 0,
+        "T_maximumSRS_ResourcePeriodic_r18_01", HFILL }},
+    { &hf_nr_rrc_maximumSRS_ResourceSemipersistent_r18_01,
+      { "maximumSRS-ResourceSemipersistent-r18", "nr-rrc.maximumSRS_ResourceSemipersistent_r18",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_maximumSRS_ResourceSemipersistent_r18_01_vals), 0,
+        "T_maximumSRS_ResourceSemipersistent_r18_01", HFILL }},
     { &hf_nr_rrc_powSav_ParametersCommon_r16,
       { "powSav-ParametersCommon-r16", "nr-rrc.powSav_ParametersCommon_r16_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -225073,6 +225162,10 @@ proto_register_nr_rrc(void) {
       { "maxNumberUL-TCI-AcrossCells-r18", "nr-rrc.maxNumberUL_TCI_AcrossCells_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_1_32", HFILL }},
+    { &hf_nr_rrc_eventA4BasedCondHandoverATG_r18,
+      { "eventA4BasedCondHandoverATG-r18", "nr-rrc.eventA4BasedCondHandoverATG_r18",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_eventA4BasedCondHandoverATG_r18_vals), 0,
+        NULL, HFILL }},
     { &hf_nr_rrc_pusch_RepetitionTypeA_v16c0,
       { "pusch-RepetitionTypeA-v16c0", "nr-rrc.pusch_RepetitionTypeA_v16c0",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_pusch_RepetitionTypeA_v16c0_vals), 0,
@@ -225361,7 +225454,7 @@ proto_register_nr_rrc(void) {
       { "csi-RS-RLM-r16", "nr-rrc.csi_RS_RLM_r16",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_csi_RS_RLM_r16_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_14,
+    { &hf_nr_rrc_dummy_15,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_08_vals), 0,
         "T_dummy_08", HFILL }},
@@ -226633,7 +226726,7 @@ proto_register_nr_rrc(void) {
       { "srb3", "nr-rrc.srb3",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_srb3_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_15,
+    { &hf_nr_rrc_dummy_16,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_09_vals), 0,
         "T_dummy_09", HFILL }},
@@ -227177,7 +227270,7 @@ proto_register_nr_rrc(void) {
       { "musim-CapabilityRestriction-r18", "nr-rrc.musim_CapabilityRestriction_r18",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_musim_CapabilityRestriction_r18_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_dummy_16,
+    { &hf_nr_rrc_dummy_17,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_10_vals), 0,
         "T_dummy_10", HFILL }},
@@ -228005,17 +228098,17 @@ proto_register_nr_rrc(void) {
       { "releasePreferenceProhibitTimer-r16", "nr-rrc.releasePreferenceProhibitTimer_r16",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_releasePreferenceProhibitTimer_r16_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_connectedReporting,
-      { "connectedReporting", "nr-rrc.connectedReporting",
-        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_connectedReporting_vals), 0,
+    { &hf_nr_rrc_connectedReporting_r16,
+      { "connectedReporting-r16", "nr-rrc.connectedReporting_r16",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_connectedReporting_r16_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer,
-      { "rlm-RelaxtionReportingProhibitTimer", "nr-rrc.rlm_RelaxtionReportingProhibitTimer",
-        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_vals), 0,
+    { &hf_nr_rrc_rlm_RelaxtionReportingProhibitTimer_r17,
+      { "rlm-RelaxtionReportingProhibitTimer-r17", "nr-rrc.rlm_RelaxtionReportingProhibitTimer_r17",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_rlm_RelaxtionReportingProhibitTimer_r17_vals), 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer,
-      { "bfd-RelaxtionReportingProhibitTimer", "nr-rrc.bfd_RelaxtionReportingProhibitTimer",
-        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_vals), 0,
+    { &hf_nr_rrc_bfd_RelaxtionReportingProhibitTimer_r17,
+      { "bfd-RelaxtionReportingProhibitTimer-r17", "nr-rrc.bfd_RelaxtionReportingProhibitTimer_r17",
+        FT_UINT32, BASE_DEC, VALS(nr_rrc_T_bfd_RelaxtionReportingProhibitTimer_r17_vals), 0,
         NULL, HFILL }},
     { &hf_nr_rrc_scg_DeactivationPreferenceProhibitTimer_r17,
       { "scg-DeactivationPreferenceProhibitTimer-r17", "nr-rrc.scg_DeactivationPreferenceProhibitTimer_r17",
@@ -228542,7 +228635,7 @@ proto_register_nr_rrc(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_SL_CBR_LevelsDedicatedSL_PRS_RP_r18_item,
-      { "SL-CBR-Dedicated-SL-PRS-RP-r18", "nr-rrc.SL_CBR_Dedicated_SL_PRS_RP_r18",
+      { "SL-CBR-DedicatedSL-PRS-RP-r18", "nr-rrc.SL_CBR_DedicatedSL_PRS_RP_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_sl_PRS_CR_Limit_r18,
@@ -228945,8 +229038,8 @@ proto_register_nr_rrc(void) {
       { "sl-PRS-ResourcePoolID-r18", "nr-rrc.sl_PRS_ResourcePoolID_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SL_ResourcePoolID_r16", HFILL }},
-    { &hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18,
-      { "rrc-ConfiguredSidelinkGrantDedicated-SL-PRS-RP-r18", "nr-rrc.rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18_element",
+    { &hf_nr_rrc_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18,
+      { "rrc-ConfiguredSidelinkGrantDedicatedSL-PRS-RP-r18", "nr-rrc.rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_sl_TimeOffsetCG_Type1_r18,
@@ -229852,9 +229945,9 @@ proto_register_nr_rrc(void) {
     { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18,
       { "sl-SelectionWindowListDedicatedSL-PRS-RP-r18", "nr-rrc.sl_SelectionWindowListDedicatedSL_PRS_RP_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
-        "SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18", HFILL }},
+        "SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18", HFILL }},
     { &hf_nr_rrc_sl_SelectionWindowListDedicatedSL_PRS_RP_r18_item,
-      { "SL-SelectionWindowConfigDedicated-SL-PRS-RP-r18", "nr-rrc.SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18_element",
+      { "SL-SelectionWindowConfigDedicatedSL-PRS-RP-r18", "nr-rrc.SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_sl_Thres_RSRP_ListDedicatedSL_PRS_RP_r18,
@@ -230873,8 +230966,8 @@ proto_register_nr_rrc(void) {
       { "sl-DCI-ToSL-Trans-r16 item", "nr-rrc.sl_DCI_ToSL_Trans_r16_item",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_1_32", HFILL }},
-    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18,
-      { "sl-ConfiguredGrantConfigDedicated-SL-PRS-RP-List-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18_element",
+    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18,
+      { "sl-ConfiguredGrantConfigDedicatedSL-PRS-RP-List-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nr_rrc_sl_PRS_RNTI_r18,
@@ -230913,19 +231006,19 @@ proto_register_nr_rrc(void) {
       { "SL-ConfiguredGrantConfig-r16", "nr-rrc.SL_ConfiguredGrantConfig_r16_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18,
-      { "sl-ConfiguredGrantConfigDedicated-SL-PRS-RPToReleaseList-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18",
+    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18,
+      { "sl-ConfiguredGrantConfigDedicatedSL-PRS-RP-ToReleaseList-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16", HFILL }},
-    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToReleaseList_r18_item,
+    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToReleaseList_r18_item,
       { "SL-ConfigIndexCG-r16", "nr-rrc.SL_ConfigIndexCG_r16",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18,
-      { "sl-ConfiguredGrantConfigDedicated-SL-PRS-RPToAddModList-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18",
+    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18,
+      { "sl-ConfiguredGrantConfigDedicatedSL-PRS-RP-ToAddModList-r18", "nr-rrc.sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18", HFILL }},
-    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicated_SL_PRS_RPToAddModList_r18_item,
+    { &hf_nr_rrc_sl_ConfiguredGrantConfigDedicatedSL_PRS_RP_ToAddModList_r18_item,
       { "SL-ConfiguredGrantConfigDedicatedSL-PRS-RP-r18", "nr-rrc.SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -232089,7 +232182,7 @@ proto_register_nr_rrc(void) {
       { "nonCriticalExtension", "nr-rrc.nonCriticalExtension_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "RRCReconfigurationCompleteSidelink_v1710_IEs", HFILL }},
-    { &hf_nr_rrc_dummy_17,
+    { &hf_nr_rrc_dummy_18,
       { "dummy", "nr-rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(nr_rrc_T_dummy_11_vals), 0,
         "T_dummy_11", HFILL }},
@@ -236938,7 +237031,7 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_SL_CG_MaxTransNum_r16,
     &ett_nr_rrc_SL_PeriodCG_r16,
     &ett_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18,
-    &ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicated_SL_PRS_RP_r18,
+    &ett_nr_rrc_T_rrc_ConfiguredSidelinkGrantDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SL_DRX_Config_r17,
     &ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofSL_Dest_r16_OF_SL_DRX_ConfigUC_Info_r17,
     &ett_nr_rrc_SL_DRX_ConfigUC_Info_r17,
@@ -237015,7 +237108,7 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_SEQUENCE_SIZE_1_12_OF_SL_PRS_ResourceDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_TxPercentageDedicatedSL_PRS_RP_Config_r18,
     &ett_nr_rrc_SEQUENCE_SIZE_1_8_OF_SL_PriorityTxConfigIndexDedicatedSL_PRS_RP_r18,
-    &ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18,
+    &ett_nr_rrc_SEQUENCE_SIZE_8_OF_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SEQUENCE_SIZE_64_OF_SL_PRS_ThresRSRP_r18,
     &ett_nr_rrc_SL_PSCCH_ConfigDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SL_ReservationPeriodAllowedDedicatedSL_PRS_RP_r18,
@@ -237024,7 +237117,7 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_SL_TxPercentageDedicatedSL_PRS_RP_Config_r18,
     &ett_nr_rrc_SL_PriorityTxConfigIndexDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SEQUENCE_SIZE_1_maxCBR_LevelDedSL_PRS_1_r18_OF_SL_PRS_TxConfigIndex_r18,
-    &ett_nr_rrc_SL_SelectionWindowConfigDedicated_SL_PRS_RP_r18,
+    &ett_nr_rrc_SL_SelectionWindowConfigDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SL_PSBCH_Config_r16,
     &ett_nr_rrc_SL_PSSCH_TxConfigList_r16,
     &ett_nr_rrc_SL_PSSCH_TxConfig_r16,
@@ -237104,7 +237197,7 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_SL_ConfiguredGrantConfigList_r16,
     &ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfigIndexCG_r16,
     &ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfig_r16,
-    &ett_nr_rrc_SL_ConfiguredGrantConfigDedicated_SL_PRS_RP_List_r18,
+    &ett_nr_rrc_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_List_r18,
     &ett_nr_rrc_SEQUENCE_SIZE_1_maxNrofCG_SL_r16_OF_SL_ConfiguredGrantConfigDedicatedSL_PRS_RP_r18,
     &ett_nr_rrc_SL_SDAP_Config_r16,
     &ett_nr_rrc_T_sl_MappedQoS_Flows_r16,
@@ -237365,7 +237458,10 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_sl_MeasResultsCandRelay_r17,
     &ett_nr_rrc_sl_MeasResultServingRelay_r17,
     &ett_nr_rrc_ReferenceLocation_r17,
-    &ett_nr_rrc_wayPointLocation_r18
+    &ett_nr_rrc_wayPointLocation_r18,
+    &ett_nr_rrc_t1_Threshold_r17,
+    &ett_nr_rrc_t_Service_r17,
+    &ett_nr_rrc_t_ServiceStart_r18
   };
 
   static ei_register_info ei[] = {

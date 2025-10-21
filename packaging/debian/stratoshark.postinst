@@ -8,19 +8,19 @@ set -e
 # the requirements described at
 # https://github.com/draios/sysdig/wiki/How%20to%20Install%20Sysdig%20for%20Linux#use-sysdig-as-non-root
 #
-# Provide an option to install falcodump setuid root for now.
+# Provide an option to install dumpcalls setuid root for now.
 # Hopefully at some point we'll be able to switch to capabilities.
 # https://falco.org/docs/install-operate/running/#least-privileged
 
-# There's no corresponding stratoshark.postrm script because the "scap" group
+# There's no corresponding stratoshark.postrm script because the "_scap" group
 # might be shared with falcosecurity-scap-dkms, so we don't want to
 # remove it here.
 # Also, there are arguments against removing groups in general:
 # https://wiki.debian.org/AccountHandlingInMaintainerScripts
 
 . /usr/share/debconf/confmodule
-PROGRAM=$(dpkg-divert --truename /usr/libexec/stratoshark/extcap/falcodump)
-GROUP=scap
+PROGRAM=$(dpkg-divert --truename /usr/libexec/stratoshark/extcap/dumpcalls)
+GROUP=_scap
 
 if ! dpkg-statoverride --list $PROGRAM > /dev/null; then
     db_get stratoshark/install-setuid

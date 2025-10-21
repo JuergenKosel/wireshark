@@ -1172,11 +1172,11 @@ For example, if your packaging system links to or downloads the
 source tarball and you want to download from 1.na.dl.wireshark.org,
 use
 
-https://1.na.dl.wireshark.org/download/src/all-versions/wireshark-{wireshark-version}.tar.zst
+https://1.na.dl.wireshark.org/download/src/all-versions/wireshark-{wireshark-version}.tar.xz
 
 instead of
 
-https://1.na.dl.wireshark.org/download/src/wireshark-{wireshark-version}.tar.zst
+https://1.na.dl.wireshark.org/download/src/wireshark-{wireshark-version}.tar.xz
 
 [discrete]
 ===== Staying Current
@@ -1356,7 +1356,7 @@ your `~/.rpmmacros` file to enable parallel builds:
 Building the RPM package requires quite a few packages and libraries
 including GLib, `gcc`, `flex`, Asciidoctor, and Qt development
 tools such as `uic` and `moc`. The required Qt packages can usually be
-obtained by installing the _qt5-devel_ package. For a complete list of
+obtained by installing the _qt6-qt*-devel_ packages. For a complete list of
 build requirements, look for the “BuildRequires” lines in
 _packaging/rpm/wireshark.spec.in_.
 

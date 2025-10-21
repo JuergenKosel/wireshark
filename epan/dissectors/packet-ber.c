@@ -19,7 +19,7 @@
  * update call_ber_oid_callback() accordingly.
  *
  * Since we don't pass the TAG/LENGTH from the CHOICE/SEQUENCE/SEQUENCE OF/
- * SET OF helpers through the callbacks to the next pabket-ber helper
+ * SET OF helpers through the callbacks to the next packet-ber helper
  * when the tags are IMPLICIT, this causes a problem when we also have
  * indefinite length at the same time as the tags are implicit.
  *
@@ -1773,9 +1773,6 @@ proto_tree_add_debug_text(tree, "OCTET STRING dissect_ber_octet_string(%s) enter
             it = ber_proto_tree_add_item(actx->pinfo, tree, hf_id, tvb, offset, length_remaining, encoding);
             actx->created_item = it;
             ber_check_length(length_remaining, min_len, max_len, actx, it, false);
-        } else {
-
-            proto_tree_add_item(tree, hf_ber_unknown_octetstring, tvb, offset, len, ENC_NA);
         }
 
         if (out_tvb) {
@@ -2866,7 +2863,9 @@ proto_tree_add_debug_text(tree, "CHOICE dissect_ber_choice(%s) entered len:%d\n"
     offset = get_ber_identifier(tvb, offset, &ber_class, &pc, &tag);
     identifier_len = offset - identifier_offset;
     offset = get_ber_length(tvb, offset, &len, &ind);
-    end_offset = offset + len ;
+    if (ckd_add(&end_offset, offset, len)) {
+        THROW(ReportedBoundsError);
+    }
 
     /* Some sanity checks.
      * The hf field passed to us MUST be an integer type
@@ -4550,7 +4549,7 @@ proto_register_ber(void)
     static build_valid_func ber_da_build_value[1] = {ber_value};
     static decode_as_value_t ber_da_values = {ber_prompt, 1, ber_da_build_value};
     static decode_as_t ber_da = {"ber", "ber.syntax", 1, 0, &ber_da_values, NULL, NULL,
-                                ber_populate_list, ber_decode_as_reset, ber_decode_as_change, NULL};
+                                ber_populate_list, ber_decode_as_reset, ber_decode_as_change, NULL, NULL };
 
     module_t *ber_module;
     expert_module_t* expert_ber;

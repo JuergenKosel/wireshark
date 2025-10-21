@@ -21,13 +21,11 @@
 #include <wsutil/str_util.h>
 #include <epan/prefs.h>
 #include "packet-ppp.h"
-#include <epan/ppptypes.h>
 #include <epan/etypes.h>
 #include <epan/oui.h>
 #include <epan/expert.h>
 #include "packet-chdlc.h"
 #include "packet-ip.h"
-#include <epan/nlpid.h>
 #include <epan/crc16-tvb.h>
 #include <epan/crc32-tvb.h>
 #include <epan/ipproto.h>
@@ -37,6 +35,7 @@
 #include "packet-juniper.h"
 #include "packet-sflow.h"
 #include "packet-l2tp.h"
+#include "packet-osi.h"
 
 void proto_register_ppp_raw_hdlc(void);
 void proto_reg_handoff_ppp_raw_hdlc(void);

@@ -4391,6 +4391,8 @@ save_handle(packet_info *pinfo, bluetooth_uuid_t uuid, uint32_t handle,
         tap_handles = wmem_new(pinfo->pool, tap_handles_t);
         tap_handles->handle = handle;
         tap_handles->uuid = uuid;
+        tap_handles->uuid_str = print_bluetooth_uuid(&tap_handles->uuid);
+        tap_handles->numeric_uuid_str = print_numeric_bluetooth_uuid(pinfo->pool, &tap_handles->uuid);
         tap_handles->attribute_type = attribute_type;
 
         tap_handles->service_handle =
@@ -4658,13 +4660,13 @@ static void col_append_info_by_handle(packet_info *pinfo, uint16_t handle, uint8
 
     if (!memcmp(&service_uuid, &uuid, sizeof(uuid))) {
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Handle: 0x%04x (%s)",
-                handle, print_bluetooth_uuid(pinfo->pool, &uuid));
+                handle, print_bluetooth_uuid(&uuid));
     } else if (!memcmp(&characteristic_uuid, &uuid, sizeof(uuid))) {
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Handle: 0x%04x (%s: %s)",
-                handle, print_bluetooth_uuid(pinfo->pool, &service_uuid), print_bluetooth_uuid(pinfo->pool, &uuid));
+                handle, print_bluetooth_uuid(&service_uuid), print_bluetooth_uuid(&uuid));
     } else {
         col_append_fstr(pinfo->cinfo, COL_INFO, ", Handle: 0x%04x (%s: %s: %s)",
-                handle, print_bluetooth_uuid(pinfo->pool, &service_uuid), print_bluetooth_uuid(pinfo->pool, &characteristic_uuid), print_bluetooth_uuid(pinfo->pool, &uuid));
+                handle, print_bluetooth_uuid(&service_uuid), print_bluetooth_uuid(&characteristic_uuid), print_bluetooth_uuid(&uuid));
     }
 }
 
@@ -4681,7 +4683,7 @@ static int dissect_gatt_uuid(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb
     } else if (tvb_reported_length_remaining(tvb, offset) == 16) {
         sub_item = proto_tree_add_item(tree, hf_btatt_uuid128, tvb, offset, 16, ENC_NA);
         sub_uuid = get_bluetooth_uuid(tvb, offset, 16);
-        proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+        proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&sub_uuid));
         offset += 16;
     } else {
         sub_item = proto_tree_add_item(tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
@@ -4721,7 +4723,7 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, int hf,
     proto_item_append_text(handle_item, " (");
     if (memcmp(&service_uuid, &attribute_uuid, sizeof(attribute_uuid))) {
         if (service_uuid.size == 2 || service_uuid.size == 16) {
-            proto_item_append_text(handle_item, "%s: ", print_bluetooth_uuid(pinfo->pool, &service_uuid));
+            proto_item_append_text(handle_item, "%s: ", print_bluetooth_uuid(&service_uuid));
             sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
             if (service_uuid.size == 2)
@@ -4735,7 +4737,7 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, int hf,
 
     if (memcmp(&characteristic_uuid, &attribute_uuid, sizeof(attribute_uuid))) {
         if (characteristic_uuid.size == 2 || characteristic_uuid.size == 16) {
-            proto_item_append_text(handle_item, "%s: ", print_bluetooth_uuid(pinfo->pool, &characteristic_uuid));
+            proto_item_append_text(handle_item, "%s: ", print_bluetooth_uuid(&characteristic_uuid));
             sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
             if (characteristic_uuid.size == 2)
@@ -4747,7 +4749,7 @@ dissect_handle(proto_tree *tree, packet_info *pinfo, int hf,
         }
     }
 
-    proto_item_append_text(handle_item, "%s)", print_bluetooth_uuid(pinfo->pool, &attribute_uuid));
+    proto_item_append_text(handle_item, "%s)", print_bluetooth_uuid(&attribute_uuid));
     if (attribute_uuid.size == 2 || attribute_uuid.size == 16) {
         sub_tree = proto_item_add_subtree(handle_item, ett_btatt_handle);
 
@@ -5010,10 +5012,10 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (tvb_reported_length_remaining(tvb, offset) == 2) {
             proto_tree_add_item(tree, hf_btatt_uuid16, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             sub_uuid = get_bluetooth_uuid(tvb, offset, 2);
-            proto_item_append_text(patron_item, ", UUID: %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            proto_item_append_text(patron_item, ", UUID: %s", print_bluetooth_uuid(&sub_uuid));
             offset += 2;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(&sub_uuid));
 
             save_handle(pinfo, sub_uuid, handle, ATTRIBUTE_TYPE_SERVICE, l2cap_data);
         }
@@ -5021,10 +5023,10 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         {
             proto_tree_add_item(tree, hf_btatt_uuid128, tvb, offset, 16, ENC_NA);
             sub_uuid = get_bluetooth_uuid(tvb, offset, 16);
-            proto_item_append_text(patron_item, ", UUID128: %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            proto_item_append_text(patron_item, ", UUID128: %s", print_bluetooth_uuid(&sub_uuid));
             offset += 16;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(&sub_uuid));
 
             save_handle(pinfo, sub_uuid, handle, ATTRIBUTE_TYPE_SERVICE, l2cap_data);
         }
@@ -5054,10 +5056,10 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
 
         proto_tree_add_item(tree, hf_btatt_uuid16, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         sub_uuid = get_bluetooth_uuid(tvb, offset, 2);
-        proto_item_append_text(patron_item, ", Included Handle: 0x%04x, UUID: %s", sub_handle, print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+        proto_item_append_text(patron_item, ", Included Handle: 0x%04x, UUID: %s", sub_handle, print_bluetooth_uuid(&sub_uuid));
         offset += 2;
 
-        col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+        col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(&sub_uuid));
 
         save_handle(pinfo, sub_uuid, sub_handle, ATTRIBUTE_TYPE_OTHER, l2cap_data);
 
@@ -5081,10 +5083,10 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         if (tvb_reported_length_remaining(tvb, offset) == 16) {
             proto_tree_add_item(tree, hf_btatt_uuid128, tvb, offset, 16, ENC_NA);
             sub_uuid = get_bluetooth_uuid(tvb, offset, 16);
-            proto_item_append_text(patron_item, ", Characteristic Handle: 0x%04x, UUID128: %s", tvb_get_uint16(tvb, offset - 2, ENC_LITTLE_ENDIAN), print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            proto_item_append_text(patron_item, ", Characteristic Handle: 0x%04x, UUID128: %s", tvb_get_uint16(tvb, offset - 2, ENC_LITTLE_ENDIAN), print_bluetooth_uuid(&sub_uuid));
             offset += 16;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(&sub_uuid));
 
             save_handle(pinfo, sub_uuid, sub_handle, ATTRIBUTE_TYPE_CHARACTERISTIC, l2cap_data);
         }
@@ -5092,10 +5094,10 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
         {
             proto_tree_add_item(tree, hf_btatt_uuid16, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             sub_uuid = get_bluetooth_uuid(tvb, offset, 2);
-            proto_item_append_text(patron_item, ", Characteristic Handle: 0x%04x, UUID: %s", sub_handle, print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            proto_item_append_text(patron_item, ", Characteristic Handle: 0x%04x, UUID: %s", sub_handle, print_bluetooth_uuid(&sub_uuid));
             offset += 2;
 
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(pinfo->pool, &sub_uuid));
+            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", print_bluetooth_uuid(&sub_uuid));
 
             save_handle(pinfo, sub_uuid, sub_handle, ATTRIBUTE_TYPE_CHARACTERISTIC, l2cap_data);
         } else {
@@ -10698,7 +10700,7 @@ dissect_btgatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data, 
 }
 
 static bool
-is_long_attribute_value(packet_info* pinfo, bluetooth_uuid_t uuid)
+is_long_attribute_value(bluetooth_uuid_t uuid)
 {
     switch (uuid.bt_uuid) {
     case 0x2901: /* Characteristic User Description */
@@ -10721,7 +10723,7 @@ is_long_attribute_value(packet_info* pinfo, bluetooth_uuid_t uuid)
         return true;
     }
 
-    return bluetooth_get_custom_uuid_long_attr(pinfo->pool, &uuid);
+    return bluetooth_get_custom_uuid_long_attr(&uuid);
 }
 
 static unsigned
@@ -11140,7 +11142,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     offset += 2;
 
                     proto_item_append_text(sub_item, ", Handle: 0x%04x, UUID: %s",
-                            handle, print_bluetooth_uuid(pinfo->pool, &uuid));
+                            handle, print_bluetooth_uuid(&uuid));
 
                     save_handle(pinfo, uuid, handle, ATTRIBUTE_TYPE_OTHER, l2cap_data);
 
@@ -11160,7 +11162,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     offset += 16;
 
                     proto_item_append_text(sub_item, ", Handle: 0x%04x, UUID: %s",
-                            handle, print_bluetooth_uuid(pinfo->pool, &uuid));
+                            handle, print_bluetooth_uuid(&uuid));
 
                     save_handle(pinfo, uuid, handle, ATTRIBUTE_TYPE_OTHER, l2cap_data);
 
@@ -11341,7 +11343,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             col_append_info_by_handle(pinfo, request_data->parameters.read_write.handle, opcode, l2cap_data);
         }
 
-        if (is_long_attribute_value(pinfo, uuid) && tvb_captured_length(tvb) >= mtu) {
+        if (is_long_attribute_value(uuid) && tvb_captured_length(tvb) >= mtu) {
             sub_item = proto_tree_add_item(main_tree, hf_btatt_value, tvb, offset, -1, ENC_NA);
             if (!pinfo->fd->visited && request_data && l2cap_data)
                 save_value_fragment(pinfo, tvb, offset, request_data->parameters.read_write.handle, 0, l2cap_data);
@@ -11387,7 +11389,7 @@ dissect_btatt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
             col_append_info_by_handle(pinfo, request_data->parameters.read_write.handle, opcode, l2cap_data);
 
-            if (request_data->parameters.read_write.offset == 0 && !is_long_attribute_value(pinfo, uuid)) {
+            if (request_data->parameters.read_write.offset == 0 && !is_long_attribute_value(uuid)) {
                 offset = dissect_attribute_value(main_tree, NULL, pinfo, tvb, offset, tvb_captured_length_remaining(tvb, offset), request_data->parameters.read_write.handle, uuid, &att_data);
             } else {
                 if (!pinfo->fd->visited && l2cap_data)
@@ -17581,7 +17583,7 @@ proto_register_btatt(void)
     static decode_as_value_t btatt_handle_da_values = {btatt_handle_prompt, 1, btatt_handle_da_build_value};
     static decode_as_t btatt_handle_da = {"btatt", "btatt.handle",
             1, 0, &btatt_handle_da_values, NULL, NULL,
-            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+            decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     /* Register the protocol name and description */
     proto_btatt = proto_register_protocol("Bluetooth Attribute Protocol", "BT ATT", "btatt");

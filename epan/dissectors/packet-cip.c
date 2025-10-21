@@ -886,7 +886,7 @@ const value_string cip_con_prio_vals[] = {
 };
 
 /* Translate function to string - Connection size fixed or variable */
-static const value_string cip_con_fw_vals[] = {
+const value_string cip_con_fw_vals[] = {
    { 0,        "Fixed"    },
    { 1,        "Variable" },
 
@@ -5802,8 +5802,14 @@ static int dissect_segment_data_simple(packet_info* pinfo, tvbuff_t* tvb, int of
 static int dissect_segment_ansi_extended_symbol(packet_info* pinfo, tvbuff_t* tvb, int offset,
    bool generate, proto_tree* path_seg_tree, proto_item* path_seg_item,
    proto_item* epath_item, int display_type,
-   bool is_msp_item, proto_item* msp_item)
+   bool is_msp_item, proto_item* msp_item,
+   cip_simple_request_info_t* req_data)
 {
+   if (req_data)
+   {
+      req_data->hasSymbolData = true;
+   }
+
    /* Segment size */
    uint16_t seg_size = tvb_get_uint8(tvb, offset + 1);
    if (generate)
@@ -5888,7 +5894,7 @@ int dissect_electronic_key_format(tvbuff_t* tvb, int offset, proto_tree* tree, b
 
 static int dissect_segment_logical_special(packet_info* pinfo, tvbuff_t* tvb, int offset,
    bool generate, proto_tree* path_seg_tree,
-   proto_item* path_seg_item, proto_item* epath_item)
+   proto_item* path_seg_item, proto_item* epath_item, cip_simple_request_info_t* req_data)
 {
    int segment_len = 0;
 
@@ -5927,6 +5933,13 @@ static int dissect_segment_logical_special(packet_info* pinfo, tvbuff_t* tvb, in
 
          proto_item_append_text(path_seg_tree, ", %d.%d)", (major_rev & 0x7F), minor_rev);
          proto_item_append_text(epath_item, "[Key]");
+
+         if (req_data)
+         {
+            req_data->hasEkey = true;
+            req_data->deviceType = device_type;
+            req_data->productCode = tvb_get_letohs(tvb, offset + 6);
+         }
       }
       else
       {
@@ -6275,7 +6288,7 @@ int dissect_cip_segment_single(packet_info *pinfo, tvbuff_t *tvb, int offset, pr
 
                case CI_LOGICAL_SEG_SPECIAL:
                    segment_len = dissect_segment_logical_special(pinfo, tvb, offset, generate,
-                      path_seg_tree, path_seg_item, epath_item);
+                      path_seg_tree, path_seg_item, epath_item, req_data);
                    break;
 
                case CI_LOGICAL_SEG_SERV_ID:
@@ -6322,7 +6335,7 @@ int dissect_cip_segment_single(packet_info *pinfo, tvbuff_t *tvb, int offset, pr
 
                case CI_DATA_SEG_SYMBOL:
                   segment_len = dissect_segment_ansi_extended_symbol(pinfo, tvb, offset, generate,
-                     path_seg_tree, path_seg_item, epath_item, display_type, is_msp_item, msp_item);
+                     path_seg_tree, path_seg_item, epath_item, display_type, is_msp_item, msp_item, req_data);
                   break;
 
                default:
@@ -6383,6 +6396,10 @@ void reset_cip_request_info(cip_simple_request_info_t* req_data)
    req_data->iConnPointA = SEGMENT_VALUE_NOT_SET;
 
    req_data->hasSimpleData = false;
+   req_data->hasSymbolData = false;
+   req_data->hasEkey = false;
+   req_data->deviceType = 0;
+   req_data->productCode = 0;
 }
 
 void dissect_epath(tvbuff_t *tvb, packet_info *pinfo, proto_tree *path_tree, proto_item *epath_item, int offset, int path_length,
@@ -7060,13 +7077,6 @@ int dissect_cip_multiple_service_packet(tvbuff_t *tvb, packet_info *pinfo, proto
       else
       {
          dissect_cip_data(mult_serv_tree, next_tvb, 0, pinfo, NULL, mult_serv_item, true);
-      }
-
-      /* Add the embedded CIP service to the item. */
-      if (mult_serv_item != NULL)
-      {
-         uint8_t service = tvb_get_uint8(next_tvb, 0);
-         proto_item_append_text(mult_serv_item, "%s", val_to_str(pinfo->pool, service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
       }
 
       if (i != num_services - 1)
@@ -8415,7 +8425,8 @@ static void dissect_cip_cm_unconnected_send_req(proto_tree* cmd_data_tree, tvbuf
    proto_tree_add_item(cmd_data_tree, hf_cip_cm_msg_req_size, tvb, offset + 2, 2, ENC_LITTLE_ENDIAN);
 
    /* Message Request */
-   proto_tree* temp_tree = proto_tree_add_subtree(cmd_data_tree, tvb, offset + 4, msg_req_siz, ett_cm_mes_req, NULL, "CIP Embedded Message Request");
+   proto_item* temp_item;
+   proto_tree* temp_tree = proto_tree_add_subtree(cmd_data_tree, tvb, offset + 4, msg_req_siz, ett_cm_mes_req, &temp_item, "CIP Embedded Message Request: ");
 
    /*
    ** We call ourselves again to dissect embedded packet
@@ -8439,7 +8450,7 @@ static void dissect_cip_cm_unconnected_send_req(proto_tree* cmd_data_tree, tvbuf
       }
    }
 
-   dissect_cip_data(temp_tree, next_tvb, 0, pinfo, pembedded_req_info, NULL, false);
+   dissect_cip_data(temp_tree, next_tvb, 0, pinfo, pembedded_req_info, temp_item, false);
 
    if (msg_req_siz % 2)
    {
@@ -9823,6 +9834,7 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
          if(!dissector_try_heuristic(heur_subdissector_service, tvb, pinfo, item_tree, &hdtbl_entry, NULL))
          {
            dissect_cip_generic_service_rsp(tvb, pinfo, cip_tree);
+           proto_item_append_text(msp_item, "%s", val_to_str(pinfo->pool, service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
          }
       }
       else if (service_entry)
@@ -9832,6 +9844,7 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       else
       {
          call_dissector( cip_class_generic_handle, tvb, pinfo, item_tree );
+         proto_item_append_text(msp_item, "%s", val_to_str(pinfo->pool, service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
       }
    } /* End of if reply */
    else
@@ -9906,6 +9919,7 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
              }
 
              dissect_cip_generic_service_req(tvb, pinfo, cip_tree, &path_info);
+             proto_item_append_text(msp_item, "%s", val_to_str(pinfo->pool, service& CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
           }
       }
       else if ( dissector )
@@ -9919,6 +9933,7 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       else
       {
          call_dissector( cip_class_generic_handle, tvb, pinfo, item_tree );
+         proto_item_append_text(msp_item, "%s", val_to_str(pinfo->pool, service & CIP_SC_MASK, cip_sc_vals, "Service (0x%02x)"));
       }
    } /* End of if-else( request ) */
 

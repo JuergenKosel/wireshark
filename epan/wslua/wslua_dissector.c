@@ -34,7 +34,7 @@
 
 WSLUA_CLASS_DEFINE(Dissector,NOP);
 /*
-   A refererence to a dissector, used to call a dissector against a packet or a part of it.
+   A reference to a dissector, used to call a dissector against a packet or a part of it.
  */
 
 WSLUA_CONSTRUCTOR Dissector_get (lua_State *L) {
@@ -518,7 +518,7 @@ WSLUA_METHOD DissectorTable_add (lua_State *L) {
             dcerpc_init_from_handle(dissector_handle_get_protocol_index(handle), &uuid, 0, handle);
         } else {
             dissector_add_guid(dt->name, &gk, handle);
-            guids_add_uuid(guid, dissector_handle_get_protocol_short_name(handle));
+            guids_add_guid(guid, dissector_handle_get_protocol_short_name(handle));
         }
     } else if ( type == FT_UINT32 || type == FT_UINT16 || type ==  FT_UINT8 || type ==  FT_UINT24 ) {
         /* Either an integer or a range.
@@ -638,7 +638,7 @@ WSLUA_METHOD DissectorTable_set (lua_State *L) {
             dcerpc_init_from_handle(dissector_handle_get_protocol_index(handle), &uuid, 0, handle);
         } else {
             dissector_add_guid(dt->name, &gk, handle);
-            guids_add_uuid(guid, dissector_handle_get_protocol_short_name(handle));
+            guids_add_guid(guid, dissector_handle_get_protocol_short_name(handle));
         }
     } else if ( type == FT_UINT32 || type == FT_UINT16 || type ==  FT_UINT8 || type ==  FT_UINT24 ) {
         /* Either an integer or a range. See discussion above in _add. */

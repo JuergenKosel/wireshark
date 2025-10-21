@@ -12,6 +12,7 @@
 /*
  * CQL V3 reference: https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v3.spec
  * CQL V4 reference: https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec
+ * CQL V5 reference: https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v5.spec
  */
 #include "config.h"
 #include <epan/conversation.h>
@@ -49,19 +50,23 @@ static int hf_cql_flag_reserved3;
 static int hf_cql_flag_custom_payload;
 static int hf_cql_flag_warning;
 static int hf_cql_flag_reserved4;
+static int hf_cql_flag_beta;
 static int hf_cql_stream;
 static int hf_cql_opcode;
 static int hf_cql_length;
+static int hf_cql5_header;
+static int hf_cql5_compressed_length;
+static int hf_cql5_uncompressed_length;
+static int hf_cql5_self_contained;
+static int hf_cql5_crc24;
+static int hf_cql5_crc32;
+
 /* CQL data types */
-/*
 static int hf_cql_int;
-static int hf_cql_long;
 static int hf_cql_uuid;
 static int hf_cql_bytes;
-static int hf_cql_inet;
-*/
-/* Batch flags */
 
+/* Batch flags */
 static int hf_cql_batch_flag_serial_consistency;
 static int hf_cql_batch_flag_default_timestamp;
 static int hf_cql_batch_flag_with_name_for_values;
@@ -76,7 +81,6 @@ static int hf_cql_auth_token;
 static int hf_cql_value_count;
 static int hf_cql_short_bytes_length;
 static int hf_cql_bytes_length;
-static int hf_cql_bytes;
 static int hf_cql_bigint;
 static int hf_cql_scale;
 static int hf_cql_boolean;
@@ -85,8 +89,6 @@ static int hf_cql_double;
 static int hf_cql_float;
 static int hf_cql_custom;
 static int hf_cql_null_value;
-static int hf_cql_int;
-static int hf_cql_uuid;
 static int hf_cql_tracing_uuid;
 static int hf_cql_port;
 static int hf_cql_timeuuid;
@@ -100,6 +102,7 @@ static int hf_cql_paging_state;
 static int hf_cql_page_size;
 static int hf_cql_timestamp;
 static int hf_cql_query_id;
+static int hf_cql_query_metadata_id;
 static int hf_cql_event_type;
 static int hf_cql_event_schema_change_type;
 static int hf_cql_event_schema_change_type_target;
@@ -113,8 +116,12 @@ static int hf_cql_batch_query_size;
 static int hf_cql_error_code;
 static int hf_cql_result_kind;
 static int hf_cql_result_rows_data_type;
+static int hf_cql_error_failure_received;
+static int hf_cql_error_block_for;
+static int hf_cql_error_num_failures;
+static int hf_cql_error_data_present;
+static int hf_cql_error_write_type;
 
-static int hf_cql_query_flags_bitmap;
 static int hf_cql_query_flags_values;
 static int hf_cql_query_flags_skip_metadata;
 static int hf_cql_query_flags_page_size;
@@ -122,7 +129,16 @@ static int hf_cql_query_flags_paging_state;
 static int hf_cql_query_flags_serial_consistency;
 static int hf_cql_query_flags_default_timestamp;
 static int hf_cql_query_flags_names_for_values;
-static int hf_cql_query_flags_reserved3;
+
+static int hf_cql_query_v5_flags_values;
+static int hf_cql_query_v5_flags_skip_metadata;
+static int hf_cql_query_v5_flags_page_size;
+static int hf_cql_query_v5_flags_paging_state;
+static int hf_cql_query_v5_flags_serial_consistency;
+static int hf_cql_query_v5_flags_default_timestamp;
+static int hf_cql_query_v5_flags_names_for_values;
+static int hf_cql_query_v5_flags_with_keyspace;
+static int hf_cql_query_v5_flags_now_in_seconds;
 
 static int hf_cql_result_rows_flags_values;
 static int hf_cql_result_prepared_flags_values;
@@ -159,7 +175,6 @@ static int ett_cql_result_metadata;
 static int ett_cql_result_rows;
 static int ett_cql_result_metadata_colspec;
 static int ett_cql_header_flags_bitmap;
-static int ett_cql_query_flags_bitmap;
 static int ett_cql_custom_payload;
 
 static int hf_cql_response_in;
@@ -168,6 +183,8 @@ static int hf_cql_response_time;
 
 static int hf_cql_ipv4;
 static int hf_cql_ipv6;
+
+static int ett_cql5_header;
 
 /* desegmentation of CQL */
 static bool cql_desegment = true;
@@ -182,8 +199,19 @@ typedef struct _cql_transaction_type {
 	nstime_t req_time;
 } cql_transaction_type;
 
+typedef enum {
+	CQL_COMPRESSION_NONE = 0,
+	CQL_COMPRESSION_LZ4 = 1,
+	CQL_COMPRESSION_SNAPPY = 2,
+	CQL_DECOMPRESSION_ATTEMPTED = 3,
+} cql_compression_level;
+
 typedef struct _cql_conversation_info_type {
 	wmem_map_t* streams;
+	uint32_t frame_start_v5_proto;
+	cql_compression_level compression_level;
+	uint16_t server_port;
+	uint8_t protocol_version;
 } cql_conversation_type;
 
 static const value_string cql_direction_names[] = {
@@ -245,6 +273,7 @@ typedef enum {
 	CQL_HEADER_FLAG_V3_RESERVED = 0xFC,
 	CQL_HEADER_FLAG_CUSTOM_PAYLOAD = 0x04,
 	CQL_HEADER_FLAG_WARNING = 0x08,
+	CQL_HEADER_FLAG_BETA = 0x10,
 	CQL_HEADER_FLAG_V4_RESERVED = 0xF0
 } cql_flags;
 
@@ -256,7 +285,8 @@ typedef enum {
 	CQL_QUERY_FLAG_SERIAL_CONSISTENCY = 0x10,
 	CQL_QUERY_FLAG_DEFAULT_TIMESTAMP = 0x20,
 	CQL_QUERY_FLAG_VALUE_NAMES = 0x40,
-	CQL_QUERY_FLAG_V3_RESERVED = 0x80
+	CQL_QUERY_FLAG_WITH_KEYSPACE = 0x80,
+	CQL_QUERY_FLAG_NOW_IN_SECONDS = 0x100
 } cql_query_flags;
 
 
@@ -441,10 +471,10 @@ static const value_string cql_error_names[] = {
 };
 
 static int
-dissect_cql_query_parameters(proto_tree* cql_subtree, tvbuff_t* tvb, int offset, int execute)
+dissect_cql_query_parameters(proto_tree* cql_subtree, tvbuff_t* tvb, int offset, const int execute, const uint8_t protocol_version)
 {
 	int32_t bytes_length = 0;
-	uint32_t flags = 0;
+	uint64_t flags = 0;
 	uint64_t i = 0;
 	uint32_t string_length = 0;
 	uint32_t value_count = 0;
@@ -457,7 +487,19 @@ dissect_cql_query_parameters(proto_tree* cql_subtree, tvbuff_t* tvb, int offset,
 		&hf_cql_query_flags_serial_consistency,
 		&hf_cql_query_flags_default_timestamp,
 		&hf_cql_query_flags_names_for_values,
-		&hf_cql_query_flags_reserved3,
+		NULL
+	};
+
+		static int * const cql5_query_bitmaps[] = {
+		&hf_cql_query_v5_flags_values,
+		&hf_cql_query_v5_flags_skip_metadata,
+		&hf_cql_query_v5_flags_page_size,
+		&hf_cql_query_v5_flags_paging_state,
+		&hf_cql_query_v5_flags_serial_consistency,
+		&hf_cql_query_v5_flags_default_timestamp,
+		&hf_cql_query_v5_flags_names_for_values,
+		&hf_cql_query_v5_flags_with_keyspace,
+		&hf_cql_query_v5_flags_now_in_seconds,
 		NULL
 	};
 
@@ -466,9 +508,13 @@ dissect_cql_query_parameters(proto_tree* cql_subtree, tvbuff_t* tvb, int offset,
 	offset += 2;
 
 	/* flags */
-	proto_tree_add_bitmask(cql_subtree, tvb, offset, hf_cql_query_flags_bitmap, ett_cql_query_flags_bitmap, cql_query_bitmaps, ENC_BIG_ENDIAN);
-	flags = tvb_get_uint8(tvb, offset);
-	offset += 1;
+	if (protocol_version >= 5) {
+		proto_tree_add_bitmask_list_ret_uint64(cql_subtree, tvb, offset, 4, cql5_query_bitmaps, ENC_BIG_ENDIAN, &flags);
+		offset += 4;
+	} else {
+		proto_tree_add_bitmask_list_ret_uint64(cql_subtree, tvb, offset, 1, cql_query_bitmaps, ENC_BIG_ENDIAN, &flags);
+		offset += 1;
+	}
 
 	if(flags & CQL_QUERY_FLAG_VALUES) {
 		proto_tree_add_item_ret_uint(cql_subtree, hf_cql_value_count, tvb, offset, 2, ENC_BIG_ENDIAN, &value_count);
@@ -513,17 +559,49 @@ dissect_cql_query_parameters(proto_tree* cql_subtree, tvbuff_t* tvb, int offset,
 		offset += 8;
 	}
 
+	if (protocol_version >= 5) {
+		if (flags & CQL_QUERY_FLAG_WITH_KEYSPACE) {
+			proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
+			offset += 2;
+			proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
+			offset += string_length;
+		}
+		if (flags & CQL_QUERY_FLAG_NOW_IN_SECONDS) {
+			proto_tree_add_item(cql_subtree, hf_cql_int, tvb, offset, 4, ENC_BIG_ENDIAN);
+			offset += 4;
+		}
+	}
 	return offset;
 }
 
 static unsigned
-get_cql_pdu_len(packet_info* pinfo _U_, tvbuff_t* tvb, int offset, void* data _U_)
+get_cql_pdu_len(packet_info* pinfo _U_, tvbuff_t* tvb, const int offset, void* data _U_)
 {
 	/* CQL has 32-bit length at 5th byte in frame. */
 	uint32_t length = tvb_get_ntohl(tvb, offset + 5);
 
 	/* Include length of frame header. */
 	return length + 9;
+}
+
+static unsigned
+get_cql5_comp_pdu_len(packet_info* pinfo _U_, tvbuff_t* tvb, const int offset, void* data _U_)
+{
+	/* CQL v5 has 17-bit length if the frame is LZ4 compressed - at bytes 0-3, inclusive */
+	uint32_t length = tvb_get_letoh24(tvb, offset) & 0x1FFFF;
+
+	/* Include length of frame header. Non-compressed frame has a 6 bytes header, compressed - 8 bytes, + 4 for CRC32 at the end */
+	return length + 8 + 4;
+}
+
+static unsigned
+get_cql5_non_comp_pdu_len(packet_info* pinfo _U_, tvbuff_t* tvb, const int offset, void* data _U_)
+{
+	/* CQL v5 has 17-bit length at bytes 0-2 in an uncompressed frame */
+	uint32_t length = tvb_get_letoh24(tvb, offset) & 0x1FFFF;
+
+	/* Include length of frame header. Non-compressed frame has a 6 bytes header, compressed - 8 bytes, + 4 for CRC32 at the end */
+	return length + 6 + 4;
 }
 
 static cql_transaction_type*
@@ -615,13 +693,6 @@ cql_transaction_lookup(cql_conversation_type* conv,
 	return NULL;
 }
 
-typedef enum {
-	CQL_COMPRESSION_NONE = 0,
-	CQL_COMPRESSION_LZ4 = 1,
-	CQL_COMPRESSION_SNAPPY = 2,
-	CQL_DECOMPRESSION_ATTEMPTED = 3,
-} cql_compression_level;
-
 
 // NOLINTNEXTLINE(misc-no-recursion)
 static int parse_option(proto_tree* metadata_subtree, packet_info *pinfo, tvbuff_t* tvb, int offset)
@@ -689,7 +760,7 @@ static int parse_option(proto_tree* metadata_subtree, packet_info *pinfo, tvbuff
 	return offset;
 }
 
-static void add_varint_item(proto_tree *tree, tvbuff_t *tvb, const int offset, int length)
+static void add_varint_item(proto_tree *tree, tvbuff_t *tvb, const int offset, const int length)
 {
 	switch (length)
 	{
@@ -720,7 +791,7 @@ static void add_varint_item(proto_tree *tree, tvbuff_t *tvb, const int offset, i
 	}
 }
 
-static void add_cql_uuid(proto_tree* tree, int hf_uuid, tvbuff_t* tvb, int offset)
+static void add_cql_uuid(proto_tree* tree, const int hf_uuid, tvbuff_t* tvb, const int offset)
 {
 	e_guid_t guid;
 	int i;
@@ -974,7 +1045,7 @@ static int parse_value(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t
 	return offset;
 }
 
-static int parse_result_metadata_more_pages(proto_tree* tree, tvbuff_t* tvb, int offset, uint32_t flags)
+static int parse_result_metadata_more_pages(proto_tree* tree, tvbuff_t* tvb, int offset, const uint32_t flags)
 {
 	int32_t bytes_length = 0;
 
@@ -992,7 +1063,7 @@ static int parse_result_metadata_more_pages(proto_tree* tree, tvbuff_t* tvb, int
 }
 
 static int parse_result_metadata(proto_tree* tree, packet_info *pinfo, tvbuff_t* tvb,
-			int offset, uint32_t flags, int result_rows_columns_count)
+			int offset, const uint32_t flags, const int result_rows_columns_count)
 {
 	proto_tree* col_spec_subtree = NULL;
 	uint32_t string_length = 0;
@@ -1079,7 +1150,7 @@ static int parse_result_schema_change(proto_tree* subtree, packet_info *pinfo, t
 
 
 static int parse_row(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t* tvb,
-			int offset_metadata, int offset, int result_rows_columns_count, uint32_t flags)
+			int offset_metadata, int offset, const int result_rows_columns_count, const uint32_t flags)
 {
 	int string_length;
 	int shadow_offset;
@@ -1137,6 +1208,119 @@ static int parse_row(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t* 
 	return offset;
 }
 
+#define MAX_PAYLOAD_LENGTH (128 * 1024 - 1) // 128K -1
+
+static int
+dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, void* data _U_);
+
+static int
+dissect_cql5_uncomp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
+{
+	proto_item* ti;
+	proto_tree* cql_tree;
+	proto_tree* header_tree;
+	uint32_t offset = 0;
+	uint32_t length;
+	bool isSelfContained;
+	uint64_t header_data = tvb_get_letoh64(tvb, offset);
+	tvbuff_t *payload_tvb = NULL;
+
+	header_data &= 0xFFFFFFFFFF; // mask to 40 bits
+	length = header_data & MAX_PAYLOAD_LENGTH;
+	isSelfContained = (header_data >> 17) & 1;  // Self-contained flag at bit 17
+
+	uint32_t payload_offset = offset + 6;  // Skip the 6-byte header + CRC24 to get to payload
+
+	ti = proto_tree_add_item(tree, proto_cql, tvb, offset, length + 6 + 4, ENC_NA);
+	cql_tree = proto_item_add_subtree(ti, ett_cql_protocol);
+
+	ti = proto_tree_add_item(cql_tree, hf_cql5_header, tvb, offset, 6, ENC_NA);
+	header_tree = proto_item_add_subtree(ti, ett_cql5_header);
+
+	proto_tree_add_uint(header_tree, hf_cql5_compressed_length, tvb, offset, 3, length);
+	proto_tree_add_boolean(header_tree, hf_cql5_self_contained, tvb, offset + 2, 1, isSelfContained);
+	proto_tree_add_item(header_tree, hf_cql5_crc24, tvb, offset + 3, 3, ENC_LITTLE_ENDIAN);
+
+	payload_tvb = tvb_new_subset_length(tvb, payload_offset, length);
+	tcp_dissect_pdus(payload_tvb, pinfo, cql_tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+	proto_tree_add_item(tree, hf_cql5_crc32, tvb, length + 6, 4, ENC_LITTLE_ENDIAN);
+	return length + 6 + 4; // length + header + crc32
+}
+
+static int
+dissect_cql5_comp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
+{
+	proto_item* ti;
+	proto_tree* cql_tree;
+	proto_tree* header_tree;
+	uint32_t offset = 0;
+	uint32_t length, uncomp_length;
+	bool isSelfContained;
+	uint64_t header_data = tvb_get_letoh64(tvb, offset);
+
+	header_data &= 0xFFFFFFFFFF; // mask to 40 bits
+	length = header_data & MAX_PAYLOAD_LENGTH;
+	uncomp_length = (header_data >> 17) & MAX_PAYLOAD_LENGTH;
+	isSelfContained = (header_data >> 34) & 1;  // Self-contained flag at bit 34
+
+	// Try to determine if this is actually compressed by attempting LZ4 decompression
+	uint32_t payload_offset = offset + 8;  // Skip the 8-byte header + CRC24 to get to payload
+	tvbuff_t *decompressed_tvb = NULL;
+
+	if (uncomp_length == 0) {
+		// Per CQL v5 spec: uncomp_length=0 means payload is uncompressed (optimization when compression doesn't help)
+		// actual_uncomp_length is already initialized to length
+	} else {
+#ifdef HAVE_LZ4
+		if (uncomp_length <= MAX_UNCOMPRESSED_SIZE && length > 0) {
+			if (tvb_captured_length_remaining(tvb, payload_offset) >= (int)length) {
+				unsigned char *decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, uncomp_length);
+				int ret = LZ4_decompress_safe(
+					(const char*)tvb_get_ptr(tvb, payload_offset, length),
+					(char*)decompressed_buffer,
+					length,
+					uncomp_length
+				);
+
+				if (ret == (int)uncomp_length) {
+					// Create a new TVB with the decompressed data
+					decompressed_tvb = tvb_new_child_real_data(tvb, decompressed_buffer, uncomp_length, uncomp_length);
+					add_new_data_source(pinfo, decompressed_tvb, "LZ4 Decompressed Data");
+				} else {
+					// Decompression failed, free the buffer
+					wmem_free(pinfo->pool, decompressed_buffer);
+				}
+			}
+		}
+#endif
+	}
+
+	// Use the appropriate TVB for further processing
+	tvbuff_t *payload_tvb = NULL;
+
+	if (decompressed_tvb) {
+		payload_tvb = decompressed_tvb;
+	} else {
+		payload_tvb = tvb_new_subset_length(tvb, payload_offset, length);
+	}
+
+	ti = proto_tree_add_item(tree, proto_cql, tvb, offset, length + 8 + 4, ENC_NA);
+	cql_tree = proto_item_add_subtree(ti, ett_cql_protocol);
+
+	ti = proto_tree_add_item(cql_tree, hf_cql5_header, tvb, offset, 5, ENC_NA);
+	header_tree = proto_item_add_subtree(ti, ett_cql5_header);
+
+	proto_tree_add_uint(header_tree, hf_cql5_compressed_length, tvb, offset, 3, length);
+	proto_tree_add_uint(header_tree, hf_cql5_uncompressed_length, tvb, offset + 2, 3, uncomp_length);
+	proto_tree_add_boolean(header_tree, hf_cql5_self_contained, tvb, offset + 3, 1, isSelfContained);
+	proto_tree_add_item(header_tree, hf_cql5_crc24, tvb, offset + 5, 3, ENC_LITTLE_ENDIAN);
+
+	tcp_dissect_pdus(payload_tvb, pinfo, cql_tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+	proto_tree_add_item(tree, hf_cql5_crc32, tvb, length + 8, 4, ENC_LITTLE_ENDIAN);
+	return length + 8 + 4; // compressed length + header + crc32
+
+}
+
 static int
 dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
 {
@@ -1156,7 +1340,6 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 	int offset_row_metadata = 0;
 	uint8_t flags = 0;
 	uint8_t first_byte = 0;
-	uint8_t cql_version = 0;
 	uint8_t server_to_client = 0;
 	uint8_t opcode = 0;
 	uint32_t message_length = 0;
@@ -1205,29 +1388,41 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 		NULL
 	};
 
+	static int * const cql_header_bitmaps_v5[] = {
+		&hf_cql_flag_compression, /* deprecated in v5*/
+		&hf_cql_flag_tracing,
+		&hf_cql_flag_custom_payload,
+		&hf_cql_flag_warning,
+		&hf_cql_flag_beta,
+		NULL
+	};
+
 	const uint8_t* string_event_type = NULL;
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "CQL");
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	first_byte = tvb_get_uint8(raw_tvb, 0);
-	cql_version = first_byte & (uint8_t)0x7F;
 	server_to_client = first_byte & (uint8_t)0x80;
 	opcode = tvb_get_uint8(raw_tvb, 4);
-
-	col_add_fstr(pinfo->cinfo, COL_INFO, "v%d %s Type %s",
-		cql_version,
-		server_to_client == 0 ? "C->S" : "S->C",
-		val_to_str(pinfo->pool, opcode, cql_opcode_names, "Unknown (0x%02x)")
-	);
 
 	conversation = find_or_create_conversation(pinfo);
 	cql_conv = (cql_conversation_type*) conversation_get_proto_data(conversation, proto_cql);
 	if(!cql_conv) {
 		cql_conv = wmem_new(wmem_file_scope(), cql_conversation_type);
 		cql_conv->streams = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
+		cql_conv->frame_start_v5_proto = 0;
+		cql_conv->server_port = pinfo->destport;
+		cql_conv->protocol_version = (first_byte & 0x7F);
+		cql_conv->compression_level = CQL_COMPRESSION_NONE;
 		conversation_add_proto_data(conversation, proto_cql, cql_conv);
 	}
+
+	col_add_fstr(pinfo->cinfo, COL_INFO, "v%d %s Type %s",
+		cql_conv->protocol_version,
+		server_to_client == 0 ? "C->S" : "S->C",
+		val_to_str(pinfo->pool, opcode, cql_opcode_names, "Unknown (0x%02x)")
+	);
 
 	ti = proto_tree_add_item(tree, proto_cql, raw_tvb, 0, -1, ENC_NA);
 	cql_tree = proto_item_add_subtree(ti, ett_cql_protocol);
@@ -1237,12 +1432,15 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 	proto_tree_add_item(version_tree, hf_cql_protocol_version, raw_tvb, offset, 1, ENC_BIG_ENDIAN);
 	proto_tree_add_item(version_tree, hf_cql_direction, raw_tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
-	switch(cql_version){
+	switch(cql_conv->protocol_version){
 		case 3:
 		proto_tree_add_bitmask(cql_tree, raw_tvb, offset, hf_cql_flags_bitmap, ett_cql_header_flags_bitmap, cql_header_bitmaps_v3, ENC_BIG_ENDIAN);
 		break;
 		case 4:
 		proto_tree_add_bitmask(cql_tree, raw_tvb, offset, hf_cql_flags_bitmap, ett_cql_header_flags_bitmap, cql_header_bitmaps_v4, ENC_BIG_ENDIAN);
+		break;
+		case 5:
+		proto_tree_add_bitmask(cql_tree, raw_tvb, offset, hf_cql_flags_bitmap, ett_cql_header_flags_bitmap, cql_header_bitmaps_v5, ENC_BIG_ENDIAN);
 		break;
 		default:
 		proto_tree_add_item(cql_tree, hf_cql_flags_bitmap, raw_tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1297,7 +1495,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 	 * capture can be done at a random time hence missing the negotiation.
 	 * So we will first try to decompress LZ4 then snappy
 	 */
-	if (flags & CQL_HEADER_FLAG_COMPRESSION) {
+	if (flags & CQL_HEADER_FLAG_COMPRESSION && cql_conv->protocol_version < 5) {
 		compression_level = CQL_DECOMPRESSION_ATTEMPTED;
 #ifdef HAVE_LZ4
 		if (tvb_captured_length_remaining(raw_tvb, offset) > 4) {
@@ -1386,15 +1584,28 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				cql_subtree = proto_tree_add_subtree(cql_tree, tvb, offset, message_length, ett_cql_message, &ti, "Message STARTUP");
 				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_map_size, tvb, offset, 2, ENC_BIG_ENDIAN, &map_size);
 				offset += 2;
+				const uint8_t *key_string = NULL;
+				const uint8_t*val_string = NULL;
 				for(i = 0; i < map_size; ++i) {
 					proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
 					offset += 2;
-					proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
+					if (string_length == (sizeof("COMPRESSION") - 1)) { /* 'COMPRESSION' = 11 bytes, but there could be other keys with the same length! */
+						proto_tree_add_item_ret_string(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8, pinfo->pool, &key_string);
+					} else
+						proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
 					offset += string_length;
 
 					proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
 					offset += 2;
-					proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
+
+					if (string_length == (sizeof("lz4") - 1) && key_string && strncmp((const char*)key_string, "COMPRESSION", sizeof("COMPRESSION") - 1) == 0) {
+						proto_tree_add_item_ret_string(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8, pinfo->pool, &val_string);
+						/* remember the compression for future packets, needed for v5 follow-up conversation */
+						if (val_string && strncmp((const char*)val_string, "lz4", sizeof("lz4") - 1) == 0) {
+							cql_conv->compression_level = CQL_COMPRESSION_LZ4;
+						}
+					} else
+						proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
 					offset += string_length;
 				}
 				break;
@@ -1425,7 +1636,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				offset += string_length;
 
 				/* Query parameters */
-				dissect_cql_query_parameters(cql_subtree, tvb, offset, 0);
+				dissect_cql_query_parameters(cql_subtree, tvb, offset, 0, cql_conv->protocol_version);
 
 				break;
 
@@ -1452,7 +1663,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				offset += short_bytes_length;
 
 				/* Query parameters */
-				dissect_cql_query_parameters(cql_subtree, tvb, offset, 1);
+				dissect_cql_query_parameters(cql_subtree, tvb, offset, 1, cql_conv->protocol_version);
 				break;
 
 
@@ -1546,10 +1757,45 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
 				offset += 2;
 				proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8);
+				offset += string_length;
+
+				if (error_code == CQL_ERROR_WRITE_TIMEOUT || error_code == CQL_ERROR_READ_TIMEOUT || error_code == CQL_ERROR_READ_FAILURE || error_code == CQL_ERROR_WRITE_FAILURE) {
+					proto_tree_add_item(cql_subtree, hf_cql_consistency, tvb, offset, 2, ENC_BIG_ENDIAN);
+					offset += 2;
+					proto_tree_add_item(cql_subtree, hf_cql_error_failure_received, tvb, offset, 4, ENC_BIG_ENDIAN);
+					offset += 4;
+					proto_tree_add_item(cql_subtree, hf_cql_error_block_for, tvb, offset, 4, ENC_BIG_ENDIAN);
+					offset += 4;
+
+					if (error_code == CQL_ERROR_WRITE_TIMEOUT) {
+						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
+						offset += 2;
+						proto_tree_add_item(cql_subtree, hf_cql_error_write_type, tvb, offset, string_length, ENC_UTF_8);
+						offset += string_length;
+					} else if (error_code == CQL_ERROR_READ_TIMEOUT) {
+						proto_tree_add_item(cql_subtree, hf_cql_error_data_present, tvb, offset, 1, ENC_NA);
+						offset += 1;
+					} else if (error_code == CQL_ERROR_READ_FAILURE) {
+						/* FIXME - in protocol v5, there's a reason_map here instead of num failures as in previous protocols*/
+						proto_tree_add_item(cql_subtree, hf_cql_error_num_failures, tvb, offset, 4, ENC_BIG_ENDIAN);
+						offset += 4;
+						proto_tree_add_item(cql_subtree, hf_cql_error_data_present, tvb, offset, 1, ENC_NA);
+						offset += 1;
+					} else if (error_code == CQL_ERROR_WRITE_FAILURE) {
+						/* FIXME - in protocol v5, there's a reason_map here instead of num failures as in previous protocols*/
+						proto_tree_add_item(cql_subtree, hf_cql_error_num_failures, tvb, offset, 4, ENC_BIG_ENDIAN);
+						offset += 4;
+						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
+						offset += 2;
+						proto_tree_add_item(cql_subtree, hf_cql_error_write_type, tvb, offset, string_length, ENC_UTF_8);
+						offset += string_length;
+					}
+				}
 				break;
 
 
 			case CQL_OPCODE_AUTHENTICATE:
+				cql_conv->frame_start_v5_proto = pinfo->num; /* remember the frame number where we got past initial negotiation */
 				cql_subtree = proto_tree_add_subtree(cql_tree, tvb, offset, message_length, ett_cql_message, &ti, "Message AUTHENTICATE");
 
 				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
@@ -1659,7 +1905,9 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 									for (k = 0; k < result_rows_columns_count; ++k) {
 										proto_tree_add_item_ret_int(columns_subtree, hf_cql_bytes_length, tvb, offset, 4, ENC_BIG_ENDIAN, &bytes_length);
 										offset += 4;
-										single_column_subtree = proto_tree_add_subtree(columns_subtree, tvb, offset, bytes_length > 0 ? bytes_length : 0, ett_cql_results_no_metadata, &ti, "Column data");
+										if (bytes_length >= 0) { /* do not display if there's no column data. If there is NULL or not set - do display it */
+											single_column_subtree = proto_tree_add_subtree(columns_subtree, tvb, offset, bytes_length > 0 ? bytes_length : 0, ett_cql_results_no_metadata, &ti, "Column data");
+										}
 										if (bytes_length > 0) {
 											proto_item_append_text(single_column_subtree, " for column # %" PRId64, k + 1);
 											proto_tree_add_item(single_column_subtree, hf_cql_bytes, tvb, offset, bytes_length, ENC_NA);
@@ -1668,6 +1916,8 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 											proto_item_append_text(single_column_subtree, " is NULL for column # %" PRId64, k + 1);
 										} else if (bytes_length == -2) {
 											proto_item_append_text(single_column_subtree, " is not set for column # %" PRId64, k + 1);
+										} else if (bytes_length == 0) {
+											proto_item_append_text(single_column_subtree, " is empty for column # %" PRId64, k + 1);
 										} else {
 											expert_add_info(pinfo, ti, &ei_cql_unexpected_negative_value);
 											return tvb_reported_length(tvb);
@@ -1687,13 +1937,21 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 
 
 					case CQL_RESULT_KIND_PREPARED:
-						/* <id><metadata><result_metadata> */
+						/* <id><metadata><result_metadata> or <id><metadata_id><result_metadata> for protocol version 5*/
 
 						/* Query ID */
 						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 						offset += 2;
 						proto_tree_add_item(cql_subtree, hf_cql_query_id, tvb, offset, short_bytes_length, ENC_NA);
 						offset += short_bytes_length;
+
+						if (cql_conv->protocol_version >= 5) {
+							/* Metadata ID */
+							proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
+							offset += 2;
+							proto_tree_add_item(cql_subtree, hf_cql_query_metadata_id, tvb, offset, short_bytes_length, ENC_NA);
+							offset += short_bytes_length;
+						}
 
 						/* metadata: <flags><columns_count><pk_count>[<pk_index_1>...<pk_index_n>][<global_table_spec>?<col_spec_1>...<col_spec_n>] */
 						prepared_metadata_subtree = proto_tree_add_subtree(cql_subtree, tvb, offset, 0, ett_cql_result_metadata, &ti, "Prepared Metadata");
@@ -1788,6 +2046,11 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				}
 				break;
 
+			case CQL_OPCODE_READY:
+				cql_conv->frame_start_v5_proto = pinfo->num; /* remember the frame number where we got past initial negotiation */
+				/* body should be empty */
+				break;
+
 			default:
 				proto_tree_add_expert(cql_subtree, pinfo, &ei_cql_data_not_dissected_yet, tvb, 0, message_length);
 				break;
@@ -1801,15 +2064,42 @@ static int
 dissect_cql_tcp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data)
 {
 	uint8_t version;
-	/* This dissector version only understands CQL protocol v3 and v4. */
+	conversation_t* conversation;
+	cql_conversation_type* cql_conv;
+
+	/* This dissector version only understands CQL protocol v3, v4, v5. */
 	if (tvb_reported_length(tvb) < 1)
 		return 0;
 
-	version = tvb_get_uint8(tvb, 0) & 0x7F;
-	if ((version != 3 && version != 4))
-		return 0;
+	conversation = find_conversation_pinfo(pinfo, 0);
+	if (conversation) {
+		cql_conv = (cql_conversation_type*) conversation_get_proto_data(conversation, proto_cql);
+		if (cql_conv && cql_conv->protocol_version == 5) {
+			if (cql_conv->frame_start_v5_proto != 0 && pinfo->num > cql_conv->frame_start_v5_proto) {
+				/* if we are already in v5 and negotiation is done, use the stored compression level */
+				if (cql_conv->compression_level == CQL_COMPRESSION_NONE) {
+					tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 3 /* bytes to determine length of PDU */, get_cql5_non_comp_pdu_len, dissect_cql5_uncomp, data);
+				} else if (cql_conv->compression_level == CQL_COMPRESSION_LZ4) {
+					tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 3 /* bytes to determine length of PDU */, get_cql5_comp_pdu_len, dissect_cql5_comp, data);
+				} else {
+					/* unknown compression level, should not happen */
+					return 0;
+				}
+			} else {
+				/* negotiation not done yet, we treat it as pre-v5 frames */
+				tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+			}
+		} else { /* pre CQLv5 protocol versions */
+			tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+		}
+	} else {
+		version = tvb_get_uint8(tvb, 0) & 0x7F;
+		if ((version != 3 && version != 4 && version != 5)) /* this might fail if we are catching CQLv5 mid-stream, so be it */
+			return 0;
 
-	tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+		tcp_dissect_pdus(tvb, pinfo, tree, cql_desegment, 9 /* bytes to determine length of PDU */, get_cql_pdu_len, dissect_cql_tcp_pdu, data);
+	}
+
 	return tvb_reported_length(tvb);
 }
 
@@ -1997,11 +2287,11 @@ proto_register_cql(void)
 			}
 		},
 		{
-			&hf_cql_query_flags_bitmap,
+			&hf_cql_flag_beta,
 			{
-				"Flags", "cql.query.flags",
+				"Beta", "cql.flags.beta",
 				FT_UINT8, BASE_HEX,
-				NULL, 0x0,
+				NULL, CQL_HEADER_FLAG_BETA,
 				NULL, HFILL
 			}
 		},
@@ -2010,6 +2300,15 @@ proto_register_cql(void)
 			{
 				"Page Size", "cql.query.flags.page_size",
 				FT_BOOLEAN, 8,
+				NULL, CQL_QUERY_FLAG_PAGE_SIZE,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql_query_v5_flags_page_size,
+			{
+				"Page Size", "cql.queryv5.flags.page_size",
+				FT_BOOLEAN, 32,
 				NULL, CQL_QUERY_FLAG_PAGE_SIZE,
 				NULL, HFILL
 			}
@@ -2024,10 +2323,28 @@ proto_register_cql(void)
 			}
 		},
 		{
+			&hf_cql_query_v5_flags_skip_metadata,
+			{
+				"Skip Metadata", "cql.queryv5.flags.skip_metadata",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_SKIP_METADATA,
+				NULL, HFILL
+			}
+		},
+		{
 			&hf_cql_query_flags_values,
 			{
 				"Values", "cql.query.flags.values",
 				FT_BOOLEAN, 8,
+				NULL, CQL_QUERY_FLAG_VALUES,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql_query_v5_flags_values,
+			{
+				"Values", "cql.queryv5.flags.values",
+				FT_BOOLEAN, 32,
 				NULL, CQL_QUERY_FLAG_VALUES,
 				NULL, HFILL
 			}
@@ -2042,10 +2359,28 @@ proto_register_cql(void)
 			}
 		},
 		{
+			&hf_cql_query_v5_flags_default_timestamp,
+			{
+				"Default Timestamp", "cql.queryv5.flags.default_timestamp",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_DEFAULT_TIMESTAMP,
+				NULL, HFILL
+			}
+		},
+		{
 			&hf_cql_query_flags_names_for_values,
 			{
 				"Names for Values", "cql.query.flags.value_names",
 				FT_BOOLEAN, 8,
+				NULL, CQL_QUERY_FLAG_VALUE_NAMES,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql_query_v5_flags_names_for_values,
+			{
+				"Names for Values", "cql.queryv5.flags.value_names",
+				FT_BOOLEAN, 32,
 				NULL, CQL_QUERY_FLAG_VALUE_NAMES,
 				NULL, HFILL
 			}
@@ -2060,6 +2395,15 @@ proto_register_cql(void)
 			}
 		},
 		{
+			&hf_cql_query_v5_flags_paging_state,
+			{
+				"Paging State", "cql.query.flags.paging_state",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_PAGING_STATE,
+				NULL, HFILL
+			}
+		},
+		{
 			&hf_cql_query_flags_serial_consistency,
 			{
 				"Serial Consistency", "cql.query.flags.serial_consistency",
@@ -2069,11 +2413,29 @@ proto_register_cql(void)
 			}
 		},
 		{
-			&hf_cql_query_flags_reserved3,
+			&hf_cql_query_v5_flags_serial_consistency,
 			{
-				"Reserved", "cql.query_flags.reserved",
-				FT_UINT8, BASE_HEX,
-				NULL, CQL_QUERY_FLAG_V3_RESERVED,
+				"Serial Consistency", "cql.queryv5.flags.serial_consistency",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_SERIAL_CONSISTENCY,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql_query_v5_flags_with_keyspace,
+			{
+				"With Keyspace", "cql.queryv5.flags.with_keyspace",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_WITH_KEYSPACE,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql_query_v5_flags_now_in_seconds,
+			{
+				"Now in Seconds", "cql.queryv5.flags.now_in_seconds",
+				FT_BOOLEAN, 32,
+				NULL, CQL_QUERY_FLAG_NOW_IN_SECONDS,
 				NULL, HFILL
 			}
 		},
@@ -2120,6 +2482,60 @@ proto_register_cql(void)
 				FT_UINT32, BASE_DEC,
 				NULL, 0x0,
 				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql5_compressed_length,
+			{
+				"Compressed Message Length", "cql.v5_message_length.compressed",
+				FT_UINT32, BASE_DEC,
+				NULL, 0x0,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql5_uncompressed_length,
+			{
+				"Uncompressed Message Length", "cql.v5_message_length.uncompressed",
+				FT_UINT32, BASE_DEC,
+				NULL, 0x0,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql5_header,
+			{
+				"CQLv5 Header", "cql.v5_header",
+				FT_NONE, BASE_NONE,
+				NULL, 0x0,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql5_self_contained,
+			{
+				"Self-Contained Flag", "cql.v5_is_self_contained",
+				FT_BOOLEAN, BASE_NONE,
+				NULL, 0x0,
+				NULL, HFILL
+			}
+		},
+		{
+			&hf_cql5_crc24,
+			{
+				"Header CRC24", "cql.v5_crc24",
+				FT_UINT24, BASE_HEX,
+				NULL, 0x0,
+				"CRC24 checksum of the header", HFILL
+			}
+		},
+		{
+			&hf_cql5_crc32,
+			{
+				"Payload CRC32", "cql.v5_crc32",
+				FT_UINT32, BASE_HEX,
+				NULL, 0x0,
+				"CRC32 checksum of the frame payload", HFILL
 			}
 		},
 		{
@@ -2283,6 +2699,46 @@ proto_register_cql(void)
 				FT_UINT16, BASE_HEX,
 				VALS(cql_consistency_names), 0x0,
 				"CQL consistency level specification", HFILL
+			}
+		},
+		{ &hf_cql_error_failure_received,
+			{
+				"Error Failure Received", "cql.error_failure_received",
+				FT_UINT32, BASE_DEC,
+				NULL, 0x0,
+				"Number of nodes answered (read) / failed (write)", HFILL
+			}
+		},
+		{ &hf_cql_error_block_for,
+			{
+				"Error Block For", "cql.error_block_for",
+				FT_UINT32, BASE_DEC,
+				NULL, 0x0,
+				"Number of replica responss required to achieve CL", HFILL
+			}
+		},
+		{ &hf_cql_error_num_failures,
+			{
+				"Error Num Failures", "cql.error_num_failures",
+				FT_UINT32, BASE_DEC,
+				NULL, 0x0,
+				"Number of nodes experienced failure", HFILL
+			}
+		},
+		{ &hf_cql_error_data_present,
+			{
+				"Error data present flag", "cql.error_data_present",
+				FT_UINT8, BASE_DEC,
+				NULL, 0x0,
+				"Replica responded or not", HFILL
+			}
+		},
+		{ &hf_cql_error_write_type,
+			{
+				"Error Write Type", "cql.error_write_type",
+				FT_STRING, BASE_NONE,
+				NULL, 0x0,
+				NULL, HFILL
 			}
 		},
 		{
@@ -2520,6 +2976,15 @@ proto_register_cql(void)
 			}
 		},
 		{
+			&hf_cql_query_metadata_id,
+			{
+				"Query Metadata ID", "cql.query_metadata_id",
+				FT_BYTES, BASE_NONE,
+				NULL, 0x0,
+				"CQL v5 query metadata ID resulting from a PREPARE statement", HFILL
+			}
+		},
+		{
 			&hf_cql_event_type,
 			{
 				"Event Type", "cql.event_type",
@@ -2722,9 +3187,9 @@ proto_register_cql(void)
 		&ett_cql_result_metadata_colspec,
 		&ett_cql_result_rows,
 		&ett_cql_header_flags_bitmap,
-		&ett_cql_query_flags_bitmap,
 		&ett_cql_batch_flags_bitmap,
-		&ett_cql_custom_payload
+		&ett_cql_custom_payload,
+		&ett_cql5_header
 	};
 
 	proto_cql = proto_register_protocol("Cassandra CQL Protocol", "CQL", "cql" );

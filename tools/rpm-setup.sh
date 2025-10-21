@@ -19,7 +19,7 @@ function print_usage() {
 	printf "Usage: %s [--install-optional] [...other options...]\n" "$0"
 	printf "\t--install-optional: install optional software as well\n"
 	printf "\t--install-rpm-deps: install packages required to build the .rpm file\n"
-	printf "\\t--install-qt5-deps: force installation of packages required to use Qt5\\n"
+	printf "\\t--install-qt5-deps: force installation of packages required to use Qt5 (not recommended)\\n"
 	printf "\\t--install-qt6-deps: force installation of packages required to use Qt6\\n"
 	printf "\\t--install-all: install everything\\n"
 	printf "\t[other]: other options are passed as-is to the package manager\n"
@@ -186,13 +186,9 @@ echo "Required package speexdsp-devel|speex-devel is unavailable" >&2
 
 if [ $HAVE_ADD_QT -eq 0 ]
 then
-	# Try to select Qt version from distro
-	test -e /etc/os-release && os_release='/etc/os-release' || os_release='/usr/lib/os-release'
-	# shellcheck disable=SC1090
-	. "${os_release}"
-
-	# Fedora 35 or later
-	if [ "${ID:-linux}" = "fedora" ] && [ "${VERSION_ID:-0}" -ge "35" ]; then
+	# The user didn't select a Qt version. Select Qt 6 if it's available, otherwise Qt 5.
+	# shellcheck disable=SC2086
+	if $PM $PM_SEARCH qt6-qtbase-devel 2&> /dev/null || $PM $PM_SEARCH qt6-base-devel 2&> /dev/null ; then
 		echo "Installing Qt6."
 		ADD_QT6=1
 	else

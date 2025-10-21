@@ -76,7 +76,7 @@ typedef struct _capture_file {
     int64_t                     f_datalen;            /* Size of capture file data (uncompressed) */
     uint16_t                    cd_t;                 /* File type of capture file */
     unsigned int                open_type;            /* open_routine index+1 used, if selected, or WTAP_TYPE_AUTO */
-    wtap_compression_type       compression_type;     /* Compression type of the file, or uncompressed */
+    ws_compression_type         compression_type;     /* Compression type of the file, or uncompressed */
     int                         lnk_t;                /* File link-layer type; could be WTAP_ENCAP_PER_PACKET */
     GArray                     *linktypes;            /* Array of packet link-layer types */
     uint32_t                    count;                /* Total number of frames */
@@ -133,6 +133,7 @@ extern void cap_file_init(capture_file *cf);
 
 const nstime_t *cap_file_provider_get_frame_ts(struct packet_provider_data *prov, uint32_t frame_num);
 const nstime_t *cap_file_provider_get_start_ts(struct packet_provider_data *prov);
+const nstime_t *cap_file_provider_get_end_ts(struct packet_provider_data *prov);
 const char *cap_file_provider_get_interface_name(struct packet_provider_data *prov, uint32_t interface_id, unsigned section_number);
 const char *cap_file_provider_get_interface_description(struct packet_provider_data *prov, uint32_t interface_id, unsigned section_number);
 int32_t cap_file_provider_get_process_id(struct packet_provider_data *prov, uint32_t process_info_id, unsigned section_number);

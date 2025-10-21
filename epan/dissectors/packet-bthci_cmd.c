@@ -11128,7 +11128,7 @@ proto_register_bthci_cmd(void)
      * 5.4.1] in the case of P2P_DIR_SENT and as a HCI Event packet
      * [Ibid., 5.4.4] in the case of P2P_DIR_RECV. They are called whenever
      * a vendor-specific Command Opcode or Event Code is encountered; that
-     * includes when a vendor-specific Command Opcode is found in a Commmand
+     * includes when a vendor-specific Command Opcode is found in a Command
      * Complete or Command Status event. The entire HCI Event packet is sent
      * to the vendor dissector, which must read the Event Code to handle
      * the Vendor-Specific, Command Complete, and Command Status events
@@ -11328,7 +11328,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                     proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
                 } else {
                     sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
                 }
 
                 offset += 4;
@@ -11347,7 +11347,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                 }
                 else {
                     sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
                 }
 
                 offset += 16;
@@ -11494,7 +11494,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                 }
                 else {
                     sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
                 }
             }
             offset += 4;
@@ -11514,7 +11514,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                 }
                 else {
                     sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
                 }
             }
             offset += 16;
@@ -13244,12 +13244,12 @@ proto_register_btcommon(void)
     static build_valid_func bluetooth_eir_ad_manufacturer_company_id_da_build_value[1] = {bluetooth_eir_ad_manufacturer_company_id_value};
     static decode_as_value_t bluetooth_eir_ad_manufacturer_company_id_da_values = {bluetooth_eir_ad_manufacturer_company_id_prompt, 1, bluetooth_eir_ad_manufacturer_company_id_da_build_value};
     static decode_as_t bluetooth_eir_ad_manufacturer_company_id_da = {"btcommon.eir_ad", "btcommon.eir_ad.manufacturer_company_id", 1, 0, &bluetooth_eir_ad_manufacturer_company_id_da_values, NULL, NULL,
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     static build_valid_func bluetooth_eir_ad_tds_organization_id_da_build_value[1] = {bluetooth_eir_ad_tds_organization_id_value};
     static decode_as_value_t bluetooth_eir_ad_tds_organization_id_da_values = {bluetooth_eir_ad_tds_organization_id_prompt, 1, bluetooth_eir_ad_tds_organization_id_da_build_value};
     static decode_as_t bluetooth_eir_ad_tds_organization_id_da = {"btcommon.eir_ad", "btcommon.eir_ad.tds_organization_id", 1, 0, &bluetooth_eir_ad_tds_organization_id_da_values, NULL, NULL,
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     proto_btcommon = proto_register_protocol("Bluetooth Common", "BT Common", "btcommon");
 

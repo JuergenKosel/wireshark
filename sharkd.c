@@ -30,6 +30,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/wslog.h>
 #include <wsutil/version_info.h>
+#include <wsutil/report_message.h>
 #include <wiretap/wtap_opttypes.h>
 
 #include <epan/decode_as.h>
@@ -248,6 +249,7 @@ sharkd_epan_new(capture_file *cf)
     static const struct packet_provider_funcs funcs = {
         cap_file_provider_get_frame_ts,
         cap_file_provider_get_start_ts,
+        cap_file_provider_get_end_ts,
         cap_file_provider_get_interface_name,
         cap_file_provider_get_interface_description,
         cap_file_provider_get_modified_block,
@@ -407,7 +409,7 @@ load_cap_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
     }
 
     if (err != 0) {
-        cfile_read_failure_message(cf->filename, err, err_info);
+        report_cfile_read_failure(cf->filename, err, err_info);
     }
 
     return err;
@@ -463,7 +465,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     return CF_OK;
 
 fail:
-    cfile_open_failure_message(fname, *err, err_info);
+    report_cfile_open_failure(fname, *err, err_info);
     return CF_ERROR;
 }
 

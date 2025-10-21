@@ -20,6 +20,7 @@
 #include <epan/packet.h>
 
 #include "packet-ber.h"
+#include "packet-media-type.h"
 #include "packet-pkix1explicit.h"
 #include "packet-pkix1implicit.h"
 #include "packet-sgp22.h"
@@ -71,6 +72,8 @@ static int hf_sgp32_GetConnectivityParametersRequest_PDU;  /* GetConnectivityPar
 static int hf_sgp32_GetConnectivityParametersResponse_PDU;  /* GetConnectivityParametersResponse */
 static int hf_sgp32_SetDefaultDpAddressRequest_PDU;  /* SetDefaultDpAddressRequest */
 static int hf_sgp32_SetDefaultDpAddressResponse_PDU;  /* SetDefaultDpAddressResponse */
+static int hf_sgp32_EsipaMessageFromIpaToEim_PDU;  /* EsipaMessageFromIpaToEim */
+static int hf_sgp32_EsipaMessageFromEimToIpa_PDU;  /* EsipaMessageFromEimToIpa */
 static int hf_sgp32_InitiateAuthenticationRequestEsipa_PDU;  /* InitiateAuthenticationRequestEsipa */
 static int hf_sgp32_InitiateAuthenticationResponseEsipa_PDU;  /* InitiateAuthenticationResponseEsipa */
 static int hf_sgp32_AuthenticateClientRequestEsipa_PDU;  /* AuthenticateClientRequestEsipa */
@@ -314,6 +317,21 @@ static int hf_sgp32_compactCancelSessionResponseOk;  /* CompactCancelSessionResp
 static int hf_sgp32_compactEuiccCancelSessionSigned;  /* CompactEuiccCancelSessionSigned */
 static int hf_sgp32_euiccCancelSessionSignature;  /* OCTET_STRING */
 static int hf_sgp32_reason;                       /* CancelSessionReason */
+static int hf_sgp32_initiateAuthenticationRequestEsipa;  /* InitiateAuthenticationRequestEsipa */
+static int hf_sgp32_authenticateClientRequestEsipa;  /* AuthenticateClientRequestEsipa */
+static int hf_sgp32_getBoundProfilePackageRequestEsipa;  /* GetBoundProfilePackageRequestEsipa */
+static int hf_sgp32_cancelSessionRequestEsipa;    /* CancelSessionRequestEsipa */
+static int hf_sgp32_handleNotificationEsipa;      /* HandleNotificationEsipa */
+static int hf_sgp32_transferEimPackageResponse;   /* TransferEimPackageResponse */
+static int hf_sgp32_getEimPackageRequest;         /* GetEimPackageRequest */
+static int hf_sgp32_provideEimPackageResult;      /* ProvideEimPackageResult */
+static int hf_sgp32_initiateAuthenticationResponseEsipa;  /* InitiateAuthenticationResponseEsipa */
+static int hf_sgp32_authenticateClientResponseEsipa;  /* AuthenticateClientResponseEsipa */
+static int hf_sgp32_getBoundProfilePackageResponseEsipa;  /* GetBoundProfilePackageResponseEsipa */
+static int hf_sgp32_cancelSessionResponseEsipa;   /* CancelSessionResponseEsipa */
+static int hf_sgp32_transferEimPackageRequest;    /* TransferEimPackageRequest */
+static int hf_sgp32_getEimPackageResponse;        /* GetEimPackageResponse */
+static int hf_sgp32_provideEimPackageResultResponse;  /* ProvideEimPackageResultResponse */
 static int hf_sgp32_euiccChallenge;               /* Octet16 */
 static int hf_sgp32_smdpAddress;                  /* UTF8String */
 static int hf_sgp32_initiateAuthenticationOkEsipa;  /* InitiateAuthenticationOkEsipa */
@@ -336,7 +354,6 @@ static int hf_sgp32_getBoundProfilePackageOkEsipa;  /* GetBoundProfilePackageOkE
 static int hf_sgp32_getBoundProfilePackageErrorEsipa;  /* T_getBoundProfilePackageErrorEsipa */
 static int hf_sgp32_boundProfilePackage;          /* BoundProfilePackage */
 static int hf_sgp32_pendingNotification;          /* PendingNotification */
-static int hf_sgp32_provideEimPackageResult;      /* ProvideEimPackageResult */
 static int hf_sgp32_cancelSessionResponse;        /* CancelSessionResponse */
 static int hf_sgp32_cancelSessionOk;              /* CancelSessionOk */
 static int hf_sgp32_cancelSessionError;           /* T_cancelSessionError */
@@ -512,6 +529,8 @@ static int ett_sgp32_CompactOtherSignedNotification;
 static int ett_sgp32_CancelSessionResponse_U;
 static int ett_sgp32_CompactCancelSessionResponseOk;
 static int ett_sgp32_CompactEuiccCancelSessionSigned;
+static int ett_sgp32_EsipaMessageFromIpaToEim;
+static int ett_sgp32_EsipaMessageFromEimToIpa;
 static int ett_sgp32_InitiateAuthenticationRequestEsipa_U;
 static int ett_sgp32_InitiateAuthenticationResponseEsipa_U;
 static int ett_sgp32_InitiateAuthenticationOkEsipa;
@@ -542,9 +561,9 @@ static int ett_sgp32_T_ePRAndNotifications_01;
 
 static int
 dissect_sgp32_UTF8String_SIZE_1_128(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
-                                            actx, tree, tvb, offset, hf_index,
-                                            NULL);
+  offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
+                                                        actx, tree, tvb, offset,
+                                                        1, 128, hf_index, NULL);
 
   return offset;
 }
@@ -1078,9 +1097,9 @@ dissect_sgp32_IpaEuiccDataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 static int
 dissect_sgp32_UTF8String_SIZE_0_255(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
-                                            actx, tree, tvb, offset, hf_index,
-                                            NULL);
+  offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
+                                                        actx, tree, tvb, offset,
+                                                        0, 255, hf_index, NULL);
 
   return offset;
 }
@@ -1247,9 +1266,9 @@ dissect_sgp32_DeleteProfileResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 static int
 dissect_sgp32_UTF8String_SIZE_0_64(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
-                                            actx, tree, tvb, offset, hf_index,
-                                            NULL);
+  offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
+                                                        actx, tree, tvb, offset,
+                                                        0, 64, hf_index, NULL);
 
   return offset;
 }
@@ -1258,9 +1277,9 @@ dissect_sgp32_UTF8String_SIZE_0_64(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 static int
 dissect_sgp32_UTF8String_SIZE_0_32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
-                                            actx, tree, tvb, offset, hf_index,
-                                            NULL);
+  offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
+                                                        actx, tree, tvb, offset,
+                                                        0, 32, hf_index, NULL);
 
   return offset;
 }
@@ -1269,8 +1288,8 @@ dissect_sgp32_UTF8String_SIZE_0_32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 static int
 dissect_sgp32_OCTET_STRING_SIZE_0_1024(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   0, 1024, hf_index, NULL);
 
   return offset;
 }
@@ -1935,8 +1954,8 @@ dissect_sgp32_ProfileInstallationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 static int
 dissect_sgp32_OCTET_STRING_SIZE_2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   2, 2, hf_index, NULL);
 
   return offset;
 }
@@ -2159,8 +2178,8 @@ dissect_sgp32_IpaMode(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_sgp32_OCTET_STRING_SIZE_0_32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   0, 32, hf_index, NULL);
 
   return offset;
 }
@@ -3700,7 +3719,7 @@ static const ber_sequence_t EuiccSigned1_sequence[] = {
   { &hf_sgp32_serverAddress , BER_CLASS_CON, 3, BER_FLAGS_IMPLTAG, dissect_sgp32_UTF8String },
   { &hf_sgp32_serverChallenge, BER_CLASS_CON, 4, BER_FLAGS_IMPLTAG, dissect_sgp22_Octet16 },
   { &hf_sgp32_euiccInfo2    , BER_CLASS_CON, 34, BER_FLAGS_IMPLTAG, dissect_sgp32_EUICCInfo2 },
-  { &hf_sgp32_ctxParams1    , -1/*imported*/, -1/*imported*/, BER_FLAGS_NOOWNTAG, dissect_sgp22_CtxParams1 },
+  { &hf_sgp32_ctxParams1    , BER_CLASS_ANY/*choice*/, -1/*choice*/, BER_FLAGS_NOOWNTAG, dissect_sgp22_CtxParams1 },
   { NULL, 0, 0, 0, NULL }
 };
 
@@ -3924,79 +3943,6 @@ dissect_sgp32_InitiateAuthenticationRequestEsipa(bool implicit_tag _U_, tvbuff_t
 }
 
 
-static const ber_sequence_t InitiateAuthenticationOkEsipa_sequence[] = {
-  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
-  { &hf_sgp32_serverSigned1 , BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_ServerSigned1 },
-  { &hf_sgp32_serverSignature1, BER_CLASS_APP, 55, BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING },
-  { &hf_sgp32_euiccCiPKIdentifierToBeUsed, BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_NOOWNTAG, dissect_sgp32_OCTET_STRING },
-  { &hf_sgp32_serverCertificate, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_pkix1explicit_Certificate },
-  { &hf_sgp32_matchingId    , BER_CLASS_UNI, BER_UNI_TAG_UTF8String, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_sgp32_UTF8String },
-  { &hf_sgp32_ctxParams1    , BER_CLASS_CON, 2, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_CtxParams1 },
-  { NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_InitiateAuthenticationOkEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   InitiateAuthenticationOkEsipa_sequence, hf_index, ett_sgp32_InitiateAuthenticationOkEsipa);
-
-  return offset;
-}
-
-
-static const value_string sgp32_T_initiateAuthenticationErrorEsipa_vals[] = {
-  {   1, "invalidDpAddress" },
-  {   2, "euiccVersionNotSupportedByDp" },
-  {   3, "ciPKIdNotSupported" },
-  {  50, "smdpAddressMismatch" },
-  {  51, "smdpOidMismatch" },
-  {  52, "invalidEimTransactionId" },
-  { 127, "undefinedError" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_sgp32_T_initiateAuthenticationErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
-
-  return offset;
-}
-
-
-static const value_string sgp32_InitiateAuthenticationResponseEsipa_U_vals[] = {
-  {   0, "initiateAuthenticationOkEsipa" },
-  {   1, "initiateAuthenticationErrorEsipa" },
-  { 0, NULL }
-};
-
-static const ber_choice_t InitiateAuthenticationResponseEsipa_U_choice[] = {
-  {   0, &hf_sgp32_initiateAuthenticationOkEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_InitiateAuthenticationOkEsipa },
-  {   1, &hf_sgp32_initiateAuthenticationErrorEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_T_initiateAuthenticationErrorEsipa },
-  { 0, NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_InitiateAuthenticationResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_choice(actx, tree, tvb, offset,
-                                 InitiateAuthenticationResponseEsipa_U_choice, hf_index, ett_sgp32_InitiateAuthenticationResponseEsipa_U,
-                                 NULL);
-
-  return offset;
-}
-
-
-
-static int
-dissect_sgp32_InitiateAuthenticationResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 57, true, dissect_sgp32_InitiateAuthenticationResponseEsipa_U);
-
-  return offset;
-}
-
-
 static const ber_sequence_t AuthenticateClientRequestEsipa_U_sequence[] = {
   { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
   { &hf_sgp32_authenticateServerResponse, BER_CLASS_CON, 56, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateServerResponse },
@@ -4017,102 +3963,6 @@ static int
 dissect_sgp32_AuthenticateClientRequestEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 59, true, dissect_sgp32_AuthenticateClientRequestEsipa_U);
-
-  return offset;
-}
-
-
-static const ber_sequence_t AuthenticateClientOkDPEsipa_sequence[] = {
-  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
-  { &hf_sgp32_profileMetaData, BER_CLASS_CON, 37, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_StoreMetadataRequest },
-  { &hf_sgp32_smdpSigned2   , BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_SmdpSigned2 },
-  { &hf_sgp32_smdpSignature2, BER_CLASS_APP, 55, BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING },
-  { &hf_sgp32_smdpCertificate, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_pkix1explicit_Certificate },
-  { &hf_sgp32_hashCc        , BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_sgp22_Octet32 },
-  { NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_AuthenticateClientOkDPEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   AuthenticateClientOkDPEsipa_sequence, hf_index, ett_sgp32_AuthenticateClientOkDPEsipa);
-
-  return offset;
-}
-
-
-static const ber_sequence_t AuthenticateClientOkDSEsipa_sequence[] = {
-  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
-  { &hf_sgp32_profileDownloadTrigger, BER_CLASS_CON, 84, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_ProfileDownloadTriggerRequest },
-  { NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_AuthenticateClientOkDSEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   AuthenticateClientOkDSEsipa_sequence, hf_index, ett_sgp32_AuthenticateClientOkDSEsipa);
-
-  return offset;
-}
-
-
-static const value_string sgp32_T_authenticateClientErrorEsipa_vals[] = {
-  {   1, "eumCertificateInvalid" },
-  {   2, "eumCertificateExpired" },
-  {   3, "euiccCertificateInvalid" },
-  {   4, "euiccCertificateExpired" },
-  {   5, "euiccSignatureInvalid" },
-  {   6, "matchingIdRefused" },
-  {   7, "eidMismatch" },
-  {   8, "noEligibleProfile" },
-  {   9, "ciPKUnknown" },
-  {  10, "invalidTransactionId" },
-  {  11, "insufficientMemory" },
-  {  50, "pprNotAllowed" },
-  {  56, "eventIdUnknown" },
-  { 127, "undefinedError" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_sgp32_T_authenticateClientErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
-
-  return offset;
-}
-
-
-static const value_string sgp32_AuthenticateClientResponseEsipa_U_vals[] = {
-  {   0, "authenticateClientOkDPEsipa" },
-  {   1, "authenticateClientOkDSEsipa" },
-  {   2, "authenticateClientErrorEsipa" },
-  { 0, NULL }
-};
-
-static const ber_choice_t AuthenticateClientResponseEsipa_U_choice[] = {
-  {   0, &hf_sgp32_authenticateClientOkDPEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientOkDPEsipa },
-  {   1, &hf_sgp32_authenticateClientOkDSEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientOkDSEsipa },
-  {   2, &hf_sgp32_authenticateClientErrorEsipa, BER_CLASS_CON, 2, BER_FLAGS_IMPLTAG, dissect_sgp32_T_authenticateClientErrorEsipa },
-  { 0, NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_AuthenticateClientResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_choice(actx, tree, tvb, offset,
-                                 AuthenticateClientResponseEsipa_U_choice, hf_index, ett_sgp32_AuthenticateClientResponseEsipa_U,
-                                 NULL);
-
-  return offset;
-}
-
-
-
-static int
-dissect_sgp32_AuthenticateClientResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 59, true, dissect_sgp32_AuthenticateClientResponseEsipa_U);
 
   return offset;
 }
@@ -4143,61 +3993,16 @@ dissect_sgp32_GetBoundProfilePackageRequestEsipa(bool implicit_tag _U_, tvbuff_t
 }
 
 
-static const ber_sequence_t GetBoundProfilePackageOkEsipa_sequence[] = {
-  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
-  { &hf_sgp32_boundProfilePackage, BER_CLASS_CON, 54, BER_FLAGS_IMPLTAG, dissect_sgp22_BoundProfilePackage },
+static const ber_sequence_t CancelSessionRequestEsipa_U_sequence[] = {
+  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
+  { &hf_sgp32_cancelSessionResponse, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_CancelSessionResponse },
   { NULL, 0, 0, 0, NULL }
 };
 
 static int
-dissect_sgp32_GetBoundProfilePackageOkEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_CancelSessionRequestEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   GetBoundProfilePackageOkEsipa_sequence, hf_index, ett_sgp32_GetBoundProfilePackageOkEsipa);
-
-  return offset;
-}
-
-
-static const value_string sgp32_T_getBoundProfilePackageErrorEsipa_vals[] = {
-  {   1, "euiccSignatureInvalid" },
-  {   2, "confirmationCodeMissing" },
-  {   3, "confirmationCodeRefused" },
-  {   4, "confirmationCodeRetriesExceeded" },
-  {   5, "bppRebindingRefused" },
-  {   6, "downloadOrderExpired" },
-  {  50, "metadataMismatch" },
-  {  95, "invalidTransactionId" },
-  { 127, "undefinedError" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_sgp32_T_getBoundProfilePackageErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
-
-  return offset;
-}
-
-
-static const value_string sgp32_GetBoundProfilePackageResponseEsipa_U_vals[] = {
-  {   0, "getBoundProfilePackageOkEsipa" },
-  {   1, "getBoundProfilePackageErrorEsipa" },
-  { 0, NULL }
-};
-
-static const ber_choice_t GetBoundProfilePackageResponseEsipa_U_choice[] = {
-  {   0, &hf_sgp32_getBoundProfilePackageOkEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_GetBoundProfilePackageOkEsipa },
-  {   1, &hf_sgp32_getBoundProfilePackageErrorEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_T_getBoundProfilePackageErrorEsipa },
-  { 0, NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_GetBoundProfilePackageResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_choice(actx, tree, tvb, offset,
-                                 GetBoundProfilePackageResponseEsipa_U_choice, hf_index, ett_sgp32_GetBoundProfilePackageResponseEsipa_U,
-                                 NULL);
+                                   CancelSessionRequestEsipa_U_sequence, hf_index, ett_sgp32_CancelSessionRequestEsipa_U);
 
   return offset;
 }
@@ -4205,9 +4010,9 @@ dissect_sgp32_GetBoundProfilePackageResponseEsipa_U(bool implicit_tag _U_, tvbuf
 
 
 static int
-dissect_sgp32_GetBoundProfilePackageResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_CancelSessionRequestEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 58, true, dissect_sgp32_GetBoundProfilePackageResponseEsipa_U);
+                                      hf_index, BER_CLASS_CON, 65, true, dissect_sgp32_CancelSessionRequestEsipa_U);
 
   return offset;
 }
@@ -4345,16 +4150,61 @@ dissect_sgp32_HandleNotificationEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 }
 
 
-static const ber_sequence_t CancelSessionRequestEsipa_U_sequence[] = {
-  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
-  { &hf_sgp32_cancelSessionResponse, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_CancelSessionResponse },
+static const ber_sequence_t T_ePRAndNotifications_01_sequence[] = {
+  { &hf_sgp32_euiccPackageResult, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageResult },
+  { &hf_sgp32_notificationList, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_PendingNotificationList },
   { NULL, 0, 0, 0, NULL }
 };
 
 static int
-dissect_sgp32_CancelSessionRequestEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_T_ePRAndNotifications_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   CancelSessionRequestEsipa_U_sequence, hf_index, ett_sgp32_CancelSessionRequestEsipa_U);
+                                   T_ePRAndNotifications_01_sequence, hf_index, ett_sgp32_T_ePRAndNotifications_01);
+
+  return offset;
+}
+
+
+static const value_string sgp32_T_eimPackageError_01_vals[] = {
+  {   1, "invalidPackageFormat" },
+  {   2, "unknownPackage" },
+  { 127, "undefinedError" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_sgp32_T_eimPackageError_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
+                                                NULL);
+
+  return offset;
+}
+
+
+static const value_string sgp32_TransferEimPackageResponse_U_vals[] = {
+  {   0, "euiccPackageResult" },
+  {   1, "ePRAndNotifications" },
+  {   2, "ipaEuiccDataResponse" },
+  {   3, "eimPackageReceived" },
+  {   4, "eimPackageError" },
+  { 0, NULL }
+};
+
+static const ber_choice_t TransferEimPackageResponse_U_choice[] = {
+  {   0, &hf_sgp32_euiccPackageResult, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageResult },
+  {   1, &hf_sgp32_ePRAndNotifications_01, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp32_T_ePRAndNotifications_01 },
+  {   2, &hf_sgp32_ipaEuiccDataResponse, BER_CLASS_CON, 82, BER_FLAGS_IMPLTAG, dissect_sgp32_IpaEuiccDataResponse },
+  {   3, &hf_sgp32_eimPackageReceived, BER_CLASS_UNI, BER_UNI_TAG_NULL, BER_FLAGS_NOOWNTAG, dissect_sgp32_NULL },
+  {   4, &hf_sgp32_eimPackageError_01, BER_CLASS_UNI, BER_UNI_TAG_INTEGER, BER_FLAGS_NOOWNTAG, dissect_sgp32_T_eimPackageError_01 },
+  { 0, NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_TransferEimPackageResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 TransferEimPackageResponse_U_choice, hf_index, ett_sgp32_TransferEimPackageResponse_U,
+                                 NULL);
 
   return offset;
 }
@@ -4362,9 +4212,347 @@ dissect_sgp32_CancelSessionRequestEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 static int
-dissect_sgp32_CancelSessionRequestEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_TransferEimPackageResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 65, true, dissect_sgp32_CancelSessionRequestEsipa_U);
+                                      hf_index, BER_CLASS_CON, 78, true, dissect_sgp32_TransferEimPackageResponse_U);
+
+  return offset;
+}
+
+
+static const value_string sgp32_StateChangeCause_vals[] = {
+  {   0, "otherEim" },
+  {   1, "fallback" },
+  {   2, "emergencyProfile" },
+  {   3, "local" },
+  {   4, "reset" },
+  {   5, "immediateEnableProfile" },
+  {   6, "deviceChange" },
+  { 127, "undefined" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_sgp32_StateChangeCause(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
+                                                NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_sgp32_OCTET_STRING_SIZE_3(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   3, 3, hf_index, NULL);
+
+  return offset;
+}
+
+
+static const ber_sequence_t GetEimPackageRequest_U_sequence[] = {
+  { &hf_sgp32_eidValue      , BER_CLASS_APP, 26, BER_FLAGS_IMPLTAG, dissect_sgp22_Octet16 },
+  { &hf_sgp32_notifyStateChange, BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_NULL },
+  { &hf_sgp32_stateChangeCause, BER_CLASS_CON, 1, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_StateChangeCause },
+  { &hf_sgp32_rPLMN         , BER_CLASS_CON, 2, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING_SIZE_3 },
+  { NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_GetEimPackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
+                                   GetEimPackageRequest_U_sequence, hf_index, ett_sgp32_GetEimPackageRequest_U);
+
+  return offset;
+}
+
+
+
+static int
+dissect_sgp32_GetEimPackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
+                                      hf_index, BER_CLASS_CON, 79, true, dissect_sgp32_GetEimPackageRequest_U);
+
+  return offset;
+}
+
+
+static const value_string sgp32_EsipaMessageFromIpaToEim_vals[] = {
+  {  57, "initiateAuthenticationRequestEsipa" },
+  {  59, "authenticateClientRequestEsipa" },
+  {  58, "getBoundProfilePackageRequestEsipa" },
+  {  65, "cancelSessionRequestEsipa" },
+  {  61, "handleNotificationEsipa" },
+  {  78, "transferEimPackageResponse" },
+  {  79, "getEimPackageRequest" },
+  {  80, "provideEimPackageResult" },
+  { 0, NULL }
+};
+
+static const ber_choice_t EsipaMessageFromIpaToEim_choice[] = {
+  {  57, &hf_sgp32_initiateAuthenticationRequestEsipa, BER_CLASS_CON, 57, BER_FLAGS_IMPLTAG, dissect_sgp32_InitiateAuthenticationRequestEsipa },
+  {  59, &hf_sgp32_authenticateClientRequestEsipa, BER_CLASS_CON, 59, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientRequestEsipa },
+  {  58, &hf_sgp32_getBoundProfilePackageRequestEsipa, BER_CLASS_CON, 58, BER_FLAGS_IMPLTAG, dissect_sgp32_GetBoundProfilePackageRequestEsipa },
+  {  65, &hf_sgp32_cancelSessionRequestEsipa, BER_CLASS_CON, 65, BER_FLAGS_IMPLTAG, dissect_sgp32_CancelSessionRequestEsipa },
+  {  61, &hf_sgp32_handleNotificationEsipa, BER_CLASS_CON, 61, BER_FLAGS_IMPLTAG, dissect_sgp32_HandleNotificationEsipa },
+  {  78, &hf_sgp32_transferEimPackageResponse, BER_CLASS_CON, 78, BER_FLAGS_IMPLTAG, dissect_sgp32_TransferEimPackageResponse },
+  {  79, &hf_sgp32_getEimPackageRequest, BER_CLASS_CON, 79, BER_FLAGS_IMPLTAG, dissect_sgp32_GetEimPackageRequest },
+  {  80, &hf_sgp32_provideEimPackageResult, BER_CLASS_CON, 80, BER_FLAGS_IMPLTAG, dissect_sgp32_ProvideEimPackageResult },
+  { 0, NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_EsipaMessageFromIpaToEim(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  int choice;
+
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 EsipaMessageFromIpaToEim_choice, hf_index, ett_sgp32_EsipaMessageFromIpaToEim,
+                                 &choice);
+
+  if (choice != -1) {
+    col_append_str(actx->pinfo->cinfo, COL_INFO, val_to_str_const(EsipaMessageFromIpaToEim_choice[choice].value, sgp32_EsipaMessageFromIpaToEim_vals, "Unknown"));
+  }
+
+  return offset;
+}
+
+
+static const ber_sequence_t InitiateAuthenticationOkEsipa_sequence[] = {
+  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
+  { &hf_sgp32_serverSigned1 , BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_ServerSigned1 },
+  { &hf_sgp32_serverSignature1, BER_CLASS_APP, 55, BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING },
+  { &hf_sgp32_euiccCiPKIdentifierToBeUsed, BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_NOOWNTAG, dissect_sgp32_OCTET_STRING },
+  { &hf_sgp32_serverCertificate, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_pkix1explicit_Certificate },
+  { &hf_sgp32_matchingId    , BER_CLASS_UNI, BER_UNI_TAG_UTF8String, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_sgp32_UTF8String },
+  { &hf_sgp32_ctxParams1    , BER_CLASS_CON, 2, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_CtxParams1 },
+  { NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_InitiateAuthenticationOkEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
+                                   InitiateAuthenticationOkEsipa_sequence, hf_index, ett_sgp32_InitiateAuthenticationOkEsipa);
+
+  return offset;
+}
+
+
+static const value_string sgp32_T_initiateAuthenticationErrorEsipa_vals[] = {
+  {   1, "invalidDpAddress" },
+  {   2, "euiccVersionNotSupportedByDp" },
+  {   3, "ciPKIdNotSupported" },
+  {  50, "smdpAddressMismatch" },
+  {  51, "smdpOidMismatch" },
+  {  52, "invalidEimTransactionId" },
+  { 127, "undefinedError" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_sgp32_T_initiateAuthenticationErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
+                                                NULL);
+
+  return offset;
+}
+
+
+static const value_string sgp32_InitiateAuthenticationResponseEsipa_U_vals[] = {
+  {   0, "initiateAuthenticationOkEsipa" },
+  {   1, "initiateAuthenticationErrorEsipa" },
+  { 0, NULL }
+};
+
+static const ber_choice_t InitiateAuthenticationResponseEsipa_U_choice[] = {
+  {   0, &hf_sgp32_initiateAuthenticationOkEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_InitiateAuthenticationOkEsipa },
+  {   1, &hf_sgp32_initiateAuthenticationErrorEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_T_initiateAuthenticationErrorEsipa },
+  { 0, NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_InitiateAuthenticationResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 InitiateAuthenticationResponseEsipa_U_choice, hf_index, ett_sgp32_InitiateAuthenticationResponseEsipa_U,
+                                 NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_sgp32_InitiateAuthenticationResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
+                                      hf_index, BER_CLASS_CON, 57, true, dissect_sgp32_InitiateAuthenticationResponseEsipa_U);
+
+  return offset;
+}
+
+
+static const ber_sequence_t AuthenticateClientOkDPEsipa_sequence[] = {
+  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
+  { &hf_sgp32_profileMetaData, BER_CLASS_CON, 37, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_StoreMetadataRequest },
+  { &hf_sgp32_smdpSigned2   , BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_SmdpSigned2 },
+  { &hf_sgp32_smdpSignature2, BER_CLASS_APP, 55, BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING },
+  { &hf_sgp32_smdpCertificate, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_pkix1explicit_Certificate },
+  { &hf_sgp32_hashCc        , BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_OPTIONAL|BER_FLAGS_NOOWNTAG, dissect_sgp22_Octet32 },
+  { NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_AuthenticateClientOkDPEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
+                                   AuthenticateClientOkDPEsipa_sequence, hf_index, ett_sgp32_AuthenticateClientOkDPEsipa);
+
+  return offset;
+}
+
+
+static const ber_sequence_t AuthenticateClientOkDSEsipa_sequence[] = {
+  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
+  { &hf_sgp32_profileDownloadTrigger, BER_CLASS_CON, 84, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_ProfileDownloadTriggerRequest },
+  { NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_AuthenticateClientOkDSEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
+                                   AuthenticateClientOkDSEsipa_sequence, hf_index, ett_sgp32_AuthenticateClientOkDSEsipa);
+
+  return offset;
+}
+
+
+static const value_string sgp32_T_authenticateClientErrorEsipa_vals[] = {
+  {   1, "eumCertificateInvalid" },
+  {   2, "eumCertificateExpired" },
+  {   3, "euiccCertificateInvalid" },
+  {   4, "euiccCertificateExpired" },
+  {   5, "euiccSignatureInvalid" },
+  {   6, "matchingIdRefused" },
+  {   7, "eidMismatch" },
+  {   8, "noEligibleProfile" },
+  {   9, "ciPKUnknown" },
+  {  10, "invalidTransactionId" },
+  {  11, "insufficientMemory" },
+  {  50, "pprNotAllowed" },
+  {  56, "eventIdUnknown" },
+  { 127, "undefinedError" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_sgp32_T_authenticateClientErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
+                                                NULL);
+
+  return offset;
+}
+
+
+static const value_string sgp32_AuthenticateClientResponseEsipa_U_vals[] = {
+  {   0, "authenticateClientOkDPEsipa" },
+  {   1, "authenticateClientOkDSEsipa" },
+  {   2, "authenticateClientErrorEsipa" },
+  { 0, NULL }
+};
+
+static const ber_choice_t AuthenticateClientResponseEsipa_U_choice[] = {
+  {   0, &hf_sgp32_authenticateClientOkDPEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientOkDPEsipa },
+  {   1, &hf_sgp32_authenticateClientOkDSEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientOkDSEsipa },
+  {   2, &hf_sgp32_authenticateClientErrorEsipa, BER_CLASS_CON, 2, BER_FLAGS_IMPLTAG, dissect_sgp32_T_authenticateClientErrorEsipa },
+  { 0, NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_AuthenticateClientResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 AuthenticateClientResponseEsipa_U_choice, hf_index, ett_sgp32_AuthenticateClientResponseEsipa_U,
+                                 NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_sgp32_AuthenticateClientResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
+                                      hf_index, BER_CLASS_CON, 59, true, dissect_sgp32_AuthenticateClientResponseEsipa_U);
+
+  return offset;
+}
+
+
+static const ber_sequence_t GetBoundProfilePackageOkEsipa_sequence[] = {
+  { &hf_sgp32_transactionId , BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp22_TransactionId },
+  { &hf_sgp32_boundProfilePackage, BER_CLASS_CON, 54, BER_FLAGS_IMPLTAG, dissect_sgp22_BoundProfilePackage },
+  { NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_GetBoundProfilePackageOkEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
+                                   GetBoundProfilePackageOkEsipa_sequence, hf_index, ett_sgp32_GetBoundProfilePackageOkEsipa);
+
+  return offset;
+}
+
+
+static const value_string sgp32_T_getBoundProfilePackageErrorEsipa_vals[] = {
+  {   1, "euiccSignatureInvalid" },
+  {   2, "confirmationCodeMissing" },
+  {   3, "confirmationCodeRefused" },
+  {   4, "confirmationCodeRetriesExceeded" },
+  {   5, "bppRebindingRefused" },
+  {   6, "downloadOrderExpired" },
+  {  50, "metadataMismatch" },
+  {  95, "invalidTransactionId" },
+  { 127, "undefinedError" },
+  { 0, NULL }
+};
+
+
+static int
+dissect_sgp32_T_getBoundProfilePackageErrorEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
+                                                NULL);
+
+  return offset;
+}
+
+
+static const value_string sgp32_GetBoundProfilePackageResponseEsipa_U_vals[] = {
+  {   0, "getBoundProfilePackageOkEsipa" },
+  {   1, "getBoundProfilePackageErrorEsipa" },
+  { 0, NULL }
+};
+
+static const ber_choice_t GetBoundProfilePackageResponseEsipa_U_choice[] = {
+  {   0, &hf_sgp32_getBoundProfilePackageOkEsipa, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_GetBoundProfilePackageOkEsipa },
+  {   1, &hf_sgp32_getBoundProfilePackageErrorEsipa, BER_CLASS_CON, 1, BER_FLAGS_IMPLTAG, dissect_sgp32_T_getBoundProfilePackageErrorEsipa },
+  { 0, NULL, 0, 0, 0, NULL }
+};
+
+static int
+dissect_sgp32_GetBoundProfilePackageResponseEsipa_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 GetBoundProfilePackageResponseEsipa_U_choice, hf_index, ett_sgp32_GetBoundProfilePackageResponseEsipa_U,
+                                 NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_sgp32_GetBoundProfilePackageResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
+                                      hf_index, BER_CLASS_CON, 58, true, dissect_sgp32_GetBoundProfilePackageResponseEsipa_U);
 
   return offset;
 }
@@ -4432,50 +4620,27 @@ dissect_sgp32_CancelSessionResponseEsipa(bool implicit_tag _U_, tvbuff_t *tvb _U
 }
 
 
-static const value_string sgp32_StateChangeCause_vals[] = {
-  {   0, "otherEim" },
-  {   1, "fallback" },
-  {   2, "emergencyProfile" },
-  {   3, "local" },
-  {   4, "reset" },
-  {   5, "immediateEnableProfile" },
-  {   6, "deviceChange" },
-  { 127, "undefined" },
+static const value_string sgp32_TransferEimPackageRequest_U_vals[] = {
+  {  81, "euiccPackageRequest" },
+  {  82, "ipaEuiccDataRequest" },
+  {  83, "eimAcknowledgements" },
+  {  84, "profileDownloadTriggerRequest" },
   { 0, NULL }
 };
 
-
-static int
-dissect_sgp32_StateChangeCause(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
-
-  return offset;
-}
-
-
-
-static int
-dissect_sgp32_OCTET_STRING_SIZE_3(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
-
-  return offset;
-}
-
-
-static const ber_sequence_t GetEimPackageRequest_U_sequence[] = {
-  { &hf_sgp32_eidValue      , BER_CLASS_APP, 26, BER_FLAGS_IMPLTAG, dissect_sgp22_Octet16 },
-  { &hf_sgp32_notifyStateChange, BER_CLASS_CON, 0, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_NULL },
-  { &hf_sgp32_stateChangeCause, BER_CLASS_CON, 1, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_StateChangeCause },
-  { &hf_sgp32_rPLMN         , BER_CLASS_CON, 2, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sgp32_OCTET_STRING_SIZE_3 },
-  { NULL, 0, 0, 0, NULL }
+static const ber_choice_t TransferEimPackageRequest_U_choice[] = {
+  {  81, &hf_sgp32_euiccPackageRequest, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageRequest },
+  {  82, &hf_sgp32_ipaEuiccDataRequest, BER_CLASS_CON, 82, BER_FLAGS_IMPLTAG, dissect_sgp32_IpaEuiccDataRequest },
+  {  83, &hf_sgp32_eimAcknowledgements, BER_CLASS_CON, 83, BER_FLAGS_IMPLTAG, dissect_sgp32_EimAcknowledgements },
+  {  84, &hf_sgp32_profileDownloadTriggerRequest, BER_CLASS_CON, 84, BER_FLAGS_IMPLTAG, dissect_sgp32_ProfileDownloadTriggerRequest },
+  { 0, NULL, 0, 0, 0, NULL }
 };
 
 static int
-dissect_sgp32_GetEimPackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   GetEimPackageRequest_U_sequence, hf_index, ett_sgp32_GetEimPackageRequest_U);
+dissect_sgp32_TransferEimPackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_ber_choice(actx, tree, tvb, offset,
+                                 TransferEimPackageRequest_U_choice, hf_index, ett_sgp32_TransferEimPackageRequest_U,
+                                 NULL);
 
   return offset;
 }
@@ -4483,9 +4648,9 @@ dissect_sgp32_GetEimPackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 static int
-dissect_sgp32_GetEimPackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_TransferEimPackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 79, true, dissect_sgp32_GetEimPackageRequest_U);
+                                      hf_index, BER_CLASS_CON, 78, true, dissect_sgp32_TransferEimPackageRequest_U);
 
   return offset;
 }
@@ -4611,107 +4776,39 @@ dissect_sgp32_ProvideEimPackageResultResponse(bool implicit_tag _U_, tvbuff_t *t
 }
 
 
-static const value_string sgp32_TransferEimPackageRequest_U_vals[] = {
-  {  81, "euiccPackageRequest" },
-  {  82, "ipaEuiccDataRequest" },
-  {  83, "eimAcknowledgements" },
-  {  84, "profileDownloadTriggerRequest" },
+static const value_string sgp32_EsipaMessageFromEimToIpa_vals[] = {
+  {  57, "initiateAuthenticationResponseEsipa" },
+  {  59, "authenticateClientResponseEsipa" },
+  {  58, "getBoundProfilePackageResponseEsipa" },
+  {  65, "cancelSessionResponseEsipa" },
+  {  78, "transferEimPackageRequest" },
+  {  79, "getEimPackageResponse" },
+  {  80, "provideEimPackageResultResponse" },
   { 0, NULL }
 };
 
-static const ber_choice_t TransferEimPackageRequest_U_choice[] = {
-  {  81, &hf_sgp32_euiccPackageRequest, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageRequest },
-  {  82, &hf_sgp32_ipaEuiccDataRequest, BER_CLASS_CON, 82, BER_FLAGS_IMPLTAG, dissect_sgp32_IpaEuiccDataRequest },
-  {  83, &hf_sgp32_eimAcknowledgements, BER_CLASS_CON, 83, BER_FLAGS_IMPLTAG, dissect_sgp32_EimAcknowledgements },
-  {  84, &hf_sgp32_profileDownloadTriggerRequest, BER_CLASS_CON, 84, BER_FLAGS_IMPLTAG, dissect_sgp32_ProfileDownloadTriggerRequest },
+static const ber_choice_t EsipaMessageFromEimToIpa_choice[] = {
+  {  57, &hf_sgp32_initiateAuthenticationResponseEsipa, BER_CLASS_CON, 57, BER_FLAGS_IMPLTAG, dissect_sgp32_InitiateAuthenticationResponseEsipa },
+  {  59, &hf_sgp32_authenticateClientResponseEsipa, BER_CLASS_CON, 59, BER_FLAGS_IMPLTAG, dissect_sgp32_AuthenticateClientResponseEsipa },
+  {  58, &hf_sgp32_getBoundProfilePackageResponseEsipa, BER_CLASS_CON, 58, BER_FLAGS_IMPLTAG, dissect_sgp32_GetBoundProfilePackageResponseEsipa },
+  {  65, &hf_sgp32_cancelSessionResponseEsipa, BER_CLASS_CON, 65, BER_FLAGS_IMPLTAG, dissect_sgp32_CancelSessionResponseEsipa },
+  {  78, &hf_sgp32_transferEimPackageRequest, BER_CLASS_CON, 78, BER_FLAGS_IMPLTAG, dissect_sgp32_TransferEimPackageRequest },
+  {  79, &hf_sgp32_getEimPackageResponse, BER_CLASS_CON, 79, BER_FLAGS_IMPLTAG, dissect_sgp32_GetEimPackageResponse },
+  {  80, &hf_sgp32_provideEimPackageResultResponse, BER_CLASS_CON, 80, BER_FLAGS_IMPLTAG, dissect_sgp32_ProvideEimPackageResultResponse },
   { 0, NULL, 0, 0, 0, NULL }
 };
 
 static int
-dissect_sgp32_TransferEimPackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_sgp32_EsipaMessageFromEimToIpa(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  int choice;
+
   offset = dissect_ber_choice(actx, tree, tvb, offset,
-                                 TransferEimPackageRequest_U_choice, hf_index, ett_sgp32_TransferEimPackageRequest_U,
-                                 NULL);
+                                 EsipaMessageFromEimToIpa_choice, hf_index, ett_sgp32_EsipaMessageFromEimToIpa,
+                                 &choice);
 
-  return offset;
-}
-
-
-
-static int
-dissect_sgp32_TransferEimPackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 78, true, dissect_sgp32_TransferEimPackageRequest_U);
-
-  return offset;
-}
-
-
-static const ber_sequence_t T_ePRAndNotifications_01_sequence[] = {
-  { &hf_sgp32_euiccPackageResult, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageResult },
-  { &hf_sgp32_notificationList, BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sgp32_PendingNotificationList },
-  { NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_T_ePRAndNotifications_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
-                                   T_ePRAndNotifications_01_sequence, hf_index, ett_sgp32_T_ePRAndNotifications_01);
-
-  return offset;
-}
-
-
-static const value_string sgp32_T_eimPackageError_01_vals[] = {
-  {   1, "invalidPackageFormat" },
-  {   2, "unknownPackage" },
-  { 127, "undefinedError" },
-  { 0, NULL }
-};
-
-
-static int
-dissect_sgp32_T_eimPackageError_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
-
-  return offset;
-}
-
-
-static const value_string sgp32_TransferEimPackageResponse_U_vals[] = {
-  {   0, "euiccPackageResult" },
-  {   1, "ePRAndNotifications" },
-  {   2, "ipaEuiccDataResponse" },
-  {   3, "eimPackageReceived" },
-  {   4, "eimPackageError" },
-  { 0, NULL }
-};
-
-static const ber_choice_t TransferEimPackageResponse_U_choice[] = {
-  {   0, &hf_sgp32_euiccPackageResult, BER_CLASS_CON, 81, BER_FLAGS_IMPLTAG, dissect_sgp32_EuiccPackageResult },
-  {   1, &hf_sgp32_ePRAndNotifications_01, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp32_T_ePRAndNotifications_01 },
-  {   2, &hf_sgp32_ipaEuiccDataResponse, BER_CLASS_CON, 82, BER_FLAGS_IMPLTAG, dissect_sgp32_IpaEuiccDataResponse },
-  {   3, &hf_sgp32_eimPackageReceived, BER_CLASS_UNI, BER_UNI_TAG_NULL, BER_FLAGS_NOOWNTAG, dissect_sgp32_NULL },
-  {   4, &hf_sgp32_eimPackageError_01, BER_CLASS_UNI, BER_UNI_TAG_INTEGER, BER_FLAGS_NOOWNTAG, dissect_sgp32_T_eimPackageError_01 },
-  { 0, NULL, 0, 0, 0, NULL }
-};
-
-static int
-dissect_sgp32_TransferEimPackageResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_choice(actx, tree, tvb, offset,
-                                 TransferEimPackageResponse_U_choice, hf_index, ett_sgp32_TransferEimPackageResponse_U,
-                                 NULL);
-
-  return offset;
-}
-
-
-
-static int
-dissect_sgp32_TransferEimPackageResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 78, true, dissect_sgp32_TransferEimPackageResponse_U);
+  if (choice != -1) {
+    col_append_str(actx->pinfo->cinfo, COL_INFO, val_to_str_const(EsipaMessageFromEimToIpa_choice[choice].value, sgp32_EsipaMessageFromEimToIpa_vals, "Unknown"));
+  }
 
   return offset;
 }
@@ -4984,6 +5081,20 @@ static int dissect_SetDefaultDpAddressResponse_PDU(tvbuff_t *tvb _U_, packet_inf
   offset = dissect_sgp32_SetDefaultDpAddressResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp32_SetDefaultDpAddressResponse_PDU);
   return offset;
 }
+static int dissect_EsipaMessageFromIpaToEim_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_sgp32_EsipaMessageFromIpaToEim(false, tvb, offset, &asn1_ctx, tree, hf_sgp32_EsipaMessageFromIpaToEim_PDU);
+  return offset;
+}
+static int dissect_EsipaMessageFromEimToIpa_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_sgp32_EsipaMessageFromEimToIpa(false, tvb, offset, &asn1_ctx, tree, hf_sgp32_EsipaMessageFromEimToIpa_PDU);
+  return offset;
+}
 static int dissect_InitiateAuthenticationRequestEsipa_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
@@ -5091,6 +5202,8 @@ static int dissect_TransferEimPackageResponse_PDU(tvbuff_t *tvb _U_, packet_info
 }
 
 
+static dissector_handle_t sgp32_handle;
+
 /* Dissector tables */
 static dissector_table_t sgp22_request_dissector_table;
 static dissector_table_t sgp22_response_dissector_table;
@@ -5181,6 +5294,34 @@ int dissect_sgp32_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
   offset = dissector_try_uint(sgp32_response_dissector_table, tag, tvb, pinfo, sgp32_tree);
   if (offset == 0) {
     offset = dissector_try_uint(sgp22_response_dissector_table, tag, tvb, pinfo, sgp32_tree);
+  }
+
+  return offset;
+}
+
+static int dissect_sgp32(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+  media_content_info_t *content_info = (media_content_info_t *)data;
+  proto_item *sgp32_ti;
+  proto_tree *sgp32_tree;
+  int offset;
+
+  if (!content_info ||
+      ((content_info->type != MEDIA_CONTAINER_HTTP_REQUEST) &&
+       (content_info->type != MEDIA_CONTAINER_HTTP_RESPONSE))) {
+    return 0;
+  }
+
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "SGP.32");
+  col_clear(pinfo->cinfo, COL_INFO);
+
+  sgp32_ti = proto_tree_add_item(tree, proto_sgp32, tvb, 0, -1, ENC_NA);
+  sgp32_tree = proto_item_add_subtree(sgp32_ti, ett_sgp32);
+
+  if (content_info->type == MEDIA_CONTAINER_HTTP_REQUEST) {
+    offset = dissect_EsipaMessageFromIpaToEim_PDU(tvb, pinfo, sgp32_tree, NULL);
+  } else {
+    offset = dissect_EsipaMessageFromEimToIpa_PDU(tvb, pinfo, sgp32_tree, NULL);
   }
 
   return offset;
@@ -5341,6 +5482,14 @@ void proto_register_sgp32(void)
       { "SetDefaultDpAddressResponse", "sgp32.SetDefaultDpAddressResponse_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
+    { &hf_sgp32_EsipaMessageFromIpaToEim_PDU,
+      { "EsipaMessageFromIpaToEim", "sgp32.EsipaMessageFromIpaToEim",
+        FT_UINT32, BASE_DEC, VALS(sgp32_EsipaMessageFromIpaToEim_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_EsipaMessageFromEimToIpa_PDU,
+      { "EsipaMessageFromEimToIpa", "sgp32.EsipaMessageFromEimToIpa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_EsipaMessageFromEimToIpa_vals), 0,
+        NULL, HFILL }},
     { &hf_sgp32_InitiateAuthenticationRequestEsipa_PDU,
       { "InitiateAuthenticationRequestEsipa", "sgp32.InitiateAuthenticationRequestEsipa_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -5414,16 +5563,16 @@ void proto_register_sgp32(void)
         FT_STRING, BASE_NONE, NULL, 0,
         "UTF8String_SIZE_1_128", HFILL }},
     { &hf_sgp32_eidValue,
-      { "eidValue", "sgp32.eidValue_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "eidValue", "sgp32.eidValue",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "Octet16", HFILL }},
     { &hf_sgp32_counterValue,
       { "counterValue", "sgp32.counterValue",
         FT_INT32, BASE_DEC, NULL, 0,
         "INTEGER", HFILL }},
     { &hf_sgp32_eimTransactionId,
-      { "eimTransactionId", "sgp32.eimTransactionId_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "eimTransactionId", "sgp32.eimTransactionId",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "TransactionId", HFILL }},
     { &hf_sgp32_euiccPackage,
       { "euiccPackage", "sgp32.euiccPackage",
@@ -5486,8 +5635,8 @@ void proto_register_sgp32(void)
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccCiPKId,
-      { "euiccCiPKId", "sgp32.euiccCiPKId_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "euiccCiPKId", "sgp32.euiccCiPKId",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "SubjectKeyIdentifier", HFILL }},
     { &hf_sgp32_indirectProfileDownload,
       { "indirectProfileDownload", "sgp32.indirectProfileDownload_element",
@@ -5518,8 +5667,8 @@ void proto_register_sgp32(void)
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_iccid,
-      { "iccid", "sgp32.iccid_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "iccid", "sgp32.iccid",
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_rollbackFlag,
       { "rollbackFlag", "sgp32.rollbackFlag_element",
@@ -5586,8 +5735,8 @@ void proto_register_sgp32(void)
         FT_INT32, BASE_DEC, NULL, 0,
         "INTEGER", HFILL }},
     { &hf_sgp32_profileManagementOperation,
-      { "profileManagementOperation", "sgp32.profileManagementOperation_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "profileManagementOperation", "sgp32.profileManagementOperation",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "NotificationEvent", HFILL }},
     { &hf_sgp32_searchCriteriaEuiccPackageResult,
       { "searchCriteriaEuiccPackageResult", "sgp32.searchCriteriaEuiccPackageResult",
@@ -5662,8 +5811,8 @@ void proto_register_sgp32(void)
         FT_UINT32, BASE_DEC, VALS(sgp32_ProfileInfoListResponse_U_vals), 0,
         "ProfileInfoListResponse", HFILL }},
     { &hf_sgp32_getRATResult,
-      { "getRATResult", "sgp32.getRATResult_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "getRATResult", "sgp32.getRATResult",
+        FT_UINT32, BASE_DEC, NULL, 0,
         "RulesAuthorisationTable", HFILL }},
     { &hf_sgp32_configureImmediateEnableResult,
       { "configureImmediateEnableResult", "sgp32.configureImmediateEnableResult",
@@ -5842,12 +5991,12 @@ void proto_register_sgp32(void)
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_isdpAid,
-      { "isdpAid", "sgp32.isdpAid_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "isdpAid", "sgp32.isdpAid",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "OctetTo16", HFILL }},
     { &hf_sgp32_profileState,
-      { "profileState", "sgp32.profileState_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "profileState", "sgp32.profileState",
+        FT_INT32, BASE_DEC, VALS(sgp22_ProfileState_vals), 0,
         NULL, HFILL }},
     { &hf_sgp32_profileNickname,
       { "profileNickname", "sgp32.profileNickname",
@@ -5862,16 +6011,16 @@ void proto_register_sgp32(void)
         FT_STRING, BASE_NONE, NULL, 0,
         "UTF8String_SIZE_0_64", HFILL }},
     { &hf_sgp32_iconType,
-      { "iconType", "sgp32.iconType_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "iconType", "sgp32.iconType",
+        FT_INT32, BASE_DEC, VALS(sgp22_IconType_vals), 0,
         NULL, HFILL }},
     { &hf_sgp32_icon,
       { "icon", "sgp32.icon",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING_SIZE_0_1024", HFILL }},
     { &hf_sgp32_profileClass,
-      { "profileClass", "sgp32.profileClass_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "profileClass", "sgp32.profileClass",
+        FT_INT32, BASE_DEC, VALS(sgp22_ProfileClass_vals), 0,
         NULL, HFILL }},
     { &hf_sgp32_notificationConfigurationInfo,
       { "notificationConfigurationInfo", "sgp32.notificationConfigurationInfo",
@@ -5890,12 +6039,12 @@ void proto_register_sgp32(void)
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_profilePolicyRules,
-      { "profilePolicyRules", "sgp32.profilePolicyRules_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "profilePolicyRules", "sgp32.profilePolicyRules",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "PprIds", HFILL }},
     { &hf_sgp32_serviceSpecificDataStoredInEuicc,
-      { "serviceSpecificDataStoredInEuicc", "sgp32.serviceSpecificDataStoredInEuicc_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "serviceSpecificDataStoredInEuicc", "sgp32.serviceSpecificDataStoredInEuicc",
+        FT_UINT32, BASE_DEC, NULL, 0,
         "VendorSpecificExtension", HFILL }},
     { &hf_sgp32_ecallIndication,
       { "ecallIndication", "sgp32.ecallIndication",
@@ -5910,68 +6059,68 @@ void proto_register_sgp32(void)
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
     { &hf_sgp32_serviceSpecificDataNotStoredInEuicc,
-      { "serviceSpecificDataNotStoredInEuicc", "sgp32.serviceSpecificDataNotStoredInEuicc_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "serviceSpecificDataNotStoredInEuicc", "sgp32.serviceSpecificDataNotStoredInEuicc",
+        FT_UINT32, BASE_DEC, NULL, 0,
         "VendorSpecificExtension", HFILL }},
     { &hf_sgp32_profileVersion,
-      { "profileVersion", "sgp32.profileVersion_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "profileVersion", "sgp32.profileVersion",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_svn,
-      { "svn", "sgp32.svn_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "svn", "sgp32.svn",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_euiccFirmwareVer,
-      { "euiccFirmwareVer", "sgp32.euiccFirmwareVer_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "euiccFirmwareVer", "sgp32.euiccFirmwareVer",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_extCardResource,
       { "extCardResource", "sgp32.extCardResource",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING", HFILL }},
     { &hf_sgp32_uiccCapability,
-      { "uiccCapability", "sgp32.uiccCapability_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "uiccCapability", "sgp32.uiccCapability",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_ts102241Version,
-      { "ts102241Version", "sgp32.ts102241Version_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "ts102241Version", "sgp32.ts102241Version",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_globalplatformVersion,
-      { "globalplatformVersion", "sgp32.globalplatformVersion_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "globalplatformVersion", "sgp32.globalplatformVersion",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_rspCapability,
-      { "rspCapability", "sgp32.rspCapability_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "rspCapability", "sgp32.rspCapability",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccCiPKIdListForVerification,
       { "euiccCiPKIdListForVerification", "sgp32.euiccCiPKIdListForVerification",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_OF_SubjectKeyIdentifier", HFILL }},
     { &hf_sgp32_euiccCiPKIdListForVerification_item,
-      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccCiPKIdListForSigning,
       { "euiccCiPKIdListForSigning", "sgp32.euiccCiPKIdListForSigning",
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_OF_SubjectKeyIdentifier", HFILL }},
     { &hf_sgp32_euiccCiPKIdListForSigning_item,
-      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccCategory,
       { "euiccCategory", "sgp32.euiccCategory",
         FT_INT32, BASE_DEC, VALS(sgp32_T_euiccCategory_vals), 0,
         NULL, HFILL }},
     { &hf_sgp32_forbiddenProfilePolicyRules,
-      { "forbiddenProfilePolicyRules", "sgp32.forbiddenProfilePolicyRules_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "forbiddenProfilePolicyRules", "sgp32.forbiddenProfilePolicyRules",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "PprIds", HFILL }},
     { &hf_sgp32_ppVersion,
-      { "ppVersion", "sgp32.ppVersion_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "ppVersion", "sgp32.ppVersion",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_sasAcreditationNumber,
       { "sasAcreditationNumber", "sgp32.sasAcreditationNumber",
@@ -5994,8 +6143,8 @@ void proto_register_sgp32(void)
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_OF_VersionType", HFILL }},
     { &hf_sgp32_additionalEuiccProfilePackageVersions_item,
-      { "VersionType", "sgp32.VersionType_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "VersionType", "sgp32.VersionType",
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_ipaMode,
       { "ipaMode", "sgp32.ipaMode",
@@ -6006,16 +6155,16 @@ void proto_register_sgp32(void)
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_OF_SubjectKeyIdentifier", HFILL }},
     { &hf_sgp32_euiccCiPKIdListForSigningV3_item,
-      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "SubjectKeyIdentifier", "sgp32.SubjectKeyIdentifier",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_additionalEuiccInfo,
       { "additionalEuiccInfo", "sgp32.additionalEuiccInfo",
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING_SIZE_0_32", HFILL }},
     { &hf_sgp32_highestSvn,
-      { "highestSvn", "sgp32.highestSvn_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "highestSvn", "sgp32.highestSvn",
+        FT_STRING, BASE_NONE, NULL, 0,
         "VersionType", HFILL }},
     { &hf_sgp32_iotSpecificInfo,
       { "iotSpecificInfo", "sgp32.iotSpecificInfo_element",
@@ -6026,8 +6175,8 @@ void proto_register_sgp32(void)
         FT_UINT32, BASE_DEC, NULL, 0,
         "SEQUENCE_OF_VersionType", HFILL }},
     { &hf_sgp32_iotVersion_item,
-      { "VersionType", "sgp32.VersionType_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "VersionType", "sgp32.VersionType",
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_ecallSupported,
       { "ecallSupported", "sgp32.ecallSupported_element",
@@ -6186,24 +6335,24 @@ void proto_register_sgp32(void)
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING", HFILL }},
     { &hf_sgp32_hashCc,
-      { "hashCc", "sgp32.hashCc_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "hashCc", "sgp32.hashCc",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "Octet32", HFILL }},
     { &hf_sgp32_transactionId,
-      { "transactionId", "sgp32.transactionId_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "transactionId", "sgp32.transactionId",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_serverAddress,
       { "serverAddress", "sgp32.serverAddress",
         FT_STRING, BASE_NONE, NULL, 0,
         "UTF8String", HFILL }},
     { &hf_sgp32_serverChallenge,
-      { "serverChallenge", "sgp32.serverChallenge_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "serverChallenge", "sgp32.serverChallenge",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "Octet16", HFILL }},
     { &hf_sgp32_ctxParams1,
-      { "ctxParams1", "sgp32.ctxParams1_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "ctxParams1", "sgp32.ctxParams1",
+        FT_UINT32, BASE_DEC, VALS(sgp22_CtxParams1_vals), 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccSigned1,
       { "euiccSigned1", "sgp32.euiccSigned1_element",
@@ -6250,8 +6399,8 @@ void proto_register_sgp32(void)
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_euiccSignPIR,
-      { "euiccSignPIR", "sgp32.euiccSignPIR_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "euiccSignPIR", "sgp32.euiccSignPIR",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_compactProfileInstallationResultData,
       { "compactProfileInstallationResultData", "sgp32.compactProfileInstallationResultData_element",
@@ -6310,12 +6459,72 @@ void proto_register_sgp32(void)
         FT_BYTES, BASE_NONE, NULL, 0,
         "OCTET_STRING", HFILL }},
     { &hf_sgp32_reason,
-      { "reason", "sgp32.reason_element",
-        FT_NONE, BASE_NONE, NULL, 0,
+      { "reason", "sgp32.reason",
+        FT_INT32, BASE_DEC, VALS(sgp22_CancelSessionReason_vals), 0,
         "CancelSessionReason", HFILL }},
-    { &hf_sgp32_euiccChallenge,
-      { "euiccChallenge", "sgp32.euiccChallenge_element",
+    { &hf_sgp32_initiateAuthenticationRequestEsipa,
+      { "initiateAuthenticationRequestEsipa", "sgp32.initiateAuthenticationRequestEsipa_element",
         FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_authenticateClientRequestEsipa,
+      { "authenticateClientRequestEsipa", "sgp32.authenticateClientRequestEsipa_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_getBoundProfilePackageRequestEsipa,
+      { "getBoundProfilePackageRequestEsipa", "sgp32.getBoundProfilePackageRequestEsipa_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_cancelSessionRequestEsipa,
+      { "cancelSessionRequestEsipa", "sgp32.cancelSessionRequestEsipa_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_handleNotificationEsipa,
+      { "handleNotificationEsipa", "sgp32.handleNotificationEsipa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_HandleNotificationEsipa_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_transferEimPackageResponse,
+      { "transferEimPackageResponse", "sgp32.transferEimPackageResponse",
+        FT_UINT32, BASE_DEC, VALS(sgp32_TransferEimPackageResponse_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_getEimPackageRequest,
+      { "getEimPackageRequest", "sgp32.getEimPackageRequest_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_provideEimPackageResult,
+      { "provideEimPackageResult", "sgp32.provideEimPackageResult_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_sgp32_initiateAuthenticationResponseEsipa,
+      { "initiateAuthenticationResponseEsipa", "sgp32.initiateAuthenticationResponseEsipa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_InitiateAuthenticationResponseEsipa_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_authenticateClientResponseEsipa,
+      { "authenticateClientResponseEsipa", "sgp32.authenticateClientResponseEsipa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_AuthenticateClientResponseEsipa_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_getBoundProfilePackageResponseEsipa,
+      { "getBoundProfilePackageResponseEsipa", "sgp32.getBoundProfilePackageResponseEsipa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_GetBoundProfilePackageResponseEsipa_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_cancelSessionResponseEsipa,
+      { "cancelSessionResponseEsipa", "sgp32.cancelSessionResponseEsipa",
+        FT_UINT32, BASE_DEC, VALS(sgp32_CancelSessionResponseEsipa_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_transferEimPackageRequest,
+      { "transferEimPackageRequest", "sgp32.transferEimPackageRequest",
+        FT_UINT32, BASE_DEC, VALS(sgp32_TransferEimPackageRequest_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_getEimPackageResponse,
+      { "getEimPackageResponse", "sgp32.getEimPackageResponse",
+        FT_UINT32, BASE_DEC, VALS(sgp32_GetEimPackageResponse_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_provideEimPackageResultResponse,
+      { "provideEimPackageResultResponse", "sgp32.provideEimPackageResultResponse",
+        FT_UINT32, BASE_DEC, VALS(sgp32_ProvideEimPackageResultResponse_U_vals), 0,
+        NULL, HFILL }},
+    { &hf_sgp32_euiccChallenge,
+      { "euiccChallenge", "sgp32.euiccChallenge",
+        FT_BYTES, BASE_NONE, NULL, 0,
         "Octet16", HFILL }},
     { &hf_sgp32_smdpAddress,
       { "smdpAddress", "sgp32.smdpAddress",
@@ -6400,10 +6609,6 @@ void proto_register_sgp32(void)
     { &hf_sgp32_pendingNotification,
       { "pendingNotification", "sgp32.pendingNotification",
         FT_UINT32, BASE_DEC, VALS(sgp32_PendingNotification_vals), 0,
-        NULL, HFILL }},
-    { &hf_sgp32_provideEimPackageResult,
-      { "provideEimPackageResult", "sgp32.provideEimPackageResult_element",
-        FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp32_cancelSessionResponse,
       { "cancelSessionResponse", "sgp32.cancelSessionResponse",
@@ -6737,6 +6942,8 @@ void proto_register_sgp32(void)
     &ett_sgp32_CancelSessionResponse_U,
     &ett_sgp32_CompactCancelSessionResponseOk,
     &ett_sgp32_CompactEuiccCancelSessionSigned,
+    &ett_sgp32_EsipaMessageFromIpaToEim,
+    &ett_sgp32_EsipaMessageFromEimToIpa,
     &ett_sgp32_InitiateAuthenticationRequestEsipa_U,
     &ett_sgp32_InitiateAuthenticationResponseEsipa_U,
     &ett_sgp32_InitiateAuthenticationOkEsipa,
@@ -6768,6 +6975,7 @@ void proto_register_sgp32(void)
   proto_register_field_array(proto_sgp32, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
+  sgp32_handle = register_dissector("sgp32", dissect_sgp32, proto_sgp32);
   register_dissector("sgp32.request", dissect_sgp32_request, proto_sgp32);
   register_dissector("sgp32.response", dissect_sgp32_response, proto_sgp32);
 
@@ -6782,6 +6990,8 @@ void proto_reg_handoff_sgp32(void)
 {
   sgp22_request_dissector_table = find_dissector_table("sgp22.request");
   sgp22_response_dissector_table = find_dissector_table("sgp22.response");
+
+  dissector_add_string("media_type", "application/x-gsma-rsp-asn1", sgp32_handle);
 
   dissector_add_uint("sgp32.request", 0xE1, create_dissector_handle(dissect_ISDRProprietaryApplicationTemplateIoT_PDU, proto_sgp32));
   dissector_add_uint("sgp32.request", 0xBF2B, create_dissector_handle(dissect_RetrieveNotificationsListRequest_PDU, proto_sgp32));

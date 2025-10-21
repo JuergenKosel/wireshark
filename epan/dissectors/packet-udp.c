@@ -1050,7 +1050,7 @@ dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t ip_proto)
         item = proto_tree_add_uint(udp_tree, hf_udp_length, tvb, offset + 4, 0, udph->uh_ulen);
         proto_item_set_generated(item);
         if ((udph->uh_sum_cov < 8) || (udph->uh_sum_cov > udph->uh_ulen)) {
-            /* Bogus coverage - it includes the header, so it must be >= 8, and no larger then the IP payload size. */
+            /* Bogus coverage - it includes the header, so it must be >= 8, and no larger than the IP payload size. */
             proto_item_append_text(len_cov_item, " (bogus, must be >= 8 and <= %u)", udph->uh_ulen);
             expert_add_info_format(pinfo, len_cov_item, &ei_udplite_checksum_coverage_bad, "Bad checksum coverage length value %u < 8 or > %u",
                          udph->uh_sum_cov, udph->uh_ulen);
@@ -1512,7 +1512,7 @@ proto_register_udp(void)
     static build_valid_func udp_da_both_values[2] = {udp_src_value, udp_dst_value};
     static decode_as_value_t udp_da_values[3] = {{udp_src_prompt, 1, udp_da_src_values}, {udp_dst_prompt, 1, udp_da_dst_values}, {udp_both_prompt, 2, udp_da_both_values}};
     static decode_as_t udp_da = {"udp", "udp.port", 3, 2, udp_da_values, "UDP", "port(s) as",
-                     decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                     decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     module_t *udp_module;
     module_t *udplite_module;

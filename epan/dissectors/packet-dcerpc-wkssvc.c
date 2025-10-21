@@ -96,7 +96,6 @@ static int hf_wkssvc_lsa_String_name;
 static int hf_wkssvc_lsa_String_name_len;
 static int hf_wkssvc_lsa_String_name_size;
 static int hf_wkssvc_opnum;
-static int hf_wkssvc_platform_id;
 static int hf_wkssvc_werror;
 static int hf_wkssvc_wkssvc_ComputerNamesCtr_computer_name;
 static int hf_wkssvc_wkssvc_ComputerNamesCtr_count;
@@ -479,9 +478,6 @@ static e_guid_t uuid_dcerpc_wkssvc = {
 };
 static uint16_t ver_dcerpc_wkssvc = 1;
 
-const value_string wkssvc_srvsvc_PlatformId_vals[] = {
-{ 0, NULL }
-};
 static int wkssvc_dissect_element_lsa_String_name_len(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_);
 static int wkssvc_dissect_element_lsa_String_name_size(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_);
 static int wkssvc_dissect_element_lsa_String_name(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_);
@@ -1132,7 +1128,6 @@ cnf_dissect_lsa_String(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
 	if (parent_tree) {
 		tree = proto_tree_add_subtree_format(parent_tree, tvb, offset, 0, ett_wkssvc_lsa_String, &item, "%s: ", hf_info->name);
 	}
-	
 	offset = wkssvc_dissect_element_lsa_String_name_len(tvb, offset, pinfo, tree, di, drep);
 	offset = wkssvc_dissect_element_lsa_String_name_size(tvb, offset, pinfo, tree, di, drep);
 	offset = dissect_ndr_pointer_cb(
@@ -1141,30 +1136,6 @@ cnf_dissect_lsa_String(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
 		hf_info->name, hfindex, cb_wstr_postprocess,
 		GINT_TO_POINTER(param));
 	proto_item_set_len(item, offset-old_offset);
-	return offset;
-}
-static int
-cnf_dissect_hyper(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, dcerpc_info* di, uint8_t *drep, uint32_t param _U_, int hfindex)
-{
-	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hfindex, NULL);
-	return offset;
-}
-
-
-/* IDL: enum { */
-/* IDL: } */
-
-int
-wkssvc_dissect_enum_srvsvc_PlatformId(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_, int hf_index _U_, uint32_t *param _U_)
-{
-	uint32_t parameter=0;
-	if (param) {
-		parameter = *param;
-	}
-	offset = dissect_ndr_uint32(tvb, offset, pinfo, tree, di, drep, hf_index, &parameter);
-	if (param) {
-		*param = parameter;
-	}
 	return offset;
 }
 
@@ -1255,7 +1226,7 @@ wkssvc_dissect_struct_lsa_String(tvbuff_t *tvb _U_, int offset _U_, packet_info 
 static int
 wkssvc_dissect_element_NetWkstaInfo100_platform_id(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset = wkssvc_dissect_enum_srvsvc_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo100_platform_id, 0);
+	offset = srvsvc_dissect_enum_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo100_platform_id, 0);
 
 	return offset;
 }
@@ -1364,7 +1335,7 @@ wkssvc_dissect_struct_NetWkstaInfo100(tvbuff_t *tvb _U_, int offset _U_, packet_
 static int
 wkssvc_dissect_element_NetWkstaInfo101_platform_id(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset = wkssvc_dissect_enum_srvsvc_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo101_platform_id, 0);
+	offset = srvsvc_dissect_enum_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo101_platform_id, 0);
 
 	return offset;
 }
@@ -1495,7 +1466,7 @@ wkssvc_dissect_struct_NetWkstaInfo101(tvbuff_t *tvb _U_, int offset _U_, packet_
 static int
 wkssvc_dissect_element_NetWkstaInfo102_platform_id(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset = wkssvc_dissect_enum_srvsvc_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo102_platform_id, 0);
+	offset = srvsvc_dissect_enum_PlatformId(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetWkstaInfo102_platform_id, 0);
 
 	return offset;
 }
@@ -6003,7 +5974,7 @@ wkssvc_dissect_struct_NetrUseEnumInfo(tvbuff_t *tvb _U_, int offset _U_, packet_
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown1(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown1);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown1, NULL);
 
 	return offset;
 }
@@ -6011,7 +5982,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown1(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown2(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown2);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown2, NULL);
 
 	return offset;
 }
@@ -6019,7 +5990,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown2(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown3(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown3);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown3, NULL);
 
 	return offset;
 }
@@ -6027,7 +5998,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown3(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown4(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown4);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown4, NULL);
 
 	return offset;
 }
@@ -6035,7 +6006,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown4(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown5(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown5);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown5, NULL);
 
 	return offset;
 }
@@ -6043,7 +6014,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown5(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown6(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown6);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown6, NULL);
 
 	return offset;
 }
@@ -6051,7 +6022,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown6(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown7(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown7);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown7, NULL);
 
 	return offset;
 }
@@ -6059,7 +6030,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown7(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown8(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown8);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown8, NULL);
 
 	return offset;
 }
@@ -6067,7 +6038,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown8(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown9(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown9);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown9, NULL);
 
 	return offset;
 }
@@ -6075,7 +6046,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown9(tvbuff_t *tvb _U_, int
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown10(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown10);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown10, NULL);
 
 	return offset;
 }
@@ -6083,7 +6054,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown10(tvbuff_t *tvb _U_, in
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown11(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown11);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown11, NULL);
 
 	return offset;
 }
@@ -6091,7 +6062,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown11(tvbuff_t *tvb _U_, in
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown12(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown12);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown12, NULL);
 
 	return offset;
 }
@@ -6099,7 +6070,7 @@ wkssvc_dissect_element_NetrWorkstationStatistics_unknown12(tvbuff_t *tvb _U_, in
 static int
 wkssvc_dissect_element_NetrWorkstationStatistics_unknown13(tvbuff_t *tvb _U_, int offset _U_, packet_info *pinfo _U_, proto_tree *tree _U_, dcerpc_info* di _U_, uint8_t *drep _U_)
 {
-	offset=cnf_dissect_hyper(tvb, offset, pinfo, tree, di, drep, 0, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown13);
+	offset = dissect_ndr_uint64(tvb, offset, pinfo, tree, di, drep, hf_wkssvc_wkssvc_NetrWorkstationStatistics_unknown13, NULL);
 
 	return offset;
 }
@@ -10160,8 +10131,6 @@ void proto_register_dcerpc_wkssvc(void)
 	  { "Name Size", "wkssvc.lsa_String.name_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_opnum,
 	  { "Operation", "wkssvc.opnum", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
-	{ &hf_wkssvc_platform_id,
-	  { "Platform Id", "wkssvc.platform_id", FT_UINT32, BASE_DEC, VALS(srvsvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
 	{ &hf_wkssvc_werror,
 	  { "Windows Error", "wkssvc.werror", FT_UINT32, BASE_HEX|BASE_EXT_STRING, &WERR_errors_ext, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_ComputerNamesCtr_computer_name,
@@ -10203,7 +10172,7 @@ void proto_register_dcerpc_wkssvc(void)
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo100_domain_name,
 	  { "Domain Name", "wkssvc.wkssvc_NetWkstaInfo100.domain_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo100_platform_id,
-	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo100.platform_id", FT_UINT32, BASE_DEC, VALS(wkssvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
+	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo100.platform_id", FT_UINT32, BASE_DEC, VALS(srvsvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo100_server_name,
 	  { "Server Name", "wkssvc.wkssvc_NetWkstaInfo100.server_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo100_version_major,
@@ -10225,7 +10194,7 @@ void proto_register_dcerpc_wkssvc(void)
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo101_lan_root,
 	  { "Lan Root", "wkssvc.wkssvc_NetWkstaInfo101.lan_root", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo101_platform_id,
-	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo101.platform_id", FT_UINT32, BASE_DEC, VALS(wkssvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
+	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo101.platform_id", FT_UINT32, BASE_DEC, VALS(srvsvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo101_server_name,
 	  { "Server Name", "wkssvc.wkssvc_NetWkstaInfo101.server_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo101_version_major,
@@ -10245,7 +10214,7 @@ void proto_register_dcerpc_wkssvc(void)
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo102_logged_on_users,
 	  { "Logged On Users", "wkssvc.wkssvc_NetWkstaInfo102.logged_on_users", FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo102_platform_id,
-	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo102.platform_id", FT_UINT32, BASE_DEC, VALS(wkssvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
+	  { "Platform Id", "wkssvc.wkssvc_NetWkstaInfo102.platform_id", FT_UINT32, BASE_DEC, VALS(srvsvc_srvsvc_PlatformId_vals), 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo102_server_name,
 	  { "Server Name", "wkssvc.wkssvc_NetWkstaInfo102.server_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
 	{ &hf_wkssvc_wkssvc_NetWkstaInfo102_version_major,

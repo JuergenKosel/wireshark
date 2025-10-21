@@ -7,13 +7,13 @@
  */
 
 /*
- * This reads seqences of JSON records which contain timestamps. For general
+ * This reads sequences of JSON records which contain timestamps. For general
  * JSON support, see json.c.
  *
  * The following formats are supported:
  *
  * JSON Lines (https://jsonlines.org/), which are JSON objects separated by newlines:
- *   Kubneretes audit logs: https://kubernetes.io/docs/reference/config-api/apiserver-audit.v1/
+ *   Kubernetes audit logs: https://kubernetes.io/docs/reference/config-api/apiserver-audit.v1/
  *   GCP audit logs: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry
  *
  * AWS CloudTrail, which is a JSON object containing an array of log entries:
@@ -273,6 +273,7 @@ static bool json_log_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, int *err, 
         return false;
     }
 
+    rec->presence_flags = WTAP_HAS_TS;
     rec->ts = ts;
     rec->tsprec = WTAP_TSPREC_NSEC;
 
@@ -324,8 +325,9 @@ static const struct supported_block_type json_blocks_supported[] = {
     { WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
 };
 
+// https://jsonlines.org/ suggests .jsonl, but .json and .log seem to be more common.
 static const struct file_type_subtype_info json_log_info = {
-    "JSON Log", "jsonlog", "jsonl", "log",
+    "JSON Log", "jsonlog", "jsonl", "json;log",
     false, BLOCKS_SUPPORTED(json_blocks_supported),
     NULL, NULL, NULL
 };

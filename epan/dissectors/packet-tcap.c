@@ -312,8 +312,8 @@ dissect_tcap_DialoguePortion(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_tcap_InvokeIdType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            -128, 127U, hf_index, NULL);
 
   return offset;
 }
@@ -412,8 +412,8 @@ dissect_tcap_ReturnResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 
 static int
 dissect_tcap_INTEGER_M32768_32767(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            -32768, 32767U, hf_index, NULL);
 
   return offset;
 }
@@ -668,8 +668,8 @@ static const ber_sequence_t SEQUENCE_SIZE_1_MAX_OF_Component_sequence_of[1] = {
 
 static int
 dissect_tcap_SEQUENCE_SIZE_1_MAX_OF_Component(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
-                                      SEQUENCE_SIZE_1_MAX_OF_Component_sequence_of, hf_index, ett_tcap_SEQUENCE_SIZE_1_MAX_OF_Component);
+  offset = dissect_ber_constrained_sequence_of(implicit_tag, actx, tree, tvb, offset,
+                                                  1, NO_BOUND, SEQUENCE_SIZE_1_MAX_OF_Component_sequence_of, hf_index, ett_tcap_SEQUENCE_SIZE_1_MAX_OF_Component);
 
   return offset;
 }
@@ -703,8 +703,8 @@ dissect_tcap_Unidirectional(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 static int
 dissect_tcap_OCTET_STRING_SIZE_1_4(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                       NULL);
+  offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
+                                                   1, 4, hf_index, NULL);
 
   return offset;
 }
@@ -900,8 +900,8 @@ static const value_string tcap_P_AbortCause_U_vals[] = {
 
 static int
 dissect_tcap_P_AbortCause_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
-                                                NULL);
+  offset = dissect_ber_constrained_integer(implicit_tag, actx, tree, tvb, offset,
+                                                            0U, 127U, hf_index, NULL);
 
   return offset;
 }
@@ -2059,7 +2059,7 @@ create_tcaphash_end(struct tcaphash_end_info_key_t *p_tcaphash_end_key,
 }
 
 /*
- * Create the record identifiying the TCAP transaction
+ * Create the record identifying the TCAP transaction
  * When the identifier for the transaction is reused, check
  * the following criteria before to append a new record:
  * - a timeout corresponding to a message retransmission is detected,
@@ -2533,7 +2533,7 @@ tcaphash_end_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 /*
  * ANSI PART
- * Create the record identifiying the TCAP transaction
+ * Create the record identifying the TCAP transaction
  * When the identifier for the transaction is reused, check
  * the following criteria before to append a new record:
  * - a timeout corresponding to a message retransmission is detected,
@@ -2802,7 +2802,7 @@ tcaphash_ansi_matching(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 /*
  * Service Response Time analyze
  * Called just after dissector call
- * Associate a TCAP context to a tcap session and display session related infomations
+ * Associate a TCAP context to a tcap session and display session related information
  * like the first frame, the last, the session duration,
  * and a uniq session identifier for the filtering
  *

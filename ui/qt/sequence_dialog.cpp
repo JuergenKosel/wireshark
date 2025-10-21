@@ -25,7 +25,6 @@
 #include "sequence_diagram.h"
 #include "main_application.h"
 #include <ui/qt/utils/variant_pointer.h>
-#include <ui/alert_box.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 #include <ui/voip_calls.h>
 #include "rtp_stream_dialog.h"
@@ -524,7 +523,7 @@ void SequenceDialog::on_buttonBox_clicked(QAbstractButton *button)
 
 void SequenceDialog::exportDiagram()
 {
-    QString file_name, extension;
+    QString file_name;
     QDir path(mainApp->openDialogInitialDir());
     QString pdf_filter = tr("Portable Document Format (*.pdf)");
     QString png_filter = tr("Portable Network Graphics (*.png)");
@@ -533,11 +532,13 @@ void SequenceDialog::exportDiagram()
     QString jpeg_filter = tr("JPEG File Interchange Format (*.jpeg *.jpg)");
     QString ascii_filter = tr("ASCII (*.txt)");
 
-    QString filter = QStringLiteral("%1;;%2;;%3;;%4")
-            .arg(pdf_filter)
-            .arg(png_filter)
-            .arg(bmp_filter)
-            .arg(jpeg_filter);
+    QString filter = QStringLiteral("%1;;%2;;%3;;%4").arg(
+        pdf_filter,
+        png_filter,
+        bmp_filter,
+        jpeg_filter
+    );
+    QString extension = png_filter;
     if (!file_closed_) {
         filter.append(QStringLiteral(";;%5").arg(ascii_filter));
     }
@@ -612,7 +613,7 @@ void SequenceDialog::exportDiagram()
         if (save_ok) {
             mainApp->setLastOpenDirFromFilename(file_name);
         } else {
-            open_failure_alert_box(file_name.toUtf8().constData(), errno, true);
+            report_open_failure(file_name.toUtf8().constData(), errno, true);
         }
     }
 }

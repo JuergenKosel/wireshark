@@ -730,7 +730,7 @@ dissect_btrfcomm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
                     val_to_str_const(frame_type, vs_frame_type_short, "Unknown"), dlci >> 1);
     if (dlci && (frame_type == FRAME_TYPE_SABM) && service_info) {
         if (service_info->uuid.size==16)
-            col_append_fstr(pinfo->cinfo, COL_INFO, "(UUID128: %s) ", print_bluetooth_uuid(pinfo->pool, &service_info->uuid));
+            col_append_fstr(pinfo->cinfo, COL_INFO, "(UUID128: %s) ", print_bluetooth_uuid(&service_info->uuid));
         else
             col_append_fstr(pinfo->cinfo, COL_INFO, "(%s) ",
                     val_to_str_ext_const(service_info->uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
@@ -1128,7 +1128,7 @@ proto_register_btrfcomm(void)
     static build_valid_func btrfcomm_directed_channel_da_build_value[1] = {btrfcomm_directed_channel_value};
     static decode_as_value_t btrfcomm_directed_channel_da_values = {btrfcomm_directed_channel_prompt, 1, btrfcomm_directed_channel_da_build_value};
     static decode_as_t btrfcomm_directed_channel_da = {"btrfcomm", "btrfcomm.dlci", 1, 0, &btrfcomm_directed_channel_da_values, NULL, NULL,
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     /* Register the protocol name and description */
     proto_btrfcomm = proto_register_protocol("Bluetooth RFCOMM Protocol", "BT RFCOMM", "btrfcomm");

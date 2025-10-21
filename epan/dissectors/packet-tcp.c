@@ -4671,7 +4671,7 @@ again:
      * is enabled.)
      *
      * "Reassemble out-of-order segments" uses its own method of detecting
-     * retranmission, but uses more memory and CPU, and when used, a TCP stream
+     * retransmission, but uses more memory and CPU, and when used, a TCP stream
      * that has missing segments that are never retransmitted stop processing
      * after the missing segment.
      *
@@ -5279,7 +5279,7 @@ again:
                         /* nxtpdu adjustment for the new msp is the same. */
                         if (!PINFO_FD_VISITED(pinfo)) {
                             /* We don't need to clear MSP_FLAGS_GOT_ALL_SEGMENTS
-                             * since we are spliting the MSP.
+                             * since we are splitting the MSP.
                              */
                             msp = split_msp(pinfo, msp, tcpd);
                         }
@@ -5310,7 +5310,7 @@ again:
                         tcpd->fwd->flags |= TCP_FLOW_REASSEMBLE_UNTIL_FIN;
                         /* This is not the first segment, and we thought the
                          * reassembly would be done now, but now know we must
-                         * desgment until FIN. (E.g., HTTP Response with headers
+                         * desgement until FIN. (E.g., HTTP Response with headers
                          * split across segments, and no Content-Length or
                          * Transfer-Encoding (RFC 7230, Section 3.3.3, case 7.)
                          * For the same reasons as below when we encounter
@@ -10716,7 +10716,7 @@ proto_register_tcp(void)
     static build_valid_func tcp_da_both_values[2] = {tcp_src_value, tcp_dst_value};
     static decode_as_value_t tcp_da_values[3] = {{tcp_src_prompt, 1, tcp_da_src_values}, {tcp_dst_prompt, 1, tcp_da_dst_values}, {tcp_both_prompt, 2, tcp_da_both_values}};
     static decode_as_t tcp_da = {"tcp", "tcp.port", 3, 2, tcp_da_values, "TCP", "port(s) as",
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL};
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
 
     module_t *tcp_module;
     module_t *mptcp_module;

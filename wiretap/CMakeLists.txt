@@ -12,7 +12,6 @@ set(WIRETAP_PUBLIC_HEADERS
 	introspection.h
 	merge.h
 	pcap-encap.h
-	pcapng_module.h
 	secrets-types.h
 	wtap.h
 	wtap_modules.h
@@ -95,6 +94,7 @@ set(WIRETAP_C_MODULE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/peekclassic.c
 	${CMAKE_CURRENT_SOURCE_DIR}/peektagged.c
 	${CMAKE_CURRENT_SOURCE_DIR}/pppdump.c
+	${CMAKE_CURRENT_SOURCE_DIR}/procmon.c
 	${CMAKE_CURRENT_SOURCE_DIR}/radcom.c
 	${CMAKE_CURRENT_SOURCE_DIR}/rfc7468.c
 	${CMAKE_CURRENT_SOURCE_DIR}/rtpdump.c

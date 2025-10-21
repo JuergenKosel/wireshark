@@ -82,6 +82,7 @@
 #include <wsutil/os_version_info.h>
 #include <wsutil/privileges.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/report_message.h>
 
 #include <glib.h>
 
@@ -315,7 +316,7 @@ list_output_compression_types(void) {
     GSList *output_compression_types;
 
     cmdarg_err("The available output compression type(s) for the \"--compress\" flag are:\n");
-    output_compression_types = wtap_get_all_output_compression_type_names_list();
+    output_compression_types = ws_get_all_output_compression_type_names_list();
     for (GSList *compression_type = output_compression_types;
         compression_type != NULL;
         compression_type = g_slist_next(compression_type)) {
@@ -406,7 +407,7 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     int wtap_encap_type = WTAP_ENCAP_ETHERNET;
     int err;
     char* err_info;
-    wtap_compression_type compression_type = WTAP_UNKNOWN_COMPRESSION;
+    ws_compression_type compression_type = WS_FILE_UNKNOWN_COMPRESSION;
     GError* gerror = NULL;
     GRegex* regex = NULL;
 
@@ -743,8 +744,8 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
             break;
 
         case LONGOPT_COMPRESS:
-            compression_type = wtap_name_to_compression_type(ws_optarg);
-            if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+            compression_type = ws_name_to_compression_type(ws_optarg);
+            if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
                 cmdarg_err("\"%s\" isn't a valid output compression mode",
                             ws_optarg);
                 list_output_compression_types();
@@ -869,27 +870,27 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
         }
     }
 
-    if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+    if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
         /* An explicitly specified compression type overrides filename
          * magic. (Should we allow specifying "no" compression with, e.g.
          * a ".gz" extension?) */
         const char *sfx = strrchr(argv[ws_optind+1], '.');
         if (sfx) {
-            compression_type = wtap_extension_to_compression_type(sfx + 1);
+            compression_type = ws_extension_to_compression_type(sfx + 1);
         }
     }
 
-    if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
-        compression_type = WTAP_UNCOMPRESSED;
+    if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
+        compression_type = WS_FILE_UNCOMPRESSED;
     }
 
-    if (!wtap_can_write_compression_type(compression_type)) {
+    if (!ws_can_write_compression_type(compression_type)) {
         cmdarg_err("Output files can't be written as %s",
-                wtap_compression_type_description(compression_type));
+                ws_compression_type_description(compression_type));
         return WS_EXIT_INVALID_OPTION;
     }
 
-    if (compression_type != WTAP_UNCOMPRESSED && !wtap_dump_can_compress(file_type_subtype)) {
+    if (compression_type != WS_FILE_UNCOMPRESSED && !wtap_dump_can_compress(file_type_subtype)) {
         cmdarg_err("The file format %s can't be written to output compressed format",
             wtap_file_type_subtype_name(file_type_subtype));
         return WS_EXIT_INVALID_OPTION;
@@ -907,7 +908,7 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
         } else {
             input_file = ws_fopen(input_filename, "rb");
             if (!input_file) {
-                open_failure_message(input_filename, errno, false);
+                report_open_failure(input_filename, errno, false);
                 return WS_EXIT_OPEN_ERROR;
             }
         }
@@ -957,8 +958,8 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     }
 
     if (!wdh) {
-        cfile_dump_open_failure_message(output_filename, err, err_info,
-                                        file_type_subtype);
+        report_cfile_dump_open_failure(output_filename, err, err_info,
+                                       file_type_subtype);
         cleanup_dump_params(params);
         return WS_EXIT_OPEN_ERROR;
     }
@@ -1113,7 +1114,7 @@ clean_exit:
         int err;
         char *err_info;
         if (!wtap_dump_close(wdh, NULL, &err, &err_info)) {
-            cfile_close_failure_message(output_filename, err, err_info);
+            report_cfile_close_failure(output_filename, err, err_info);
             ret = 2;
         }
     }

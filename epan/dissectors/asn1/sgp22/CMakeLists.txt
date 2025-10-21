@@ -11,6 +11,10 @@ set( PROTOCOL_NAME sgp22 )
 
 set( PROTO_OPT )
 
+set( EXPORT_FILES
+	${PROTOCOL_NAME}-exp.cnf
+)
+
 set( EXT_ASN_FILE_LIST )
 
 set( ASN_FILE_LIST
@@ -31,8 +35,8 @@ set( SRC_FILES
 )
 
 set( EXTRA_CNF
-        ../pkix1explicit/pkix1explicit_exp.cnf
-        ../pkix1implicit/pkix1implicit_exp.cnf
+	../pkix1explicit/pkix1explicit_exp.cnf
+	../pkix1implicit/pkix1implicit_exp.cnf
 )
 
 set( A2W_FLAGS -b )

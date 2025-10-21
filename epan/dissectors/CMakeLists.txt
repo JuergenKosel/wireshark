@@ -173,6 +173,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pkixqualified.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pkixtsp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pres.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-procmon.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-q932.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-q932-ros.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-qsig.c
@@ -280,12 +281,14 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-ansi_a.h
 	packet-ansi_map.h
 	packet-ansi_tcap.h
+	packet-arcnet.h
 	packet-arp.h
 	packet-asap+enrp-common.h
 	packet-atalk.h
 	packet-atm.h
 	packet-atn-ulcs.h
 	packet-autosar-ipdu-multiplexer.h
+	packet-ax25.h
 	packet-bacapp.h
 	packet-bacnet.h
 	packet-bblog.h
@@ -322,6 +325,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-chdlc.h
 	packet-cip.h
 	packet-cipsafety.h
+	packet-cisco-pid.h
 	packet-cmip.h
 	packet-cmp.h
 	packet-cms.h
@@ -333,18 +337,15 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-dap.h
 	packet-dccp.h
 	packet-dcerpc.h
-	packet-dcerpc-browser.h
 	packet-dcerpc-budb.h
 	packet-dcerpc-butc.h
 	packet-dcerpc-dce122.h
 	packet-dcerpc-dnsserver.h
 	packet-dcerpc-frsapi.h
-	packet-dcerpc-frsrpc.h
 	packet-dcerpc-netlogon.h
 	packet-dcerpc-nt.h
 	packet-dcerpc-pnp.h
 	packet-dcerpc-rras.h
-	packet-dcerpc-samr.h
 	packet-dcerpc-spoolss.h
 	packet-dcerpc-svcctl.h
 	packet-dcerpc-tapi.h
@@ -411,6 +412,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-gssapi.h
 	packet-gtp.h
 	packet-gtpv2.h
+	packet-HI2Operations.h
 	packet-h223.h
 	packet-h225.h
 	packet-h235.h
@@ -467,6 +469,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-knxip.h
 	packet-knxip_decrypt.h
 	packet-l2tp.h
+	packet-lapd.h
 	packet-lapdm.h
 	packet-lbm.h
 	packet-lbtrm.h
@@ -484,7 +487,6 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-lpp.h
 	packet-lppa.h
 	packet-lte-rrc.h
-	packet-mac-lte.h
 	packet-mausb.h
 	packet-mbim.h
 	packet-mbtcp.h
@@ -505,6 +507,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-ncp-int.h
 	packet-ncp-nmas.h
 	packet-ncp-sss.h
+	packet-ncsi-data.h
 	packet-ndmp.h
 	packet-ndps.h
 	packet-netbios.h
@@ -598,6 +601,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-sip.h
 	packet-skinny.h
 	packet-sll.h
+	packet-slowprotocols.h
 	packet-smb.h
 	packet-smb2.h
 	packet-smb-browse.h
@@ -1615,6 +1619,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncsi.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ncsi-data.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ndps.c
@@ -1628,6 +1633,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-netfilter.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-net_dm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-nl80211.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-mac80211-hwsim.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-psample.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-route.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-sock_diag.c
