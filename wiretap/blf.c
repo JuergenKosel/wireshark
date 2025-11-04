@@ -41,7 +41,7 @@
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include "file_wrappers.h"
-#include "wtap-int.h"
+#include "wtap_module.h"
 
 static const uint8_t blf_magic[] = { 'L', 'O', 'G', 'G' };
 static const uint8_t blf_obj_magic[] = { 'L', 'O', 'B', 'J' };
@@ -3036,7 +3036,7 @@ blf_parse_xml_port(const xmlChar* str, char** name, uint16_t* hwchannel, bool* s
 
     if (str == NULL) return false;
 
-    char** tokens = g_strsplit_set((const gchar*)str, ";", -1);
+    char** tokens = g_strsplit_set((const char*)str, ";", -1);
     if (tokens == NULL) {
         ws_debug("cannot split XML port data");
         return false;
@@ -5000,7 +5000,7 @@ static bool blf_dump_upper_pdu(wtap_dumper *wdh, const wtap_rec *rec, int *err, 
                 ws_warning("Only Meta Data can be broken into smaller chunks!");
             }
 
-            uint32_t chunk_size = payload_len;
+            uint32_t chunk_size;
             bool last_round = false;
             do {
                 if (payload_len > 2048 && apptext_header.source == BLF_APPTEXT_METADATA) {

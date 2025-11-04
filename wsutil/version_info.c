@@ -42,7 +42,6 @@
 
 #include "vcs_version.h"
 
-#include <wsutil/application_flavor.h>
 #include <wsutil/cpu_info.h>
 #include <wsutil/os_version_info.h>
 #include <wsutil/crash_info.h>
@@ -60,6 +59,8 @@ static void get_mem_info(GString *str);
 
 void
 ws_init_version_info(const char *appname,
+		const char* appflavor,
+		get_version_func version_func,
 		gather_feature_func gather_compile,
 		gather_feature_func gather_runtime)
 {
@@ -80,16 +81,14 @@ ws_init_version_info(const char *appname,
 	 * version - including the VCS version, for a build from
 	 * a checkout.
 	 */
-	if (strstr(appname, application_flavor_name_proper()) != NULL) {
+	if ((appflavor != NULL) && strstr(appname, appflavor) != NULL) {
 		appname_with_version = ws_strdup_printf("%s %s",
-			appname,
-			application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info());
+			appname, version_func());
 	}
 	/* Include our application flavor. The default is "Wireshark" */
 	else {
 		appname_with_version = ws_strdup_printf("%s (%s) %s",
-			appname, application_flavor_name_proper(),
-			application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info());
+			appname, (appflavor != NULL) ? appflavor : "Wireshark", version_func());
 	}
 
 	/* Get the compile-time version information string */
@@ -115,7 +114,7 @@ ws_init_version_info(const char *appname,
 static void
 rtrim_gstring(GString *str)
 {
-	gsize end = str->len - 1;   // get to 0-based offset
+	size_t end = str->len - 1;   // get to 0-based offset
 	while(str->str[end] == ' ') {
 		end--;
 	}
@@ -138,7 +137,7 @@ features_to_columns(feature_list l, GString *str)
 	uint8_t ncols = 0;		// number of columns to show
 	uint8_t maxlen = 0;		// length of longest item
 	unsigned num = 0;		// number of items in list
-	gchar *c;
+	char *c;
 	GPtrArray *a;
 	GList *iter;
 
@@ -148,7 +147,7 @@ features_to_columns(feature_list l, GString *str)
 	}
 	a = g_ptr_array_sized_new(num);
 	for (iter = *l; iter != NULL; iter = iter->next) {
-		c = (gchar *)iter->data;
+		c = (char *)iter->data;
 		maxlen = MAX(maxlen, (uint8_t)strlen(c));
 		g_ptr_array_add(a, iter->data);
 	}
@@ -156,7 +155,7 @@ features_to_columns(feature_list l, GString *str)
 	ncols = (linelen - linepad) / maxlen;
 	if (ncols <= 1 || num <= 1) {
 		for (iter = *l; iter != NULL; iter = iter->next) {
-			c = (gchar *)iter->data;
+			c = (char *)iter->data;
 			g_string_append_printf(str, "%*s%s\n", linepad, "", c);
 		}
 	}
@@ -168,7 +167,7 @@ features_to_columns(feature_list l, GString *str)
 			for (j = 0; j < ncols; j++) {
 				unsigned idx = i + (j * nrows);
 				if (idx < num) {
-					g_string_append_printf(str, "%-*s", maxlen, (gchar *)g_ptr_array_index(a, idx));
+					g_string_append_printf(str, "%-*s", maxlen, (char *)g_ptr_array_index(a, idx));
 				}
 			}
 			rtrim_gstring(str);
@@ -336,7 +335,7 @@ get_mem_info(GString *str)
 #endif
 
 	if (memsize > 0)
-		g_string_append_printf(str, "%" G_GINT64_FORMAT " MB of physical memory", memsize/(1024*1024));
+		g_string_append_printf(str, "%" PRId64 " MB of physical memory", memsize/(1024*1024));
 }
 
 /*
@@ -563,7 +562,7 @@ GString *
 get_runtime_version_info(gather_feature_func gather_runtime)
 {
 	GString *str;
-	gchar *lc;
+	char *lc;
 	GList *l = NULL, *with_list = NULL, *without_list = NULL;
 
 	str = g_string_new("Runtime info:\n      OS: ");

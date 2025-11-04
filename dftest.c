@@ -358,7 +358,7 @@ main(int argc, char **argv)
     cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early for startup. */
-    ws_log_init(vcmdarg_err);
+    ws_log_init(vcmdarg_err, "DFTest Debug Console");
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -374,7 +374,7 @@ main(int argc, char **argv)
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0]);
+    configuration_init_error = configuration_init(argv[0], "wireshark");
     if (configuration_init_error != NULL) {
         fprintf(stderr, "Error: Can't get pathname of directory containing "
                         "the dftest program: %s.\n",
@@ -382,7 +382,7 @@ main(int argc, char **argv)
         g_free(configuration_init_error);
     }
 
-    ws_init_version_info("DFTest", NULL, NULL);
+    ws_init_version_info("DFTest", NULL, get_ws_vcs_version_info, NULL, NULL);
 
     for (;;) {
         opt = ws_getopt_long(argc, argv, optstring, long_options, NULL);

@@ -1314,7 +1314,7 @@ extract_secrets(wtap *wth, char* filename, int *err, char **err_info)
     char         *fsuffix            = NULL;
 
     /* Read all of the packets in turn */
-    wtap_rec_init(&read_rec, 1514);
+    wtap_rec_init(&read_rec, DEFAULT_INIT_BUFFER_SIZE_2048);
     while (wtap_read(wth, &read_rec, err, err_info, &offset)) {
         /* Do we want to respect the max packet number on the command line?
          * Probably more confusing than it's worth, because a user might
@@ -1465,7 +1465,7 @@ main(int argc, char *argv[])
     memset(&read_rec, 0, sizeof read_rec);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init(vcmdarg_err);
+    ws_log_init(vcmdarg_err, "Editcap Debug Console");
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -1485,7 +1485,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0]);
+    configuration_init_error = configuration_init(argv[0], "wireshark");
     if (configuration_init_error != NULL) {
         cmdarg_err("Can't get pathname of directory containing the editcap program: %s.",
                 configuration_init_error);
@@ -1493,7 +1493,7 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Editcap", NULL, NULL);
+    ws_init_version_info("Editcap", NULL, get_ws_vcs_version_info, NULL, NULL);
 
     init_report_failure_message("editcap");
 
@@ -2211,7 +2211,7 @@ main(int argc, char *argv[])
     idbs_seen = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
 
     /* Read all of the packets in turn */
-    wtap_rec_init(&read_rec, 1514);
+    wtap_rec_init(&read_rec, DEFAULT_INIT_BUFFER_SIZE_2048);
     while (wtap_read(wth, &read_rec, &read_err, &read_err_info, &data_offset)) {
         /*
          * XXX - what about non-packet records in the file after this?

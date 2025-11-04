@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/* (last updated 2025-10-17) */
+/* (last updated 2025-10-31) */
 
 #include "config.h"
 
@@ -5850,7 +5850,7 @@ static const char * const table[] =
     "SpaceNet Communication AB",                                                          // 5828
     "AMCC Switching Corp.",                                                               // 5829
     "XcelleNet",                                                                          // 5830
-    "Cleondris GmbH",                                                                     // 5831
+    "Cleondris AG",                                                                       // 5831
     "Horgan.net",                                                                         // 5832
     "Tailyn Communication Company",                                                       // 5833
     "Identikey ltd",                                                                      // 5834
@@ -16131,7 +16131,7 @@ static const char * const table[] =
     "Pfannenberg",                                                                        // 16109
     "InfoCentre Ltd.",                                                                    // 16110
     "Beaumont Hospital",                                                                  // 16111
-    "Valentine KOUTCHERBAEV",                                                             // 16112
+    "Valentin KUCHERBAEV",                                                                // 16112
     "Network Dweebs Corporation",                                                         // 16113
     "Qualstar Corporation",                                                               // 16114
     "CyberSarge, Inc.",                                                                   // 16115
@@ -28942,7 +28942,7 @@ static const char * const table[] =
     "blaulink GbR",                                                                       // 28920
     "Anchiva Systems, Inc.",                                                              // 28921
     "Crescent Group Ltd.",                                                                // 28922
-    "Luminator Holding, LP",                                                              // 28923
+    "Luminator Technology Group Global, LLC",                                             // 28923
     "Megatel Industries Corp.",                                                           // 28924
     "BIGLIST Inc.",                                                                       // 28925
     "Mitteldeutscher Rundfunk",                                                           // 28926
@@ -58127,7 +58127,7 @@ static const char * const table[] =
     "Guangzhou Bingo Software Co.,Ltd.",                                                  // 58105
     "RAMAXEL",                                                                            // 58106
     "Syskey Softlabs Private Limited",                                                    // 58107
-    "ProCAncer-I Project",                                                                // 58108
+    "Computational BioMedicine Laboratory, FORTH-ICS",                                    // 58108
     "Allgeier IT Solutions GmbH",                                                         // 58109
     "Lendio",                                                                             // 58110
     "F&G Annuities & Life",                                                               // 58111
@@ -64446,7 +64446,104 @@ static const char * const table[] =
     "OpenNFC",                                                                            // 64424
     "LIS LLC",                                                                            // 64425
     "PRIM Management Consult GmbH",                                                       // 64426
-    "Pendulum Instruments"                                                                // 64427
+    "Pendulum Instruments",                                                               // 64427
+    "ruidi",                                                                              // 64428
+    "ECOFLOW AUSTRALIA PTY LTD",                                                          // 64429
+    "Okos Intellect LTD",                                                                 // 64430
+    "Voigt Industrial Electronics",                                                       // 64431
+    "American Red Cross",                                                                 // 64432
+    "PT. CryptNet Systems Lab",                                                           // 64433
+    "Network Gate Sweden AB",                                                             // 64434
+    "FederalKey",                                                                         // 64435
+    "Stuart Young Jr",                                                                    // 64436
+    "Donnell Systems",                                                                    // 64437
+    "MCOMM Sp. z o. o.",                                                                  // 64438
+    "Johnny.Decimal",                                                                     // 64439
+    "BAEZ Electric (Nanjing) Co., Ltd.",                                                  // 64440
+    "ACP IT Consulting GmbH",                                                             // 64441
+    "Familie Hartenberger",                                                               // 64442
+    "Municipalidad de Lomas de Zamora",                                                   // 64443
+    "Ridtisak Yingkiatinon",                                                              // 64444
+    "Freecloak",                                                                          // 64445
+    "OOO Instech",                                                                        // 64446
+    "GaCitech di Ciccone Gabriele",                                                       // 64447
+    "K-Bro Linen Inc.",                                                                   // 64448
+    "JD CA Center",                                                                       // 64449
+    "Cellgain Wireless LLC",                                                              // 64450
+    "Roundabout Technologies",                                                            // 64451
+    "Chris Rose",                                                                         // 64452
+    "Strand Psychiatric Associates",                                                      // 64453
+    "Stephon X. Jones",                                                                   // 64454
+    "D’Andilly Group",                                                                    // 64455
+    "Jenn Tribble",                                                                       // 64456
+    "Goose",                                                                              // 64457
+    "OTO GK",                                                                             // 64458
+    "Avnet Asia",                                                                         // 64459
+    "Griffin Bank Ltd",                                                                   // 64460
+    "Tina Bhutani-Jacques",                                                               // 64461
+    "Winsupply Inc.",                                                                     // 64462
+    "Umberto Anaclerio",                                                                  // 64463
+    "Peter Teslenko",                                                                     // 64464
+    "ITSC IT Systems Consulting GmbH",                                                    // 64465
+    "Sixi Networks, Inc",                                                                 // 64466
+    "SIMLINK LIMITED",                                                                    // 64467
+    "WUHAN MAISVCH TECHNOLOGY CO.,LTD",                                                   // 64468
+    "Manigulab Enterprise",                                                               // 64469
+    "Knovus Group",                                                                       // 64470
+    "Cory Wolfgang",                                                                      // 64471
+    "Gesellschaft für Erstellung, Layout und Konzeption elektronischer Systeme mbH",      // 64472
+    "Premier Health Care Group, PLLC",                                                    // 64473
+    "Bruno Luiggi Macchiavello Espinoza",                                                 // 64474
+    "LLC Security Lab",                                                                   // 64475
+    "Knovus",                                                                             // 64476
+    "Morse Micro",                                                                        // 64477
+    "rfctech.es",                                                                         // 64478
+    "PKI(Chongqing) Limited",                                                             // 64479
+    "NGBOX HOLDINGS B.V.",                                                                // 64480
+    "NIGERIA IMMIGRATION SERVICE",                                                        // 64481
+    "DARKCAM S.A.",                                                                       // 64482
+    "Garantir",                                                                           // 64483
+    "Vemesis Technology Trade Inc.",                                                      // 64484
+    "PTPGroup",                                                                           // 64485
+    "Steel Performance",                                                                  // 64486
+    "Mitel a.s.",                                                                         // 64487
+    "CONTROLADORIA-GERAL DA UNIAO",                                                       // 64488
+    "Swift Forge",                                                                        // 64489
+    "SpectraCare Health Systems",                                                         // 64490
+    "BEIJING SCISTOR TECHNOLOGIES CO.，LTD.",                                              // 64491
+    "Stegra AB",                                                                          // 64492
+    "Stegra Boden AB",                                                                    // 64493
+    "highsystem ag",                                                                      // 64494
+    "Embedded Designs Services India Pvt Ltd",                                            // 64495
+    "Premier-D LLC",                                                                      // 64496
+    "Union Power Cooperative",                                                            // 64497
+    "Osnabrueck University, Psychology IT",                                               // 64498
+    "HSF",                                                                                // 64499
+    "SERAFE AG",                                                                          // 64500
+    "Shanghai Xiaoyun Information Technologies Ltd",                                      // 64501
+    "CEO-Vision",                                                                         // 64502
+    "Mobile Solutions Intelligent Co., Ltd.",                                             // 64503
+    "Advanced Care Providers",                                                            // 64504
+    "W-NET",                                                                              // 64505
+    "STG Logistics, Inc",                                                                 // 64506
+    "Green Diamond Resource Company",                                                     // 64507
+    "NanoImaging Services, Inc.",                                                         // 64508
+    "GridGears GmbH",                                                                     // 64509
+    "addspin",                                                                            // 64510
+    "Calmwave, Inc.",                                                                     // 64511
+    "Critical Loop, Inc.",                                                                // 64512
+    "Core Tec Communications LLC.",                                                       // 64513
+    "STGI",                                                                               // 64514
+    "SM JSC",                                                                             // 64515
+    "Dimitris Dinodimos",                                                                 // 64516
+    "Liu Zhen",                                                                           // 64517
+    "Danthur Lice",                                                                       // 64518
+    "Savas-säätiö sr",                                                                    // 64519
+    "ITC-Solution Group Oy",                                                              // 64520
+    "Polygran GmbH",                                                                      // 64521
+    "Workoho GmbH",                                                                       // 64522
+    "IDTECH SA",                                                                          // 64523
+    "SERAFE AG"                                                                           // 64524
 };
 
 const char* global_enterprises_lookup(uint32_t value)

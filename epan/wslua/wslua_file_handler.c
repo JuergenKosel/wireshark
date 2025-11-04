@@ -255,6 +255,8 @@ wslua_filehandler_read_packet(wtap *wth, FILE_T wth_fh, wtap_rec *rec,
     wtap_block_unref(rec->block);
     rec->block = NULL;
 
+    wtap_setup_packet_rec(rec, wth->file_encap);
+
     fp = push_File(L, wth_fh);
     fc = push_CaptureInfo(L, wth, false);
     fi = push_FrameInfo(L, rec);
@@ -321,6 +323,8 @@ wslua_filehandler_seek_read_packet(wtap *wth, int64_t seek_off, wtap_rec *rec,
 
     wtap_block_unref(rec->block);
     rec->block = NULL;
+
+    wtap_setup_packet_rec(rec, wth->file_encap);
 
     fp = push_File(L, wth->random_fh);
     fc = push_CaptureInfo(L, wth, false);
@@ -708,7 +712,7 @@ WSLUA_CONSTRUCTOR FileHandler_new(lua_State* L) {
     fh->finfo.writing_must_seek = false;
     supported_blocks = (struct supported_block_type  *)g_memdup2(&block_type_proto, sizeof block_type_proto);
     /*
-     * Add a list of options to the seciton block, interface block, and
+     * Add a list of options to the section block, interface block, and
      * packet block, so the file handler can indicate comment support.
      */
     for (size_t i = 0; i < NUM_LISTED_BLOCK_TYPES; i++) {

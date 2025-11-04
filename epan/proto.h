@@ -1101,6 +1101,9 @@ typedef struct {
 /** Register dissector plugin with the plugin system. */
 WS_DLL_PUBLIC void proto_register_plugin(const proto_plugin *plugin);
 
+/** Pre-initializes memory used by proto routines. Called very early at program startup */
+void proto_pre_init(void);
+
 /** Sets up memory used by proto routines. Called at program startup */
 void proto_init(GSList *register_all_plugin_protocols_list,
     GSList *register_all_plugin_handoffs_list, register_cb cb, void *client_data);
@@ -2702,7 +2705,7 @@ proto_add_deregistered_data (void *data);
  @prefix a prefix to select which fields to deregister
 */
 WS_DLL_PUBLIC void
-proto_deregister_all_fields_with_prefix(const int parent, const gchar *prefix);
+proto_deregister_all_fields_with_prefix(const int parent, const char *prefix);
 
 /** Add a memory slice to be freed when deregistered fields are freed.
  @param block_size the size of the block

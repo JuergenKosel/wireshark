@@ -18,8 +18,10 @@
 #include <sys/types.h>
 
 #include "wtap_opttypes.h"
-
 #include "file_wrappers.h"
+#include "wtap_module.h"
+
+#include <wsutil/array.h>
 #include <wsutil/file_util.h>
 #include <wsutil/buffer.h>
 #include <wsutil/ws_assert.h>
@@ -1990,7 +1992,7 @@ wtap_read_so_far(wtap *wth)
 
 /* Perform global/initial initialization */
 void
-wtap_rec_init(wtap_rec *rec, gsize space)
+wtap_rec_init(wtap_rec *rec, size_t space)
 {
 	memset(rec, 0, sizeof *rec);
 	ws_buffer_init(&rec->options_buf, 0);

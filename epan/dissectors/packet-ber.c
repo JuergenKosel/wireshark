@@ -528,7 +528,7 @@ ber_update_oids(void)
 }
 
 static void
-ber_check_length (uint32_t length, int32_t min_len, int32_t max_len, asn1_ctx_t *actx, proto_item *item, bool bit)
+ber_check_length(uint32_t length, int32_t min_len, int32_t max_len, asn1_ctx_t *actx, proto_item *item, bool bit)
 {
     if ((min_len != -1) && (length < (uint32_t)min_len)) {
         expert_add_info_format(
@@ -544,7 +544,7 @@ ber_check_length (uint32_t length, int32_t min_len, int32_t max_len, asn1_ctx_t 
 }
 
 static void
-ber_check_value64 (int64_t value, int64_t min_len, int64_t max_len, asn1_ctx_t *actx, proto_item *item)
+ber_check_value(int64_t value, int64_t min_len, int64_t max_len, asn1_ctx_t *actx, proto_item *item)
 {
     if ((min_len != -1) && (value < min_len)) {
         expert_add_info_format(
@@ -560,23 +560,7 @@ ber_check_value64 (int64_t value, int64_t min_len, int64_t max_len, asn1_ctx_t *
 }
 
 static void
-ber_check_value (uint32_t value, int32_t min_len, int32_t max_len, asn1_ctx_t *actx, proto_item *item)
-{
-    if ((min_len != -1) && (value < (uint32_t)min_len)) {
-        expert_add_info_format(
-            actx->pinfo, item, &ei_ber_size_constraint_value,
-            "Size constraint: value too small: %d (%d .. %d)",
-            value, min_len, max_len);
-    } else if ((max_len != -1) && (value > (uint32_t)max_len)) {
-        expert_add_info_format(
-            actx->pinfo, item, &ei_ber_size_constraint_value,
-            "Size constraint: value too big: %d (%d .. %d)",
-            value, min_len, max_len);
-    }
-}
-
-static void
-ber_check_items (int cnt, int32_t min_len, int32_t max_len, asn1_ctx_t *actx, proto_item *item)
+ber_check_items(int cnt, int32_t min_len, int32_t max_len, asn1_ctx_t *actx, proto_item *item)
 {
     if ((min_len != -1) && (cnt < min_len)) {
         expert_add_info_format(
@@ -1181,7 +1165,9 @@ get_ber_identifier(tvbuff_t *tvb, int offset, int8_t *ber_class, bool *pc, int32
     uint8_t  id, t;
     int8_t   tmp_class;
     bool tmp_pc;
-    int32_t  tmp_tag;
+    uint32_t tmp_tag;
+    /* X.680 8.2 - "The [tag] number is a non-negative integer," so the function
+     * prototype should have an unsigned integer for the tag number. */
 
     id = tvb_get_uint8(tvb, offset);
     offset += 1;
@@ -1201,6 +1187,8 @@ ws_debug_printf("BER ID=%02x", id);
 ws_debug_printf(" %02x", t);
 #endif
             offset += 1;
+            /* XXX - What to do on overflow (which is almost certainly
+             * invalid data rather than a tag number > UINT32_MAX)? */
             tmp_tag <<= 7;
             tmp_tag |= t & 0x7F;
             if (!(t & 0x80))
@@ -1587,7 +1575,9 @@ proto_tree_add_debug_text(tree, "OCTET STRING dissect_ber_octet_string(%s) enter
         offset = dissect_ber_identifier(actx->pinfo, tree, tvb, offset, &ber_class, &pc, &tag);
         identifier_len = offset - identifier_offset;
         offset = dissect_ber_length(actx->pinfo, tree, tvb, offset, &len, &ind);
-        end_offset = offset+len;
+        if (ckd_add(&end_offset, offset, len)) {
+            THROW(ReportedBoundsError);
+        }
 
         /* sanity check: we only handle Constructed Universal Sequences */
         if ((ber_class != BER_CLASS_APP) && (ber_class != BER_CLASS_PRI)) {
@@ -1615,7 +1605,9 @@ proto_tree_add_debug_text(tree, "OCTET STRING dissect_ber_octet_string(%s) enter
         get_last_ber_identifier(&ber_class, &pc, &tag);
         get_last_ber_length(&len, &ind, &len_tvb, &len_offset, &len_len);
 
-        end_offset = offset+len;
+        if (ckd_add(&end_offset, offset, len)) {
+            THROW(ReportedBoundsError);
+        }
 
         /* caller may have created new buffer for indefinite length data Verify via length */
         len_remain = (uint32_t)tvb_reported_length_remaining(tvb, offset);
@@ -2009,7 +2001,7 @@ dissect_ber_constrained_integer64(bool implicit_tag, asn1_ctx_t *actx, proto_tre
         *value = val;
     }
 
-    ber_check_value64 (val, min_len, max_len, actx, actx->created_item);
+    ber_check_value(val, min_len, max_len, actx, actx->created_item);
 
     return offset;
 }
@@ -2037,7 +2029,7 @@ dissect_ber_constrained_integer(bool implicit_tag, asn1_ctx_t *actx, proto_tree 
         *value = (uint32_t)val;
     }
 
-    ber_check_value ((uint32_t)val, min_len, max_len, actx, actx->created_item);
+    ber_check_value(val, min_len, max_len, actx, actx->created_item);
 
     return offset;
 }
@@ -3014,6 +3006,9 @@ proto_tree_add_debug_text(tree, "CHOICE dissect_ber_choice(%s) trying again\n", 
                     }
                 }
             }
+            /* Make sure the end_offset reported isn't out of bounds.
+             * (If it is, that's something bogus with the encoding.) */
+            tvb_ensure_reported_length_remaining(tvb, end_offset);
             return end_offset;
         }
         ch++;
@@ -3489,7 +3484,7 @@ proto_tree_add_debug_text(tree, "SQ OF dissect_ber_sq_of(%s) entered\n", name);
                     item = proto_tree_add_uint_format_value(parent_tree, hf_id, tvb, offset, lenx, cnt, "unknown number of items");
             }
             tree = proto_item_add_subtree(item, ett_id);
-            ber_check_items (cnt, min_len, max_len, actx, item);
+            ber_check_items(cnt, min_len, max_len, actx, item);
         }
     }
 

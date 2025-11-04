@@ -17,6 +17,7 @@
  * Copyright 2024, Martin Ostertag <martin.ostertag@zhaw.ch>
  *                 Aurel Hess <hesu@zhaw.ch>
  * Copyright 2025, Alex Gebhard <alexander.gebhard@marquette.edu>
+ * Copyright 2025, Prashant Tripathi <prashant.tripathi@selinc.com>
  *
  * Revisions:
  * - Markus Seehofer 09.08.2005 <mseehofe@nt.hirschmann.de>
@@ -57,6 +58,8 @@
  * - Erez Geva 30-04-2025 <ErezGeva2@gmail.com>
  *   - Fix wrong PTPv2 Management IDs
  *   - Add missing PTPv2 Management TLVs dissection
+ * - Prashant Tripathi 23-10-2025 <prashant_tripathi@selinc.com>
+ *   - Fix the parsing of organizationSubType field in C37_238 2017 TLV
 
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -2863,7 +2866,7 @@ dissect_ptp_v2_tlv_org_fields(tvbuff_t *tvb, int offset_orig, proto_tree *ptp_tl
 }
 
 static int
-disect_ptp_v2_tlvs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_item *ti_root, proto_tree *ptp_tree, uint8_t ptp_v2_messageid, uint16_t ptp_v2_flags, bool is_802_1as) {
+dissect_ptp_v2_tlvs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_item *ti_root, proto_tree *ptp_tree, uint8_t ptp_v2_messageid, uint16_t ptp_v2_flags, bool is_802_1as) {
     int offset_orig = offset;
     proto_item *ti;
     proto_item *ti_tlv = ti_root;
@@ -3725,8 +3728,8 @@ disect_ptp_v2_tlvs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_item *ti
                     offset += 6;
 
                     /* Converting the fractionalNanoseconds to a double */
-                    guint32 nanoseconds = tvb_get_ntohl(tvb, offset);
-                    guint16 fractional_nanoseconds = tvb_get_ntohs(tvb, offset + 4);
+                    uint32_t nanoseconds = tvb_get_ntohl(tvb, offset);
+                    uint16_t fractional_nanoseconds = tvb_get_ntohs(tvb, offset + 4);
                     double combined_timestamp = nanoseconds + (fractional_nanoseconds / (double)(1 << 16));
                     proto_tree_add_double(ptp_tlv_tree, hf_ptp_as_dt_tlv_sync_egress_timestamp_fractional_nanoseconds, tvb, offset, 6, combined_timestamp);
                     offset += 6;
@@ -3778,9 +3781,6 @@ disect_ptp_v2_tlvs(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_item *ti
                 case PTP_V2_OE_ORG_IEEE_C37_238_SUBTYPE_C372382017TLV: {
                     proto_tree *ptp_tlv_tree = proto_tree_add_subtree(ptp_tree, tvb, offset, tlv_length + PTP_V2_TLV_HEADER_LENGTH, ett_ptp_v2_tlv, &ti_tlv, "IEEE_C37_238 2017 TLV");
                     offset += dissect_ptp_v2_tlv_org_fields(tvb, offset, ptp_tlv_tree, hf_ptp_tlv_oe_organizationsubtype);
-
-                    proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_oe_tlv_ieee_c37_238_2017_organizationsubtype, tvb, offset, 3, ENC_BIG_ENDIAN);
-                    offset += 3;
 
                     proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_oe_tlv_subtype_c37238tlv_grandmasterid, tvb, offset, 2, ENC_BIG_ENDIAN);
                     offset += 2;
@@ -4629,7 +4629,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_an_timesource, tvb, offset, 1, ENC_NA);
                 offset += 1;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
                 break;
             }
 
@@ -4647,7 +4647,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                     offset += 4;
                 }
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 if (ptp_analyze_messages) {
                     if (PTP_FRAME_INFO_SYNC_COMPLETE(frame_info)) {
@@ -4693,7 +4693,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_sdr_origintimestamp_nanoseconds, tvb, offset, 4, ENC_BIG_ENDIAN);
                 offset += 4;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ti_root, ptp_tree, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 break;
             }
@@ -4711,7 +4711,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_item_set_generated(ti_tstamp);
                 offset += 10;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 if (ptp_analyze_messages) {
                     if (frame_info != NULL) {
@@ -4758,7 +4758,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_dr_requestingsourceportid, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 break;
             }
@@ -4778,7 +4778,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_pdrq_reserved, tvb, offset, 10, ENC_NA);
                 offset += 10;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 if (ptp_analyze_messages) {
                     if (frame_info != NULL) {
@@ -4815,7 +4815,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_pdrs_requestingsourceportid, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 if (ptp_analyze_messages) {
                     if (frame_info != NULL) {
@@ -4856,7 +4856,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_pdfu_requestingsourceportid, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 if (ptp_analyze_messages) {
                     if (frame_info != NULL) {
@@ -4898,7 +4898,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_sig_targetportid, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 break;
             }
@@ -4923,7 +4923,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_o
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_mm_reserved2, tvb, offset, 1, ENC_NA);
                 offset += 1;
 
-                disect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
+                dissect_ptp_v2_tlvs(tvb, offset, pinfo, ptp_tree, ti_root, ptp_v2_messageid, ptp_v2_flags, is_802_1as);
 
                 break;
             } /* case Management Message */

@@ -491,10 +491,10 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
     timestamp_set_seconds_type (recent.gui_seconds_format);
     tap_update_timer_.setInterval(prefs.tap_update_interval);
 
-    prefs_to_capture_opts();
+    prefs_to_capture_opts(&global_capture_opts);
     prefs_apply_all();
 #ifdef HAVE_LIBPCAP
-    update_local_interfaces();
+    update_local_interfaces(&global_capture_opts);
 #endif
 
     setMonospaceFont(prefs.gui_font_name);
@@ -1114,7 +1114,7 @@ void MainApplication::setInterfaceList(GList *if_list)
 }
 #endif
 
-void MainApplication::allSystemsGo()
+void MainApplication::allSystemsGo(const char* name_proper, const char* version)
 {
     QString display_filter = NULL;
     initialized_ = true;
@@ -1123,7 +1123,7 @@ void MainApplication::allSystemsGo()
         emit openCaptureFile(pending_open_files_.front(), display_filter, WTAP_TYPE_AUTO);
         pending_open_files_.pop_front();
     }
-    software_update_init();
+    software_update_init(name_proper, version);
 
 #ifdef HAVE_LIBPCAP
     int err;

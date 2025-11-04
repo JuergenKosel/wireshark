@@ -69,19 +69,27 @@ typedef struct {
 	if_capabilities_t *caps;
 } if_info_t;
 
-/*
- * An address in the "addrs" list.
+/**
+ * @brief Enumeration of supported interface address types.
+ *
+ * Used to indicate whether an address is IPv4 or IPv6.
  */
 typedef enum {
-	IF_AT_IPv4,
-	IF_AT_IPv6
+	IF_AT_IPv4, /**< IPv4 address (4 bytes). */
+	IF_AT_IPv6  /**< IPv6 address (16 bytes). */
 } if_address_type;
 
+/**
+ * @brief Represents an IP address in an interface address list.
+ *
+ * This structure holds either an IPv4 or IPv6 address, along with a type indicator.
+ * It is typically used to store addresses associated with network interfaces.
+ */
 typedef struct {
-	if_address_type ifat_type;
+	if_address_type ifat_type; /**< Type of address (IPv4 or IPv6). */
 	union {
-		uint32_t ip4_addr;   /*  4 byte IP V4 address, or */
-		uint8_t ip6_addr[16];/* 16 byte IP V6 address */
+		uint32_t ip4_addr;     /**< IPv4 address in network byte order. */
+		uint8_t ip6_addr[16];  /**< IPv6 address in network byte order. */
 	} addr;
 } if_addr_t;
 
@@ -93,7 +101,7 @@ extern GList *deserialize_interface_list(char *data, int *err, char **err_str);
  * Local interfaces are fetched by running dumpcap.
  * The remote and extcap interfaces are appended to the list after that.
  */
-extern GList *capture_interface_list(int *err, char **err_str, void (*update_cb)(void));
+extern GList *capture_interface_list(const char* app_name, int *err, char **err_str, void (*update_cb)(void));
 
 /* Error values from "get_interface_list()/capture_interface_list()". */
 #define	CANT_GET_INTERFACE_LIST	1	/* error getting list */
@@ -155,7 +163,7 @@ typedef struct {
  * Fetch the linktype list for the specified interface from a child process.
  */
 extern if_capabilities_t *
-capture_get_if_capabilities(const char *devname, bool monitor_mode,
+capture_get_if_capabilities(const char* app_name, const char *devname, bool monitor_mode,
                             const char *auth_string,
                             char **err_primary_msg, char **err_secondary_msg,
                             void (*update_cb)(void));
@@ -164,7 +172,7 @@ capture_get_if_capabilities(const char *devname, bool monitor_mode,
  * Fetch the linktype list for the specified interface from a child process.
  */
 extern GHashTable *
-capture_get_if_list_capabilities(GList *if_cap_queries,
+capture_get_if_list_capabilities(const char* app_name, GList *if_cap_queries,
                             char **err_primary_msg, char **err_secondary_msg,
                             void (*update_cb)(void));
 

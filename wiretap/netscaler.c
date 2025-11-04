@@ -10,7 +10,7 @@
 #include "netscaler.h"
 
 #include <string.h>
-#include "wtap-int.h"
+#include "wtap_module.h"
 #include "file_wrappers.h"
 #include <wsutil/ws_assert.h>
 #include <wsutil/pint.h>
@@ -1083,7 +1083,7 @@ nstrace_set_start_time_ver(20)
 /*
 ** Set the start time of the trace file. We look for the first ABSTIME record. We use that
 ** to set the start time. Apart from that we also make sure that we remember the position of
-** the next record after the ABSTIME record. Inorder to report correct time values, all trace
+** the next record after the ABSTIME record. In order to report correct time values, all trace
 ** records before the ABSTIME record are ignored.
 */
 static bool nstrace_set_start_time(wtap *wth, int file_version, int *err,

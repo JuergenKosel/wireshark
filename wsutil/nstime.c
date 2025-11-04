@@ -14,10 +14,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+
 #include "epochs.h"
 #include "time_util.h"
 #include "to_str.h"
 #include "strtoi.h"
+#include "ws_assert.h"
 
 /* this is #defined so that we can clearly see that we have the right number of
    zeros, rather than as a guard against the number of nanoseconds in a second
@@ -81,6 +84,18 @@ void nstime_copy(nstime_t *a, const nstime_t *b)
 
 void nstime_delta(nstime_t *delta, const nstime_t *b, const nstime_t *a )
 {
+    if (G_UNLIKELY(nstime_is_unset(a) || nstime_is_unset(b))) {
+        nstime_set_unset(delta);
+        return;
+    }
+    /* If calculations with the nanoseconds overflow, the nanoseconds are
+     * outside the valid range, probably because the struct member was set
+     * directly from packet data without checking the value. */
+    if (ckd_sub(&delta->nsecs, b->nsecs, a->nsecs)) {
+        ws_warn_badarg("Nanoseconds outside valid range.");
+        delta->nsecs = 0;
+        errno = EINVAL;
+    }
     if (b->secs == a->secs) {
         /* The seconds part of b is the same as the seconds part of a, so if
            the nanoseconds part of the first time is less than the nanoseconds
@@ -88,9 +103,8 @@ void nstime_delta(nstime_t *delta, const nstime_t *b, const nstime_t *a )
            just be the difference between the nanoseconds part of b and the
            nanoseconds part of a; don't adjust the seconds part of the delta,
            as it's OK if the nanoseconds part is negative, and an overflow
-           can never result. */
+           should never result. */
         delta->secs = 0;
-        delta->nsecs = b->nsecs - a->nsecs;
     } else if (b->secs < a->secs) {
         /* The seconds part of b is less than the seconds part of a, so b is
            before a.
@@ -99,18 +113,32 @@ void nstime_delta(nstime_t *delta, const nstime_t *b, const nstime_t *a )
            should have the same sign, so if the difference between the
            nanoseconds values would be *positive*, subtract 1,000,000,000
            from it, and add one to the seconds value. */
-        delta->secs = b->secs - a->secs;
-        delta->nsecs = b->nsecs - a->nsecs;
+        delta->secs = b->secs;
         if(delta->nsecs > 0) {
             delta->nsecs -= NS_PER_S;
-            delta->secs ++;
+            /* This can never overflow, because b is less than a. */
+            delta->secs++;
+        }
+        if (ckd_sub(&delta->secs, delta->secs, a->secs)) {
+            /* Because b is less than a, the correct answer is smaller than
+             * representable. Clamp to the minimum valid value. */
+            delta->secs = TIME_T_MIN;
+            delta->nsecs = 1 - NS_PER_S;
+            errno = ERANGE;
         }
     } else {
-        delta->secs = b->secs - a->secs;
-        delta->nsecs = b->nsecs - a->nsecs;
+        delta->secs = b->secs;
         if(delta->nsecs < 0) {
             delta->nsecs += NS_PER_S;
-            delta->secs --;
+            /* This can never overflow, because b is greater than a. */
+            delta->secs--;
+        }
+        if (ckd_sub(&delta->secs, delta->secs, a->secs)) {
+            /* Because b is greater than a, the correct answer is greater
+             * than representable. Clamp to the maximum valid value. */
+            delta->secs = TIME_T_MAX;
+            delta->nsecs = NS_PER_S - 1;
+            errno = ERANGE;
         }
     }
 }
@@ -122,14 +150,42 @@ void nstime_delta(nstime_t *delta, const nstime_t *b, const nstime_t *a )
 
 void nstime_sum(nstime_t *sum, const nstime_t *a, const nstime_t *b)
 {
-    sum->secs = a->secs + b->secs;
-    sum->nsecs = a->nsecs + b->nsecs;
+    if (G_UNLIKELY(nstime_is_unset(a) || nstime_is_unset(b))) {
+        nstime_set_unset(sum);
+        return;
+    }
+    if (ckd_add(&sum->nsecs, a->nsecs, b->nsecs)) {
+        ws_warn_badarg("Nanoseconds outside valid range.");
+        sum->nsecs = 0;
+        errno = EINVAL;
+    }
+    if (ckd_add(&sum->secs, a->secs, b->secs)) {
+        if (a->secs > 0) {
+            sum->secs = TIME_T_MAX;
+            sum->nsecs = NS_PER_S - 1;
+        } else {
+            sum->secs = TIME_T_MIN;
+            sum->nsecs = 1 - NS_PER_S;
+        }
+        errno = ERANGE;
+        return;
+    }
     if(sum->nsecs>=NS_PER_S || (sum->nsecs>0 && sum->secs<0)){
         sum->nsecs-=NS_PER_S;
-        sum->secs++;
+        if (ckd_add(&sum->secs, sum->secs, 1)) {
+            sum->secs = TIME_T_MAX;
+            sum->nsecs = NS_PER_S - 1;
+            errno = ERANGE;
+            return;
+        }
     } else if(sum->nsecs<=-NS_PER_S || (sum->nsecs<0 && sum->secs>0)) {
         sum->nsecs+=NS_PER_S;
-        sum->secs--;
+        if (ckd_sub(&sum->secs, sum->secs, 1)) {
+            sum->secs = TIME_T_MIN;
+            sum->nsecs = 1 - NS_PER_S;
+            errno = ERANGE;
+            return;
+        }
     }
 }
 
@@ -216,25 +272,6 @@ void nstime_rounded(nstime_t *a, const nstime_t *b, ws_tsprec_e prec)
     nstime_sum(a, b, &round);
     a->nsecs = (a->nsecs / dv) * dv;
 }
-
-/*
- * Compute the minimum and maximum time_t values.
- *
- * This code is based on the Samba code:
- *
- *  Unix SMB/Netbios implementation.
- *  Version 1.9.
- *  time handling functions
- *  Copyright (C) Andrew Tridgell 1992-1998
- */
-
-#ifndef TIME_T_MIN
-#define TIME_T_MIN ((time_t) ((time_t)0 < (time_t) -1 ? (time_t) 0 \
-                    : (time_t) (~0ULL << (sizeof (time_t) * CHAR_BIT - 1))))
-#endif
-#ifndef TIME_T_MAX
-#define TIME_T_MAX ((time_t) (~ (time_t) 0 - TIME_T_MIN))
-#endif
 
 static bool
 common_filetime_to_nstime(nstime_t *nstime, uint64_t ftsecs, int nsecs)
@@ -677,7 +714,7 @@ size_t nstime_to_iso8601(char *buf, size_t buf_size, const nstime_t *nstime)
     }
 
     /* Some platforms (MinGW-w64) do not support %F or %T. */
-    /* Returns number of bytes, excluding terminaning null, placed in
+    /* Returns number of bytes, excluding terminating null, placed in
      * buf, or zero if there is not enough space for the whole string. */
     len = strftime(buf, buf_size, "%Y-%m-%dT%H:%M:%S", tm);
     if (len == 0) {

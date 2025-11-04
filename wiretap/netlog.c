@@ -19,7 +19,7 @@
 
 #include <string.h>
 
-#include "wtap-int.h"
+#include "wtap_module.h"
 #include "file_wrappers.h"
 
 /* Grab constants for generating supporting layers */
@@ -30,8 +30,8 @@
 
 #define WS_LOG_DOMAIN "NetLog"
 
-/* Note that this chokes on large files. A 110 MB file took about 2 minutes to load. Adjust as appropriate. */
-#define MAX_FILE_SIZE (120*1024*1024)
+/* This is to avoid having large files overload the JSON parser. Adjust as appropriate. */
+#define MAX_FILE_SIZE (1024*1024*1024)
 
 #define DECRYPTED_TRAFFIC_PORT 44380
 #define CLIENT_SEQ_START 10000

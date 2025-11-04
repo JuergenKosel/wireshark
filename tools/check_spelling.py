@@ -17,26 +17,14 @@ from spellchecker import SpellChecker
 from collections import Counter
 from html.parser import HTMLParser
 import urllib.request
+from check_common import *
 
 # Looks for spelling errors among strings found in source or documentation files.
 # N.B.,
 # - To run this script, you should install pyspellchecker (not spellchecker) using pip.
 # - Because of colouring, you may want to pipe into less -R
 
-
 # TODO: check structured doxygen comments?
-
-# For text colouring/highlighting.
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    ADDED = '\033[45m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 
 # Try to exit soon after Ctrl-C is pressed.
@@ -68,6 +56,41 @@ def camelCaseSplit(identifier):
     return [m.group(0) for m in matches]
 
 
+# Build this translation table only once.
+replacements = str.maketrans({'.' : ' ',
+                                ',' : ' ',
+                                '`' : ' ',
+                                ':' : ' ',
+                                ';' : ' ',
+                                '"' : ' ',
+                                '\\' : ' ',
+                                '+' : ' ',
+                                '|' : ' ',
+                                '(' : ' ',
+                                ')' : ' ',
+                                '[' : ' ',
+                                ']' : ' ',
+                                '{' : ' ',
+                                '}' : ' ',
+                                '<' : ' ',
+                                '>' : ' ',
+                                '_' : ' ',
+                                '-' : ' ',
+                                '/' : ' ',
+                                '!' : ' ',
+                                '?' : ' ',
+                                '=' : ' ',
+                                '*' : ' ',
+                                '%' : ' ',
+                                '#' : ' ',
+                                '&' : ' ',
+                                '@' : ' ',
+                                '$' : ' ',
+                                '^' : ' ',
+                                "'" : ' ',
+                                '~' : ' '})
+
+
 # A File object contains all of the strings to be checked for a given file.
 class File:
     def __init__(self, file):
@@ -79,41 +102,24 @@ class File:
         self.code_file = extension in {'.c', '.cpp', '.h', '.cnf' }
 
 
-        with open(file, 'r', encoding="utf8") as f:
-            contents = f.read()
-
-            if self.code_file:
-                # Remove comments so as not to trip up RE.
-                contents = removeComments(contents)
-
-            # Find protocol name and add to dict.
-            # N.B. doesn't work when a variable is used instead of a literal for the protocol name...
-            matches = re.finditer(r'proto_register_protocol\s*\([\n\r\s]*\"(.*)\",[\n\r\s]*\"(.*)\",[\n\r\s]*\"(.*)\"', contents)
-            for m in matches:
-                protocol = m.group(3)
-                # Add to dict.
-                spell.word_frequency.load_words([protocol])
-                spell.known([protocol])
-                print('Protocol is: ' + bcolors.BOLD +  protocol + bcolors.ENDC)
-
     # Add a string found in this file.
     def add(self, value):
         self.values.append(value.encode('utf-8') if sys.platform.startswith('win') else value)
 
     # Whole word is not recognised, but is it 2 words concatenated (without camelcase) ?
     def checkMultiWords(self, word):
+        length = len(word)
         if len(word) < 6:
             return False
 
         # Don't consider if mixed cases.
         if not (word.islower() or word.isupper()):
-            # But make an exception if only the fist letter is uppercase..
+            # But make an exception if only the first letter is uppercase.
             if not word == (word[0].upper() + word[1:]):
                 return False
 
         # Try splitting into 2 words recognised at various points.
         # Allow 3-letter words.
-        length = len(word)
         for idx in range(3, length-3):
             word1 = word[0:idx]
             word2 = word[idx:]
@@ -139,7 +145,7 @@ class File:
         for idx in range(4, length+1):
             w = word[0:idx]
             if not spell.unknown([w]):
-                if idx == len(word):
+                if idx == length:
                     return True
                 else:
                     if self.checkMultiWordsRecursive(word[idx:]):
@@ -155,7 +161,6 @@ class File:
                                        "khz", "km", "ms", "usec", "sec", "gbe", "ns", "ksps", "qam", "mm" }:
                 return True
         return False
-
 
     # Check the spelling of all the words we have found
     def spellCheck(self):
@@ -181,43 +186,14 @@ class File:
             original = str(v)
 
             # Replace most punctuation with spaces, and eliminate common format specifiers.
-            v = v.replace('.', ' ')
-            v = v.replace(',', ' ')
-            v = v.replace('`', ' ')
-            v = v.replace(':', ' ')
-            v = v.replace(';', ' ')
-            v = v.replace('"', ' ')
-            v = v.replace('\\', ' ')
-            v = v.replace('+', ' ')
-            v = v.replace('|', ' ')
-            v = v.replace('(', ' ')
-            v = v.replace(')', ' ')
-            v = v.replace('[', ' ')
-            v = v.replace(']', ' ')
-            v = v.replace('{', ' ')
-            v = v.replace('}', ' ')
-            v = v.replace('<', ' ')
-            v = v.replace('>', ' ')
-            v = v.replace('_', ' ')
-            v = v.replace('-', ' ')
-            v = v.replace('/', ' ')
-            v = v.replace('!', ' ')
-            v = v.replace('?', ' ')
-            v = v.replace('=', ' ')
-            v = v.replace('*', ' ')
             v = v.replace('%u', '')
             v = v.replace('%d', '')
             v = v.replace('%s', '')
-            v = v.replace('%', ' ')
-            v = v.replace('#', ' ')
-            v = v.replace('&', ' ')
-            v = v.replace('@', ' ')
-            v = v.replace('$', ' ')
-            v = v.replace('^', ' ')
-            v = v.replace('®', '')
-            v = v.replace("'", ' ')
-            v = v.replace('"', ' ')
-            v = v.replace('~', ' ')
+            v = v.translate(replacements)
+            v = v.replace('®' , '')
+            # Quote marks found in some of the docs...
+            v = v.replace('“', '')
+            v = v.replace('”', '')
 
             # Split into words.
             value_words = v.split()
@@ -231,9 +207,6 @@ class File:
                 # Strip trailing digits from word.
                 word = word.rstrip('1234567890')
 
-                # Quote marks found in some of the docs...
-                word = word.replace('“', '')
-                word = word.replace('”', '')
 
                 # Single and collective possession
                 if word.endswith("’s"):
@@ -288,17 +261,6 @@ def removeContractions(code_string):
 def removeURLs(code_string):
     code_string = re.sub(re.compile(r'https?://(?:[a-zA-Z0-9./_?&=-]+|%[0-9a-fA-F]{2})+', re.DOTALL), "" , code_string)
     return code_string
-
-
-def removeComments(code_string):
-    # C-style comment
-    code_string = re.sub(re.compile(r"(?<!/)/\*.*?\*/", re.DOTALL), "" , code_string)
-    # C++-style comment
-    # Avoid matching // where it is allowed, e.g.,  https://www... or file:///...
-    code_string = re.sub(re.compile(r"(?<!:)(?<!/)(?<!\")(?<!\"\s\s)(?<!file:/)(?<!\.)(?<!\,\s)(?<!\\n)//.*?\n" ),
-                         "" , code_string)
-    return code_string
-
 
 def getCommentWords(code_string):
     words = []
@@ -364,6 +326,17 @@ def findStrings(filename, check_comments=False):
             contents = removeComments(contents)
             contents = removeWhitespaceControl(contents)
 
+            # Find protocol name and add to dict.
+            # N.B. doesn't work when a variable is used instead of a literal for the protocol name...
+            matches = re.finditer(r'proto_register_protocol\s*\([\n\r\s]*\"(.*)\",[\n\r\s]*\"(.*)\",[\n\r\s]*\"(.*)\"', contents)
+            for m in matches:
+                protocol = m.group(3)
+                # Add to dict.
+                spell.word_frequency.load_words([protocol])
+                spell.known([protocol])
+                print('Protocol is: ' + bcolors.BOLD +  protocol + bcolors.ENDC)
+
+
             # Code so only checking strings.
             matches = re.finditer(r'\"([^\"]*)\"', contents)
             for m in matches:
@@ -376,52 +349,9 @@ def findStrings(filename, check_comments=False):
         return file
 
 
-# Test for whether the given file was automatically generated.
-def isGeneratedFile(filename):
-    # Check file exists - e.g. may have been deleted in a recent commit.
-    if not os.path.exists(filename):
-        return False
-
-    if not filename.endswith('.c'):
-        return False
-
-    # This file is generated, but notice is further in than want to check for all files
-    if filename.endswith('pci-ids.c') or filename.endswith('services-data.c') or filename.endswith('manuf-data.c'):
-        return True
-
-    if filename.endswith('packet-woww.c'):
-        return True
-
-    # Open file
-    f_read = open(os.path.join(filename), 'r', encoding="utf8")
-    for line_no,line in enumerate(f_read):
-        # The comment to say that its generated is near the top, so give up once
-        # get a few lines down.
-        if line_no > 10:
-            f_read.close()
-            return False
-        if ('Generated automatically' in line or
-            'Autogenerated from' in line or
-            'is autogenerated' in line or
-            'automatically generated by Pidl' in line or
-            'Created by: The Qt Meta Object Compiler' in line or
-            'This file was generated' in line or
-            'This filter was automatically generated' in line or
-            'This file is auto generated, do not edit!' in line or
-            'This file is autogenerated' in line or
-            'this file is automatically generated' in line):
-
-            f_read.close()
-            return True
-
-    # OK, looks like a hand-written file!
-    f_read.close()
-    return False
-
-
 def isAppropriateFile(filename):
     file, extension = os.path.splitext(filename)
-    if filename.find('CMake') != -1:
+    if 'CMake' in filename:
         return False
     # TODO: add , '.lua' ?
     return extension in { '.adoc', '.c', '.h', '.cpp', '.pod', '.txt' } or file.endswith('README')
@@ -557,29 +487,10 @@ if args.file:
         else:
             files.append(f)
 if args.commits:
-    # Get files affected by specified number of commits.
-    command = ['git', 'diff', '--name-only', 'HEAD~' + args.commits]
-    files = [f.decode('utf-8')
-             for f in subprocess.check_output(command).splitlines()]
-    # Filter files
-    files = list(filter(lambda f : os.path.exists(f) and isAppropriateFile(f) and not isGeneratedFile(f), files))
-
+    files = getFilesFromCommits(args.commits, onlyDissectors=False)
 if args.open:
     # Unstaged changes.
-    command = ['git', 'diff', '--name-only']
-    files = [f.decode('utf-8')
-             for f in subprocess.check_output(command).splitlines()]
-    # Filter files.
-    files = list(filter(lambda f : isAppropriateFile(f) and not isGeneratedFile(f), files))
-    # Staged changes.
-    command = ['git', 'diff', '--staged', '--name-only']
-    files_staged = [f.decode('utf-8')
-                    for f in subprocess.check_output(command).splitlines()]
-    # Filter files.
-    files_staged = list(filter(lambda f : isAppropriateFile(f) and not isGeneratedFile(f), files_staged))
-    for f in files_staged:
-        if f not in files:
-            files.append(f)
+    files = getFilesFromOpen(onlyDissectors=False)
 
 if args.glob:
     # Add specified file(s)
@@ -615,7 +526,7 @@ if not args.file and not args.open and not args.commits and not args.glob and no
 print('Examining:')
 if args.file or args.folder or args.commits or args.open or args.glob:
     if files:
-        print(' '.join(files), '\n')
+        print(' '.join(files), '(', len(files), 'files )\n')
     else:
         print('No files to check.\n')
 else:

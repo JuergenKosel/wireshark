@@ -88,7 +88,12 @@ commandline_print_usage(bool for_help_option) {
     FILE *output;
 
 #ifdef _WIN32
-    create_console();
+    if (application_flavor_is_wireshark()) {
+        create_console("Wireshark Debug Console");
+    }
+    else {
+        create_console("Stratoshark Debug Console");
+    }
 #endif
 
     if (for_help_option) {
@@ -366,14 +371,19 @@ int commandline_early_options(int argc, char *argv[])
             case 'D':        /* Print a list of capture devices and exit */
 #ifdef HAVE_LIBPCAP
                 exit_status = WS_EXIT_NOW;
-                if_list = capture_interface_list(&err, &err_str, NULL);
+                if_list = capture_interface_list(global_capture_opts.app_name, &err, &err_str, NULL);
                 if (err != 0) {
                     /*
                      * An error occurred when fetching the local
                      * interfaces.  Report it.
                      */
 #ifdef _WIN32
-                    create_console();
+                    if (application_flavor_is_wireshark()) {
+                        create_console("Wireshark Debug Console");
+                    }
+                    else {
+                        create_console("Stratoshark Debug Console");
+                    }
 #endif /* _WIN32 */
                     cmdarg_err("%s", err_str);
                     g_free(err_str);
@@ -392,7 +402,12 @@ int commandline_early_options(int argc, char *argv[])
                     return exit_status;
                 }
 #ifdef _WIN32
-                create_console();
+                if (application_flavor_is_wireshark()) {
+                    create_console("Wireshark Debug Console");
+                }
+                else {
+                    create_console("Stratoshark Debug Console");
+                }
 #endif /* _WIN32 */
                 capture_opts_print_interfaces(if_list);
                 free_interface_list(if_list);
@@ -421,7 +436,12 @@ int commandline_early_options(int argc, char *argv[])
                 break;
             case 'v':        /* Show version and exit */
 #ifdef _WIN32
-                create_console();
+                if (application_flavor_is_wireshark()) {
+                    create_console("Wireshark Debug Console");
+                }
+                else {
+                    create_console("Stratoshark Debug Console");
+                }
 #endif
                 show_version();
 #ifdef _WIN32
@@ -542,7 +562,7 @@ void commandline_override_prefs(int argc, char *argv[], bool opt_reset)
 
 }
 
-void commandline_other_options(int argc, char *argv[], bool opt_reset)
+void commandline_other_options(capture_options* capture_opts _U_, int argc, char *argv[], bool opt_reset)
 {
     int opt;
     bool arg_error = false;
@@ -823,7 +843,7 @@ void commandline_other_options(int argc, char *argv[], bool opt_reset)
             exit_application(1);
         }
         /* No - did they specify a ring buffer option? */
-        if (global_capture_opts.multi_files_on) {
+        if (capture_opts->multi_files_on) {
             cmdarg_err("Ring buffer requested, but a capture isn't being done.");
             exit_application(1);
         }
@@ -838,21 +858,21 @@ void commandline_other_options(int argc, char *argv[], bool opt_reset)
 
         /* No - was the ring buffer option specified and, if so, does it make
            sense? */
-        if (global_capture_opts.multi_files_on) {
+        if (capture_opts->multi_files_on) {
             /* Ring buffer works only under certain conditions:
              a) ring buffer does not work with temporary files;
              b) real_time_mode and multi_files_on are mutually exclusive -
              real_time_mode takes precedence;
              c) it makes no sense to enable the ring buffer if the maximum
              file size is set to "infinite". */
-            if (global_capture_opts.save_file == NULL) {
+            if (capture_opts->save_file == NULL) {
                 cmdarg_err("Ring buffer requested, but capture isn't being saved to a permanent file.");
-                global_capture_opts.multi_files_on = false;
+                capture_opts->multi_files_on = false;
             }
-            if (!global_capture_opts.has_autostop_filesize &&
-                !global_capture_opts.has_file_duration &&
-                !global_capture_opts.has_file_interval &&
-                !global_capture_opts.has_file_packets) {
+            if (!capture_opts->has_autostop_filesize &&
+                !capture_opts->has_file_duration &&
+                !capture_opts->has_file_interval &&
+                !capture_opts->has_file_packets) {
                 cmdarg_err("Ring buffer requested, but no maximum capture file size, duration, interval or packets were specified.");
                 /* XXX - this must be redesigned as the conditions changed */
             }

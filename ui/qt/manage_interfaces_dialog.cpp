@@ -24,6 +24,7 @@
 #include "capture/capture-pcap-util.h"
 #include "ui/recent.h"
 #include "wsutil/filesystem.h"
+#include "wsutil/application_flavor.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -104,6 +105,7 @@ void ManageInterfacesDialog::addRemote(const QVariantMap&& remoteHostMap)
 
     GList* rlist = get_remote_interface_list(global_remote_opts.remote_host_opts.remote_host,
         global_remote_opts.remote_host_opts.remote_port,
+        application_flavor_is_wireshark(),
         global_remote_opts.remote_host_opts.auth_type,
         global_remote_opts.remote_host_opts.auth_username,
         global_remote_opts.remote_host_opts.auth_password,
@@ -355,7 +357,7 @@ void ManageInterfacesDialog::remoteSelectionChanged(QTreeWidgetItem*, int)
     updateWidgets();
 }
 
-void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_options* roptions)
+void ManageInterfacesDialog::updateRemoteInterfaceList(capture_options* capture_opts, GList* rlist, remote_options* roptions)
 {
     GList *if_entry, *lt_entry;
     if_info_t *if_info;
@@ -379,7 +381,7 @@ void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_opti
     // Most of this is copied from scan_local_interfaces_filtered, but
     // some of it doesn't make sense for remote interfaces (yet?) - we
     // can't, for example, control monitor mode.
-    num_interfaces = global_capture_opts.all_ifaces->len;
+    num_interfaces = capture_opts->all_ifaces->len;
     for (if_entry = g_list_first(rlist); if_entry != NULL; if_entry = gxx_list_next(if_entry)) {
         auth_str = NULL;
         if_info = gxx_list_data(if_info_t *, if_entry);
@@ -387,7 +389,7 @@ void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_opti
         add_interface_to_remote_list(if_info);
 #endif
         for (i = 0; i < num_interfaces; i++) {
-            device = g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+            device = g_array_index(capture_opts->all_ifaces, interface_t, i);
             if (device.hidden)
                 continue;
             if (strcmp(device.name, if_info->name) == 0) {
@@ -428,24 +430,24 @@ void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_opti
             device.display_name = g_strdup(if_string);
         }
         if ((device.buffer = capture_dev_user_buffersize_find(if_string)) == -1) {
-            device.buffer = global_capture_opts.default_options.buffer_size;
+            device.buffer = capture_opts->default_options.buffer_size;
         }
         if (!capture_dev_user_pmode_find(if_string, &device.pmode)) {
-            device.pmode = global_capture_opts.default_options.promisc_mode;
+            device.pmode = capture_opts->default_options.promisc_mode;
         }
         if (!capture_dev_user_snaplen_find(if_string, &device.has_snaplen,
                                            &device.snaplen)) {
-            device.has_snaplen = global_capture_opts.default_options.has_snaplen;
-            device.snaplen = global_capture_opts.default_options.snaplen;
+            device.has_snaplen = capture_opts->default_options.has_snaplen;
+            device.snaplen = capture_opts->default_options.snaplen;
         }
-        device.cfilter = g_strdup(global_capture_opts.default_options.cfilter);
-        device.timestamp_type = g_strdup(global_capture_opts.default_options.timestamp_type);
+        device.cfilter = g_strdup(capture_opts->default_options.cfilter);
+        device.timestamp_type = g_strdup(capture_opts->default_options.timestamp_type);
         monitor_mode = prefs_capture_device_monitor_mode(if_string);
         if (roptions->remote_host_opts.auth_type == CAPTURE_AUTH_PWD) {
             auth_str = ws_strdup_printf("%s:%s", roptions->remote_host_opts.auth_username,
                                        roptions->remote_host_opts.auth_password);
         }
-        caps = capture_get_if_capabilities(if_string, monitor_mode, auth_str, NULL, NULL, main_window_update);
+        caps = capture_get_if_capabilities(capture_opts->app_name, if_string, monitor_mode, auth_str, NULL, NULL, main_window_update);
         g_free(auth_str);
         for (; (curr_addr = g_slist_nth(if_info->addrs, ips)) != NULL; ips++) {
             address addr_str;
@@ -528,15 +530,15 @@ void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_opti
         device.remote_opts.sampling_param = roptions->sampling_param;
 #endif
         device.selected = true;
-        global_capture_opts.num_selected++;
-        g_array_append_val(global_capture_opts.all_ifaces, device);
+        capture_opts->num_selected++;
+        g_array_append_val(capture_opts->all_ifaces, device);
         g_string_free(ip_str, TRUE);
     } /*for*/
 }
 
 void ManageInterfacesDialog::addRemoteInterfaces(GList* rlist, remote_options *roptions)
 {
-    updateRemoteInterfaceList(rlist, roptions);
+    updateRemoteInterfaceList(&global_capture_opts, rlist, roptions);
     showRemoteInterfaces();
 }
 

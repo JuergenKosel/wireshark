@@ -37,6 +37,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/application_flavor.h>
 #include <cli_main.h>
 #include <wsutil/version_info.h>
 
@@ -61,7 +62,7 @@
 #include <epan/stat_tap_ui.h>
 #include <epan/ex-opt.h>
 
-#include <wiretap/wtap-int.h>
+#include <wiretap/wtap_module.h>
 #include <wiretap/file_wrappers.h>
 
 #include <epan/funnel.h>
@@ -320,7 +321,7 @@ main(int argc, char *argv[])
     cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init(vcmdarg_err);
+    ws_log_init(vcmdarg_err, "TFShark Debug Console");
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, optstring, long_options, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -344,7 +345,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0]);
+    configuration_init_error = configuration_init(argv[0], "wireshark");
     if (configuration_init_error != NULL) {
         fprintf(stderr,
                 "tfshark: Can't get pathname of directory containing the tfshark program: %s.\n",
@@ -355,7 +356,7 @@ main(int argc, char *argv[])
     initialize_funnel_ops();
 
     /* Initialize the version information. */
-    ws_init_version_info("TFShark",
+    ws_init_version_info("TFShark", application_flavor_name_proper(), get_ws_vcs_version_info,
                          epan_gather_compile_info,
                          epan_gather_runtime_info);
     /*
@@ -1230,7 +1231,7 @@ process_file(capture_file *cf)
     /* Get the union of the flags for all tap listeners. */
     tap_flags = union_of_tap_listener_flags();
 
-    wtap_rec_init(&file_rec, 1514);
+    wtap_rec_init(&file_rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     /* XXX - TEMPORARY HACK TO ELF DISSECTOR */
     file_rec.rec_header.packet_header.pkt_encap = 1234;

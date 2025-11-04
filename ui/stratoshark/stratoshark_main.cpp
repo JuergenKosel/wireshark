@@ -166,7 +166,7 @@ static void
 stratoshark_cmdarg_err(const char *fmt, va_list ap)
 {
 #ifdef _WIN32
-    create_console();
+    create_console("Stratoshark Debug Console");
 #endif
     fprintf(stderr, "stratoshark: ");
     vfprintf(stderr, fmt, ap);
@@ -182,7 +182,7 @@ static void
 stratoshark_cmdarg_err_cont(const char *fmt, va_list ap)
 {
 #ifdef _WIN32
-    create_console();
+    create_console("Stratoshark Debug Console");
 #endif
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
@@ -393,12 +393,12 @@ capture_opts_get_interface_list(int *err _U_, char **err_str _U_)
     if (mainApp) {
         GList *if_list = mainApp->getInterfaceList();
         if (if_list == NULL) {
-            if_list = capture_interface_list(err, err_str, main_window_update);
+            if_list = capture_interface_list(global_capture_opts.app_name, err, err_str, main_window_update);
             mainApp->setInterfaceList(if_list);
         }
         return if_list;
     }
-    return capture_interface_list(err, err_str, main_window_update);
+    return capture_interface_list(global_capture_opts.app_name, err, err_str, main_window_update);
 #endif
     return append_extcap_interface_list(NULL);
 }
@@ -470,7 +470,7 @@ int main(int argc, char *qt_argv[])
     cmdarg_err_init(stratoshark_cmdarg_err, stratoshark_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init(vcmdarg_err);
+    ws_log_init(vcmdarg_err, "Stratoshark Debug Console");
     /* For backward compatibility with GLib logging and Wireshark 3.4. */
     ws_log_console_writer_set_use_stdout(true);
 
@@ -540,7 +540,7 @@ int main(int argc, char *qt_argv[])
      * executable file.
      */
     set_application_flavor(APPLICATION_FLAVOR_STRATOSHARK);
-    /* configuration_init_error = */ configuration_init(argv[0]);
+    /* configuration_init_error = */ configuration_init(argv[0], "stratoshark");
     /* ws_log(NULL, LOG_LEVEL_DEBUG, "progfile_dir: %s", get_progfile_dir()); */
 
 #ifdef _WIN32
@@ -551,7 +551,7 @@ int main(int argc, char *qt_argv[])
 #endif /* _WIN32 */
 
     /* Get the compile-time version information string */
-    ws_init_version_info("Stratoshark", gather_wireshark_qt_compiled_info,
+    ws_init_version_info("Stratoshark", application_flavor_name_proper(), get_ss_vcs_version_info, gather_wireshark_qt_compiled_info,
                          gather_wireshark_runtime_info);
 
     init_report_alert_box("Stratoshark");
@@ -684,7 +684,7 @@ int main(int argc, char *qt_argv[])
 #ifdef HAVE_LIBPCAP
     /* Set the initial values in the capture options. This might be overwritten
        by preference settings and then again by the command line parameters. */
-    capture_opts_init(&global_capture_opts, capture_opts_get_interface_list);
+    capture_opts_init(&global_capture_opts, application_flavor_name_lower(), capture_opts_get_interface_list);
 #endif
 
     /*
@@ -783,10 +783,10 @@ int main(int argc, char *qt_argv[])
      * applied last to take precedence (at least until the user saves
      * preferences, or switches profiles.)
      */
-    prefs_to_capture_opts();
+    prefs_to_capture_opts(&global_capture_opts);
 
     /* Now get our remaining args */
-    commandline_other_options(argc, argv, true);
+    commandline_other_options(&global_capture_opts, argc, argv, true);
 
     /* Convert some command-line parameters to QStrings */
     cf_name = QString(commandline_get_cf_name());
@@ -819,7 +819,7 @@ int main(int argc, char *qt_argv[])
         unsigned i;
 
 #ifdef _WIN32
-        create_console();
+        create_console("Stratoshark Debug Console");
 #endif /* _WIN32 */
         /* Get the list of link-layer types for the capture devices. */
         ret_val = EXIT_SUCCESS;
@@ -838,7 +838,7 @@ int main(int argc, char *qt_argv[])
             if_cap_queries = g_list_prepend(if_cap_queries, if_cap_query);
         }
         if_cap_queries = g_list_reverse(if_cap_queries);
-        capability_hash = capture_get_if_list_capabilities(if_cap_queries, &err_str, &err_str_secondary, NULL);
+        capability_hash = capture_get_if_list_capabilities(global_capture_opts.app_name, if_cap_queries, &err_str, &err_str_secondary, NULL);
         g_list_free_full(if_cap_queries, g_free);
         for (i = 0; i < global_capture_opts.ifaces->len; i++) {
             interface_options *interface_opts;
@@ -928,7 +928,7 @@ int main(int argc, char *qt_argv[])
         g_free(err_msg);
     }
 
-    ssApp->allSystemsGo();
+    ssApp->allSystemsGo(application_flavor_name_proper(), STRATOSHARK_VERSION);
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Stratoshark is up and ready to go, elapsed time %.3fs", (float) (g_get_monotonic_time() - start_time) / 1000000);
     SimpleDialog::displayQueuedMessages(main_w);
 

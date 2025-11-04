@@ -361,8 +361,8 @@ static const char* interface_to_logbuf(char* interface)
 #ifdef _WIN32
 #define CONTINUE_ON_TIMEOUT(length) \
     if (length == SOCKET_ERROR) { \
-        int err = WSAGetLastError(); \
-        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) \
+        int last_err = WSAGetLastError(); \
+        if (last_err == WSAETIMEDOUT || last_err == WSAEWOULDBLOCK) \
             continue; \
     }
 #elif EWOULDBLOCK != EAGAIN
@@ -2515,7 +2515,7 @@ int main(int argc, char *argv[]) {
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    err_msg = configuration_init(argv[0]);
+    err_msg = configuration_init(argv[0], "wireshark");
     if (err_msg != NULL) {
         ws_warning("Can't get pathname of directory containing the extcap program: %s.",
                   err_msg);

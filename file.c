@@ -137,6 +137,8 @@ static bool find_packet(capture_file *cf, ws_match_function match_function,
 /* Show the progress bar after this many seconds. */
 #define PROGBAR_SHOW_DELAY 0.5
 
+#define STATUS_LEN 100
+
 /*
  * Maximum number of records we support in a file.
  *
@@ -262,7 +264,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     /* Initialize the record information.
        XXX - we really want to initialize this after we've read all
        the packets, so we know how much we'll ultimately need. */
-    wtap_rec_init(&cf->rec, 1514);
+    wtap_rec_init(&cf->rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     /* We're about to start reading the file. */
     cf->state = FILE_READ_IN_PROGRESS;
@@ -458,7 +460,7 @@ calc_progbar_val(capture_file *cf, int64_t size, int64_t file_pos, char *status_
     float progbar_val;
 
     progbar_val = (float) file_pos / (float) size;
-    if (progbar_val > 1.0) {
+    if (progbar_val > 1.0f) {
 
         /*  The file probably grew while we were reading it.
          *  Update file size, and try again.
@@ -603,14 +605,14 @@ cf_read(capture_file *cf, bool reloading)
 
     g_timer_start(prog_timer);
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     TRY {
         int64_t file_pos;
         int64_t data_offset;
 
         float   progbar_val;
-        char    status_str[100];
+        char    status_str[STATUS_LEN];
 
         while ((wtap_read(cf->provider.wth, &rec, &err, &err_info,
                         &data_offset))) {
@@ -1434,7 +1436,7 @@ merge_callback(merge_event event, int num _U_,
                     }
 
                     if (cb_data->progbar != NULL) {
-                        char status_str[100];
+                        char status_str[STATUS_LEN];
                         snprintf(status_str, sizeof(status_str),
                                 "%" PRId64 "KB of %" PRId64 "KB",
                                 file_pos / 1024, cb_data->f_len / 1024);
@@ -1659,7 +1661,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, bo
     bool        selected_frame_seen;
     float       progbar_val;
     int64_t     start_time;
-    char        status_str[100];
+    char        status_str[STATUS_LEN];
     epan_dissect_t  edt;
     dfilter_t  *dfcode = NULL;
     column_info *cinfo;
@@ -1680,7 +1682,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, bo
     ws_assert(!cf->read_lock);
     cf->read_lock = true;
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     /* Compile the current display filter.
      * The code it compiles to might have changed, e.g. if a display
@@ -2196,10 +2198,10 @@ process_specified_records(capture_file *cf, packet_range_t *range,
     GTimer          *prog_timer = g_timer_new();
     int              progbar_count;
     float            progbar_val;
-    char             progbar_status_str[100];
+    char             progbar_status_str[STATUS_LEN];
     range_process_e  process_this;
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     g_timer_start(prog_timer);
     /* Count of packets at which we've looked. */
@@ -4563,10 +4565,10 @@ find_packet(capture_file *cf, ws_match_function match_function,
     bool         wrap = prefs.gui_find_wrap;
     bool         succeeded;
     float        progbar_val;
-    char         status_str[100];
+    char         status_str[STATUS_LEN];
     match_result result;
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
     start_fd = start_current ? cf->current_frame : NULL;
     if (start_fd != NULL)  {
@@ -5075,7 +5077,7 @@ cf_get_packet_block(capture_file *cf, const frame_data *fd)
         wtap_block_t block;
 
         /* fetch record block */
-        wtap_rec_init(&rec, 1514);
+        wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
         if (!cf_read_record(cf, fd, &rec))
         { /* XXX, what we can do here? */ }
@@ -5367,7 +5369,7 @@ rescan_file(capture_file *cf, const char *fname, bool is_tempfile)
     int64_t              size;
     float                progbar_val;
     int64_t              start_time;
-    char                 status_str[100];
+    char                 status_str[STATUS_LEN];
     uint32_t             framenum;
     frame_data          *fdata;
 
@@ -5428,7 +5430,7 @@ rescan_file(capture_file *cf, const char *fname, bool is_tempfile)
     start_time = g_get_monotonic_time();
 
     framenum = 0;
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
     while ((wtap_read(cf->provider.wth, &rec, &err, &err_info,
                       &data_offset))) {
         framenum++;

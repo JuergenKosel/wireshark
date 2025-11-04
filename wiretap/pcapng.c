@@ -34,7 +34,7 @@
 #include <wsutil/ws_padding_to.h>
 #include <wsutil/unicode-utils.h>
 
-#include "wtap-int.h"
+#include "wtap_module.h"
 #include "file_wrappers.h"
 #include "required_file_handlers.h"
 #include "pcap-common.h"
@@ -3095,7 +3095,7 @@ pcapng_read_systemd_journal_export_block(wtap *wth, FILE_T fh,
 }
 
 static bool
-pcapng_read_unknown_block(FILE_T fh, guint32 block_content_length,
+pcapng_read_unknown_block(FILE_T fh, uint32_t block_content_length,
     section_info_t *section_info _U_, wtapng_block_t *wblock,
     int *err, char **err_info)
 {

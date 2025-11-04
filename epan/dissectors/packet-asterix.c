@@ -47,6 +47,14 @@ static int ett_asterix_possible_interpretation;
 static int ett_asterix_possible_interpretations;
 static int ett_asterix_spare_error;
 
+/* With invalid data (e.g. fuzz tests), to great of interpretation depth can cause "freezes",
+   where search for interpretations can last a long time. By default depth is set to 15,
+   which should never be a problem for random data. Users can select a higher depth.
+*/
+static unsigned selected_interpretations_depth = depth_15;
+
+static unsigned int solution_count;
+static int solutions[MAX_INTERPRETATIONS][MAX_INTERPRETATION_DEPTH + 1];
 
 static unsigned asterix_get_unsigned_value(tvbuff_t *tvb, unsigned offset, unsigned bytes)
 {
@@ -120,7 +128,7 @@ static bool asterix_extended_end (tvbuff_t *tvb, unsigned offset)
   }
 }
 
-// test specifix FSPEC bit
+// test FSPEC bit
 static bool asterix_field_exists (tvbuff_t *tvb, unsigned offset, unsigned bit_index)
 {
     unsigned int byte_index = bit_index / 8;
@@ -289,9 +297,6 @@ static unsigned asterix_parse_re_field (tvbuff_t *tvb, unsigned offset, proto_tr
     return offset - start_offset;
 }
 
-unsigned int solution_count;
-int solutions[MAX_INTERPRETATIONS][MAX_INTERPRETATION_DEPTH];
-
 static bool check_fspec_validity (tvbuff_t *tvb, unsigned offset, table_params *table)
 {
     unsigned i = 0;
@@ -371,8 +376,13 @@ static int probe_possible_record (tvbuff_t *tvb, unsigned offset, unsigned int c
     return offset;
 }
 
+/* possible return values:
+    0 success
+    -1 to many interpretations
+    -2 recursive depth limit breached
+*/
 // NOLINTNEXTLINE(misc-no-recursion)
-static void probe_possible_records (tvbuff_t *tvb, packet_info *pinfo, int offset, int datablock_end, unsigned int cat, unsigned int ed, uap_table_indexes *indexes, unsigned int *stack, unsigned int depth)
+static int probe_possible_records (tvbuff_t *tvb, packet_info *pinfo, int offset, int datablock_end, unsigned int cat, unsigned int ed, uap_table_indexes *indexes, unsigned int *stack, unsigned int depth)
 {
     for (volatile unsigned int i = indexes->start_index; i <= indexes->end_index; i++)
     {
@@ -397,19 +407,24 @@ static void probe_possible_records (tvbuff_t *tvb, packet_info *pinfo, int offse
                 solution_count++;
                 if (solution_count >= MAX_INTERPRETATIONS)
                 {
-                    THROW(BoundsError);
+                    return -1;
                 }
             }
             else if (new_offset < datablock_end)
             {
-                if ((depth + 1) >= MAX_INTERPRETATION_DEPTH)
+                if ((depth + 1) >= selected_interpretations_depth)
                 {
-                    THROW(BoundsError);
+                    return -2;
                 }
-                probe_possible_records (tvb, pinfo, new_offset, datablock_end, cat, ed, indexes, stack, depth + 1);
+                int result = probe_possible_records (tvb, pinfo, new_offset, datablock_end, cat, ed, indexes, stack, depth + 1);
+                if (result != 0)
+                {
+                    return result;
+                }
             }
         }
     }
+    return 0;
 }
 
 /* possible return values:
@@ -507,12 +522,21 @@ static void dissect_asterix_records (tvbuff_t *tvb, packet_info *pinfo, int offs
     // if category unknown both start_index and end_index are 0
     if ((indexes.end_index - indexes.start_index) > 0)
     {
-        probe_possible_records (tvb, pinfo, offset, datablock_end, cat, ed, &indexes, stack, 0);
+        int result = probe_possible_records (tvb, pinfo, offset, datablock_end, cat, ed, &indexes, stack, 0);
+
         unsigned int backup_offset = offset;
 
         proto_item *possibilities_ti = proto_tree_add_item (tree, hf_asterix_possible_interpretations, tvb, offset, 0, ENC_NA);
         proto_tree *possibilities_tree = proto_item_add_subtree (possibilities_ti, ett_asterix_possible_interpretations);
         proto_item_append_text (possibilities_tree, " %u", solution_count);
+
+        if (result < 0) {
+            if (result == -1) {
+                expert_add_info_format(pinfo, possibilities_ti, &ei_asterix_overflow, "Interpretations number of solutions exceeded");
+            } else {
+                expert_add_info_format(pinfo, possibilities_ti, &ei_asterix_overflow, "Interpretations depth exceeded");
+            }
+        }
 
         if (solution_count == 0) {
             expert_add_info_format(pinfo, possibilities_ti, &ei_asterix_overflow, "No possible solution found");
@@ -664,6 +688,7 @@ void proto_register_asterix (void)
     static ei_register_info ei[] = {
         { &ei_asterix_overflow, { "asterix.overflow", PI_PROTOCOL, PI_ERROR, "Asterix overflow", EXPFILL }},
         { &hf_asterix_spare_error, { "asterix.spare_error", PI_PROTOCOL, PI_WARN, "Spare bit error", EXPFILL }},
+        { &hf_asterix_fx_error, { "asterix.fx_error", PI_PROTOCOL, PI_ERROR, "FX end bit error", EXPFILL }},
         { &hf_asterix_fspec_error, { "asterix.fspec_error", PI_PROTOCOL, PI_ERROR, "FSPEC error", EXPFILL }}
     };
 
@@ -684,6 +709,10 @@ void proto_register_asterix (void)
         dialog_cat_struct cat = asterix_properties[i];
         prefs_register_enum_preference(asterix_module, cat.cat_name, cat.cat_name, NULL, cat.cat_default_value, cat.cat_enums, FALSE);
     }
+
+    prefs_register_enum_preference(asterix_module, "interpretations_depth", "Interpretations depth",
+                                   "Interpretations depth for categories with multiple possible UAPs",
+                                   &selected_interpretations_depth, interpretations_level_enum_vals, false);
 }
 
 void proto_reg_handoff_asterix (void)

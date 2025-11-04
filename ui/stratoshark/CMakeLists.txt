@@ -262,6 +262,10 @@ endif()
 set (STRATOSHARK_QT_HEADERS
 	stratoshark_application.h
 	stratoshark_main_window.h
+	stratoshark_about_dialog.h
+	stratoshark_follow_stream_dialog.h
+	stratoshark_profile_dialog.h
+	stratoshark_search_frame.h
 	${WIRESHARK_QT_HEADERS}
 )
 
@@ -499,6 +503,10 @@ set (STRATOSHARK_QT_SRC
 	stratoshark_main.cpp
 	stratoshark_main_window.cpp
 	stratoshark_main_window_slots.cpp
+	stratoshark_about_dialog.cpp
+	stratoshark_follow_stream_dialog.cpp
+	stratoshark_profile_dialog.cpp
+	stratoshark_search_frame.cpp
 	${WIRESHARK_QT_SRC})
 
 set(WIRESHARK_QT_TAP_SRC

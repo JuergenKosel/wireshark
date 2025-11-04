@@ -149,7 +149,7 @@ main(int argc, char *argv[])
     cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init(vcmdarg_err);
+    ws_log_init(vcmdarg_err, "SharkD Debug Console");
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, sharkd_optstring(), sharkd_long_options(), vcmdarg_err, SHARKD_INIT_FAILED);
@@ -168,14 +168,14 @@ main(int argc, char *argv[])
     /*
      * Attempt to get the pathname of the executable file.
      */
-    configuration_init_error = configuration_init(argv[0]);
+    configuration_init_error = configuration_init(argv[0], "wireshark");
     if (configuration_init_error != NULL) {
         fprintf(stderr, "sharkd: Can't get pathname of sharkd program: %s.\n",
                 configuration_init_error);
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Sharkd",
+    ws_init_version_info("Sharkd", NULL, get_ws_vcs_version_info,
                          epan_gather_compile_info,
                          epan_gather_runtime_info);
 
@@ -373,7 +373,7 @@ load_cap_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
             edt = epan_dissect_new(cf->epan, create_proto_tree, false);
         }
 
-        wtap_rec_init(&rec, 1514);
+        wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
         while (wtap_read(cf->provider.wth, &rec, &err, &err_info, &data_offset)) {
             if (process_packet(cf, edt, data_offset, &rec)) {
@@ -581,7 +581,7 @@ sharkd_retap(void)
     create_proto_tree =
         (have_filtering_tap_listeners() || (tap_flags & TL_REQUIRES_PROTO_TREE));
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
     epan_dissect_init(&edt, cfile.epan, create_proto_tree, false);
 
     reset_tap_listeners();
@@ -636,7 +636,7 @@ sharkd_filter(const char *dftext, uint8_t **result)
 
     frames_count = cfile.count;
 
-    wtap_rec_init(&rec, 1514);
+    wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
     epan_dissect_init(&edt, cfile.epan, true, false);
 
     passed_bits = 0;
@@ -713,7 +713,7 @@ sharkd_get_packet_block(const frame_data *fd)
         int err;
         char *err_info;
 
-        wtap_rec_init(&rec, 1514);
+        wtap_rec_init(&rec, DEFAULT_INIT_BUFFER_SIZE_2048);
 
         if (!wtap_seek_read(cfile.provider.wth, fd->file_off, &rec, &err, &err_info))
         { /* XXX, what we can do here? */ }

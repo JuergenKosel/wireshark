@@ -17,6 +17,8 @@
 
 #include "config.h"
 
+#include "math.h"
+
 #include <epan/packet.h>
 #include <epan/uat.h>
 #include <epan/expert.h>
@@ -227,6 +229,65 @@ static int hf_cmp_flexray_frame_crc;
 static int hf_cmp_flexray_reserved_2;
 static int hf_cmp_flexray_data_len;
 
+/* Digital */
+#define CMP_DIGITAL_FLAG_TRIGGER_PRESENT 0x0001
+#define CMP_DIGITAL_FLAG_SAMPLE_PRESENT 0x0002
+
+static int hf_cmp_digital_flags;
+
+static int hf_cmp_digital_flag_trig_present;
+static int hf_cmp_digital_flag_sampl_present;
+static int hf_cmp_digital_flag_reserved;
+
+static int hf_cmp_digital_reserved;
+static int hf_cmp_digital_pin_count;
+
+static int hf_cmp_digital_trig_pattern;
+static int hf_cmp_digital_trig_pin;
+static int hf_cmp_digital_flag_reserved2;
+
+static int hf_cmp_digital_sample_interval;
+static int hf_cmp_digital_sample_count;
+
+static int hf_cmp_digital_sample;
+
+/* define 32 Pins for now */
+static int hf_cmp_digital_sample_pin_0;
+static int hf_cmp_digital_sample_pin_1;
+static int hf_cmp_digital_sample_pin_2;
+static int hf_cmp_digital_sample_pin_3;
+static int hf_cmp_digital_sample_pin_4;
+static int hf_cmp_digital_sample_pin_5;
+static int hf_cmp_digital_sample_pin_6;
+static int hf_cmp_digital_sample_pin_7;
+
+static int hf_cmp_digital_sample_pin_8;
+static int hf_cmp_digital_sample_pin_9;
+static int hf_cmp_digital_sample_pin_10;
+static int hf_cmp_digital_sample_pin_11;
+static int hf_cmp_digital_sample_pin_12;
+static int hf_cmp_digital_sample_pin_13;
+static int hf_cmp_digital_sample_pin_14;
+static int hf_cmp_digital_sample_pin_15;
+
+static int hf_cmp_digital_sample_pin_16;
+static int hf_cmp_digital_sample_pin_17;
+static int hf_cmp_digital_sample_pin_18;
+static int hf_cmp_digital_sample_pin_19;
+static int hf_cmp_digital_sample_pin_20;
+static int hf_cmp_digital_sample_pin_21;
+static int hf_cmp_digital_sample_pin_22;
+static int hf_cmp_digital_sample_pin_23;
+
+static int hf_cmp_digital_sample_pin_24;
+static int hf_cmp_digital_sample_pin_25;
+static int hf_cmp_digital_sample_pin_26;
+static int hf_cmp_digital_sample_pin_27;
+static int hf_cmp_digital_sample_pin_28;
+static int hf_cmp_digital_sample_pin_29;
+static int hf_cmp_digital_sample_pin_30;
+static int hf_cmp_digital_sample_pin_31;
+
 /* UART/RS-232 */
 #define CMP_UART_DATA_DATA_MASK     0x01FF
 
@@ -274,6 +335,73 @@ static int hf_cmp_eth_flag_reserved;
 
 static int hf_cmp_eth_reserved;
 static int hf_cmp_eth_payload_length;
+
+/* SPI */
+static int hf_cmp_spi_flags;
+
+static int hf_cmp_spi_flag_reserved;
+
+static int hf_cmp_spi_reserved;
+static int hf_cmp_spi_cipo_length;
+static int hf_cmp_spi_cipo;
+static int hf_cmp_spi_copi_length;
+static int hf_cmp_spi_copi;
+
+/* I2C */
+static int hf_cmp_i2c_flags;
+static int hf_cmp_i2c_flag_dir;
+static int hf_cmp_i2c_flag_addr_len;
+static int hf_cmp_i2c_flag_addr_ack;
+static int hf_cmp_i2c_flag_addr_err;
+static int hf_cmp_i2c_flag_stop_cond;
+static int hf_cmp_i2c_flag_start_cond;
+static int hf_cmp_i2c_flag_reserved;
+
+static int hf_cmp_i2c_reserved;
+static int hf_cmp_i2c_addr;
+static int hf_cmp_i2c_data_entry_count;
+static int hf_cmp_i2c_data;
+static int hf_cmp_i2c_data_byte;
+static int hf_cmp_i2c_data_control_ack;
+static int hf_cmp_i2c_data_control_res;
+
+/* GigE Vision */
+static int hf_cmp_gige_flags;
+static int hf_cmp_gige_flag_reserved;
+
+static int hf_cmp_gige_reserved;
+static int hf_cmp_gige_payload_length;
+static int hf_cmp_gige_payload;
+
+/* MIPI CSI-2 */
+static int hf_cmp_mipi_csi2_flags;
+static int hf_cmp_mipi_csi2_flag_crc_err;
+static int hf_cmp_mipi_csi2_flag_ecc_err_c;
+static int hf_cmp_mipi_csi2_flag_ecc_err_uc;
+static int hf_cmp_mipi_csi2_flag_ecc_fmt;
+static int hf_cmp_mipi_csi2_flag_frame_ctr_src;
+static int hf_cmp_mipi_csi2_flag_line_ctr_src;
+static int hf_cmp_mipi_csi2_flag_cs_support;
+static int hf_cmp_mipi_csi2_flag_reserved;
+
+static int hf_cmp_mipi_csi2_reserved;
+static int hf_cmp_mipi_csi2_frame_counter;
+static int hf_cmp_mipi_csi2_line_counter;
+static int hf_cmp_mipi_csi2_dt;
+static int hf_cmp_mipi_csi2_dt_res;
+static int hf_cmp_mipi_csi2_dt_dt;
+static int hf_cmp_mipi_csi2_vci;
+static int hf_cmp_mipi_csi2_vci_res;
+static int hf_cmp_mipi_csi2_vci_vcx;
+static int hf_cmp_mipi_csi2_vci_vci;
+static int hf_cmp_mipi_csi2_reserved2;
+static int hf_cmp_mipi_csi2_ecc;
+static int hf_cmp_mipi_csi2_ecc_res;
+static int hf_cmp_mipi_csi2_ecc_ecc;
+static int hf_cmp_mipi_csi2_cs;
+static int hf_cmp_mipi_csi2_wc;
+static int hf_cmp_mipi_csi2_short_packet_data;
+static int hf_cmp_mipi_csi2_data;
 
 /* Control Message Payload Fields */
 /* Data Sink Ready */
@@ -399,8 +527,10 @@ static int ett_asam_cmp_payload_flags;
 static int ett_asam_cmp_lin_pid;
 static int ett_asam_cmp_can_id;
 static int ett_asam_cmp_can_crc;
+static int ett_asam_cmp_digital_sample;
 static int ett_asam_cmp_uart_data;
 static int ett_asam_cmp_analog_sample;
+static int ett_asam_cmp_i2c_data_entry;
 static int ett_asam_cmp_status_cm_flags;
 static int ett_asam_cmp_status_cm_uptime;
 static int ett_asam_cmp_status_timeloss_flags;
@@ -444,7 +574,7 @@ static int ett_asam_cmp_status_stream_ids;
 #define CMP_T_PATTERN_FALLING               0x00
 #define CMP_T_PATTERN_RISING                0x01
 
-/* CMP Digital Data Message DL Values */
+/* CMP UART Data Message DL Values */
 #define CMP_UART_CL_5                       0x00
 #define CMP_UART_CL_6                       0x01
 #define CMP_UART_CL_7                       0x02
@@ -541,6 +671,11 @@ static const true_false_string canfd_act_pas = {
     "Error passive"
 };
 
+static const value_string digital_trigger_pattern[] = {
+    {0,                                     "Falling edge"},
+    {1,                                     "Rising edge"},
+    {0, NULL}
+};
 
 static const value_string uart_cl_names[] = {
     {CMP_UART_CL_5,                         "5 Bits"},
@@ -556,6 +691,117 @@ static const value_string analog_sample_dt[] = {
     {CMP_ANALOG_DATA_MSG_DL_32,             "A_INT32"},
     {CMP_ANALOG_DATA_MSG_DL_RES1,           "Reserved"},
     {CMP_ANALOG_DATA_MSG_DL_RES2,           "Reserved"},
+    {0, NULL}
+};
+
+static const true_false_string i2c_read_write = {
+    "Read",
+    "Write"
+};
+
+static const true_false_string i2c_addr_length = {
+    "10 Bit Address",
+    "7 Bit Address"
+};
+
+static const true_false_string i2c_nack_ack = {
+    "NACK",
+    "ACK"
+};
+
+static const true_false_string i2c_err_noerr = {
+    "Error",
+    "No Error"
+};
+
+static const true_false_string i2c_stop_repeated_start = {
+    "Stop",
+    "Repeated-Start"
+};
+
+static const true_false_string i2c_repeated_start_start = {
+    "Repeated-Start",
+    "Start"
+};
+
+static const true_false_string mipi_csi2_err_noerr = {
+    "Error",
+    "No Error"
+};
+
+static const true_false_string mipi_csi2_ecc_noecc = {
+    "6-bit ECC",
+    "No ECC"
+};
+
+static const true_false_string mipi_csi2_cmcounter_csicounter = {
+    "Counter generated by Capture Module",
+    "Counter extracted from MIPI CSI-2 data"
+};
+
+/*
+ * Based on what is publically available:
+ *   https://elixir.bootlin.com/linux/v5.19.17/source/include/media/mipi-csi2.h
+ *   https://www.nxp.com/docs/en/application-note/AN5305.pdf
+ *   https://www.efinixinc.com/docs/mipi-csi2-rx-core-ug-v3.2.pdf
+ *   https://introspect.ca/blog/mipi-cse-and-csi-2/
+ *   https://www.macnica.co.jp/en/business/semiconductor/articles/lattice/142604/
+ *   https://www.design-reuse.com/article/60991-generating-high-speed-csi2-video-by-an-fpga/
+ *   https://www.ti.com/lit/ds/symlink/ds90ub954-q1.pdf
+ *   https://bitsimnow.se/wp-content/uploads/2021/04/Data_Sheet_bitcsi2rx_rH.pdf
+ */
+
+#define MIPI_CSI2_DT_BITS           0x3F
+#define MIPI_CSI2_DT_SHORT_START    0x00
+#define MIPI_CSI2_DT_SHORT_END      0x0F
+
+static const value_string mipi_csi2_data_type_names[] = {
+    /* 0x00 - 0x07 Sync Short Packets */
+    {MIPI_CSI2_DT_SHORT_START,              "Frame Start Code"},
+    {0x01,                                  "Frame End Code"},
+    {0x02,                                  "Line Start Code"},
+    {0x03,                                  "Line End Code"},
+    /* 0x08 - 0x0F Generic Short Packets */
+    /* 0x10 - 0x17 Generic Long Packets */
+    {0x10,                                  "Null"},
+    {0x11,                                  "Blanking Data"},
+    {0x12,                                  "Embedded 8-bit non-Image Data"},
+    /* 0x18 - 0x1F YUV Data Long Packets */
+    {0x18,                                  "YUV420 8-bit"},
+    {0x19,                                  "YUV420 10-bit"},
+    {0x1A,                                  "Legacy YUV420 8-bit"},
+    {0x1C,                                  "YUV420 8-bit (CSPS)"},
+    {0x1D,                                  "YUV420 10-bit (CSPS)"},
+    {0x1E,                                  "YUV422 8-bit"},
+    {0x1F,                                  "YUV422 10-bit"},
+    /* 0x20 - 0x27 RGB Data Long Packets */
+    {0x20,                                  "RGB444"},
+    {0x21,                                  "RGB555"},
+    {0x22,                                  "RGB565"},
+    {0x23,                                  "RGB666"},
+    {0x24,                                  "RGB888"},
+    /* 0x28 - 0x2F RAW Data Long Packets */
+    {0x26,                                  "RAW24"},
+    {0x27,                                  "RAW28"},
+    {0x28,                                  "RAW6"},
+    {0x29,                                  "RAW7"},
+    {0x2A,                                  "RAW8"},
+    {0x2B,                                  "RAW10"},
+    {0x2C,                                  "RAW12"},
+    {0x2D,                                  "RAW14"},
+    {0x2E,                                  "RAW16"},
+    {0x2F,                                  "RAW20"},
+    /* 0x30 - 0x37 User Defined Long Packets */
+    {0x30,                                  "User Defined 8-bit Data Type 1"},
+    {0x31,                                  "User Defined 8-bit Data Type 2"},
+    {0x32,                                  "User Defined 8-bit Data Type 3"},
+    {0x33,                                  "User Defined 8-bit Data Type 4"},
+    {0x34,                                  "User Defined 8-bit Data Type 5"},
+    {0x35,                                  "User Defined 8-bit Data Type 6"},
+    {0x36,                                  "User Defined 8-bit Data Type 7"},
+    {0x37,                                  "User Defined 8-bit Data Type 8"},
+    /* 0x38 - 0x3F Reserved */
+    {0x3E,                                  "SEP (MIPI CSE)"},
     {0, NULL}
 };
 
@@ -862,7 +1108,7 @@ ht_interface_config_to_bus_id(unsigned int identifier) {
         return 0;
     }
 
-    return tmp->bus_id;
+    return (uint16_t)tmp->bus_id;
 }
 
 static void
@@ -1022,6 +1268,13 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
         NULL
     };
 
+    static int * const asam_cmp_digital_flags[] = {
+        &hf_cmp_digital_flag_reserved,
+        &hf_cmp_digital_flag_sampl_present,
+        &hf_cmp_digital_flag_trig_present,
+        NULL
+    };
+
     static int * const asam_cmp_uart_flags[] = {
         &hf_cmp_uart_flag_reserved,
         &hf_cmp_uart_flag_cl,
@@ -1053,6 +1306,39 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
         &hf_cmp_eth_flag_tx_down,
         &hf_cmp_eth_flag_short_err,
         &hf_cmp_eth_flag_fcs_err,
+        NULL
+    };
+
+    static int * const asam_cmp_spi_flags[] = {
+        &hf_cmp_spi_flag_reserved,
+        NULL
+    };
+
+    static int * const asam_cmp_i2c_flags[] = {
+        &hf_cmp_i2c_flag_reserved,
+        &hf_cmp_i2c_flag_start_cond,
+        &hf_cmp_i2c_flag_stop_cond,
+        &hf_cmp_i2c_flag_addr_err,
+        &hf_cmp_i2c_flag_addr_ack,
+        &hf_cmp_i2c_flag_addr_len,
+        &hf_cmp_i2c_flag_dir,
+        NULL
+    };
+
+    static int * const asam_cmp_gige_flags[] = {
+        &hf_cmp_gige_flag_reserved,
+        NULL
+    };
+
+    static int * const asam_cmp_mipi_csi2_flags[] = {
+        &hf_cmp_mipi_csi2_flag_reserved,
+        &hf_cmp_mipi_csi2_flag_cs_support,
+        &hf_cmp_mipi_csi2_flag_line_ctr_src,
+        &hf_cmp_mipi_csi2_flag_frame_ctr_src,
+        &hf_cmp_mipi_csi2_flag_ecc_fmt,
+        &hf_cmp_mipi_csi2_flag_ecc_err_uc,
+        &hf_cmp_mipi_csi2_flag_ecc_err_c,
+        &hf_cmp_mipi_csi2_flag_crc_err,
         NULL
     };
 
@@ -1335,7 +1621,7 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
             tvbuff_t *sub_tvb = tvb_new_subset_length(tvb, offset, msg_payload_type_length);
 
             lin_info.bus_id = ht_interface_config_to_bus_id(interface_id);
-            lin_info.len = msg_payload_type_length;
+            lin_info.len = (uint16_t)msg_payload_type_length;
 
             dissect_lin_message(sub_tvb, pinfo, tree, &lin_info);
             offset += (int)msg_payload_type_length;
@@ -1391,6 +1677,110 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
         offset += (int)msg_payload_type_length;
 
         proto_item_set_end(ti_msg_payload, tvb, offset);
+        break;
+    }
+
+    case CMP_DATA_MSG_DIGITAL: {
+        col_append_str(pinfo->cinfo, COL_INFO, " (Digital)");
+        proto_item_append_text(ti_msg_payload, " %s", "(Digital)");
+
+        uint64_t flags;
+        proto_tree_add_bitmask_ret_uint64(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_digital_flags, ett_asam_cmp_payload_flags, asam_cmp_digital_flags, ENC_BIG_ENDIAN, &flags);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_reserved, tvb, offset, 1, ENC_NA);
+        offset += 1;
+
+        uint32_t pin_count;
+        proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_digital_pin_count, tvb, offset, 1, ENC_NA, &pin_count);
+        offset += 1;
+
+        if ((flags & CMP_DIGITAL_FLAG_TRIGGER_PRESENT) == CMP_DIGITAL_FLAG_TRIGGER_PRESENT) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_trig_pattern, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_trig_pin, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_flag_reserved2, tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
+        }
+
+        if ((flags & CMP_DIGITAL_FLAG_SAMPLE_PRESENT) == CMP_DIGITAL_FLAG_SAMPLE_PRESENT) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_sample_interval, tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+
+            uint32_t sample_count;
+            proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_digital_sample_count, tvb, offset, 1, ENC_NA, &sample_count);
+            offset += 1;
+
+            uint32_t sample_byte_count = (uint32_t)floor((pin_count + 7) / 8);
+
+            for (uint32_t i = 0; i < sample_count; i++) {
+
+                ti = proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_digital_sample, tvb, offset, sample_byte_count, ENC_NA);
+                proto_item_append_text(ti, " [%d] ", i);
+                proto_tree *sample_tree = proto_item_add_subtree(ti, ett_asam_cmp_digital_sample);
+
+                /* we are supporting 32 pins for the beginning */
+                if (4 < sample_byte_count) {
+                    /* skip unsupported pins */
+                    offset += sample_byte_count - 4;
+                }
+                if (4 <= sample_byte_count) {
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_31, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_30, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_29, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_28, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_27, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_26, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_25, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_24, tvb, offset, 1, ENC_NA);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " 0x%02x", tvb_get_uint8(tvb, offset));
+                    offset += 1;
+                }
+
+                if (3 <= sample_byte_count) {
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_23, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_22, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_21, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_20, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_19, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_18, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_17, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_16, tvb, offset, 1, ENC_NA);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " 0x%02x", tvb_get_uint8(tvb, offset));
+                    offset += 1;
+                }
+
+                if (2 <= sample_byte_count) {
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_15, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_14, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_13, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_12, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_11, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_10, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_9, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_8, tvb, offset, 1, ENC_NA);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " 0x%02x", tvb_get_uint8(tvb, offset));
+                    offset += 1;
+                }
+
+                if (1 <= sample_byte_count) {
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_7, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_6, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_5, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_4, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_3, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_2, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_1, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(sample_tree, hf_cmp_digital_sample_pin_0, tvb, offset, 1, ENC_NA);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, " 0x%02x", tvb_get_uint8(tvb, offset));
+                    offset += 1;
+                }
+             }
+        }
+
         break;
     }
 
@@ -1502,6 +1892,9 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
                     offset += 4;
                 }
                 break;
+            default:
+                /* Other types are reserved as of now, so we do not know how to parse them. Just ignore. */
+                break;
             }
         }
 
@@ -1530,6 +1923,158 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
 
         proto_item_set_end(ti_msg_payload, tvb, offset);
         break;
+
+    case CMP_DATA_MSG_SPI: {
+        col_append_str(pinfo->cinfo, COL_INFO, " (SPI)");
+        proto_item_append_text(ti_msg_payload, " %s", "(SPI)");
+
+        proto_tree_add_bitmask(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_spi_flags, ett_asam_cmp_payload_flags, asam_cmp_spi_flags, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_spi_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        uint32_t cipo_length;
+        proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_spi_cipo_length, tvb, offset, 2, ENC_BIG_ENDIAN, &cipo_length);
+        offset += 2;
+
+        if (cipo_length > 0) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_spi_cipo, tvb, offset, cipo_length, ENC_NA);
+            offset += cipo_length;
+        }
+
+        uint32_t copi_length;
+        proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_spi_copi_length, tvb, offset, 2, ENC_BIG_ENDIAN, &copi_length);
+        offset += 2;
+
+        if (copi_length > 0) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_spi_copi, tvb, offset, copi_length, ENC_NA);
+            offset += copi_length;
+        }
+
+        break;
+    }
+
+    case CMP_DATA_MSG_I2C: {
+        col_append_str(pinfo->cinfo, COL_INFO, " (I2C)");
+        proto_item_append_text(ti_msg_payload, " %s", "(I2C)");
+
+        proto_tree_add_bitmask_with_flags(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_i2c_flags, ett_asam_cmp_payload_flags, asam_cmp_i2c_flags, ENC_BIG_ENDIAN, BMT_NO_APPEND);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_i2c_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_i2c_addr, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        uint32_t data_entry_count;
+        proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_i2c_data_entry_count, tvb, offset, 2, ENC_BIG_ENDIAN, &data_entry_count);
+        offset += 2;
+
+        static int * const asam_cmp_i2c_data[] = {
+            &hf_cmp_i2c_data_control_res,
+            &hf_cmp_i2c_data_control_ack,
+            &hf_cmp_i2c_data_byte,
+            NULL
+        };
+
+        for (uint32_t i = 0; i < data_entry_count; i++) {
+            proto_tree_add_bitmask(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_i2c_data, ett_asam_cmp_i2c_data_entry, asam_cmp_i2c_data, ENC_BIG_ENDIAN);
+            offset += 2;
+        }
+
+        break;
+    }
+
+    case CMP_DATA_MSG_GIGEVISION: {
+        col_append_str(pinfo->cinfo, COL_INFO, " (GigE Vision)");
+        proto_item_append_text(ti_msg_payload, " %s", "(GigE Vision)");
+
+        proto_tree_add_bitmask_with_flags(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_gige_flags, ett_asam_cmp_payload_flags, asam_cmp_gige_flags, ENC_BIG_ENDIAN, BMT_NO_APPEND);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_gige_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_gige_payload_length, tvb, offset, 2, ENC_BIG_ENDIAN, &msg_payload_type_length);
+        offset += 2;
+
+        if (msg_payload_type_length > 0) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_gige_payload, tvb, offset, msg_payload_type_length, ENC_NA);
+            offset += msg_payload_type_length;
+        }
+
+        break;
+    }
+
+    case CMP_DATA_MSG_MIPI_CSI2: {
+        col_append_str(pinfo->cinfo, COL_INFO, " (MIPI CSI-2 D-PHY)");
+        proto_item_append_text(ti_msg_payload, " %s", "(MIPI CSI-2 D-PHY)");
+
+        proto_tree_add_bitmask_with_flags(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_mipi_csi2_flags, ett_asam_cmp_payload_flags, asam_cmp_mipi_csi2_flags, ENC_BIG_ENDIAN, BMT_NO_APPEND);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_frame_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_line_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        static int * const asam_cmp_mipi_dt[] = {
+            &hf_cmp_mipi_csi2_dt_res,
+            &hf_cmp_mipi_csi2_dt_dt,
+            NULL
+        };
+
+        uint64_t mipi_csi2_dt_flags;
+        proto_tree_add_bitmask_with_flags_ret_uint64(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_mipi_csi2_dt, ett_asam_cmp_payload_flags, asam_cmp_mipi_dt, ENC_NA, BMT_NO_APPEND, &mipi_csi2_dt_flags);
+        offset += 1;
+
+        bool asam_cmp_mipi_csi_short_packet = (mipi_csi2_dt_flags & MIPI_CSI2_DT_BITS) <= MIPI_CSI2_DT_SHORT_END;
+
+        static int * const asam_cmp_mipi_vci[] = {
+            &hf_cmp_mipi_csi2_vci_res,
+            &hf_cmp_mipi_csi2_vci_vcx,
+            &hf_cmp_mipi_csi2_vci_vci,
+            NULL
+        };
+
+        proto_tree_add_bitmask_with_flags(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_mipi_csi2_vci, ett_asam_cmp_payload_flags, asam_cmp_mipi_vci, ENC_NA, BMT_NO_APPEND);
+        offset += 1;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_reserved2, tvb, offset, 1, ENC_NA);
+        offset += 1;
+
+        static int * const asam_cmp_mipi_ecc[] = {
+            &hf_cmp_mipi_csi2_ecc_res,
+            &hf_cmp_mipi_csi2_ecc_ecc,
+            NULL
+        };
+
+        proto_tree_add_bitmask_with_flags(asam_cmp_data_msg_payload_tree, tvb, offset, hf_cmp_mipi_csi2_ecc, ett_asam_cmp_payload_flags, asam_cmp_mipi_ecc, ENC_NA, BMT_NO_APPEND);
+        offset += 1;
+
+        proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_cs, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        if (asam_cmp_mipi_csi_short_packet) {
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_short_packet_data, tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
+        } else {
+            uint32_t word_count;
+            proto_tree_add_item_ret_uint(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_wc, tvb, offset, 2, ENC_BIG_ENDIAN, &word_count);
+            offset += 2;
+
+            proto_tree_add_item(asam_cmp_data_msg_payload_tree, hf_cmp_mipi_csi2_data, tvb, offset, word_count, ENC_NA);
+            offset += word_count;
+        }
+
+        break;
+    }
 
     case CMP_DATA_MSG_USER_DEFINED:
         col_append_str(pinfo->cinfo, COL_INFO, " (User defined)");
@@ -1561,7 +2106,7 @@ dissect_asam_cmp_data_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
 }
 
 static int
-dissect_asam_cmp_ctrl_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tree _U_, proto_tree *tree, unsigned offset_orig) {
+dissect_asam_cmp_ctrl_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, unsigned offset_orig) {
 
     proto_item *ti = NULL;
     proto_item *ti_msg_header = NULL;
@@ -1650,7 +2195,7 @@ dissect_asam_cmp_ctrl_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
         offset += 2;
         asam_cmp_ctrl_msg_payload_length -= 2;
 
-        if ((asam_cmp_ctrl_msg_payload_length) > 0) {
+        if (asam_cmp_ctrl_msg_payload_length > 0) {
             tvbuff_t *sub_tvb = tvb_new_subset_length(tvb, offset, asam_cmp_ctrl_msg_payload_length);
             call_data_dissector(sub_tvb, pinfo, tree);
             offset += (int)asam_cmp_ctrl_msg_payload_length;
@@ -1677,7 +2222,7 @@ dissect_asam_cmp_ctrl_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tr
 }
 
 static int
-dissect_asam_cmp_status_interface_support_mask(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, unsigned offset_orig, uint8_t interface_type) {
+dissect_asam_cmp_status_interface_support_mask(tvbuff_t *tvb, proto_tree *tree, unsigned offset_orig, uint8_t interface_type) {
     unsigned offset = offset_orig;
     uint64_t temp = 0;
 
@@ -1748,7 +2293,7 @@ dissect_asam_cmp_status_interface_support_mask(tvbuff_t *tvb, packet_info *pinfo
 }
 
 static int
-dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tree _U_, proto_tree *tree, unsigned offset_orig) {
+dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, unsigned offset_orig) {
     proto_item *ti = NULL;
     proto_item *ti_msg_header = NULL;
     proto_item *ti_msg_payload = NULL;
@@ -1873,7 +2418,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         proto_tree_add_item_ret_uint(asam_cmp_status_msg_payload_tree, hf_cmp_status_dev_desc_length, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_cm_dev_desc_length);
         offset += 2;
 
-        if ((asam_cmp_status_msg_cm_dev_desc_length) > 0) {
+        if (asam_cmp_status_msg_cm_dev_desc_length > 0) {
             asam_cmp_status_msg_cm_dev_desc_length += (asam_cmp_status_msg_cm_dev_desc_length % 2); /* padding to 16bit */
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_dev_desc, tvb, offset, asam_cmp_status_msg_cm_dev_desc_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_dev_desc_length;
@@ -1882,7 +2427,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         proto_tree_add_item_ret_uint(asam_cmp_status_msg_payload_tree, hf_cmp_status_sn_length, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_cm_sn_length);
         offset += 2;
 
-        if ((asam_cmp_status_msg_cm_sn_length) > 0) {
+        if (asam_cmp_status_msg_cm_sn_length > 0) {
             asam_cmp_status_msg_cm_sn_length += (asam_cmp_status_msg_cm_sn_length % 2); /* padding to 16bit */
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sn, tvb, offset, asam_cmp_status_msg_cm_sn_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_sn_length;
@@ -1891,7 +2436,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         proto_tree_add_item_ret_uint(asam_cmp_status_msg_payload_tree, hf_cmp_status_hw_ver_length, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_cm_hw_ver_length);
         offset += 2;
 
-        if ((asam_cmp_status_msg_cm_hw_ver_length) > 0) {
+        if (asam_cmp_status_msg_cm_hw_ver_length > 0) {
             asam_cmp_status_msg_cm_hw_ver_length += (asam_cmp_status_msg_cm_hw_ver_length % 2); /* padding to 16bit */
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_hw_ver, tvb, offset, asam_cmp_status_msg_cm_hw_ver_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_hw_ver_length;
@@ -1900,7 +2445,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         proto_tree_add_item_ret_uint(asam_cmp_status_msg_payload_tree, hf_cmp_status_sw_ver_length, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_cm_sw_ver_length);
         offset += 2;
 
-        if ((asam_cmp_status_msg_cm_sw_ver_length) > 0) {
+        if (asam_cmp_status_msg_cm_sw_ver_length > 0) {
             asam_cmp_status_msg_cm_sw_ver_length += (asam_cmp_status_msg_cm_sw_ver_length % 2); /* padding to 16bit */
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_sw_ver, tvb, offset, asam_cmp_status_msg_cm_sw_ver_length, ENC_UTF_8);
             offset += (int)asam_cmp_status_msg_cm_sw_ver_length;
@@ -1909,7 +2454,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         proto_tree_add_item_ret_uint(asam_cmp_status_msg_payload_tree, hf_cmp_status_vendor_data_length, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_vendor_data_length);
         offset += 2;
 
-        if ((asam_cmp_status_msg_vendor_data_length) > 0) {
+        if (asam_cmp_status_msg_vendor_data_length > 0) {
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_vendor_data, tvb, offset, asam_cmp_status_msg_vendor_data_length, ENC_NA);
             offset += (int)asam_cmp_status_msg_vendor_data_length;
         }
@@ -1967,12 +2512,12 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
             proto_tree_add_item(subtree, hf_cmp_iface_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset += 2;
 
-            offset += dissect_asam_cmp_status_interface_support_mask(tvb, pinfo, subtree, offset, (uint8_t)ifacetype);
+            offset += dissect_asam_cmp_status_interface_support_mask(tvb, subtree, offset, (uint8_t)ifacetype);
 
             proto_tree_add_item_ret_uint(subtree, hf_cmp_iface_stream_id_cnt, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_iface_stream_id_count);
             offset += 2;
 
-            if ((asam_cmp_status_msg_iface_stream_id_count) > 0) {
+            if (asam_cmp_status_msg_iface_stream_id_count > 0) {
                 ti_stream_ids = proto_tree_add_item(subtree, hf_cmp_iface_stream_ids, tvb, offset, asam_cmp_status_msg_iface_stream_id_count, ENC_NA);
                 stream_ids_subtree = proto_item_add_subtree(ti_stream_ids, ett_asam_cmp_status_stream_ids);
 
@@ -1986,7 +2531,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
             proto_tree_add_item_ret_uint(subtree, hf_cmp_iface_vendor_data_len, tvb, offset, 2, ENC_BIG_ENDIAN, &asam_cmp_status_msg_vendor_data_length);
             offset += 2;
 
-            if ((asam_cmp_status_msg_vendor_data_length) > 0) {
+            if (asam_cmp_status_msg_vendor_data_length > 0) {
                 proto_tree_add_item(subtree, hf_cmp_iface_vendor_data, tvb, offset, asam_cmp_status_msg_vendor_data_length, ENC_NA);
                 offset += (int)asam_cmp_status_msg_vendor_data_length;
             }
@@ -1999,7 +2544,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         col_append_str(pinfo->cinfo, COL_INFO, " (Configuration)");
         proto_item_append_text(ti_msg_payload, " %s", "(Configuration)");
 
-        if ((asam_cmp_status_msg_payload_length) > 0) {
+        if (asam_cmp_status_msg_payload_length > 0) {
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_msg_config, tvb, offset, asam_cmp_status_msg_payload_length, ENC_NA);
             offset += (int)asam_cmp_status_msg_payload_length;
         }
@@ -2046,7 +2591,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
         col_append_str(pinfo->cinfo, COL_INFO, " (Vendor specific)");
         proto_item_append_text(ti_msg_payload, " %s", "(Vendor specific)");
 
-        if ((asam_cmp_status_msg_payload_length) > 0) {
+        if (asam_cmp_status_msg_payload_length > 0) {
             proto_tree_add_item(asam_cmp_status_msg_payload_tree, hf_cmp_status_msg_vendor_specific, tvb, offset, asam_cmp_status_msg_payload_length, ENC_NA);
             offset += (int)asam_cmp_status_msg_payload_length;
         }
@@ -2070,7 +2615,7 @@ dissect_asam_cmp_status_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_
 }
 
 static int
-dissect_asam_cmp_vendor_msg(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *root_tree _U_, proto_tree *tree, unsigned offset_orig) {
+dissect_asam_cmp_vendor_msg(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, unsigned offset_orig) {
     proto_item *ti = NULL;
     proto_item *ti_msg_header = NULL;
     proto_item *ti_msg_payload = NULL;
@@ -2121,7 +2666,7 @@ dissect_asam_cmp_vendor_msg(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *r
     ti_msg_payload = proto_tree_add_item(tree, hf_cmp_msg_payload, tvb, offset, asam_cmp_vendor_msg_payload_length, ENC_BIG_ENDIAN);
     proto_item_append_text(ti_msg_payload, " %s", "- Vendor-Defined Message");
 
-    if ((asam_cmp_vendor_msg_payload_length) > 0) {
+    if (asam_cmp_vendor_msg_payload_length > 0) {
         offset += (int)asam_cmp_vendor_msg_payload_length;
         proto_item_set_end(ti_msg_payload, tvb, offset);
     }
@@ -2157,7 +2702,7 @@ dissect_asam_cmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
     offset += 1;
 
     ti = proto_tree_add_item_ret_uint(asam_cmp_header_tree, hf_cmp_device_id, tvb, offset, 2, ENC_BIG_ENDIAN, &device_id);
-    add_device_id_text(ti, device_id);
+    add_device_id_text(ti, (uint16_t)device_id);
     offset += 2;
 
     proto_tree_add_item_ret_uint(asam_cmp_header_tree, hf_cmp_msg_type, tvb, offset, 1, ENC_NA, &msg_type);
@@ -2169,21 +2714,21 @@ dissect_asam_cmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
     proto_tree_add_item(asam_cmp_header_tree, hf_cmp_stream_seq_ctr, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    proto_item_append_text(ti_root, ", Device: 0x%04x, Type: %s", device_id, val_to_str(pinfo->pool, msg_type, msg_type_names, "Unknown (0x%x)"));
+    proto_item_append_text(ti_root, ", Device: 0x%04x, Type: %s", (uint16_t)device_id, val_to_str(pinfo->pool, msg_type, msg_type_names, "Unknown (0x%x)"));
 
     while (tvb_reported_length_remaining(tvb, offset) >= 16) {
         switch (msg_type) {
         case CMP_MSG_TYPE_CTRL_MSG:
             col_append_str(pinfo->cinfo, COL_INFO, ", Control Msg");
-            offset += dissect_asam_cmp_ctrl_msg(tvb, pinfo, tree, asam_cmp_tree, offset);
+            offset += dissect_asam_cmp_ctrl_msg(tvb, pinfo, asam_cmp_tree, offset);
             break;
         case CMP_MSG_TYPE_STATUS_MSG:
             col_append_str(pinfo->cinfo, COL_INFO, ", Status Msg");
-            offset += dissect_asam_cmp_status_msg(tvb, pinfo, tree, asam_cmp_tree, offset);
+            offset += dissect_asam_cmp_status_msg(tvb, pinfo, asam_cmp_tree, offset);
             break;
         case CMP_MSG_TYPE_VENDOR:
             col_append_str(pinfo->cinfo, COL_INFO, ", Vendor Msg");
-            offset += dissect_asam_cmp_vendor_msg(tvb, pinfo, tree, asam_cmp_tree, offset);
+            offset += dissect_asam_cmp_vendor_msg(tvb, pinfo, asam_cmp_tree, offset);
             break;
         case CMP_MSG_TYPE_DATA_MSG:
             col_append_str(pinfo->cinfo, COL_INFO, ", Data Msg");
@@ -2371,6 +2916,59 @@ proto_register_asam_cmp(void) {
         { &hf_cmp_flexray_flag_cas,                 { "Collision avoidance Symbol (CAS)", "asam-cmp.msg.flexray.flags.cas", FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL } },
         { &hf_cmp_flexray_flag_reserved,            { "Reserved", "asam-cmp.msg.flexray.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFF00, NULL, HFILL } },
 
+        /* Digital */
+        { &hf_cmp_digital_flags,                    { "Flags", "asam-cmp.msg.digital.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_digital_reserved,                 { "Reserved", "asam-cmp.msg.digital.res", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_digital_pin_count,                { "Pin Count", "asam-cmp.msg.digital.pin_count", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+
+        { &hf_cmp_digital_trig_pattern,             { "Trigger Pattern", "asam-cmp.msg.digital.trigger.pattern", FT_UINT8, BASE_DEC, VALS(digital_trigger_pattern), 0x0, NULL, HFILL}},
+        { &hf_cmp_digital_trig_pin,                 { "Trigger Pin", "asam-cmp.msg.digital.trigger.pin", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL}},
+        { &hf_cmp_digital_flag_reserved2,           { "Reserved", "asam-cmp.msg.digital.trigger.reserved2", FT_UINT16, BASE_HEX, NULL, 0x0 , NULL, HFILL } },
+
+        { &hf_cmp_digital_sample_interval,          { "Sample Interval", "asam-cmp.msg.digital.sample.interval", FT_FLOAT, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_digital_sample_count,             { "Sample Count", "asam-cmp.msg.digital.sample.count", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_digital_sample,                   { "Sample", "asam-cmp.msg.digital.sample", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+
+        { &hf_cmp_digital_sample_pin_0,             { "GPIO 0", "asam-cmp.msg.digital.sample.pin_0", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x01, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_1,             { "GPIO 1", "asam-cmp.msg.digital.sample.pin_1", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x02, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_2,             { "GPIO 2", "asam-cmp.msg.digital.sample.pin_2", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x04, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_3,             { "GPIO 3", "asam-cmp.msg.digital.sample.pin_3", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x08, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_4,             { "GPIO 4", "asam-cmp.msg.digital.sample.pin_4", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x10, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_5,             { "GPIO 5", "asam-cmp.msg.digital.sample.pin_5", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x20, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_6,             { "GPIO 6", "asam-cmp.msg.digital.sample.pin_6", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x40, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_7,             { "GPIO 7", "asam-cmp.msg.digital.sample.pin_7", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x80, NULL, HFILL } },
+
+        { &hf_cmp_digital_sample_pin_8,             { "GPIO 8", "asam-cmp.msg.digital.sample.pin_8", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x01, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_9,             { "GPIO 9", "asam-cmp.msg.digital.sample.pin_9", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x02, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_10,            { "GPIO 10", "asam-cmp.msg.digital.sample.pin_10", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x04, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_11,            { "GPIO 11", "asam-cmp.msg.digital.sample.pin_11", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x08, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_12,            { "GPIO 12", "asam-cmp.msg.digital.sample.pin_12", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x10, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_13,            { "GPIO 13", "asam-cmp.msg.digital.sample.pin_13", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x20, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_14,            { "GPIO 14", "asam-cmp.msg.digital.sample.pin_14", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x40, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_15,            { "GPIO 15", "asam-cmp.msg.digital.sample.pin_15", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x80, NULL, HFILL } },
+
+        { &hf_cmp_digital_sample_pin_16,            { "GPIO 16", "asam-cmp.msg.digital.sample.pin_16", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x01, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_17,            { "GPIO 17", "asam-cmp.msg.digital.sample.pin_17", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x02, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_18,            { "GPIO 18", "asam-cmp.msg.digital.sample.pin_18", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x04, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_19,            { "GPIO 19", "asam-cmp.msg.digital.sample.pin_19", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x08, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_20,            { "GPIO 20", "asam-cmp.msg.digital.sample.pin_20", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x10, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_21,            { "GPIO 21", "asam-cmp.msg.digital.sample.pin_21", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x20, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_22,            { "GPIO 22", "asam-cmp.msg.digital.sample.pin_22", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x40, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_23,            { "GPIO 23", "asam-cmp.msg.digital.sample.pin_23", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x80, NULL, HFILL } },
+
+        { &hf_cmp_digital_sample_pin_24,            { "GPIO 24", "asam-cmp.msg.digital.sample.pin_24", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x01, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_25,            { "GPIO 25", "asam-cmp.msg.digital.sample.pin_25", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x02, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_26,            { "GPIO 26", "asam-cmp.msg.digital.sample.pin_26", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x04, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_27,            { "GPIO 27", "asam-cmp.msg.digital.sample.pin_27", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x08, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_28,            { "GPIO 28", "asam-cmp.msg.digital.sample.pin_28", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x10, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_29,            { "GPIO 29", "asam-cmp.msg.digital.sample.pin_29", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x20, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_30,            { "GPIO 30", "asam-cmp.msg.digital.sample.pin_30", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x40, NULL, HFILL } },
+        { &hf_cmp_digital_sample_pin_31,            { "GPIO 31", "asam-cmp.msg.digital.sample.pin_31", FT_BOOLEAN, 8, TFS(&tfs_high_low), 0x80, NULL, HFILL } },
+
+        { &hf_cmp_digital_flag_trig_present,        { "Trigger Information Present", "asam-cmp.msg.digital.flags.trigger_present",  FT_UINT16, BASE_HEX, NULL, 0x0001, NULL, HFILL } },
+        { &hf_cmp_digital_flag_sampl_present,       { "Sampling Information Present", "asam-cmp.msg.digital.flags.sampling_present",  FT_UINT16, BASE_HEX, NULL, 0x0002, NULL, HFILL } },
+        { &hf_cmp_digital_flag_reserved,            { "Reserved", "asam-cmp.msg.digital.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFFFC, NULL, HFILL } },
+
         /* UART/RS-232 */
         { &hf_cmp_uart_flags,                       { "Flags", "asam-cmp.msg.uart.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
         { &hf_cmp_uart_reserved,                    { "Reserved", "asam-cmp.msg.uart.reserved", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
@@ -2414,12 +3012,78 @@ proto_register_asam_cmp(void) {
         { &hf_cmp_eth_flag_fcs_supported,           { "FCS supported", "asam-cmp.msg.eth.flags.fcs_supported", FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL } },
         { &hf_cmp_eth_flag_reserved,                { "Reserved", "asam-cmp.msg.eth.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFF00, NULL, HFILL } },
 
+        /* SPI */
+        { &hf_cmp_spi_flags,                        { "Flags", "asam-cmp.msg.spi.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_spi_reserved,                     { "Reserved", "asam-cmp.msg.spi.res", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_spi_cipo_length,                  { "Controller In Peripheral Out Length", "asam-cmp.msg.spi.cipo_length", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_spi_cipo,                         { "Controller In Peripheral Out (CIPO)", "asam-cmp.msg.spi.cipo", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_spi_copi_length,                  { "Controller Out Peripheral In Length", "asam-cmp.msg.spi.copi_length", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_spi_copi,                         { "Controller Out Peripheral In (COPI)", "asam-cmp.msg.spi.copi", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+
+        { &hf_cmp_spi_flag_reserved,                { "Reserved", "asam-cmp.msg.spi.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFFFF, NULL, HFILL } },
+
+        /* I2C */
+        { &hf_cmp_i2c_flags,                        { "Flags", "asam-cmp.msg.i2c.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_i2c_reserved,                     { "Reserved", "asam-cmp.msg.i2c.res", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_i2c_addr,                         { "Address", "asam-cmp.msg.i2c.addr", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_i2c_data_entry_count,             { "Data Entry Count", "asam-cmp.msg.i2c.data_entry_count", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_i2c_data,                         { "Data Entry", "asam-cmp.msg.i2c.data_entry", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_i2c_data_byte,                    { "Data Byte", "asam-cmp.msg.i2c.data_entry.data", FT_UINT16, BASE_HEX, NULL, 0x00FF, NULL, HFILL } },
+        { &hf_cmp_i2c_data_control_ack,             { "Ack", "asam-cmp.msg.i2c.data_entry.control.ack", FT_BOOLEAN, 16, TFS(&i2c_nack_ack), 0x0100, NULL, HFILL } },
+        { &hf_cmp_i2c_data_control_res,             { "Reserved", "asam-cmp.msg.i2c.data_entry.control.reserved", FT_UINT16, BASE_HEX, NULL, 0xFE00, NULL, HFILL } },
+
+        { &hf_cmp_i2c_flag_dir,                     { "Direction", "asam-cmp.msg.i2c.flags.dir", FT_BOOLEAN, 16, TFS(&i2c_read_write), 0x0001, NULL, HFILL}},
+        { &hf_cmp_i2c_flag_addr_len,                { "Address Length", "asam-cmp.msg.i2c.flags.addr_len", FT_BOOLEAN, 16, TFS(&i2c_addr_length), 0x0002, NULL, HFILL } },
+        { &hf_cmp_i2c_flag_addr_ack,                { "Address Ack", "asam-cmp.msg.i2c.flags.addr_ack", FT_BOOLEAN, 16, TFS(&i2c_nack_ack), 0x0004, NULL, HFILL } },
+        { &hf_cmp_i2c_flag_addr_err,                { "Ack Error", "asam-cmp.msg.i2c.flags.ack_err", FT_BOOLEAN, 16, TFS(&i2c_err_noerr), 0x0008, NULL, HFILL } },
+        { &hf_cmp_i2c_flag_stop_cond,               { "Stop Condition", "asam-cmp.msg.i2c.flags.stop_cond", FT_BOOLEAN, 16, TFS(&i2c_stop_repeated_start), 0x0010, NULL, HFILL } },
+        { &hf_cmp_i2c_flag_start_cond,              { "Start Condition", "asam-cmp.msg.i2c.flags.start_cond", FT_BOOLEAN, 16, TFS(&i2c_repeated_start_start), 0x0020, NULL, HFILL } },
+        { &hf_cmp_i2c_flag_reserved,                { "Reserved", "asam-cmp.msg.i2c.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFFC0, NULL, HFILL } },
+
+        /* GigE Vision */
+        { &hf_cmp_gige_flags,                       { "Flags", "asam-cmp.msg.gige.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_gige_reserved,                    { "Reserved", "asam-cmp.msg.gige.res", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_gige_payload_length,              { "Data length", "asam-cmp.msg.gige.data_len", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_gige_payload,                     { "Data", "asam-cmp.msg.gige.data", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+
+        { &hf_cmp_gige_flag_reserved,               { "Reserved", "asam-cmp.msg.gige.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFFFF, NULL, HFILL } },
+
+        /* MIPI CSI-2 */
+        { &hf_cmp_mipi_csi2_flags,                  { "Flags", "asam-cmp.msg.mipi_csi2.flags", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_reserved,               { "Reserved", "asam-cmp.msg.mipi_csi2.res", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_frame_counter,          { "Frame Counter", "asam-cmp.msg.mipi_csi2.frame_counter", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_line_counter,           { "Line Counter", "asam-cmp.msg.mipi_csi2.frame_counter", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_dt,                     { "Data Type", "asam-cmp.msg.mipi_csi2.data_type", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_dt_res,                 { "Reserved", "asam-cmp.msg.mipi_csi2.data_type.res", FT_UINT8, BASE_HEX, NULL, 0xC0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_dt_dt,                  { "Data Type", "asam-cmp.msg.mipi_csi2.data_type.data_type", FT_UINT8, BASE_HEX, VALS(mipi_csi2_data_type_names), MIPI_CSI2_DT_BITS, NULL, HFILL}},
+        { &hf_cmp_mipi_csi2_vci,                    { "Virtual Channel Identifier", "asam-cmp.msg.mipi_csi2.vci", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_vci_res,                { "Reserved", "asam-cmp.msg.mipi_csi2.vci.res", FT_UINT8, BASE_HEX, NULL, 0xF0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_vci_vcx,                { "Virtual Channel Exctension", "asam-cmp.msg.mipi_csi2.vci.vcx", FT_UINT8, BASE_HEX, NULL, 0x0C, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_vci_vci,                { "Virtual Channel Identifier", "asam-cmp.msg.mipi_csi2.vci.vci", FT_UINT8, BASE_HEX, NULL, 0x03, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_reserved2,              { "Reserved", "asam-cmp.msg.mipi_csi2.res2", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_ecc,                    { "ECC", "asam-cmp.msg.mipi_csi2.ecc", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_ecc_res,                { "Reserved", "asam-cmp.msg.mipi_csi2.ecc.res", FT_UINT8, BASE_HEX, NULL, 0xC0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_ecc_ecc,                { "ECC", "asam-cmp.msg.mipi_csi2.ecc.ecc", FT_UINT8, BASE_HEX, NULL, 0x3F, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_cs,                     { "Checksum", "asam-cmp.msg.mipi_csi2.checksum", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_wc,                     { "Word Count", "asam-cmp.msg.mipi_csi2.checksum", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_short_packet_data,      { "Short Packet Data Field", "asam-cmp.msg.mipi_csi2.short_packet_data_field", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_data,                   { "Data", "asam-cmp.msg.mipi_csi2.data", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+
+        { &hf_cmp_mipi_csi2_flag_crc_err,           { "CRC Error", "asam-cmp.msg.mipi_csi2.flags.crc_err", FT_BOOLEAN, 16, TFS(&mipi_csi2_err_noerr), 0x0001, NULL, HFILL}},
+        { &hf_cmp_mipi_csi2_flag_ecc_err_c,         { "Correctable ECC Error", "asam-cmp.msg.mipi_csi2.flags.ecc_err_c", FT_BOOLEAN, 16, TFS(&mipi_csi2_err_noerr), 0x0002, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_ecc_err_uc,        { "Uncorrectable ECC Error", "asam-cmp.msg.mipi_csi2.flags.ecc_err_uc", FT_BOOLEAN, 16, TFS(&mipi_csi2_err_noerr), 0x0004, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_ecc_fmt,           { "ECC Format", "asam-cmp.msg.mipi_csi2.flags.ecc_fmt", FT_BOOLEAN, 16, TFS(&mipi_csi2_ecc_noecc), 0x0008, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_frame_ctr_src,     { "Frame Counter Source", "asam-cmp.msg.mipi_csi2.flags.frame_counter_source", FT_BOOLEAN, 16, TFS(&mipi_csi2_cmcounter_csicounter), 0x0010, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_line_ctr_src,      { "Line Counter Source", "asam-cmp.msg.mipi_csi2.flags.line_counter_source", FT_BOOLEAN, 16, TFS(&mipi_csi2_cmcounter_csicounter), 0x0020, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_cs_support,        { "CS Support", "asam-cmp.msg.mipi_csi2.flags.line_counter_source", FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0040, NULL, HFILL } },
+        { &hf_cmp_mipi_csi2_flag_reserved,          { "Reserved", "asam-cmp.msg.mipi_csi2.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0xFF80, NULL, HFILL } },
+
         /* Control Message Payloads */
         /* Data Sink Ready */
-        { &hf_cmp_ctrl_msg_device_id,               { "Device ID", "asam-cmp.msg.dsr.device_id", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_ctrl_msg_device_id,               { "Device ID", "asam-cmp.msg.dsr.device_id", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
 
          /* User Event */
-        { &hf_cmp_ctrl_msg_event_id,                { "Event ID", "asam-cmp.msg.ue.event_id", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+        { &hf_cmp_ctrl_msg_event_id,                { "Event ID", "asam-cmp.msg.ue.event_id", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
 
          /* Vendor specific */
         { &hf_cmp_ctrl_msg_vendor_id,               { "Vendor ID", "asam-cmp.msg.vs.vendor_id", FT_UINT16, BASE_HEX, VALS(vendor_ids), 0x0, NULL, HFILL } },
@@ -2536,8 +3200,10 @@ proto_register_asam_cmp(void) {
         &ett_asam_cmp_lin_pid,
         &ett_asam_cmp_can_id,
         &ett_asam_cmp_can_crc,
+        &ett_asam_cmp_digital_sample,
         &ett_asam_cmp_uart_data,
         &ett_asam_cmp_analog_sample,
+        &ett_asam_cmp_i2c_data_entry,
         &ett_asam_cmp_status_cm_flags,
         &ett_asam_cmp_status_cm_uptime,
         &ett_asam_cmp_status_timeloss_flags,

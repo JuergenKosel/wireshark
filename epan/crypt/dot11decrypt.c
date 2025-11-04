@@ -17,7 +17,6 @@
 #include <glib.h>
 
 #include <wsutil/wsgcrypt.h>
-#include <wsutil/crc32.h>
 #include <wsutil/pint.h>
 
 #include <epan/proto.h> /* for DISSECTOR_ASSERT. */
@@ -85,9 +84,6 @@ static int Dot11DecryptGetHashAlgoFromAkm(int akm, int dh_group);
 /****************************************************************************/
 /*      Macro definitions                                                       */
 
-extern const uint32_t crc32_table[256];
-#define CRC(crc, ch)     (crc = (crc >> 8) ^ crc32_table[(crc ^ (ch)) & 0xff])
-
 #define KCK_OFFSET(akm) (0)
 #define KEK_OFFSET(akm, dh_group) ((KCK_OFFSET(akm) + Dot11DecryptGetKckLen(akm, dh_group) / 8))
 #define TK_OFFSET(akm, dh_group)  ((KEK_OFFSET(akm, dh_group) + Dot11DecryptGetKekLen(akm, dh_group) / 8))
@@ -111,7 +107,7 @@ extern "C" {
 #endif
 
 /**
- * It calculates the passphrase-to-PSK mapping reccomanded for use with
+ * It calculates the passphrase-to-PSK mapping recommended for use with
  * RSNAs. This implementation uses the PBKDF2 method defined in the RFC
  * 2898.
  * @param userPwd [IN] pointer to the struct containing a password

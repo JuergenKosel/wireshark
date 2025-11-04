@@ -33,6 +33,7 @@
 #endif
 
 #include <ftypes/ftypes.h>
+#include <ftypes/ftypes-int.h>
 
 #include <epan/packet.h>
 #include "exceptions.h"
@@ -215,7 +216,7 @@ struct ptvcursor {
 			   so only report if different... */ \
 			if ((start_values[m].value == current->value) && \
 			    (strcmp(start_values[m].strptr, current->strptr) != 0)) { \
-				ws_warning("Field '%s' (%s) has a conflicting entry in its" \
+				ws_error("Field '%s' (%s) has a conflicting entry in its" \
 					  " value_string: %" spec " is at indices %u (%s) and %u (%s)", \
 					  hfinfo->name, hfinfo->abbrev, \
 					  current->value, m, start_values[m].strptr, n, current->strptr); \
@@ -572,6 +573,31 @@ call_plugin_register_handoff(void *data, void *user_data _U_)
 	}
 }
 
+void proto_pre_init(void)
+{
+	saved_dir_queue = g_queue_new();
+
+	proto_names = g_hash_table_new(wmem_str_hash, g_str_equal);
+	proto_short_names = g_hash_table_new(wmem_str_hash, g_str_equal);
+	proto_filter_names = g_hash_table_new(wmem_str_hash, g_str_equal);
+
+	proto_reserved_filter_names = g_hash_table_new(wmem_str_hash, g_str_equal);
+	for (const char** ptr = reserved_filter_names; *ptr != NULL; ptr++) {
+		/* GHashTable has no key destructor so the cast is safe. */
+		g_hash_table_add(proto_reserved_filter_names, *(char**)ptr);
+	}
+
+	gpa_hfinfo.len = 0;
+	gpa_hfinfo.allocated_len = 0;
+	gpa_hfinfo.hfi = NULL;
+	gpa_name_map = wmem_map_new(wmem_epan_scope(), wmem_str_hash, g_str_equal);
+	wmem_map_reserve(gpa_name_map, PROTO_PRE_ALLOC_HF_FIELDS_MEM);
+	gpa_protocol_aliases = g_hash_table_new(wmem_str_hash, g_str_equal);
+	deregistered_fields = g_ptr_array_new();
+	deregistered_data = g_ptr_array_new();
+	deregistered_slice = g_ptr_array_new();
+}
+
 /* initialize data structures and register protocols and fields */
 void
 proto_init(GSList *register_all_plugin_protocols_list,
@@ -579,29 +605,6 @@ proto_init(GSList *register_all_plugin_protocols_list,
 	   register_cb cb,
 	   void *client_data)
 {
-	proto_cleanup_base();
-	saved_dir_queue = g_queue_new();
-
-	proto_names        = g_hash_table_new(wmem_str_hash, g_str_equal);
-	proto_short_names  = g_hash_table_new(wmem_str_hash, g_str_equal);
-	proto_filter_names = g_hash_table_new(wmem_str_hash, g_str_equal);
-
-	proto_reserved_filter_names = g_hash_table_new(wmem_str_hash, g_str_equal);
-	for (const char **ptr = reserved_filter_names; *ptr != NULL; ptr++) {
-		/* GHashTable has no key destructor so the cast is safe. */
-		g_hash_table_add(proto_reserved_filter_names, *(char **)ptr);
-	}
-
-	gpa_hfinfo.len           = 0;
-	gpa_hfinfo.allocated_len = 0;
-	gpa_hfinfo.hfi           = NULL;
-	gpa_name_map             = wmem_map_new(wmem_epan_scope(), wmem_str_hash, g_str_equal);
-	wmem_map_reserve(gpa_name_map, PROTO_PRE_ALLOC_HF_FIELDS_MEM);
-	gpa_protocol_aliases     = g_hash_table_new(wmem_str_hash, g_str_equal);
-	deregistered_fields      = g_ptr_array_new();
-	deregistered_data        = g_ptr_array_new();
-	deregistered_slice       = g_ptr_array_new();
-
 	/* Initialize the ftype subsystem */
 	ftypes_initialize();
 
@@ -8986,7 +8989,7 @@ proto_deregister_field (const int parent, int hf_id)
 
 /* Deregister all registered fields starting with a prefix. Use for dynamic registered fields only! */
 void
-proto_deregister_all_fields_with_prefix(const int parent, const gchar *prefix)
+proto_deregister_all_fields_with_prefix(const int parent, const char *prefix)
 {
 	header_field_info *hfinfo;
 	protocol_t        *proto;
@@ -8996,7 +8999,7 @@ proto_deregister_all_fields_with_prefix(const int parent, const gchar *prefix)
 
 	proto = find_protocol_by_id(parent);
 	if (proto && proto->fields && proto->fields->len > 0) {
-		guint i = proto->fields->len;
+		unsigned i = proto->fields->len;
 		do {
 			i--;
 
@@ -12483,11 +12486,7 @@ construct_match_selected_string(const field_info *finfo, epan_dissect_t *edt,
 				char **filter)
 {
 	const header_field_info *hfinfo;
-	char		  *ptr;
-	int		   buf_len;
-	int		   i;
 	int		   start, length, length_remaining;
-	uint8_t		   c;
 
 	if (!finfo)
 		return false;
@@ -12603,22 +12602,9 @@ construct_match_selected_string(const field_info *finfo, epan_dissect_t *edt,
 
 			if (filter != NULL) {
 				start = finfo->start;
-				buf_len = 32 + length * 3;
-				*filter = (char *)wmem_alloc0(NULL, buf_len);
-				ptr = *filter;
-
-				ptr += snprintf(ptr, buf_len-(ptr-*filter),
-					"frame[%d:%d] == ", finfo->start, length);
-				for (i=0; i<length; i++) {
-					c = tvb_get_uint8(finfo->ds_tvb, start);
-					start++;
-					if (i == 0 ) {
-						ptr += snprintf(ptr, buf_len-(ptr-*filter), "%02x", c);
-					}
-					else {
-						ptr += snprintf(ptr, buf_len-(ptr-*filter), ":%02x", c);
-					}
-				}
+				char *str = bytes_to_dfilter_repr(NULL, tvb_get_ptr(finfo->ds_tvb, start, length), length);
+				*filter = wmem_strdup_printf(NULL, "frame[%d:%d] == %s", finfo->start, length, str);
+				wmem_free(NULL, str);
 			}
 			break;
 
@@ -13696,7 +13682,7 @@ proto_tree_add_bits_ret_val(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 	if ((item = _proto_tree_add_bits_ret_val(tree, hfindex, tvb,
 						 bit_offset, no_of_bits,
 						 return_value, encoding))) {
-		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_OFFSET(bit_offset));
+		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_OFFSET(bit_offset&0x7));
 		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_SIZE(no_of_bits));
 	}
 	return item;
@@ -13828,7 +13814,7 @@ proto_tree_add_bits_format_value(proto_tree *tree, const int hfindex,
 	if ((item = _proto_tree_add_bits_format_value(tree, hfindex,
 						      tvb, bit_offset, no_of_bits,
 						      value_ptr, encoding, value_str))) {
-		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_OFFSET(bit_offset));
+		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_OFFSET(bit_offset&0x7));
 		FI_SET_FLAG(PNODE_FINFO(item), FI_BITS_SIZE(no_of_bits));
 	}
 	return item;
