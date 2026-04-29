@@ -1,8 +1,8 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V18.7.0 Release 18) packet dissection
- * Copyright 2018-2025, Pascal Quantin
+ * (3GPP TS 38.331 V19.2.0 Release 19) packet dissection
+ * Copyright 2018-2026, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -42,10 +42,6 @@
 #include "packet-nr-rrc.h"
 #include "packet-gsm_a_common.h"
 #include "packet-lpp.h"
-
-#define PNAME  "NR Radio Resource Control (RRC) protocol"
-#define PSNAME "NR RRC"
-#define PFNAME "nr-rrc"
 
 void proto_register_nr_rrc(void);
 void proto_reg_handoff_nr_rrc(void);
@@ -343,7 +339,8 @@ static void
 dissect_nr_rrc_warningMessageSegment(tvbuff_t *warning_msg_seg_tvb, proto_tree *tree, packet_info *pinfo, uint8_t dataCodingScheme)
 {
   uint32_t offset;
-  uint8_t nb_of_pages, length, *str;
+  uint8_t nb_of_pages, length;
+  const char *str;
   proto_item *ti;
   tvbuff_t *cb_data_page_tvb, *cb_data_tvb;
   int i;
@@ -360,7 +357,7 @@ dissect_nr_rrc_warningMessageSegment(tvbuff_t *warning_msg_seg_tvb, proto_tree *
     cb_data_page_tvb = tvb_new_subset_length(warning_msg_seg_tvb, offset, length);
     cb_data_tvb = dissect_cbs_data(dataCodingScheme, cb_data_page_tvb, tree, pinfo, 0);
     if (cb_data_tvb) {
-      str = tvb_get_string_enc(pinfo->pool, cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
+      str = (char*)tvb_get_string_enc(pinfo->pool, cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
       proto_tree_add_string_format(tree, hf_nr_rrc_warningMessageSegment_decoded_page, warning_msg_seg_tvb, offset, 83,
                                    str, "Decoded Page %u: %s", i+1, str);
     }
@@ -618,6 +615,14 @@ static void
 nr_rrc_FlightPathUpdateDistanceThr_r18_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%um (%u)", v*5, v);
+}
+
+static void
+nr_rrc_50m_r19_fmt(char *s, uint32_t v)
+{
+  int32_t d = (int32_t)v;
+
+  snprintf(s, ITEM_LABEL_LENGTH, "%dm (%d)", d*50, d);
 }
 
 static int
@@ -1161,7 +1166,7 @@ proto_register_nr_rrc(void) {
   module_t *nr_rrc_module;
 
   /* Register protocol */
-  proto_nr_rrc = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_nr_rrc = proto_register_protocol("NR Radio Resource Control (RRC) protocol", "NR RRC", "nr-rrc");
 
   /* Register fields and subtrees */
   proto_register_field_array(proto_nr_rrc, hf, array_length(hf));

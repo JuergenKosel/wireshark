@@ -13,13 +13,15 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
 
 #include "ttl.h"
 
 #include <string.h>
 #include <epan/dissectors/packet-socketcan.h>
+#include <epan/dissectors/packet-lin.h>
+#include <epan/dissectors/packet-flexray.h>
 #include <wsutil/wslog.h>
 #include <wsutil/report_message.h>
 #include <wsutil/filesystem.h>
@@ -143,18 +145,6 @@ ttl_free_reassembled_entry(void* data) {
         g_free(data);
     }
 }
-
-#ifndef OPT_EPB_FLAGS
-    #define OPT_EPB_FLAGS   0x0002  /* Copied from pcapng.c */
-#endif
-
-#ifndef FLEXRAY_FRAME
-    #define FLEXRAY_FRAME   0x01    /* Copied from packet-flexray.c */
-#endif
-
-#ifndef FLEXRAY_SYMBOL
-    #define FLEXRAY_SYMBOL  0x02    /* Copied from packet-flexray.c */
-#endif
 
 static void
 fix_endianness_ttl_fileheader(ttl_fileheader_t* header) {
@@ -1695,7 +1685,7 @@ ttl_add_eth_dir_option(wtap_rec* rec, uint16_t status) {
         break;
     }
 
-    wtap_block_add_uint32_option(rec->block, OPT_EPB_FLAGS, opt);
+    wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, opt);
 }
 
 static ttl_result_t
@@ -1736,7 +1726,7 @@ static void
 ttl_add_can_dir_option(wtap_rec* rec) {
     uint32_t opt = PACK_FLAGS_DIRECTION_INBOUND;    /* For the moment, we only support this */
 
-    wtap_block_add_uint32_option(rec->block, OPT_EPB_FLAGS, opt);
+    wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, opt);
 }
 
 static const uint8_t canfd_dlc_to_length[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64 };
@@ -1767,11 +1757,6 @@ ttl_read_can_data_entry(wtap_rec* rec, int* err, char** err_info, ttl_read_t* in
         }
         can_id = GUINT32_FROM_LE(can_id);
         size -= sizeof(uint32_t);
-
-        if (size == 0 && !(status & TTL_CAN_STATUS_RTR_BIT_MASK)) {
-            /* No more data, and it's not a remote transmission frame */
-            return TTL_CORRUPTED;
-        }
     }
 
     if (error_code) {
@@ -1855,7 +1840,7 @@ static void
 ttl_add_lin_dir_option(wtap_rec* rec) {
     uint32_t opt = PACK_FLAGS_DIRECTION_INBOUND;    /* For the moment, we only support this */
 
-    wtap_block_add_uint32_option(rec->block, OPT_EPB_FLAGS, opt);
+    wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, opt);
 }
 
 static ttl_result_t
@@ -1876,7 +1861,7 @@ ttl_read_lin_data_entry(wtap_rec* rec, int* err, char** err_info, ttl_read_t* in
     lin_header[1] = 0; /* reserved */
     lin_header[2] = 0; /* reserved */
     lin_header[3] = 0; /* reserved */
-    lin_header[4] = dlc << 4;   /* dlc (4bit) | type (2bit) | checksum type (2bit) */
+    lin_header[4] = (dlc << 4) | (LIN_MSG_TYPE_FRAME << 2); /* dlc (4bit) | type (2bit) | checksum type (2bit) */
     lin_header[5] = status & TTL_LIN_STATUS_PID_MASK;  /* parity (2bit) | id (6bit) */
     lin_header[6] = 0; /* checksum */
     lin_header[7] = 0; /* errors */
@@ -1924,7 +1909,7 @@ static void
 ttl_add_flexray_dir_option(wtap_rec* rec) {
     uint32_t opt = PACK_FLAGS_DIRECTION_INBOUND;    /* For the moment, we only support this */
 
-    wtap_block_add_uint32_option(rec->block, OPT_EPB_FLAGS, opt);
+    wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, opt);
 }
 
 static ttl_result_t
@@ -2313,7 +2298,7 @@ ttl_xml_node_get_number(xmlNodePtr node, xmlXPathContextPtr ctx, double *ret) {
         return false;
     }
 
-    result = xmlXPathNodeEval(node, "./Number[1]/text()", ctx);
+    result = xmlXPathNodeEval(node, (const xmlChar*)"./Number[1]/text()", ctx);
     if (result && result->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty(result->nodesetval)) {
         val = xmlXPathCastToNumber(result);
         if (!xmlXPathIsNaN(val)) {
@@ -2323,6 +2308,7 @@ ttl_xml_node_get_number(xmlNodePtr node, xmlXPathContextPtr ctx, double *ret) {
         }
     }
 
+    xmlXPathFreeObject(result);
     return false;
 }
 
@@ -2337,15 +2323,17 @@ ttl_xml_node_get_string(xmlNodePtr node, xmlXPathContextPtr ctx, const char* nam
 
     str = ws_strdup_printf("./%s[1]/text()", name);
 
-    result = xmlXPathNodeEval(node, str, ctx);
+    result = xmlXPathNodeEval(node, (const xmlChar*)str, ctx);
     g_free(str);
     if (result && result->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty(result->nodesetval)) {
-        str = xmlXPathCastToString(result);
+        str = (char*)xmlXPathCastToString(result);
+        xmlXPathFreeObject(result);
         *ret = ws_strdup(str);
         xmlFree(str);
         return true;
     }
 
+    xmlXPathFreeObject(result);
     return false;
 }
 
@@ -2370,20 +2358,20 @@ ttl_process_xml_config(ttl_t* ttl, const char* text, int size) {
     }
 
     ctx = xmlXPathNewContext(doc);
-    cascades = xmlXPathEvalExpression("/LoggerConfiguration/HWList/Cascades/Cascade", ctx);
+    cascades = xmlXPathEvalExpression((const xmlChar*)"/LoggerConfiguration/HWList/Cascades/Cascade", ctx);
     if (cascades && cascades->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty(cascades->nodesetval)) {
         for (i = 0; i < cascades->nodesetval->nodeNr; i++) {
             if (ttl_xml_node_get_number(cascades->nodesetval->nodeTab[i], ctx, &val) && val >= 0 && val <= 7) {
                 cascade = (uint16_t)val;
                 if (val == 0) { /* Only the configuration of the logger is inside the TTL file. The TAPs have their own configuration */
 
-                    devices = xmlXPathNodeEval(cascades->nodesetval->nodeTab[i], "./Devices/Device", ctx);
+                    devices = xmlXPathNodeEval(cascades->nodesetval->nodeTab[i], (const xmlChar*)"./Devices/Device", ctx);
                     if (devices && devices->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty(devices->nodesetval)) {
                         for (j = 0; j < devices->nodesetval->nodeNr; j++) {
                             if (ttl_xml_node_get_number(devices->nodesetval->nodeTab[j], ctx, &val) && val >= 0 && val <= 15) {
                                 device = (uint16_t)val;
 
-                                functions = xmlXPathNodeEval(devices->nodesetval->nodeTab[j], "./Functions/Function", ctx);
+                                functions = xmlXPathNodeEval(devices->nodesetval->nodeTab[j], (const xmlChar*)"./Functions/Function", ctx);
                                 if (functions && functions->type == XPATH_NODESET && !xmlXPathNodeSetIsEmpty(functions->nodesetval)) {
                                     for (k = 0; k < functions->nodesetval->nodeNr; k++) {
                                         if (ttl_xml_node_get_number(functions->nodesetval->nodeTab[k], ctx, &val) && val >= 0 && val <= 63) {
@@ -2510,13 +2498,13 @@ ttl_is_master_slave_relation_correct(uint16_t master, uint16_t slave) {
 }
 
 static bool
-ttl_parse_masters_pref_file(ttl_t* ttl, const char* path) {
+ttl_parse_masters_pref_file(GHashTable* ht, const char* path) {
     FILE*       fp;
     char        line[MAX_LINELEN];
     char*       cp;
     uint16_t    addr, tmp;
 
-    if (path == NULL) {
+    if (ht == NULL || path == NULL) {
         return false;
     }
 
@@ -2554,11 +2542,11 @@ ttl_parse_masters_pref_file(ttl_t* ttl, const char* path) {
 
         if (tmp) {  /* The address is coupled to the master */
             if (addr != 0 && ttl_is_master_slave_relation_correct(addr - 1, addr)) {
-                g_hash_table_insert(ttl->address_to_master_ht, GUINT_TO_POINTER(addr), GUINT_TO_POINTER(addr - 1));
+                g_hash_table_insert(ht, GUINT_TO_POINTER(addr), GUINT_TO_POINTER(addr - 1));
             }
         }
         else {  /* The address is independent from the master */
-            g_hash_table_insert(ttl->address_to_master_ht, GUINT_TO_POINTER(addr), GUINT_TO_POINTER(addr));
+            g_hash_table_insert(ht, GUINT_TO_POINTER(addr), GUINT_TO_POINTER(addr));
         }
     }
 
@@ -2576,17 +2564,16 @@ ttl_parse_masters_pref_file(ttl_t* ttl, const char* path) {
  * by ttl_lookup_interface() according to the default behaviour (currently,
  * independent interface for the logger and coupled interface for the taps).
  */
-static bool
-ttl_init_masters_from_pref_file(ttl_t* ttl) {
+bool ttl_init_masters_from_pref_file(GHashTable* ht, const char* app_env_var_prefix) {
     char*   pref_file;
     bool    ret;
 
-    pref_file = get_persconffile_path(TTL_ADDRESS_MASTER_PREFS, true);
-    ret = ttl_parse_masters_pref_file(ttl, pref_file);
+    pref_file = get_persconffile_path(TTL_ADDRESS_MASTER_PREFS, true, app_env_var_prefix);
+    ret = ttl_parse_masters_pref_file(ht, pref_file);
     g_free(pref_file);
     if (!ret) {
-        pref_file = get_persconffile_path(TTL_ADDRESS_MASTER_PREFS, false);
-        ret = ttl_parse_masters_pref_file(ttl, pref_file);
+        pref_file = get_persconffile_path(TTL_ADDRESS_MASTER_PREFS, false, app_env_var_prefix);
+        ret = ttl_parse_masters_pref_file(ht, pref_file);
         g_free(pref_file);
     }
 
@@ -2594,14 +2581,14 @@ ttl_init_masters_from_pref_file(ttl_t* ttl) {
 }
 
 static bool
-ttl_parse_names_pref_file(ttl_t* ttl, const char* path) {
+ttl_parse_names_pref_file(GHashTable* ht, const char* path) {
     FILE*       fp;
     char        line[MAX_LINELEN];
     char*       cp;
     uint16_t    addr, tmp;
     char*       name;
 
-    if (path == NULL) {
+    if (ht == NULL || path == NULL) {
         return false;
     }
 
@@ -2635,7 +2622,7 @@ ttl_parse_names_pref_file(ttl_t* ttl, const char* path) {
         cp = strtok(NULL, " \t");
         if (cp != NULL && strlen(cp) != 0) {
             name = ws_strdup(cp);
-            g_hash_table_insert(ttl->address_to_name_ht, GUINT_TO_POINTER(addr), name);
+            g_hash_table_insert(ht, GUINT_TO_POINTER(addr), name);
         }
     }
 
@@ -2650,17 +2637,16 @@ ttl_parse_names_pref_file(ttl_t* ttl, const char* path) {
  * is used. If also that is not present, a meaningful name is generated in
  * ttl_add_interface_name() starting from the interface address.
  */
-static bool
-ttl_init_names_from_pref_file(ttl_t* ttl) {
+bool ttl_init_names_from_pref_file(GHashTable* ht, const char* app_env_var_prefix) {
     char*   pref_file;
     bool    ret;
 
-    pref_file = get_persconffile_path(TTL_ADDRESS_NAME_PREFS, true);
-    ret = ttl_parse_names_pref_file(ttl, pref_file);
+    pref_file = get_persconffile_path(TTL_ADDRESS_NAME_PREFS, true, app_env_var_prefix);
+    ret = ttl_parse_names_pref_file(ht, pref_file);
     g_free(pref_file);
     if (!ret) {
-        pref_file = get_persconffile_path(TTL_ADDRESS_NAME_PREFS, false);
-        ret = ttl_parse_names_pref_file(ttl, pref_file);
+        pref_file = get_persconffile_path(TTL_ADDRESS_NAME_PREFS, false, app_env_var_prefix);
+        ret = ttl_parse_names_pref_file(ht, pref_file);
         g_free(pref_file);
     }
 
@@ -2761,7 +2747,7 @@ ttl_open(wtap* wth, int* err, char** err_info) {
             offset += TTL_LOGFILE_INFO_SIZE;
             unsigned int xml_len = header.header_size - offset;
             if (xml_len != 0) {
-                unsigned char* xml = g_try_malloc(xml_len);
+                char* xml = g_try_malloc(xml_len);
                 if (xml == NULL) {
                     *err = WTAP_ERR_INTERNAL;
                     *err_info = ws_strdup("ttl: cannot allocate memory");
@@ -2789,8 +2775,8 @@ ttl_open(wtap* wth, int* err, char** err_info) {
         }
     }
 
-    ttl_init_masters_from_pref_file(ttl);
-    ttl_init_names_from_pref_file(ttl);
+    ttl_init_masters_from_pref_file(ttl->address_to_master_ht, wth->app_env_var_prefix);
+    ttl_init_names_from_pref_file(ttl->address_to_name_ht, wth->app_env_var_prefix);
 
     wth->priv = (void*)ttl;
     wth->file_encap = WTAP_ENCAP_NONE;

@@ -1548,8 +1548,7 @@ dissect_omron_fins_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *omron_t
                         uint8_t memory_area_code;
                         uint8_t memory_code_len;
 
-                        ti = proto_tree_add_item(command_tree, hf_omron_command_memory_area_code, tvb, offset, 1, ENC_BIG_ENDIAN);
-                        memory_area_code  = tvb_get_uint8(tvb, offset);
+                        ti = proto_tree_add_item_ret_uint8(command_tree, hf_omron_command_memory_area_code, tvb, offset, 1, ENC_BIG_ENDIAN, &memory_area_code);
                         switch(memory_area_code) {
                             case 0x00:
                             case 0x01:
@@ -4303,11 +4302,7 @@ proto_register_omron_fins(void)
     expert_module_t* expert_omron_fins;
 
     /* Register the protocol name and description */
-    proto_omron_fins = proto_register_protocol (
-            "OMRON FINS Protocol", /* name       */
-            "OMRON FINS",          /* short name */
-            "omron"                /* abbrev     */
-            );
+    proto_omron_fins = proto_register_protocol ("OMRON FINS Protocol", "OMRON FINS", "omron");
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_omron_fins, hf, array_length(hf));

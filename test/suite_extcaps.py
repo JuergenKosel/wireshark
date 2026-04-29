@@ -10,7 +10,6 @@
 
 import subprocess
 import re
-import os
 import sys
 import pytest
 
@@ -34,7 +33,7 @@ def check_extcap_execution(cmd_extcap, program_path, base_env):
                 interfaces.append(parser.findall(line)[0])
         return interfaces
 
-    def check_extcap_execution_real(extcap_name, stratoshark_extcap=False, always_present=True):
+    def check_extcap_execution_real(extcap_name, request=None, stratoshark_extcap=False, always_present=True):
         '''
         Check if an extcap runs flawlessly.
         always_present: at least one interface is always offered by the extcap.
@@ -67,10 +66,9 @@ class TestExtcaps:
             pytest.skip('dpauxmon available on Linux only')
         check_extcap_execution("dpauxmon")
 
-    if sys.platform != 'darwin':
-        def test_falcodump(self, check_extcap_execution):
-            ''' extcap interface tests for falcodump '''
-            check_extcap_execution("falcodump", stratoshark_extcap=True, always_present=False)
+    def test_falcodump(self, request, check_extcap_execution):
+        ''' extcap interface tests for falcodump '''
+        check_extcap_execution("falcodump", stratoshark_extcap=True)
 
     # if sys.platform == 'linux':
     #     def test_dumpcalls(self, check_extcap_execution):
@@ -85,7 +83,7 @@ class TestExtcaps:
         ''' extcap interface tests for sdjournal '''
         if not sys.platform.startswith('linux'):
             pytest.skip('sdjournal is available on Linux only')
-        check_extcap_execution("sdjournal")
+        check_extcap_execution("sdjournal", stratoshark_extcap=True)
 
     def test_sshdig(self, check_extcap_execution):
         ''' extcap interface tests for sshdig '''

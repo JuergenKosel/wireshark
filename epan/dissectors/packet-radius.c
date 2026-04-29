@@ -429,9 +429,8 @@ typedef struct _radius_vsa_buffer_key
 typedef struct _radius_vsa_buffer
 {
 	radius_vsa_buffer_key key;
-	uint8_t *data;
+	wmem_array_t* data;
 	unsigned seg_num;
-	unsigned len;
 } radius_vsa_buffer;
 
 static int
@@ -674,8 +673,7 @@ dissect_ascend_data_filter(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo)
 	ti = proto_tree_add_item(tree, hf_radius_ascend_data_filter, tvb, 0, -1, ENC_NA);
 	ascend_tree = proto_item_add_subtree(ti, ett_radius_ascend);
 
-	proto_tree_add_item(ascend_tree, hf_radius_ascend_data_filter_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-	type = tvb_get_uint8(tvb, 0);
+	proto_tree_add_item_ret_uint8(ascend_tree, hf_radius_ascend_data_filter_type, tvb, offset, 1, ENC_BIG_ENDIAN, &type);
 	offset += 1;
 	if (type == 3) { /* IPv6 */
 		iplen = 16;
@@ -873,8 +871,7 @@ dissect_rfc4675_egress_vlanid(proto_tree *tree, tvbuff_t *tvb, packet_info *pinf
 
 	proto_tree_add_item(tree, hf_radius_egress_vlanid_tag, tvb, 0, 4, ENC_BIG_ENDIAN);
 	proto_tree_add_item(tree, hf_radius_egress_vlanid_pad, tvb, 0, 4, ENC_BIG_ENDIAN);
-	proto_tree_add_item(tree, hf_radius_egress_vlanid, tvb, 0, 4, ENC_BIG_ENDIAN);
-	vlanid = tvb_get_ntohl(tvb, 0);
+	proto_tree_add_item_ret_uint(tree, hf_radius_egress_vlanid, tvb, 0, 4, ENC_BIG_ENDIAN, &vlanid);
 
 	return wmem_strdup_printf(pinfo->pool, "%s, Vlan ID: %u",
 				   val_to_str_const(((vlanid&0xFF000000)>>24), egress_vlan_tag_vals, "Unknown"), vlanid&0xFFF);
@@ -891,8 +888,7 @@ dissect_rfc4675_egress_vlan_name(proto_tree *tree, tvbuff_t *tvb, packet_info *p
 	if (len < 2)
 		return "[wrong length for Egress-VLAN-Name ]";
 
-	proto_tree_add_item(tree, hf_radius_egress_vlan_name_tag, tvb, 0, 1, ENC_BIG_ENDIAN);
-	tag = tvb_get_uint8(tvb, 0);
+	proto_tree_add_item_ret_uint8(tree, hf_radius_egress_vlan_name_tag, tvb, 0, 1, ENC_BIG_ENDIAN, &tag);
 	len -= 1;
 	proto_tree_add_item_ret_string(tree, hf_radius_egress_vlan_name, tvb, 1, len, ENC_ASCII|ENC_NA, pinfo->pool, &name);
 
@@ -1334,7 +1330,7 @@ add_avp_to_tree(proto_tree *avp_tree, proto_item *avp_item, packet_info *pinfo, 
 					break;
 				}
 				/* decrypted data is same length as encrypted data */
-				buffer = (char *)wmem_alloc(pinfo->pool, avp_length - 2);
+				buffer = (uint8_t *)wmem_alloc(pinfo->pool, avp_length - 2);
 				uint8_t salt[2];
 
 				tvb_memcpy(tvb, salt, offset, 2);
@@ -1365,32 +1361,6 @@ add_avp_to_tree(proto_tree *avp_tree, proto_item *avp_item, packet_info *pinfo, 
 		}
 	} else {
 		dictionary_entry->type(dictionary_entry, avp_tree, pinfo, tvb, offset, avp_length, avp_item);
-	}
-}
-
-static gboolean
-vsa_buffer_destroy(void *k _U_, void *v, void *p _U_)
-{
-	radius_vsa_buffer *vsa_buffer = (radius_vsa_buffer *)v;
-	g_free((void *)vsa_buffer->data);
-	g_free(v);
-	return true;
-}
-
-static void
-eap_buffer_free_indirect(void *context)
-{
-	uint8_t *eap_buffer = *(uint8_t **)context;
-	g_free(eap_buffer);
-}
-
-static void
-vsa_buffer_table_destroy_indirect(void *context)
-{
-	GHashTable *vsa_buffer_table = *(GHashTable **)context;
-	if (vsa_buffer_table) {
-		g_hash_table_foreach_remove(vsa_buffer_table, vsa_buffer_destroy, NULL);
-		g_hash_table_destroy(vsa_buffer_table);
 	}
 }
 
@@ -1470,24 +1440,16 @@ void
 dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int offset, unsigned length, radius_call_t *radius_call)
 {
 	bool last_eap = false;
-	uint8_t *eap_buffer = NULL;
+	wmem_array_t *eap_buffer = NULL;
 	unsigned eap_seg_num = 0;
-	unsigned eap_tot_len_captured = 0;
 	unsigned eap_tot_len = 0;
 	proto_tree *eap_tree = NULL;
 	tvbuff_t *eap_tvb = NULL;
 
-	GHashTable *vsa_buffer_table = NULL;
+	wmem_map_t *vsa_buffer_table = NULL;
 
 	if (hf_radius_code <= 0)
 		proto_registrar_get_byname("radius.code");
-
-	/*
-	 * In case we throw an exception, clean up whatever stuff we've
-	 * allocated (if any).
-	 */
-	CLEANUP_PUSH_PFX(la, eap_buffer_free_indirect, &eap_buffer);
-	CLEANUP_PUSH_PFX(lb, vsa_buffer_table_destroy_indirect, &vsa_buffer_table);
 
 	while (length > 0) {
 		radius_attr_info_t *dictionary_entry = NULL;
@@ -1741,41 +1703,38 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 					key.vsa_type = avp_vsa_type;
 
 					if (!vsa_buffer_table) {
-						vsa_buffer_table = g_hash_table_new(radius_vsa_hash, radius_vsa_equal);
+						vsa_buffer_table = wmem_map_new(pinfo->pool, radius_vsa_hash, radius_vsa_equal);
 					}
 
-					vsa_buffer = (radius_vsa_buffer *)g_hash_table_lookup(vsa_buffer_table, &key);
+					vsa_buffer = (radius_vsa_buffer *)wmem_map_lookup(vsa_buffer_table, &key);
 					if (vsa_buffer) {
-						vsa_buffer->data = (uint8_t *)g_realloc(vsa_buffer->data, vsa_buffer->len + avp_vsa_len);
-						tvb_memcpy(tvb, vsa_buffer->data + vsa_buffer->len, offset, avp_vsa_len);
-						vsa_buffer->len += avp_vsa_len;
+						wmem_array_grow(vsa_buffer->data, avp_vsa_len);
+						wmem_array_append(vsa_buffer->data, tvb_get_ptr(tvb, offset, avp_vsa_len), avp_vsa_len);
 						vsa_buffer->seg_num++;
 					}
 
 					if (avp_vsa_flags & 0x80) {
 						if (!vsa_buffer) {
-							vsa_buffer = g_new(radius_vsa_buffer, 1);
+							vsa_buffer = wmem_new(pinfo->pool, radius_vsa_buffer);
 							vsa_buffer->key.vendor_id = vendor_id;
 							vsa_buffer->key.vsa_type = avp_vsa_type;
-							vsa_buffer->len = avp_vsa_len;
 							vsa_buffer->seg_num = 1;
-							vsa_buffer->data = (uint8_t *)g_malloc(avp_vsa_len);
-							tvb_memcpy(tvb, vsa_buffer->data, offset, avp_vsa_len);
-							g_hash_table_insert(vsa_buffer_table, &(vsa_buffer->key), vsa_buffer);
+							vsa_buffer->data = wmem_array_sized_new(pinfo->pool, 1, avp_vsa_len);
+							wmem_array_append(vsa_buffer->data, tvb_get_ptr(tvb, offset, avp_vsa_len), avp_vsa_len);
+							wmem_map_insert(vsa_buffer_table, &(vsa_buffer->key), vsa_buffer);
 						}
 						proto_tree_add_item(avp_tree, hf_radius_vsa_fragment, tvb, offset, avp_vsa_len, ENC_NA);
 						proto_item_append_text(avp_item, ": VSA fragment[%u]", vsa_buffer->seg_num);
 					} else {
 						if (vsa_buffer) {
 							tvbuff_t *vsa_tvb = NULL;
+							unsigned vsa_len = wmem_array_get_count(vsa_buffer->data);
 							proto_tree_add_item(avp_tree, hf_radius_vsa_fragment, tvb, offset, avp_vsa_len, ENC_NA);
 							proto_item_append_text(avp_item, ": Last VSA fragment[%u]", vsa_buffer->seg_num);
-							vsa_tvb = tvb_new_child_real_data(tvb, vsa_buffer->data, vsa_buffer->len, vsa_buffer->len);
-							tvb_set_free_cb(vsa_tvb, g_free);
+							vsa_tvb = tvb_new_child_real_data(tvb, wmem_array_get_raw(vsa_buffer->data), vsa_len, vsa_len);
 							add_new_data_source(pinfo, vsa_tvb, "Reassembled VSA");
-							add_avp_to_tree(avp_tree, avp_item, pinfo, vsa_tvb, dictionary_entry, vsa_buffer->len, 0, radius_call);
-							g_hash_table_remove(vsa_buffer_table, &(vsa_buffer->key));
-							g_free(vsa_buffer);
+							add_avp_to_tree(avp_tree, avp_item, pinfo, vsa_tvb, dictionary_entry, vsa_len, 0, radius_call);
+							wmem_map_remove(vsa_buffer_table, &(vsa_buffer->key));
 
 						} else {
 							add_avp_to_tree(avp_tree, avp_item, pinfo, tvb, dictionary_entry, avp_vsa_len, offset, radius_call);
@@ -1864,13 +1823,9 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 				 */
 
 				if (eap_buffer == NULL)
-					eap_buffer = (uint8_t *)g_malloc(eap_tot_len_captured + tvb_len);
-				else
-					eap_buffer = (uint8_t *)g_realloc(eap_buffer,
-							       eap_tot_len_captured + tvb_len);
-				tvb_memcpy(tvb, eap_buffer + eap_tot_len_captured, offset,
-					   tvb_len);
-				eap_tot_len_captured += tvb_len;
+					eap_buffer = wmem_array_new(pinfo->pool, 1);
+				wmem_array_grow(eap_buffer, tvb_len);
+				wmem_array_append(eap_buffer, tvb_get_ptr(tvb, offset, tvb_len), tvb_len);
 				eap_tot_len += avp_length;
 
 				if (tvb_bytes_exist(tvb, offset + avp_length + 1, 1)) {
@@ -1890,7 +1845,7 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 					last_eap = true;
 				}
 
-				if (last_eap && eap_buffer) {
+				if (last_eap) {
 					bool save_writable;
 
 					proto_item_append_text(avp_item, " Last Segment[%u]",
@@ -1898,15 +1853,13 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 
 					eap_tree = proto_item_add_subtree(avp_item, ett_eap);
 
-					eap_tvb = tvb_new_child_real_data(tvb, eap_buffer,
-									  eap_tot_len_captured,
+					eap_tvb = tvb_new_child_real_data(tvb, wmem_array_get_raw(eap_buffer),
+									  wmem_array_get_count(eap_buffer),
 									  eap_tot_len);
-					tvb_set_free_cb(eap_tvb, g_free);
 					add_new_data_source(pinfo, eap_tvb, "Reassembled EAP");
 
 					/*
-					 * Don't free this when we're done -
-					 * it's associated with a tvbuff.
+					 * Allow another new buffer to come in
 					 */
 					eap_buffer = NULL;
 
@@ -1956,14 +1909,6 @@ dissect_attribute_value_pairs(proto_tree *tree, packet_info *pinfo, tvbuff_t *tv
 		offset += avp_length;
 
 	}  /* while (length > 0) */
-
-	CLEANUP_CALL_AND_POP_PFX(lb); /* vsa_buffer_table_destroy_indirect(&vsa_buffer_table) */
-
-	/*
-	 * Call the cleanup handler to free any reassembled data we haven't
-	 * attached to a tvbuff, and pop the handler.
-	 */
-	CLEANUP_CALL_AND_POP_PFX(la); /* eap_buffer_free_indirect(&eap_buffer); */
 }
 
 /* This function tries to determine whether a packet is radius or not */
@@ -2643,7 +2588,7 @@ _radius_load_dictionary(char* dir)
 static void
 register_radius_fields(const char *unused _U_)
 {
-	hf_register_info base_hf[] = {
+	static const hf_register_info base_hf[] = {
 		{ &hf_radius_req,
 		{ "Request", "radius.req", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
 			"true if RADIUS request", HFILL }},
@@ -2854,10 +2799,10 @@ register_radius_fields(const char *unused _U_)
 	wmem_array_append(ri.ett, base_ett, array_length(base_ett));
 
 
-	dir = get_datafile_path("radius");
+	dir = get_datafile_path("radius", epan_get_environment_prefix());
 	_radius_load_dictionary(dir);
 	g_free(dir);
-	dir = get_persconffile_path("radius", false);
+	dir = get_persconffile_path("radius", false, epan_get_environment_prefix());
 	_radius_load_dictionary(dir);
 	g_free(dir);
 

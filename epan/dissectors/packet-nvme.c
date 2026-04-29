@@ -2284,7 +2284,7 @@ static const value_string sub_type_tbl[] = {
     { 0, NULL }
 };
 
-static void dissect_nvme_get_logpage_ify_rcrd_resp(tvbuff_t *cmd_tvb, proto_tree *tree, uint64_t rcrd, unsigned roff, int off, unsigned len)
+static void dissect_nvme_get_logpage_ify_rcrd_resp(tvbuff_t *cmd_tvb, struct nvme_cmd_ctx *cmd_ctx, proto_tree *tree, uint64_t rcrd, unsigned roff, int off, unsigned len)
 {
     proto_item *ti;
     proto_tree *grp;
@@ -2294,8 +2294,12 @@ static void dissect_nvme_get_logpage_ify_rcrd_resp(tvbuff_t *cmd_tvb, proto_tree
         (len < 1024) ? len : 1024, NULL, "Discovery Log Entry %"PRIu64" (DLE%"PRIu64")", rcrd, rcrd);
     grp =  proto_item_add_subtree(ti, ett_data);
 
-    if (!roff)
+    if (!roff) {
         proto_tree_add_item_ret_uint(grp, hf_nvme_get_logpage_ify_rcrd_trtype, cmd_tvb, off, 1, ENC_LITTLE_ENDIAN, &tr_type);
+        cmd_ctx->cmd_ctx.get_logpage.tr_type = tr_type;
+    } else {
+        tr_type = cmd_ctx->cmd_ctx.get_logpage.tr_type;
+    }
 
     if (roff <= 1 && (2-roff) <= len)
         proto_tree_add_item(grp, hf_nvme_get_logpage_ify_rcrd_adrfam, cmd_tvb, off-roff+1, 1, ENC_LITTLE_ENDIAN);
@@ -2387,7 +2391,7 @@ static void dissect_nvme_get_logpage_ify_resp(proto_item *ti, tvbuff_t *cmd_tvb,
     }
 
     max_bytes = (max_bytes <= len) ? max_bytes : len;
-    dissect_nvme_get_logpage_ify_rcrd_resp(cmd_tvb, grp, rcrd, roff, poff, len);
+    dissect_nvme_get_logpage_ify_rcrd_resp(cmd_tvb, cmd_ctx, grp, rcrd, roff, poff, len);
     poff += max_bytes;
     len -= max_bytes;
     rcrd++;
@@ -2398,7 +2402,7 @@ static void dissect_nvme_get_logpage_ify_resp(proto_item *ti, tvbuff_t *cmd_tvb,
 
     while (len && rcrd_ctr <= recnum) {
         max_bytes = (len >= 1024) ? 1024 : len;
-        dissect_nvme_get_logpage_ify_rcrd_resp(cmd_tvb, grp, rcrd, 0, poff, len);
+        dissect_nvme_get_logpage_ify_rcrd_resp(cmd_tvb, cmd_ctx, grp, rcrd, 0, poff, len);
         poff += max_bytes;
         len -= max_bytes;
         rcrd++;
@@ -3759,7 +3763,7 @@ dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *r
 {
     proto_tree *cmd_tree;
     proto_item *ti;
-    const uint8_t *str_opcode;
+    const char *str_opcode;
     uint32_t off;
 
     off = (PINFO_FD_VISITED(pinfo)) ? nvme_lookup_data_tr_off(q_ctx, pinfo->num) : cmd_ctx->tr_bytes;
@@ -4328,7 +4332,7 @@ static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, struct n
         case NVME_AQ_OPC_SET_FEATURES:
         {
             uint16_t sc = tvb_get_uint16(nvme_tvb, 14, ENC_LITTLE_ENDIAN);
-            sc = ((sc & 0x1fe) >> 9);
+            sc = ((sc & 0x1fe) >> 1);
             if (sc) {
                 proto_tree_add_item(cqe_tree, hf_nvme_cqe_dword0_sf_err, nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
             } else {

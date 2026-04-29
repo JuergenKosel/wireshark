@@ -124,12 +124,11 @@
  * Includes updates for RFC8549
  */
 
-#define WS_LOG_DOMAIN "packet-netflow"
 #include "config.h"
+#define WS_LOG_DOMAIN "packet-netflow"
 #include <wireshark.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
-#include <epan/ipproto.h>
 #include <epan/sminmpec.h>
 #include <epan/to_str.h>
 #include <epan/expert.h>
@@ -138,6 +137,7 @@
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
+#include <epan/iana-info.h>
 
 #include <wsutil/array.h>
 #include <wsutil/str_util.h>
@@ -2181,6 +2181,7 @@ static const value_string v10_barracuda_logop[] = {
     { 28, "IntermediateReport" },
     { 0, NULL }
 };
+static value_string_ext v10_barracuda_logop_ext = VALUE_STRING_EXT_INIT(v10_barracuda_logop);
 
 static const value_string v10_barracuda_traffictype[] = {
     { 0, "Forwarding" },
@@ -2237,6 +2238,7 @@ static const value_string v10_cisco_waas_passthrough_reason[] = {
     { 33, "PT_RTSP_ALG" },
     {  0, NULL }
 };
+static value_string_ext v10_cisco_waas_passthrough_reason_ext = VALUE_STRING_EXT_INIT(v10_cisco_waas_passthrough_reason);
 
 static const value_string v10_template_types_fastip[] = {
     { 0, "METER_VERSION"},
@@ -11463,7 +11465,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             break;
         case ((VENDOR_IXIA << 16) | 374):
             ti = proto_tree_add_item(pdutree, hf_pie_ixia_session_ip_scrambling_key_hash,
-                                     tvb, offset, length, ENC_ASCII);
+                                     tvb, offset, length, ENC_NA);
             break;
         case ((VENDOR_IXIA << 16) | 375):
             ti = proto_tree_add_item(pdutree, hf_pie_ixia_ja4a,
@@ -20417,7 +20419,7 @@ proto_register_netflow(void)
         /* ixia, 3054 / 374 */
         {&hf_pie_ixia_session_ip_scrambling_key_hash,
          {"IP Scrambling Key Hash", "cflow.pie.ixia.session-ip-scrambling-key-hash",
-          FT_STRING, BASE_NONE, NULL, 0x0,
+          FT_BYTES, BASE_NONE, NULL, 0x0,
           "Session IP Scrambling Key Hash", HFILL}
         },
 
@@ -21253,7 +21255,7 @@ proto_register_netflow(void)
         /* Barracuda, 10704 / 2 */
         {&hf_pie_barracuda_logop,
          {"LogOp", "cflow.pie.barracuda.logop",
-          FT_UINT8, BASE_DEC, VALS(v10_barracuda_logop), 0x0,
+          FT_UINT8, BASE_DEC|BASE_EXT_STRING, &v10_barracuda_logop_ext, 0x0,
           NULL, HFILL}
         },
         /* Barracuda, 10704 / 3 */
@@ -22294,7 +22296,7 @@ proto_register_netflow(void)
         /* Cisco, 9 / 9253 */
         {&hf_pie_cisco_services_waas_passthrough_reason,
          {"Services WAAS Passthrough-reason", "cflow.pie.cisco.services_waas_passthrough-reason",
-          FT_UINT8, BASE_DEC, VALS(v10_cisco_waas_passthrough_reason), 0x0,
+          FT_UINT8, BASE_DEC|BASE_EXT_STRING, &v10_cisco_waas_passthrough_reason_ext, 0x0,
           NULL, HFILL}
         },
         /* Cisco, 9 / 9357 */

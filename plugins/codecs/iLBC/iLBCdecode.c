@@ -1,6 +1,8 @@
 /* iLBCdecode.c
  * iLBC codec
  *
+ * https://datatracker.ietf.org/doc/html/rfc3952
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -49,8 +51,9 @@ codec_iLBC_init(codec_context_t *ctx _U_)
 static void
 codec_iLBC_release(codec_context_t *ctx)
 {
-    WebRtcIlbcfix_DecoderFree(((ilbc_ctx_t *)ctx->priv)->ilbc_ctx);
-    g_free(ctx);
+    ilbc_ctx_t *dataCtx = (ilbc_ctx_t *)ctx->priv;
+    WebRtcIlbcfix_DecoderFree(dataCtx->ilbc_ctx);
+    g_free(dataCtx);
 }
 
 static unsigned
@@ -72,22 +75,30 @@ codec_iLBC_decode(codec_context_t *ctx,
 {
     int16_t speechType; // Not used in Wireshark code
 #ifdef LIBILBC_VERSION_MAJOR
-    int8_t *dataIn  = (int8_t *)inputBytes;
+    uint8_t *dataIn  = (uint8_t *)inputBytes;
 #else
     int16_t *dataIn  = (int16_t *)inputBytes;
 #endif
     int16_t *dataOut = (int16_t *)outputSamples;
     ilbc_ctx_t *dataCtx = (ilbc_ctx_t *)ctx->priv;
-    size_t outputSamplesCount;
+    size_t outputSamplesCount, outputFramesCount;
 
     if (!outputSamples || !outputSamplesSize)
     {
+        /* XXX - If the payload size is a multiple of 950 (the GCM of the
+         * 20 ms and 30 ms payload lengths), we don't know which variant it
+         * is and the iLBC library doesn't seem to autodetect but uses what
+         * we initialize as. RFC 3952 3.2 is of no help here, suggesting
+         * only this algorithm.
+         * Do we need a codec preference? */
         if (0 == inputBytesSize%ILBC_PAYLOAD_LEN_20MS) {
             /* 20ms packet size = 160 samples = 320 bytes */
-            return BLOCKL_20MS*SAMPLE_SIZE;
+            outputFramesCount = inputBytesSize / ILBC_PAYLOAD_LEN_20MS;
+            return outputFramesCount*BLOCKL_20MS*SAMPLE_SIZE;
         } else if (0 == inputBytesSize%ILBC_PAYLOAD_LEN_30MS) {
             /* 30ms packet size = 240 samples = 480 bytes */
-            return BLOCKL_30MS*SAMPLE_SIZE;
+            outputFramesCount = inputBytesSize / ILBC_PAYLOAD_LEN_30MS;
+            return outputFramesCount*BLOCKL_30MS*SAMPLE_SIZE;
         } else {
             /* unknown packet size */
             return 0;

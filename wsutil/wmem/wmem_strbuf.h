@@ -74,8 +74,7 @@ typedef struct _wmem_strbuf_t wmem_strbuf_t;
  */
 WS_DLL_PUBLIC
 wmem_strbuf_t *
-wmem_strbuf_new_sized(wmem_allocator_t *allocator, size_t alloc_size)
-G_GNUC_MALLOC;
+wmem_strbuf_new_sized(wmem_allocator_t *allocator, size_t alloc_size);
 
 /**
  * @brief Create a new string buffer initialized with a copy of the given string.
@@ -89,8 +88,7 @@ G_GNUC_MALLOC;
  */
 WS_DLL_PUBLIC
 wmem_strbuf_t *
-wmem_strbuf_new(wmem_allocator_t *allocator, const char *str)
-G_GNUC_MALLOC;
+wmem_strbuf_new(wmem_allocator_t *allocator, const char *str);
 
 
 /**
@@ -109,18 +107,22 @@ G_GNUC_MALLOC;
  * @brief Create a new string buffer initialized with a substring of specified length.
  *
  * Allocates and initializes a new `wmem_strbuf_t` structure using the specified memory allocator,
- * and copies up to `len` bytes from the string `str` into the buffer. The resulting buffer is
+ * and copies `len` bytes from the string `str` into the buffer. The resulting buffer is
  * null-terminated.
  *
  * @param allocator Pointer to the memory allocator to use.
  * @param str Source string to copy into the buffer.
  * @param len Number of bytes to copy from the source string.
  * @return Pointer to the newly created string buffer, or NULL on failure.
+ *
+ * @warning Because this can be used to copy embedded null characters, it can
+ * be used for arrays of char that are not strictly null-terminated strings,
+ * but conversely it does not check the length of str. The caller must ensure
+ * that len is not larger than the memory allocated for str.
  */
 WS_DLL_PUBLIC
 wmem_strbuf_t *
-wmem_strbuf_new_len(wmem_allocator_t *allocator, const char *str, size_t len)
-G_GNUC_MALLOC;
+wmem_strbuf_new_len(wmem_allocator_t *allocator, const char *str, size_t len);
 
 /**
  * @brief Duplicate an existing string buffer using the specified memory allocator.
@@ -134,8 +136,7 @@ G_GNUC_MALLOC;
  */
 WS_DLL_PUBLIC
 wmem_strbuf_t *
-wmem_strbuf_dup(wmem_allocator_t *allocator, const wmem_strbuf_t *strbuf)
-G_GNUC_MALLOC;
+wmem_strbuf_dup(wmem_allocator_t *allocator, const wmem_strbuf_t *strbuf);
 
 /**
  * @brief Append a null-terminated string to the end of a string buffer.
@@ -153,13 +154,18 @@ wmem_strbuf_append(wmem_strbuf_t *strbuf, const char *str);
 /**
  * @brief Append a specified number of bytes from a string to a string buffer.
  *
- * Appends up to `append_len` bytes from the string `str` to the end of the given
+ * Appends `append_len` bytes from the string `str` to the end of the given
  * `wmem_strbuf_t` buffer. Embedded null characters in `str` will be copied, and the
  * resulting buffer will be null-terminated.
  *
  * @param strbuf Pointer to the string buffer to append to.
  * @param str Source string to copy bytes from.
  * @param append_len Number of bytes to append from the source string.
+ *
+ * @warning Because this can be used to copy embedded null characters, it can
+ * be used for arrays of char that are not strictly null-terminated strings,
+ * but conversely it does not check the length of str. The caller must ensure
+ * that append_len is not larger than the memory allocated for str.
  */
 WS_DLL_PUBLIC
 void

@@ -60,9 +60,9 @@ static expert_field ei_bthcrp_unexpected_data;
 static dissector_handle_t bthcrp_handle;
 
 static int      force_client     = FORCE_CLIENT_DEFAULT;
-static int      psm_control;
-static int      psm_data_stream;
-static int      psm_notification;
+static unsigned psm_control;
+static unsigned psm_data_stream;
+static unsigned psm_notification;
 
 static const value_string control_pdu_id_vals[] = {
     { 0x0001,   "CR_DataChannelCreditGrant" },
@@ -120,10 +120,9 @@ dissect_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     unsigned      context_id;
     unsigned      notification_register;
     unsigned      number;
-    int           parameter_length;
+    unsigned      parameter_length;
 
-    pitem = proto_tree_add_item(tree, hf_bthcrp_control_pdu_id, tvb, offset, 2, ENC_BIG_ENDIAN);
-    control_pdu_id = tvb_get_ntohs(tvb, offset);
+    pitem = proto_tree_add_item_ret_uint16(tree, hf_bthcrp_control_pdu_id, tvb, offset, 2, ENC_BIG_ENDIAN, &control_pdu_id);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, "Control: %s %s",
@@ -141,8 +140,7 @@ dissect_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_tree_add_item(tree, hf_bthcrp_control_transaction_id, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    pitem = proto_tree_add_item(tree, hf_bthcrp_control_parameter_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-    parameter_length = tvb_get_ntohs(tvb, offset);
+    pitem = proto_tree_add_item_ret_uint(tree, hf_bthcrp_control_parameter_length, tvb, offset, 2, ENC_BIG_ENDIAN, &parameter_length);
     offset += 2;
 
     if (!is_client_message && parameter_length < 2) {
@@ -250,31 +248,26 @@ dissect_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 col_append_fstr(pinfo->cinfo, COL_INFO, " -  Register: %s", val_to_str_const(notification_register, register_vals, "unknown register"));
                 offset += 1;
 
-                proto_tree_add_item(tree, hf_bthcrp_callback_context_id, tvb, offset, 4, ENC_BIG_ENDIAN);
-                context_id = tvb_get_ntohl(tvb, offset);
+                proto_tree_add_item_ret_uint(tree, hf_bthcrp_callback_context_id, tvb, offset, 4, ENC_BIG_ENDIAN, &context_id);
                 col_append_fstr(pinfo->cinfo, COL_INFO, ", Callback ContextID: %u", context_id);
                 offset += 4;
 
-                proto_tree_add_item(tree, hf_bthcrp_control_callback_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
-                timeout = tvb_get_ntohl(tvb, offset);
+                proto_tree_add_item_ret_uint(tree, hf_bthcrp_control_callback_timeout, tvb, offset, 4, ENC_BIG_ENDIAN, &timeout);
                 col_append_fstr(pinfo->cinfo, COL_INFO, ", Callback Timeout: %u", timeout);
                 offset += 4;
             } else {
-                proto_tree_add_item(tree, hf_bthcrp_control_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
-                timeout = tvb_get_ntohl(tvb, offset);
+                proto_tree_add_item_ret_uint(tree, hf_bthcrp_control_timeout, tvb, offset, 4, ENC_BIG_ENDIAN, &timeout);
                 col_append_fstr(pinfo->cinfo, COL_INFO, " - Timeout: %u", timeout);
                 offset += 4;
 
-                proto_tree_add_item(tree, hf_bthcrp_control_callback_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
-                timeout = tvb_get_ntohl(tvb, offset);
+                proto_tree_add_item_ret_uint(tree, hf_bthcrp_control_callback_timeout, tvb, offset, 4, ENC_BIG_ENDIAN, &timeout);
                 col_append_fstr(pinfo->cinfo, COL_INFO, ", Callback Timeout: %u", timeout);
                 offset += 4;
             }
             break;
         case 0x000A: /* CR_NotificationConnectionAlive */
             if (!is_client_message) {
-                proto_tree_add_item(tree, hf_bthcrp_control_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
-                timeout = tvb_get_ntohl(tvb, offset);
+                proto_tree_add_item_ret_uint(tree, hf_bthcrp_control_timeout, tvb, offset, 4, ENC_BIG_ENDIAN, &timeout);
                 col_append_fstr(pinfo->cinfo, COL_INFO, " - Timeout: %u", timeout);
                 offset += 4;
             }
@@ -315,8 +308,7 @@ dissect_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         return offset;
     }
 
-    pitem = proto_tree_add_item(tree, hf_bthcrp_notification_pdu_id, tvb, offset, 2, ENC_BIG_ENDIAN);
-    notification_pdu_id = tvb_get_ntohs(tvb, offset);
+    pitem = proto_tree_add_item_ret_uint16(tree, hf_bthcrp_notification_pdu_id, tvb, offset, 2, ENC_BIG_ENDIAN, &notification_pdu_id);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, "Notification: %s", val_to_str_const(notification_pdu_id, notification_pdu_id_vals,  "Unknown PDU ID"));

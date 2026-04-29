@@ -27,16 +27,12 @@
 #include "packet-isup.h"
 #include "packet-q931.h"
 
-#define PNAME  "HI2Operations"
-#define PSNAME "HI2OPERATIONS"
-#define PFNAME "HI2operations"
-
 void proto_register_HI2Operations(void);
 void proto_reg_handoff_HI2Operations(void);
 
 /* Initialize the protocol and registered fields */
-int proto_HI2Operations;
-int hf_HI2Operations_apn_str;
+static int proto_HI2Operations;
+static int hf_HI2Operations_apn_str;
 #include "packet-HI2Operations-hf.c"
 
 /* Initialize the subtree pointers */
@@ -81,7 +77,7 @@ void proto_register_HI2Operations(void) {
   };
 
   /* Register protocol */
-  proto_HI2Operations = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_HI2Operations = proto_register_protocol("HI2Operations", "HI2OPERATIONS", "HI2operations");
 
   /* Register fields and subtrees */
   proto_register_field_array(proto_HI2Operations, hf, array_length(hf));

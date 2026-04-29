@@ -32,7 +32,7 @@ class ShowPacketBytesTextEdit;
 
 struct uncompress_list_t {
     QString name;
-    tvbuff_t *(*function)(tvbuff_t *, int, int);
+    tvbuff_t *(*function)(tvbuff_t *, unsigned, unsigned);
 };
 
 class ShowPacketBytesDialog : public WiresharkDialog
@@ -98,8 +98,7 @@ class ShowPacketBytesTextEdit : public QTextEdit
     Q_OBJECT
 
 public:
-    explicit ShowPacketBytesTextEdit(QWidget *parent = 0) :
-        QTextEdit(parent), show_selected_enabled_(true), menus_enabled_(true) { }
+    explicit ShowPacketBytesTextEdit(QWidget *parent = nullptr);
     ~ShowPacketBytesTextEdit() { }
 
     void setShowSelectedEnabled(bool enabled) { show_selected_enabled_ = enabled; }

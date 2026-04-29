@@ -11,6 +11,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/expert.h>
 #include <epan/uat.h>
 #include <epan/unit_strings.h>
 
@@ -1139,6 +1140,9 @@ static int hf_uds_roe_localization_offset;
 
 static int hf_uds_unparsed_bytes;
 
+/* Expert fields */
+static expert_field ei_uds_length_invalid;
+
 /*
  * Trees
  */
@@ -2243,6 +2247,7 @@ dissect_uds_rdtci(tvbuff_t *tvb, packet_info *pinfo, proto_tree *uds_tree, uint3
 
 static int
 dissect_uds_memory_addr_size(tvbuff_t *tvb, packet_info *pinfo, proto_tree *uds_tree, uint32_t offset, bool withDataFormatIdentifier) {
+    proto_item *ti;
     uint32_t compression, encrypting;
 
     if (withDataFormatIdentifier) {
@@ -2252,8 +2257,14 @@ dissect_uds_memory_addr_size(tvbuff_t *tvb, packet_info *pinfo, proto_tree *uds_
     }
 
     uint32_t memory_size_length, memory_address_length;
-    proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_size_length, tvb, offset, 1, ENC_NA, &memory_size_length);
-    proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_address_length, tvb, offset, 1, ENC_NA, &memory_address_length);
+    ti = proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_size_length, tvb, offset, 1, ENC_NA, &memory_size_length);
+    if (memory_size_length == 0) {
+        expert_add_info(pinfo, ti, &ei_uds_length_invalid);
+    }
+    ti = proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_address_length, tvb, offset, 1, ENC_NA, &memory_address_length);
+    if (memory_address_length == 0) {
+        expert_add_info(pinfo, ti, &ei_uds_length_invalid);
+    }
     offset += 1;
 
     uint64_t memory_address;
@@ -2329,7 +2340,7 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint16
     service = sid & UDS_SID_MASK;
 
     if (service < UDS_SERVICES_MIN && uds_dissect_small_sids_with_obd_ii && (obd_ii_handle != NULL)) {
-        return call_dissector(obd_ii_handle, tvb_new_subset_length_caplen(tvb, offset, -1, -1), pinfo, tree);
+        return call_dissector(obd_ii_handle, tvb_new_subset_remaining(tvb, offset), pinfo, tree);
     }
 
     service_name = val_to_str_ext(pinfo->pool, service, &uds_services_ext, "Unknown (0x%02x)");
@@ -2919,9 +2930,19 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint16
                     offset += 2;
 
                     uint32_t memory_size_length, memory_address_length;
-                    proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_size_length, tvb, offset, 1, ENC_NA, &memory_size_length);
-                    proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_address_length, tvb, offset, 1, ENC_NA, &memory_address_length);
+                    ti = proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_size_length, tvb, offset, 1, ENC_NA, &memory_size_length);
+                    if (memory_size_length == 0) {
+                        expert_add_info(pinfo, ti, &ei_uds_length_invalid);
+                    }
+                    ti = proto_tree_add_item_ret_uint(uds_tree, hf_uds_memory_address_length, tvb, offset, 1, ENC_NA, &memory_address_length);
+                    if (memory_address_length == 0) {
+                        expert_add_info(pinfo, ti, &ei_uds_length_invalid);
+                    }
                     offset += 1;
+                    if ((memory_size_length + memory_address_length) == 0) {
+                        /* Avoid an infinite loop if both are invalid. */
+                        break;
+                    }
 
                     do {
                         uint64_t memory_address;
@@ -3422,6 +3443,8 @@ dissect_uds_iso10681(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
 void
 proto_register_uds(void) {
     module_t *uds_module;
+    expert_module_t *uds_expert_module;
+
     static hf_register_info hf[] = {
         { &hf_uds_diag_addr, {
             "Diagnostic Address", "uds.diag_addr", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
@@ -3436,7 +3459,7 @@ proto_register_uds(void) {
         { &hf_uds_diag_target_addr_name, {
             "Diagnostic Target Address Name", "uds.diag_addr_target_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_service, {
-            "Service Identifier", "uds.sid", FT_UINT8,  BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), UDS_SID_MASK, NULL, HFILL } },
+            "Service Identifier", "uds.sid", FT_UINT8,  BASE_HEX | BASE_EXT_STRING, &uds_services_ext, UDS_SID_MASK, NULL, HFILL } },
         { &hf_uds_reply, {
             "Reply Flag", "uds.reply", FT_UINT8, BASE_HEX, NULL, UDS_REPLY_MASK, NULL, HFILL } },
 
@@ -3487,7 +3510,7 @@ proto_register_uds(void) {
             "Memory Selection", "uds.cdtci.memory_selection", FT_UINT8, BASE_HEX_DEC, NULL, 0x0, NULL, HFILL } },
 
         { &hf_uds_rdtci_subfunction, {
-            "SubFunction", "uds.rdtci.subfunction", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_rdtci_types_ext), 0x0, NULL, HFILL } },
+            "SubFunction", "uds.rdtci.subfunction", FT_UINT8, BASE_HEX | BASE_EXT_STRING, &uds_rdtci_types_ext, 0x0, NULL, HFILL } },
         { &hf_uds_rdtci_dtc_status_mask, {
             "DTC Status Mask", "uds.rdtci.dtc_status_mask", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_rdtci_dtc_status_mask_tf, {
@@ -3605,7 +3628,7 @@ proto_register_uds(void) {
         { &hf_uds_rsdbi_formula_constant_mantissa, {
             "Constant", "uds.rsdbi.scaling_byte_ext.formulat_constant", FT_UINT16, BASE_HEX, NULL, 0x0FFF, NULL, HFILL } },
         { &hf_uds_rsdbi_unit, {
-            "Unit Identifier", "uds.rsdbi.scaling_byte_ext.unit", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_rsdbi_units_ext), 0x0, NULL, HFILL } },
+            "Unit Identifier", "uds.rsdbi.scaling_byte_ext.unit", FT_UINT8, BASE_HEX | BASE_EXT_STRING, &uds_rsdbi_units_ext, 0x0, NULL, HFILL } },
 
         { &hf_uds_sa_subfunction, {
             "SubFunction", "uds.sa.subfunction", FT_UINT8, BASE_CUSTOM, CF_FUNC(uds_sa_subfunction_format), 0x0, NULL, HFILL } },
@@ -3759,9 +3782,9 @@ proto_register_uds(void) {
             "SubFunction (without Suppress)", "uds.tp.subfunction_without_suppress", FT_UINT8, BASE_HEX, NULL, UDS_SUBFUNCTION_MASK, NULL, HFILL } },
 
         { &hf_uds_err_sid,  {
-            "Service Identifier", "uds.err.sid", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), 0x0, NULL, HFILL } },
+            "Service Identifier", "uds.err.sid", FT_UINT8, BASE_HEX | BASE_EXT_STRING, &uds_services_ext, 0x0, NULL, HFILL } },
         { &hf_uds_err_code, {
-            "Code", "uds.err.code",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_response_codes_ext), 0x0, NULL, HFILL }  },
+            "Code", "uds.err.code",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, &uds_response_codes_ext, 0x0, NULL, HFILL }  },
 
         { &hf_uds_sdt_administrative_param, {
             "Administrative Parameter", "uds.sdt.admin_param",  FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
@@ -3784,7 +3807,7 @@ proto_register_uds(void) {
         { &hf_uds_sdt_encapsulated_message, {
             "Encapsulated Message", "uds.sdt.encapsulated_message",  FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_sdt_encapsulated_message_sid, {
-            "Service Identifier", "uds.sdt.encapsulated_message.sid",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), UDS_SID_MASK, NULL, HFILL } },
+            "Service Identifier", "uds.sdt.encapsulated_message.sid",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, &uds_services_ext, UDS_SID_MASK, NULL, HFILL } },
         { &hf_uds_sdt_encapsulated_message_sid_reply, {
             "Reply Flag", "uds.sdt.encapsulated_message.reply", FT_UINT8, BASE_HEX, NULL, UDS_REPLY_MASK, NULL, HFILL } },
         { &hf_uds_sdt_signature_mac, {
@@ -3876,6 +3899,12 @@ proto_register_uds(void) {
     uat_t *uds_dtc_ids_uat;
     uat_t *uds_address_uat;
 
+    static ei_register_info ei[] = {
+        { &ei_uds_length_invalid,
+          { "uds.length.invalid", PI_MALFORMED, PI_ERROR,
+            "Invalid addressAndLengthFormatIdentifier", EXPFILL }}
+    };
+
     /* Setup protocol subtree array */
     static int *ett[] = {
         &ett_uds,
@@ -3901,6 +3930,9 @@ proto_register_uds(void) {
 
     proto_register_field_array(proto_uds, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+
+    uds_expert_module = expert_register_protocol(proto_uds);
+    expert_register_field_array(uds_expert_module, ei, array_length(ei));
 
     uds_handle = register_dissector("uds", dissect_uds_no_data, proto_uds);
     uds_handle_doip = register_dissector("uds_over_doip", dissect_uds_doip, proto_uds);

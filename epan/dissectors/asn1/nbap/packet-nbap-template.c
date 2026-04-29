@@ -11,8 +11,8 @@
  * Ref: 3GPP TS 25.433 version 6.6.0 Release 6
  */
 
-#define WS_LOG_DOMAIN "packet-nbap"
 #include "config.h"
+#define WS_LOG_DOMAIN "packet-nbap"
 #include <wireshark.h>
 
 #include <epan/to_str.h>
@@ -33,16 +33,6 @@
 #include "packet-umts_rlc.h"
 #include "packet-nbap.h"
 #include "packet-sctp.h"
-
-#ifdef _MSC_VER
-/* disable: "warning C4146: unary minus operator applied to unsigned type, result still unsigned" */
-#pragma warning(disable:4146)
-#endif
-
-#define PNAME  "UTRAN Iub interface NBAP signalling"
-#define PSNAME "NBAP"
-#define PFNAME "nbap"
-
 
 #define NBAP_IGNORE_PORT 255
 
@@ -216,7 +206,7 @@ typedef struct nbap_private_data_t
   uint32_t ul_scrambling_code;
   uint32_t com_context_id;
   int num_dch_in_flow;
-  int hrnti;
+  unsigned hrnti;
   uint32_t protocol_ie_id;
   uint32_t dd_mode;
   uint32_t transaction_id;
@@ -761,7 +751,7 @@ void proto_register_nbap(void)
   expert_module_t* expert_nbap;
 
   /* Register protocol */
-  proto_nbap = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_nbap = proto_register_protocol("UTRAN Iub interface NBAP signalling", "NBAP", "nbap");
   /* Register fields and subtrees */
   proto_register_field_array(proto_nbap, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));

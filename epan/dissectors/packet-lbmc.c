@@ -6028,13 +6028,13 @@ typedef struct
     bool set;
     uint32_t stream_id;
     uint32_t sqn;
-    char ctxinst[LBM_CONTEXT_INSTANCE_BLOCK_SZ];
+    uint8_t ctxinst[LBM_CONTEXT_INSTANCE_BLOCK_SZ];
 } lbmc_stream_info_t;
 
 typedef struct
 {
     bool set;
-    char ctxinst[LBM_CONTEXT_INSTANCE_BLOCK_SZ];
+    uint8_t ctxinst[LBM_CONTEXT_INSTANCE_BLOCK_SZ];
 } lbmc_ctxinst_info_t;
 
 typedef struct
@@ -6396,7 +6396,7 @@ static void lbmc_init_extopt_reassembled_data(lbmc_extopt_reassembled_data_t * r
 /*----------------------------------------------------------------------------*/
 /* Dissection functions.                                                      */
 /*----------------------------------------------------------------------------*/
-static int dissect_nhdr_frag(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_fragment_info_t * frag_info)
+static int dissect_nhdr_frag(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_fragment_info_t * frag_info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6424,7 +6424,7 @@ static int dissect_nhdr_frag(tvbuff_t * tvb, int offset, packet_info * pinfo _U_
     return (L_LBMC_FRAG_HDR_T);
 }
 
-static int dissect_nhdr_batch(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_batch(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6444,7 +6444,7 @@ static int dissect_nhdr_batch(tvbuff_t * tvb, int offset, packet_info * pinfo _U
     return (L_LBMC_BATCH_HDR_T);
 }
 
-static int dissect_nhdr_request(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_request(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6467,7 +6467,7 @@ static int dissect_nhdr_request(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_TCP_REQUEST_HDR_T);
 }
 
-static int dissect_nhdr_topicname(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topicname(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6502,7 +6502,7 @@ static int dissect_nhdr_topicname(tvbuff_t * tvb, int offset, packet_info * pinf
     return (len_dissected);
 }
 
-static int dissect_nhdr_apphdr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_apphdr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6533,7 +6533,7 @@ static int dissect_nhdr_apphdr(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (len_dissected);
 }
 
-static int dissect_nhdr_apphdr_chain_element(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, uint8_t element)
+static int dissect_nhdr_apphdr_chain_element(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, uint8_t element)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6568,7 +6568,7 @@ static int dissect_nhdr_apphdr_chain_element(tvbuff_t * tvb, int offset, packet_
     return (len_dissected);
 }
 
-static int dissect_nhdr_apphdr_chain_msgprop_element(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, uint8_t element, uint32_t * msg_prop_len)
+static int dissect_nhdr_apphdr_chain_msgprop_element(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, uint8_t element, uint32_t * msg_prop_len)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6599,7 +6599,7 @@ static int dissect_nhdr_apphdr_chain_msgprop_element(tvbuff_t * tvb, int offset,
     return (len_dissected);
 }
 
-static int dissect_nhdr_apphdr_chain(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, uint32_t * msg_prop_len)
+static int dissect_nhdr_apphdr_chain(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, uint32_t * msg_prop_len)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6648,7 +6648,7 @@ static int dissect_nhdr_apphdr_chain(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_msgid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_msgid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6668,7 +6668,7 @@ static int dissect_nhdr_umq_msgid(tvbuff_t * tvb, int offset, packet_info * pinf
     return (L_LBMC_UMQ_MSGID_HDR_T);
 }
 
-static int dissect_nhdr_umq_sqd_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, bool * data_is_response)
+static int dissect_nhdr_umq_sqd_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, bool * data_is_response)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6709,7 +6709,7 @@ static int dissect_nhdr_umq_sqd_rcv(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_UMQ_SQD_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_resub(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_resub(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6732,7 +6732,7 @@ static int dissect_nhdr_umq_resub(tvbuff_t * tvb, int offset, packet_info * pinf
     return (L_LBMC_UMQ_RESUB_HDR_T);
 }
 
-static int dissect_nhdr_otid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_otid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6751,7 +6751,7 @@ static int dissect_nhdr_otid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_
     return (L_LBMC_OTID_HDR_T);
 }
 
-static void dissect_ctxinst(tvbuff_t * tvb, int offset, proto_tree * tree, lbmc_ctxinst_info_t * info)
+static void dissect_ctxinst(tvbuff_t * tvb, unsigned offset, proto_tree * tree, lbmc_ctxinst_info_t * info)
 {
     static int * const flags[] =
     {
@@ -6770,7 +6770,7 @@ static void dissect_ctxinst(tvbuff_t * tvb, int offset, proto_tree * tree, lbmc_
     }
 }
 
-static int dissect_nhdr_ctxinstd(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
+static int dissect_nhdr_ctxinstd(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6781,7 +6781,7 @@ static int dissect_nhdr_ctxinstd(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CTXINST_HDR_T);
 }
 
-static int dissect_nhdr_ctxinstr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
+static int dissect_nhdr_ctxinstr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6792,7 +6792,7 @@ static int dissect_nhdr_ctxinstr(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CTXINST_HDR_T);
 }
 
-static int dissect_nhdr_ctxinst(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
+static int dissect_nhdr_ctxinst(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_ctxinst_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6803,7 +6803,7 @@ static int dissect_nhdr_ctxinst(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CTXINST_HDR_T);
 }
 
-static int dissect_nhdr_srcidx(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_srcidx(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6822,7 +6822,7 @@ static int dissect_nhdr_srcidx(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (L_LBMC_SRCIDX_HDR_T);
 }
 
-static int dissect_nhdr_umq_ulb_msg(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ulb_msg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6847,7 +6847,7 @@ static int dissect_nhdr_umq_ulb_msg(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_UMQ_ULB_MSG_HDR_T);
 }
 
-static int dissect_nhdr_ssf_init(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ssf_init(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6873,7 +6873,7 @@ static int dissect_nhdr_ssf_init(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CNTL_SSF_INIT_HDR_T);
 }
 
-static int dissect_nhdr_ssf_creq(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ssf_creq(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6895,7 +6895,7 @@ static int dissect_nhdr_ssf_creq(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CNTL_SSF_CREQ_HDR_T);
 }
 
-static int dissect_nhdr_ume_preg(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_preg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6926,7 +6926,7 @@ static int dissect_nhdr_ume_preg(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CNTL_UME_PREG_HDR_T);
 }
 
-static int dissect_nhdr_ume_preg_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_preg_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -6973,7 +6973,7 @@ static int dissect_nhdr_ume_preg_resp(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UME_PREG_RESP_HDR_T);
 }
 
-static int dissect_nhdr_ume_ack(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_ack(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7000,7 +7000,7 @@ static int dissect_nhdr_ume_ack(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_UME_ACK_HDR_T);
 }
 
-static int dissect_nhdr_ume_rxreq(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_rxreq(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7027,7 +7027,7 @@ static int dissect_nhdr_ume_rxreq(tvbuff_t * tvb, int offset, packet_info * pinf
     return (L_LBMC_CNTL_UME_RXREQ_HDR_T);
 }
 
-static int dissect_nhdr_ume_keepalive(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_keepalive(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7051,7 +7051,7 @@ static int dissect_nhdr_ume_keepalive(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UME_KEEPALIVE_HDR_T);
 }
 
-static int dissect_nhdr_ume_storeid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_storeid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7065,7 +7065,7 @@ static int dissect_nhdr_ume_storeid(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UME_STOREID_HDR_T);
 }
 
-static int dissect_nhdr_ume_ranged_ack(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_ranged_ack(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7085,7 +7085,7 @@ static int dissect_nhdr_ume_ranged_ack(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UME_RANGED_ACK_HDR_T);
 }
 
-static int dissect_nhdr_ume_ack_id(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_ack_id(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7104,7 +7104,7 @@ static int dissect_nhdr_ume_ack_id(tvbuff_t * tvb, int offset, packet_info * pin
     return (L_LBMC_CNTL_UME_ACK_ID_HDR_T);
 }
 
-static int dissect_nhdr_ume_capability(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_capability(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7125,7 +7125,7 @@ static int dissect_nhdr_ume_capability(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UME_CAPABILITY_HDR_T);
 }
 
-static int dissect_nhdr_ume_proxy_src(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_proxy_src(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7145,7 +7145,7 @@ static int dissect_nhdr_ume_proxy_src(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UME_PROXY_SRC_HDR_T);
 }
 
-static int dissect_nhdr_ume_store_group(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_store_group(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7166,7 +7166,7 @@ static int dissect_nhdr_ume_store_group(tvbuff_t * tvb, int offset, packet_info 
     return (L_LBMC_CNTL_UME_STORE_GROUP_HDR_T);
 }
 
-static int dissect_nhdr_ume_store(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_store(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7189,7 +7189,7 @@ static int dissect_nhdr_ume_store(tvbuff_t * tvb, int offset, packet_info * pinf
     return (L_LBMC_CNTL_UME_STORE_HDR_T);
 }
 
-static int dissect_nhdr_ume_lj_info(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_lj_info(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7210,7 +7210,7 @@ static int dissect_nhdr_ume_lj_info(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UME_LJ_INFO_HDR_T);
 }
 
-static int dissect_nhdr_tsni_rec(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_tsni_rec(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7220,13 +7220,12 @@ static int dissect_nhdr_tsni_rec(tvbuff_t * tvb, int offset, packet_info * pinfo
     subtree_item = proto_tree_add_item(tree, hf_lbmc_tsni_rec, tvb, offset, L_LBMC_CNTL_TSNI_REC_HDR_T, ENC_NA);
     subtree = proto_item_add_subtree(subtree_item, ett_lbmc_tsni_rec);
     proto_tree_add_item(subtree, hf_lbmc_tsni_rec_tidx, tvb, offset + O_LBMC_CNTL_TSNI_REC_HDR_T_TIDX, L_LBMC_CNTL_TSNI_REC_HDR_T_TIDX, ENC_BIG_ENDIAN);
-    sqn_item = proto_tree_add_item(subtree, hf_lbmc_tsni_rec_sqn, tvb, offset + O_LBMC_CNTL_TSNI_REC_HDR_T_SQN, L_LBMC_CNTL_TSNI_REC_HDR_T_SQN, ENC_BIG_ENDIAN);
-    sqn = tvb_get_ntohl(tvb, offset + O_LBMC_CNTL_TSNI_REC_HDR_T_SQN);
+    sqn_item = proto_tree_add_item_ret_uint(subtree, hf_lbmc_tsni_rec_sqn, tvb, offset + O_LBMC_CNTL_TSNI_REC_HDR_T_SQN, L_LBMC_CNTL_TSNI_REC_HDR_T_SQN, ENC_BIG_ENDIAN, &sqn);
     expert_add_info_format(pinfo, sqn_item, &ei_lbmc_analysis_tsni, "TSNI Sqn 0x%08x", sqn);
     return (L_LBMC_CNTL_TSNI_REC_HDR_T);
 }
 
-static int dissect_nhdr_tsni(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_tsni(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7258,7 +7257,7 @@ static int dissect_nhdr_tsni(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_reg_ctx(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_ctx(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7272,7 +7271,7 @@ static int dissect_nhdr_umq_reg_ctx(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UMQ_REG_CTX_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_src(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_src(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7284,7 +7283,7 @@ static int dissect_nhdr_umq_reg_src(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UMQ_REG_SRC_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7297,7 +7296,7 @@ static int dissect_nhdr_umq_reg_rcv(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UMQ_REG_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_rcv_dereg(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcv_dereg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7309,7 +7308,7 @@ static int dissect_nhdr_umq_rcv_dereg(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UMQ_RCV_DEREG_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_ulb_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_ulb_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7326,7 +7325,7 @@ static int dissect_nhdr_umq_reg_ulb_rcv(tvbuff_t * tvb, int offset, packet_info 
     return (L_LBMC_CNTL_UMQ_REG_ULB_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_ulb_rcv_dereg(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ulb_rcv_dereg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7338,7 +7337,7 @@ static int dissect_nhdr_umq_ulb_rcv_dereg(tvbuff_t * tvb, int offset, packet_inf
     return (L_LBMC_CNTL_UMQ_ULB_RCV_DEREG_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_observer_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_observer_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7351,7 +7350,7 @@ static int dissect_nhdr_umq_reg_observer_rcv(tvbuff_t * tvb, int offset, packet_
     return (L_LBMC_CNTL_UMQ_REG_OBSERVER_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_observer_rcv_dereg(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_observer_rcv_dereg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7363,7 +7362,7 @@ static int dissect_nhdr_umq_observer_rcv_dereg(tvbuff_t * tvb, int offset, packe
     return (L_LBMC_CNTL_UMQ_OBSERVER_RCV_DEREG_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_reg(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7432,7 +7431,7 @@ static int dissect_nhdr_umq_reg(tvbuff_t * tvb, int offset, packet_info * pinfo,
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_reg_resp_ctx(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_ctx(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7443,7 +7442,7 @@ static int dissect_nhdr_umq_reg_resp_ctx(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_REG_RESP_CTX_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_ctx_ex(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_ctx_ex(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7462,7 +7461,7 @@ static int dissect_nhdr_umq_reg_resp_ctx_ex(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_UMQ_REG_RESP_CTX_EX_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_err(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_err(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7474,7 +7473,7 @@ static int dissect_nhdr_umq_reg_resp_err(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_REG_RESP_ERR_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_src(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_src(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7485,7 +7484,7 @@ static int dissect_nhdr_umq_reg_resp_src(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_REG_RESP_SRC_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7499,7 +7498,7 @@ static int dissect_nhdr_umq_reg_resp_rcv(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_REG_RESP_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_rcv_dereg_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcv_dereg_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7511,7 +7510,7 @@ static int dissect_nhdr_umq_rcv_dereg_resp(tvbuff_t * tvb, int offset, packet_in
     return (L_LBMC_CNTL_UMQ_RCV_DEREG_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_ulb_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_ulb_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7526,7 +7525,7 @@ static int dissect_nhdr_umq_reg_resp_ulb_rcv(tvbuff_t * tvb, int offset, packet_
     return (L_LBMC_CNTL_UMQ_REG_RESP_ULB_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_ulb_rcv_dereg_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ulb_rcv_dereg_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7538,7 +7537,7 @@ static int dissect_nhdr_umq_ulb_rcv_dereg_resp(tvbuff_t * tvb, int offset, packe
     return (L_LBMC_CNTL_UMQ_ULB_RCV_DEREG_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp_observer_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp_observer_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7552,7 +7551,7 @@ static int dissect_nhdr_umq_reg_resp_observer_rcv(tvbuff_t * tvb, int offset, pa
     return (L_LBMC_CNTL_UMQ_REG_RESP_OBSERVER_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_observer_rcv_dereg_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_observer_rcv_dereg_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7564,7 +7563,7 @@ static int dissect_nhdr_umq_observer_rcv_dereg_resp(tvbuff_t * tvb, int offset, 
     return (L_LBMC_CNTL_UMQ_OBSERVER_RCV_DEREG_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_reg_resp(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_reg_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7670,7 +7669,7 @@ static int dissect_nhdr_umq_reg_resp(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_ack_msgid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ack_msgid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7682,7 +7681,7 @@ static int dissect_nhdr_umq_ack_msgid(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UMQ_ACK_MSGID_HDR_T);
 }
 
-static int dissect_nhdr_umq_ack_stable(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ack_stable(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7695,7 +7694,7 @@ static int dissect_nhdr_umq_ack_stable(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UMQ_ACK_STABLE_HDR_T);
 }
 
-static int dissect_nhdr_umq_ack_cr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ack_cr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7709,7 +7708,7 @@ static int dissect_nhdr_umq_ack_cr(tvbuff_t * tvb, int offset, packet_info * pin
     return (L_LBMC_CNTL_UMQ_ACK_CR_HDR_T);
 }
 
-static int dissect_nhdr_umq_ack_ulb_cr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ack_ulb_cr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7723,7 +7722,7 @@ static int dissect_nhdr_umq_ack_ulb_cr(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UMQ_ACK_ULB_CR_HDR_T);
 }
 
-static int dissect_nhdr_umq_ack(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_ack(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7783,7 +7782,7 @@ static int dissect_nhdr_umq_ack(tvbuff_t * tvb, int offset, packet_info * pinfo,
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_rcr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7816,7 +7815,7 @@ static int dissect_nhdr_umq_rcr(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_UMQ_RCR_HDR_T);
 }
 
-static int dissect_nhdr_umq_ka_src(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ka_src(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7828,7 +7827,7 @@ static int dissect_nhdr_umq_ka_src(tvbuff_t * tvb, int offset, packet_info * pin
     return (L_LBMC_CNTL_UMQ_KA_SRC_HDR_T);
 }
 
-static int dissect_nhdr_umq_ka_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ka_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7840,7 +7839,7 @@ static int dissect_nhdr_umq_ka_rcv(tvbuff_t * tvb, int offset, packet_info * pin
     return (L_LBMC_CNTL_UMQ_KA_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_ka_ulb_rcv(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ka_ulb_rcv(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7852,7 +7851,7 @@ static int dissect_nhdr_umq_ka_ulb_rcv(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UMQ_KA_ULB_RCV_HDR_T);
 }
 
-static int dissect_nhdr_umq_ka_ulb_rcv_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ka_ulb_rcv_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7866,7 +7865,7 @@ static int dissect_nhdr_umq_ka_ulb_rcv_resp(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_UMQ_KA_ULB_RCV_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_ka(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_ka(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7925,7 +7924,7 @@ static int dissect_nhdr_umq_ka(tvbuff_t * tvb, int offset, packet_info * pinfo, 
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_rxreq_regid_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_regid_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7936,7 +7935,7 @@ static int dissect_nhdr_umq_rxreq_regid_resp(tvbuff_t * tvb, int offset, packet_
     return (L_LBMC_CNTL_UMQ_RXREQ_REGID_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_addr_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_addr_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7949,7 +7948,7 @@ static int dissect_nhdr_umq_rxreq_addr_resp(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_UMQ_RXREQ_ADDR_RESP_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_mr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_mr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7962,7 +7961,7 @@ static int dissect_nhdr_umq_rxreq_mr(tvbuff_t * tvb, int offset, packet_info * p
     return (L_LBMC_CNTL_UMQ_RXREQ_MR_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_ulb_mr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_ulb_mr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7978,7 +7977,7 @@ static int dissect_nhdr_umq_rxreq_ulb_mr(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_RXREQ_ULB_MR_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_ulb_mr_abort(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_ulb_mr_abort(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -7992,7 +7991,7 @@ static int dissect_nhdr_umq_rxreq_ulb_mr_abort(tvbuff_t * tvb, int offset, packe
     return (L_LBMC_CNTL_UMQ_RXREQ_ULB_MR_ABORT_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_qrcrr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_qrcrr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8003,7 +8002,7 @@ static int dissect_nhdr_umq_rxreq_qrcrr(tvbuff_t * tvb, int offset, packet_info 
     return (L_LBMC_CNTL_UMQ_RXREQ_QRCRR_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_trcrr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_trcrr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8015,7 +8014,7 @@ static int dissect_nhdr_umq_rxreq_trcrr(tvbuff_t * tvb, int offset, packet_info 
     return (L_LBMC_CNTL_UMQ_RXREQ_TRCRR_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_ulb_trcrr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_ulb_trcrr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8028,7 +8027,7 @@ static int dissect_nhdr_umq_rxreq_ulb_trcrr(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_UMQ_RXREQ_ULB_TRCRR_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq_ulb_trcrr_abort(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq_ulb_trcrr_abort(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8041,7 +8040,7 @@ static int dissect_nhdr_umq_rxreq_ulb_trcrr_abort(tvbuff_t * tvb, int offset, pa
     return (L_LBMC_CNTL_UMQ_RXREQ_ULB_TRCRR_ABORT_HDR_T);
 }
 
-static int dissect_nhdr_umq_rxreq(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_rxreq(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8110,7 +8109,7 @@ static int dissect_nhdr_umq_rxreq(tvbuff_t * tvb, int offset, packet_info * pinf
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_qmgmt(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_qmgmt(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8127,7 +8126,7 @@ static int dissect_nhdr_umq_qmgmt(tvbuff_t * tvb, int offset, packet_info * pinf
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_resub_req(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_resub_req(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8151,7 +8150,7 @@ static int dissect_nhdr_umq_resub_req(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UMQ_RESUB_REQ_HDR_T);
 }
 
-static int dissect_nhdr_umq_resub_resp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_resub_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8175,7 +8174,7 @@ static int dissect_nhdr_umq_resub_resp(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_UMQ_RESUB_RESP_HDR_T);
 }
 
-static int dissect_nhdr_topic_interest(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topic_interest(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8196,7 +8195,7 @@ static int dissect_nhdr_topic_interest(tvbuff_t * tvb, int offset, packet_info *
     return (L_LBMC_CNTL_TOPIC_INTEREST_HDR_T);
 }
 
-static int dissect_nhdr_pattern_interest(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_pattern_interest(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8219,7 +8218,7 @@ static int dissect_nhdr_pattern_interest(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_PATTERN_INTEREST_HDR_T);
 }
 
-static int dissect_nhdr_advertisement(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_advertisement(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8260,7 +8259,7 @@ static int dissect_nhdr_advertisement(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_ADVERTISEMENT_HDR_T);
 }
 
-static int dissect_nhdr_storename(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_storename(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8295,7 +8294,7 @@ static int dissect_nhdr_storename(tvbuff_t * tvb, int offset, packet_info * pinf
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_ulb_rcr(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ulb_rcr(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8325,7 +8324,7 @@ static int dissect_nhdr_umq_ulb_rcr(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_UMQ_ULB_RCR_HDR_T);
 }
 
-static int dissect_nhdr_umq_lf(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_lf(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8346,7 +8345,7 @@ static int dissect_nhdr_umq_lf(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (L_LBMC_CNTL_UMQ_LF_HDR_T);
 }
 
-static int dissect_nhdr_ctxinfo(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ctxinfo(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8398,7 +8397,7 @@ static int dissect_nhdr_ctxinfo(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (len_dissected);
 }
 
-static int dissect_nhdr_ume_pser(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_pser(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8427,7 +8426,7 @@ static int dissect_nhdr_ume_pser(tvbuff_t * tvb, int offset, packet_info * pinfo
     return (L_LBMC_CNTL_UME_PSER_HDR_T);
 }
 
-static int dissect_nhdr_domain(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_domain(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8447,7 +8446,7 @@ static int dissect_nhdr_domain(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (L_LBMC_DOMAIN_HDR_T);
 }
 
-static int dissect_nhdr_tnwg_capabilities(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_tnwg_capabilities(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8482,7 +8481,7 @@ static int dissect_nhdr_tnwg_capabilities(tvbuff_t * tvb, int offset, packet_inf
     return (L_LBMC_CNTL_TNWG_CAPABILITIES_HDR_T);
 }
 
-static int dissect_nhdr_patidx(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_patidx(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8501,7 +8500,7 @@ static int dissect_nhdr_patidx(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (L_LBMC_PATIDX_HDR_T);
 }
 
-static int dissect_nhdr_ume_client_lifetime(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_client_lifetime(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8522,7 +8521,7 @@ static int dissect_nhdr_ume_client_lifetime(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_UME_CLIENT_LIFETIME_HDR_T);
 }
 
-static int dissect_nhdr_ume_sid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_sid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8541,7 +8540,7 @@ static int dissect_nhdr_ume_sid(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_UME_SID_HDR_T);
 }
 
-static int dissect_nhdr_umq_idx_cmd(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_idx_cmd(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8717,7 +8716,7 @@ static int dissect_nhdr_umq_idx_cmd(tvbuff_t * tvb, int offset, packet_info * pi
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_idx_cmd_resp(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_idx_cmd_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8753,8 +8752,7 @@ static int dissect_nhdr_umq_idx_cmd_resp(tvbuff_t * tvb, int offset, packet_info
     proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_next_hdr, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_NEXT_HDR, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_NEXT_HDR, ENC_BIG_ENDIAN);
     proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_hdr_len, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_HDR_LEN, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_HDR_LEN, ENC_BIG_ENDIAN);
     proto_tree_add_bitmask(subtree, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_FLAGS, hf_lbmc_umq_idx_cmd_resp_flags, ett_lbmc_umq_idx_cmd_resp_flags, flags, ENC_BIG_ENDIAN);
-    resp_type = tvb_get_uint8(tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_RESP_TYPE);
-    resp_type_item = proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_resp_type, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_RESP_TYPE, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_RESP_TYPE, ENC_BIG_ENDIAN);
+    resp_type_item = proto_tree_add_item_ret_uint8(subtree, hf_lbmc_umq_idx_cmd_resp_resp_type, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_RESP_TYPE, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_RESP_TYPE, ENC_BIG_ENDIAN, &resp_type);
     proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_queue_id, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_QUEUE_ID, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_QUEUE_ID, ENC_BIG_ENDIAN);
     proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_cmd_id, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_CMD_ID, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_CMD_ID, ENC_BIG_ENDIAN);
     proto_tree_add_item(subtree, hf_lbmc_umq_idx_cmd_resp_inst_idx, tvb, offset + O_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_INST_IDX, L_LBMC_CNTL_UMQ_IDX_CMD_RESP_HDR_T_INST_IDX, ENC_BIG_ENDIAN);
@@ -8874,7 +8872,7 @@ static int dissect_nhdr_umq_idx_cmd_resp(tvbuff_t * tvb, int offset, packet_info
     return (len_dissected);
 }
 
-static int dissect_nhdr_odomain(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_odomain(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8893,7 +8891,7 @@ static int dissect_nhdr_odomain(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_ODOMAIN_HDR_T);
 }
 
-static int dissect_nhdr_stream(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_stream_info_t * info)
+static int dissect_nhdr_stream(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_stream_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8921,7 +8919,7 @@ static int dissect_nhdr_stream(tvbuff_t * tvb, int offset, packet_info * pinfo _
     return (L_LBMC_STREAM_HDR_T);
 }
 
-static int dissect_nhdr_topic_md_interest(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topic_md_interest(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8958,7 +8956,7 @@ static int dissect_nhdr_topic_md_interest(tvbuff_t * tvb, int offset, packet_inf
     return (len_dissected);
 }
 
-static int dissect_nhdr_pattern_md_interest(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_pattern_md_interest(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -8997,7 +8995,7 @@ static int dissect_nhdr_pattern_md_interest(tvbuff_t * tvb, int offset, packet_i
     return (len_dissected);
 }
 
-static int dissect_nhdr_lji_req(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_lji_req(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9027,7 +9025,7 @@ static int dissect_nhdr_lji_req(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_LJI_REQ_HDR_T);
 }
 
-static int dissect_nhdr_tnwg_ka(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_tnwg_ka(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9056,7 +9054,7 @@ static int dissect_nhdr_tnwg_ka(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_TNWG_KA_HDR_T);
 }
 
-static int dissect_nhdr_ume_receiver_keepalive(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_receiver_keepalive(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9077,7 +9075,7 @@ static int dissect_nhdr_ume_receiver_keepalive(tvbuff_t * tvb, int offset, packe
     return (L_LBMC_CNTL_UME_RECEIVER_KEEPALIVE_HDR_T);
 }
 
-static int dissect_nhdr_umq_ctx_queue_topic_list(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_ctx_queue_topic_list(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9088,7 +9086,7 @@ static int dissect_nhdr_umq_ctx_queue_topic_list(tvbuff_t * tvb, int offset, pac
     return (L_LBMC_CNTL_UMQ_CTX_QUEUE_TOPIC_LIST_HDR_T);
 }
 
-static int dissect_nhdr_umq_rcv_msg_retrieve_entry(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcv_msg_retrieve_entry(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9100,7 +9098,7 @@ static int dissect_nhdr_umq_rcv_msg_retrieve_entry(tvbuff_t * tvb, int offset, p
     return (L_LBMC_CNTL_UMQ_RCV_MSG_RETRIEVE_ENTRY_HDR_T);
 }
 
-static int dissect_nhdr_umq_rcv_msg_retrieve(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcv_msg_retrieve(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9128,7 +9126,7 @@ static int dissect_nhdr_umq_rcv_msg_retrieve(tvbuff_t * tvb, int offset, packet_
     return (dissected_len);
 }
 
-static int dissect_nhdr_umq_rcv_msg_list(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_rcv_msg_list(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9140,7 +9138,7 @@ static int dissect_nhdr_umq_rcv_msg_list(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UMQ_RCV_MSG_LIST_HDR_T);
 }
 
-static int dissect_nhdr_umq_cmd(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_nhdr_umq_cmd(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9186,7 +9184,7 @@ static int dissect_nhdr_umq_cmd(tvbuff_t * tvb, int offset, packet_info * pinfo,
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_rcv_msg_retrieve(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_rcv_msg_retrieve(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9198,7 +9196,7 @@ static int dissect_nhdr_umq_cmd_resp_rcv_msg_retrieve(tvbuff_t * tvb, int offset
     return (L_LBMC_CNTL_UMQ_CMD_RESP_RCV_MSG_RETRIEVE_HDR_T);
 }
 
-static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_retrieve(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_retrieve(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9234,7 +9232,7 @@ static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_retrieve(tvbuff_t * tvb, int offse
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_rcv_msg_list(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_rcv_msg_list(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9246,7 +9244,7 @@ static int dissect_nhdr_umq_cmd_resp_rcv_msg_list(tvbuff_t * tvb, int offset, pa
     return (L_LBMC_CNTL_UMQ_CMD_RESP_RCV_MSG_LIST_HDR_T);
 }
 
-static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_list(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_list(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9276,7 +9274,7 @@ static int dissect_nhdr_umq_cmd_resp_rcv_xmsg_list(tvbuff_t * tvb, int offset, p
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_appset_entry(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_appset_entry(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9311,7 +9309,7 @@ static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_appset_entry(tvbuff_t * tvb,
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_topic_entry(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_topic_entry(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9347,7 +9345,7 @@ static int dissect_nhdr_umq_cmd_resp_ctx_topic_list_topic_entry(tvbuff_t * tvb, 
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_ctx_topic_list(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_ctx_topic_list(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9370,7 +9368,7 @@ static int dissect_nhdr_umq_cmd_resp_ctx_topic_list(tvbuff_t * tvb, int offset, 
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp_err(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_cmd_resp_err(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9389,7 +9387,7 @@ static int dissect_nhdr_umq_cmd_resp_err(tvbuff_t * tvb, int offset, packet_info
     return (len_dissected);
 }
 
-static int dissect_nhdr_umq_cmd_resp(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, bool data_msg)
+static int dissect_nhdr_umq_cmd_resp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, bool data_msg)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9462,7 +9460,7 @@ static int dissect_nhdr_umq_cmd_resp(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_sri_req(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_sri_req(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9482,7 +9480,7 @@ static int dissect_nhdr_sri_req(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_SRI_REQ_HDR_T);
 }
 
-static int dissect_nhdr_ume_store_domain(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_store_domain(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9501,7 +9499,7 @@ static int dissect_nhdr_ume_store_domain(tvbuff_t * tvb, int offset, packet_info
     return (L_LBMC_CNTL_UME_STORE_DOMAIN_HDR_T);
 }
 
-static int dissect_nhdr_sri(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_sri(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9524,7 +9522,7 @@ static int dissect_nhdr_sri(tvbuff_t * tvb, int offset, packet_info * pinfo _U_,
     return (L_LBMC_CNTL_SRI_HDR_T);
 }
 
-static int dissect_nhdr_route_info(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_route_info(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9551,7 +9549,7 @@ static int dissect_nhdr_route_info(tvbuff_t * tvb, int offset, packet_info * pin
     return (L_LBMC_CNTL_ROUTE_INFO_HDR_T);
 }
 
-static int dissect_nhdr_route_info_neighbor(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_route_info_neighbor(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9572,7 +9570,7 @@ static int dissect_nhdr_route_info_neighbor(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_ROUTE_INFO_NEIGHBOR_HDR_T);
 }
 
-static int dissect_nhdr_gateway_name(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_gateway_name(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9607,7 +9605,7 @@ static int dissect_nhdr_gateway_name(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_auth_request(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_auth_request(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9641,7 +9639,7 @@ static int dissect_nhdr_auth_request(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_auth_challenge(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_auth_challenge(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9702,7 +9700,7 @@ static int dissect_nhdr_auth_challenge(tvbuff_t * tvb, int offset, packet_info *
     return (len_dissected);
 }
 
-static int dissect_nhdr_auth_challenge_rsp(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_auth_challenge_rsp(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9745,7 +9743,7 @@ static int dissect_nhdr_auth_challenge_rsp(tvbuff_t * tvb, int offset, packet_in
     return (len_dissected);
 }
 
-static int dissect_nhdr_auth_result(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_auth_result(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9765,7 +9763,7 @@ static int dissect_nhdr_auth_result(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_CNTL_AUTH_RESULT_HDR_T);
 }
 
-static int dissect_nhdr_auth_unknown(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_auth_unknown(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9782,8 +9780,7 @@ static int dissect_nhdr_auth_unknown(tvbuff_t * tvb, int offset, packet_info * p
     proto_tree_add_item(subtree, hf_lbmc_auth_unknown_next_hdr, tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_NEXT_HDR, L_LBMC_CNTL_AUTH_GENERIC_HDR_T_NEXT_HDR, ENC_BIG_ENDIAN);
     hdrlen_item = proto_tree_add_item(subtree, hf_lbmc_auth_unknown_hdr_len, tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_HDR_LEN, L_LBMC_CNTL_AUTH_GENERIC_HDR_T_HDR_LEN, ENC_BIG_ENDIAN);
     proto_tree_add_item(subtree, hf_lbmc_auth_unknown_flags, tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_FLAGS, L_LBMC_CNTL_AUTH_GENERIC_HDR_T_FLAGS, ENC_BIG_ENDIAN);
-    opid_item = proto_tree_add_item(subtree, hf_lbmc_auth_unknown_opid, tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_OPID, L_LBMC_CNTL_AUTH_GENERIC_HDR_T_OPID, ENC_BIG_ENDIAN);
-    opid = tvb_get_uint8(tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_OPID);
+    opid_item = proto_tree_add_item_ret_uint8(subtree, hf_lbmc_auth_unknown_opid, tvb, offset + O_LBMC_CNTL_AUTH_GENERIC_HDR_T_OPID, L_LBMC_CNTL_AUTH_GENERIC_HDR_T_OPID, ENC_BIG_ENDIAN, &opid);
     expert_add_info_format(pinfo, opid_item, &ei_lbmc_analysis_invalid_value, "Invalid LBMC AUTH OPID 0x%02x", opid);
     len_dissected = L_LBMC_CNTL_AUTH_GENERIC_HDR_T;
     datalen = (int) hdrlen - len_dissected;
@@ -9800,7 +9797,7 @@ static int dissect_nhdr_auth_unknown(tvbuff_t * tvb, int offset, packet_info * p
     return (len_dissected);
 }
 
-static int dissect_nhdr_hmac(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_hmac(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9820,7 +9817,7 @@ static int dissect_nhdr_hmac(tvbuff_t * tvb, int offset, packet_info * pinfo _U_
     return (L_LBMC_CNTL_HMAC_HDR_T);
 }
 
-static int dissect_nhdr_umq_sid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_umq_sid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9840,7 +9837,7 @@ static int dissect_nhdr_umq_sid(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_UMQ_SID_HDR_T);
 }
 
-static int dissect_nhdr_destination(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_destination_info_t * info)
+static int dissect_nhdr_destination(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_destination_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9876,7 +9873,7 @@ static int dissect_nhdr_destination(tvbuff_t * tvb, int offset, packet_info * pi
     return (L_LBMC_DESTINATION_HDR_T);
 }
 
-static int dissect_nhdr_topic_idx(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topic_idx(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9895,7 +9892,7 @@ static int dissect_nhdr_topic_idx(tvbuff_t * tvb, int offset, packet_info * pinf
     return (L_LBMC_TOPIC_IDX_HDR_T);
 }
 
-static int dissect_nhdr_topic_source(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topic_source(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9915,7 +9912,7 @@ static int dissect_nhdr_topic_source(tvbuff_t * tvb, int offset, packet_info * p
     return (L_LBMC_CNTL_TOPIC_SOURCE_HDR_T);
 }
 
-static int dissect_nhdr_topic_source_exfunc(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_topic_source_exfunc(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9945,7 +9942,7 @@ static int dissect_nhdr_topic_source_exfunc(tvbuff_t * tvb, int offset, packet_i
     return (L_LBMC_CNTL_TOPIC_SOURCE_EXFUNC_HDR_T);
 }
 
-static int dissect_nhdr_ume_store_ext(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_store_ext(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9970,7 +9967,7 @@ static int dissect_nhdr_ume_store_ext(tvbuff_t * tvb, int offset, packet_info * 
     return (L_LBMC_CNTL_UME_STORE_EXT_HDR_T);
 }
 
-static int dissect_nhdr_ume_psrc_election_token(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_ume_psrc_election_token(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -9990,7 +9987,7 @@ static int dissect_nhdr_ume_psrc_election_token(tvbuff_t * tvb, int offset, pack
     return (L_LBMC_CNTL_UME_PSRC_ELECTION_TOKEN_HDR_T);
 }
 
-static int dissect_nhdr_tcp_sid(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_tcp_sid_info_t * info)
+static int dissect_nhdr_tcp_sid(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree, lbmc_tcp_sid_info_t * info)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -10014,7 +10011,7 @@ static int dissect_nhdr_tcp_sid(tvbuff_t * tvb, int offset, packet_info * pinfo 
     return (L_LBMC_CNTL_TCP_SID_HDR_T);
 }
 
-static int dissect_nhdr_extopt_cfgopt(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree)
+static int dissect_nhdr_extopt_cfgopt(tvbuff_t * tvb, unsigned offset, packet_info * pinfo _U_, proto_tree * tree)
 {
     /*
         Returns number of bytes dissected (>=0), or -1 if an error occurs. In either case, *bytes_dissected
@@ -10051,7 +10048,7 @@ static int dissect_nhdr_extopt_cfgopt(tvbuff_t * tvb, int offset, packet_info * 
     return (len_dissected);
 }
 
-static int dissect_nhdr_extopt(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, lbmc_extopt_reassembled_data_t * reassembly)
+static int dissect_nhdr_extopt(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, lbmc_extopt_reassembled_data_t * reassembly)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -10094,14 +10091,14 @@ static int dissect_nhdr_extopt(tvbuff_t * tvb, int offset, packet_info * pinfo, 
         if (reassembly->reassembly_in_progress)
         {
             tvbuff_t * reassembly_tvb;
-            char * buf;
+            uint8_t* buf;
             proto_item * pi = NULL;
 
             if ((reassembly->len + fragment_offset + data_len) < LBMC_EXTOPT_REASSEMBLED_DATA_MAX_LEN)
             {
                 tvb_memcpy(tvb, reassembly->data + fragment_offset, data_offset, data_len);
                 reassembly->len += data_len;
-                buf = (char *) wmem_memdup(pinfo->pool, reassembly->data, reassembly->len);
+                buf = (uint8_t*)wmem_memdup(pinfo->pool, reassembly->data, reassembly->len);
                 reassembly_tvb = tvb_new_real_data(buf, reassembly->len, reassembly->len);
                 add_new_data_source(pinfo, reassembly_tvb, "Reassembled EXTOPT fragment data");
             }
@@ -10193,7 +10190,7 @@ static int dissect_nhdr_extopt(tvbuff_t * tvb, int offset, packet_info * pinfo, 
     return (len_dissected);
 }
 
-static int dissect_nhdr_unhandled(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, uint8_t next_hdr)
+static int dissect_nhdr_unhandled(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, uint8_t next_hdr)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -10223,7 +10220,7 @@ static int dissect_nhdr_unhandled(tvbuff_t * tvb, int offset, packet_info * pinf
     return (len_dissected);
 }
 
-static int dissect_msg_properties(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+static int dissect_msg_properties(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -10622,7 +10619,7 @@ static lbm_uim_stream_info_t * lbmc_dup_stream_info(wmem_allocator_t *scope, con
     return (ptr);
 }
 
-bool lbmc_test_lbmc_header(tvbuff_t * tvb, int offset)
+bool lbmc_test_lbmc_header(tvbuff_t * tvb, unsigned offset)
 {
     uint8_t type;
     uint8_t version;
@@ -10751,7 +10748,7 @@ bool lbmc_test_lbmc_header(tvbuff_t * tvb, int offset)
     return true;
 }
 
-int lbmc_dissect_lbmc_packet(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, const char * tag_name, uint64_t channel)
+int lbmc_dissect_lbmc_packet(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree, const char * tag_name, uint64_t channel)
 {
     proto_item * subtree_item = NULL;
     proto_tree * subtree = NULL;
@@ -11499,10 +11496,10 @@ int lbmc_dissect_lbmc_packet(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
                     proto_item * pi = NULL;
                     bool first_item = true;
                     lbmc_fragment_entry_t * cur = NULL;
-                    char * buf = NULL;
+                    uint8_t * buf = NULL;
 
                     /* Create a new real data tvb of the reassembled data. */
-                    buf = (char *)wmem_alloc(pinfo->pool, (size_t)msg->total_len);
+                    buf = (uint8_t*)wmem_alloc(pinfo->pool, (size_t)msg->total_len);
                     cur = msg->entry;
                     while (cur != NULL)
                     {
@@ -11577,11 +11574,11 @@ int lbmc_dissect_lbmc_packet(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
 
                     if (msg->reassembled_frame == 0)
                     {
-                        proto_tree_add_expert(subtree, pinfo, &ei_lbmc_analysis_missing_reassembly_frame, data_tvb, 0, -1);
+                        proto_tree_add_expert_remaining(subtree, pinfo, &ei_lbmc_analysis_missing_reassembly_frame, data_tvb, 0);
                     }
                     else
                     {
-                        pi = proto_tree_add_uint(subtree, hf_reassembly_frame, data_tvb, 0, tvb_reported_length_remaining(data_tvb, 0), msg->reassembled_frame);
+                        pi = proto_tree_add_uint(subtree, hf_reassembly_frame, data_tvb, 0, tvb_reported_length(data_tvb), msg->reassembled_frame);
                         proto_item_set_generated(pi);
                     }
                 }
@@ -11611,7 +11608,7 @@ int lbmc_dissect_lbmc_packet(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
                         if (lbmc_dissect_lbmpdm)
                         {
                             int encoding;
-                            int pdmlen;
+                            uint32_t pdmlen;
 
                             dissector_found = (bool)lbmpdm_verify_payload(data_tvb, 0, &encoding, &pdmlen);
                         }
@@ -11676,7 +11673,7 @@ int lbmc_get_minimum_length(void)
     return (O_LBMC_HDR_T_MSGLEN + L_LBMC_HDR_T_MSGLEN);
 }
 
-uint16_t lbmc_get_message_length(tvbuff_t * tvb, int offset)
+uint16_t lbmc_get_message_length(tvbuff_t * tvb, unsigned offset)
 {
     return (tvb_get_ntohs(tvb, offset + O_LBMC_HDR_T_MSGLEN));
 }

@@ -116,10 +116,8 @@ QString PrefsItem::getModuleName() const
 
 QString PrefsItem::getModuleTitle() const
 {
-    if ((module_ == NULL) && (pref_ == NULL))
+    if (module_ == NULL)
         return name_;
-
-    Q_ASSERT(module_);
 
     return QString(module_->title);
 }
@@ -293,14 +291,14 @@ fill_prefs(module_t *module, void *root_ptr)
     }
 
     if (prefs_module_has_submodules(module))
-        return prefs_modules_foreach_submodules(module, fill_prefs, module_item);
+        return prefs_modules_foreach_submodules(module->submodules, fill_prefs, module_item);
 
     return 0;
 }
 
 void PrefsModel::populate()
 {
-    prefs_modules_foreach_submodules(NULL, fill_prefs, (void *)root_);
+    prefs_modules_for_all_modules(fill_prefs, (void *)root_);
 
     //Add the "specially handled" preferences
     PrefsItem *appearance_item, *appearance_subitem, *special_item;
@@ -313,6 +311,8 @@ void PrefsModel::populate()
     appearance_subitem = new PrefsItem(PrefsModel::Columns, appearance_item);
     appearance_item->prependChild(appearance_subitem);
     appearance_subitem = new PrefsItem(PrefsModel::FontAndColors, appearance_item);
+    appearance_item->prependChild(appearance_subitem);
+    appearance_subitem = new PrefsItem(PrefsModel::WelcomePage, appearance_item);
     appearance_item->prependChild(appearance_subitem);
 
     special_item = new PrefsItem(PrefsModel::Capture, root_);
@@ -340,6 +340,7 @@ QString PrefsModel::typeToString(PrefsModelType type)
         case Layout: typeStr = tr("Layout"); break;
         case Columns: typeStr = tr("Columns"); break;
         case FontAndColors: typeStr = tr("Font and Colors"); break;
+        case WelcomePage: typeStr = tr("Welcome Page"); break;
         case Capture: typeStr = tr("Capture"); break;
         case Expert: typeStr = tr("Expert"); break;
         case FilterButtons: typeStr = tr("Filter Buttons"); break;
@@ -366,6 +367,8 @@ QString PrefsModel::typeToHelp(PrefsModelType type)
             break;
         case Layout:
             helpStr = QStringLiteral("ChCustPreferencesSection.html#_layout");
+            break;
+        case WelcomePage:
             break;
         case Capture:
             helpStr = QStringLiteral("ChCustPreferencesSection.html#_capture");
@@ -542,6 +545,24 @@ bool AdvancedPrefsModel::setData(const QModelIndex &dataindex, const QVariant &v
                 prefs_set_uint_value(item->getPref(), new_val, pref_stashed);
             }
             break;
+        case PREF_INT:
+        {
+            bool ok = true;
+            int new_val = value.toInt(&ok);
+
+            if (ok)
+                prefs_set_int_value(item->getPref(), new_val, pref_stashed);
+        }
+        break;
+        case PREF_FLOAT:
+        {
+            bool ok = true;
+            double new_val = value.toDouble(&ok);
+
+            if (ok)
+                prefs_set_float_value(item->getPref(), new_val, pref_stashed);
+        }
+        break;
         case PREF_BOOL:
             prefs_invert_bool_value(item->getPref(), pref_stashed);
             break;

@@ -16,11 +16,10 @@
 
 #include "config.h"
 
-#include <stdio.h>    /* for sscanf() */
-
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/prefs.h>
+#include <wsutil/strtoi.h>
 #include "packet-tcp.h"
 
 void proto_register_git(void);
@@ -42,10 +41,6 @@ static int hf_git_sideband_control_code;
 static int hf_git_upload_pack_adv;
 static int hf_git_upload_pack_req;
 static int hf_git_upload_pack_res;
-
-#define PNAME  "Git Smart Protocol"
-#define PSNAME "Git"
-#define PFNAME "git"
 
 #define TCP_PORT_GIT    9418
 
@@ -75,12 +70,12 @@ static const value_string sideband_vals[] = {
 /* desegmentation of Git over TCP */
 static bool git_desegment = true;
 
-static bool get_packet_length(tvbuff_t *tvb, packet_info* pinfo, int offset,
+static bool get_packet_length(tvbuff_t *tvb, packet_info* pinfo, unsigned offset,
                                   uint16_t *length)
 {
-  uint8_t *lenstr = tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII);
+  char *lenstr = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII);
 
-  return (sscanf(lenstr, "%hx", length) == 1);
+  return ws_hexstrtou16(lenstr, NULL, length);
 }
 
 static unsigned
@@ -110,7 +105,7 @@ get_git_pdu_len(packet_info *pinfo, tvbuff_t *tvb, int offset, void *data _U_)
 */
 static bool
 dissect_pkt_line(tvbuff_t *tvb, packet_info *pinfo, proto_tree *git_tree,
-                 int *offset)
+                 unsigned *offset)
 {
   uint16_t plen;
 
@@ -171,11 +166,11 @@ dissect_git_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 {
   proto_tree             *git_tree;
   proto_item             *ti;
-  int offset = 0;
+  unsigned offset = 0;
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "Git");
 
-  col_set_str(pinfo->cinfo, COL_INFO, PNAME);
+  col_set_str(pinfo->cinfo, COL_INFO, "Git Smart Protocol");
 
   ti = proto_tree_add_item(tree, proto_git, tvb, offset, -1, ENC_NA);
   git_tree = proto_item_add_subtree(ti, ett_git);
@@ -199,17 +194,17 @@ dissect_git_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
  * dissectors, adds the packs to the git subtree and returns the amount
  * of consumed bytes in the tvb buffer.
 */
-static int
+static unsigned
 dissect_http_pkt_lines(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hfindex)
 {
   proto_tree             *git_tree;
   proto_item             *ti;
-  int offset = 0;
-  int total_len = 0;
+  unsigned offset = 0;
+  unsigned total_len = 0;
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "Git");
 
-  col_set_str(pinfo->cinfo, COL_INFO, PNAME);
+  col_set_str(pinfo->cinfo, COL_INFO, "Git Smart Protocol");
 
   ti = proto_tree_add_item(tree, proto_git, tvb, offset, -1, ENC_NA);
   git_tree = proto_item_add_subtree(ti, ett_git);
@@ -221,7 +216,7 @@ dissect_http_pkt_lines(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int 
   while (offset < total_len) {
     /* Add expert info if there is trouble parsing part-way through */
     if (!dissect_pkt_line(tvb, pinfo, git_tree, &offset)) {
-      proto_tree_add_expert(git_tree, pinfo, &ei_git_malformed, tvb, offset, -1);
+      proto_tree_add_expert_remaining(git_tree, pinfo, &ei_git_malformed, tvb, offset);
       break;
     }
   }
@@ -312,14 +307,14 @@ proto_register_git(void)
   module_t *git_module;
   expert_module_t *expert_git;
 
-  proto_git = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_git = proto_register_protocol("Git Smart Protocol", "Git", "git");
   proto_register_field_array(proto_git, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
   expert_git = expert_register_protocol(proto_git);
   expert_register_field_array(expert_git, ei, array_length(ei));
 
-  git_handle = register_dissector(PFNAME, dissect_git, proto_git);
+  git_handle = register_dissector("git", dissect_git, proto_git);
 
   git_module = prefs_register_protocol(proto_git, NULL);
 
@@ -344,16 +339,16 @@ proto_reg_handoff_git(void)
   dissector_handle_t git_upload_pack_res_handle;
 
   git_upload_pack_adv_handle = create_dissector_handle_with_name_and_description(
-                        dissect_git_upload_pack_adv, proto_git, PFNAME ".http_adv",
-                        PSNAME" Advertisement");
+                        dissect_git_upload_pack_adv, proto_git, "git.http_adv",
+                        "Git Advertisement");
 
   git_upload_pack_req_handle = create_dissector_handle_with_name_and_description(
-                        dissect_git_upload_pack_req, proto_git, PFNAME ".http_req",
-                        PSNAME" Request");
+                        dissect_git_upload_pack_req, proto_git, "git.http_req",
+                        "Git Request");
 
   git_upload_pack_res_handle = create_dissector_handle_with_name_and_description(
-                        dissect_git_upload_pack_res, proto_git, PFNAME ".http_res",
-                        PSNAME" Result");
+                        dissect_git_upload_pack_res, proto_git, "git.http_res",
+                        "Git Result");
 
   dissector_add_string("media_type",
                         "application/x-git-upload-pack-advertisement",

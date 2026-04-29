@@ -364,7 +364,7 @@ utf_16_to_utf_8(const uint8_t *in, uint32_t length)
 			if (IS_TRAIL_SURROGATE(uchar2)) {
 				/* Trail surrogate. */
 				uchar = SURROGATE_VALUE(lead_surrogate, uchar2);
-				out += g_unichar_to_utf8(uchar, out);
+				out += g_unichar_to_utf8(uchar, (char*)out);
 			} else {
 				/*
 				 * Not a trail surrogate.
@@ -387,7 +387,7 @@ utf_16_to_utf_8(const uint8_t *in, uint32_t length)
 				/*
 				 * Non-surrogate; just count it.
 				 */
-				out += g_unichar_to_utf8(uchar2, out);
+				out += g_unichar_to_utf8(uchar2, (char*)out);
 			}
 		}
 	}
@@ -1905,16 +1905,17 @@ static bool netmon_dump_finish(wtap_dumper *wdh, int *err,
 	size_t magic_size;
 	struct tm *tm;
 	int64_t saved_bytes_dumped;
+	bool success = false;
 
 	/* Write out the frame table.  "netmon->frame_table_index" is
 	   the number of entries we've put into it. */
 	n_to_write = netmon->frame_table_index * sizeof *netmon->frame_table;
 	if (!wtap_dump_file_write(wdh, netmon->frame_table, n_to_write, err))
-		return false;
+		goto out;
 
 	/* Now go fix up the file header. */
 	if (wtap_dump_file_seek(wdh, 0, SEEK_SET, err) == -1)
-		return false;
+		goto out;
 	/* Save bytes_dumped since following calls to wtap_dump_file_write()
 	 * will still (mistakenly) increase it.
 	 */
@@ -1950,7 +1951,7 @@ static bool netmon_dump_finish(wtap_dumper *wdh, int *err,
 		file_hdr.ver_minor = 1;
 	}
 	if (!wtap_dump_file_write(wdh, magicp, magic_size, err))
-		return false;
+		goto out;
 
 	if (wdh->file_encap == WTAP_ENCAP_PER_PACKET) {
 		/*
@@ -1984,10 +1985,14 @@ static bool netmon_dump_finish(wtap_dumper *wdh, int *err,
 	file_hdr.frametablelength =
 	    GUINT32_TO_LE(netmon->frame_table_index * sizeof *netmon->frame_table);
 	if (!wtap_dump_file_write(wdh, &file_hdr, sizeof file_hdr, err))
-		return false;
+		goto out;
 
 	wdh->bytes_dumped = saved_bytes_dumped;
-	return true;
+	success = true;
+
+out:
+	g_free(netmon->frame_table);
+	return success;
 }
 
 static const struct supported_block_type netmon_1_x_blocks_supported[] = {

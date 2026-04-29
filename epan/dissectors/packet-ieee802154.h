@@ -29,6 +29,11 @@
 #define IEEE802154_MAX_FRAME_LEN            127
 #define IEEE802154_FCS_LEN                  2
 
+/* FCS Types used by user configuration */
+#define IEEE802154_CC24XX_METADATA 0 /* Not an FCS, but TI CC24xx metadata */
+#define IEEE802154_FCS_16_BIT      1 /* ITU-T CRC16 */
+#define IEEE802154_FCS_32_BIT      2 /* ITU-T CRC32 */
+
 /*  Command Frame Identifier Types Definitions */
 #define IEEE802154_CMD_ASSOC_REQ                0x01
 #define IEEE802154_CMD_ASSOC_RSP                0x02
@@ -504,9 +509,9 @@ void dissect_ieee802154_superframe      (tvbuff_t *, packet_info *, proto_tree *
 void dissect_ieee802154_gtsinfo         (tvbuff_t *, packet_info *, proto_tree *, unsigned *);
 void dissect_ieee802154_pendaddr        (tvbuff_t *, packet_info *, proto_tree *, unsigned *);
 void dissect_ieee802154_aux_sec_header_and_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ieee802154_packet *packet, unsigned *offset);
-void ccm_init_block(char *block, bool adata, int M, uint64_t addr, uint32_t frame_counter, uint8_t level, int ctr_val, const char *generic_nonce);
-bool ccm_ctr_encrypt(const char *key, const char *iv, char *mic, char *data, int length);
-bool ccm_cbc_mac(const char *key, const char *iv, const char *a, int a_len, const char *m, int m_len, char *mic);
+void ccm_init_block(uint8_t *block, bool adata, int M, uint64_t addr, uint32_t frame_counter, uint8_t level, int ctr_val, const uint8_t *generic_nonce);
+bool ccm_ctr_encrypt(const uint8_t *key, const uint8_t *iv, uint8_t *mic, uint8_t *data, int length);
+bool ccm_cbc_mac(const uint8_t *key, const uint8_t *iv, const uint8_t *a, int a_len, const uint8_t *m, int m_len, uint8_t *mic);
 
 proto_tree *ieee802154_create_hie_tree(tvbuff_t *tvb, proto_tree *tree, int hf, int ett);
 proto_tree *ieee802154_create_pie_tree(tvbuff_t *tvb, proto_tree *tree, int hf, int ett);

@@ -83,10 +83,10 @@ bool operator==(rtpstream_id_t const& a, rtpstream_id_t const& b);
 class RtpStreamTreeWidgetItem : public QTreeWidgetItem
 {
 public:
-    RtpStreamTreeWidgetItem(QTreeWidget *tree, rtpstream_info_t *stream_info) :
+    RtpStreamTreeWidgetItem(QTreeWidget *tree, rtpstream_info_t *stream_info, bool tod) :
         QTreeWidgetItem(tree, rtp_stream_type_),
         stream_info_(stream_info),
-        tod_(0)
+        tod_(tod)
     {
         drawData();
     }
@@ -589,7 +589,7 @@ void RtpStreamDialog::updateStreams()
     // Add any missing items
     while (cur_stream && cur_stream->data && to_insert_count) {
         rtpstream_info_t *stream_info = gxx_list_data(rtpstream_info_t*, cur_stream);
-        RtpStreamTreeWidgetItem *rsti = new RtpStreamTreeWidgetItem(ui->streamTreeWidget, stream_info);
+        RtpStreamTreeWidgetItem *rsti = new RtpStreamTreeWidgetItem(ui->streamTreeWidget, stream_info, ui->todCheckBox->isChecked());
         cur_stream = gxx_list_next(cur_stream);
         to_insert_count--;
 
@@ -627,7 +627,7 @@ void RtpStreamDialog::updateWidgets()
     bool selected = ui->streamTreeWidget->selectedItems().count() > 0;
 
     QString hint = "<small><i>";
-    hint += tr("%1 streams").arg(ui->streamTreeWidget->topLevelItemCount());
+    hint += tr("%Ln stream(s)", "", ui->streamTreeWidget->topLevelItemCount());
 
     if (selected) {
         int tot_packets = 0;
@@ -637,9 +637,8 @@ void RtpStreamDialog::updateWidgets()
                 tot_packets += rsti->streamInfo()->packet_count;
             }
         }
-        hint += tr(", %1 selected, %2 total packets")
-                .arg(ui->streamTreeWidget->selectedItems().count())
-                .arg(tot_packets);
+        hint += tr(", %1 selected, %Ln total packet(s)", "", tot_packets)
+                .arg(ui->streamTreeWidget->selectedItems().count());
     }
 
     hint += ". Right-click for more options.";

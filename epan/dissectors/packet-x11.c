@@ -1117,8 +1117,7 @@ static const value_string zero_is_none_vals[] = {
       unsigned char eventcode;                                        \
       const char *sent;                                               \
       proto_tree *event_proto_tree;                                   \
-      next_tvb = tvb_new_subset_length_caplen(tvb, offset, next_offset - offset,    \
-                                next_offset - offset);                \
+      next_tvb = tvb_new_subset_length(tvb, offset, next_offset - offset);    \
       eventcode = tvb_get_uint8(next_tvb, 0);                        \
       sent = (eventcode & 0x80) ? "Sent-" : "";                       \
       event_proto_tree = proto_tree_add_subtree_format(t, next_tvb,   \
@@ -1227,9 +1226,7 @@ static const value_string zero_is_none_vals[] = {
                   ; /* XXX yes, what then?  Need to skip/join. */     \
             }                                                         \
       }                                                               \
-      if (length_remaining > plen)                                    \
-            length_remaining = plen;                                  \
-      next_tvb = tvb_new_subset_length_caplen(tvb, offset, length_remaining, plen); \
+      next_tvb = tvb_new_subset_length(tvb, offset, plen);            \
                                                                       \
       if (sep == NULL) {                                              \
             col_set_str(pinfo->cinfo, COL_INFO, str);                 \
@@ -2239,7 +2236,7 @@ static void listOfString8(tvbuff_t *tvb, packet_info* pinfo, int *offsetp, proto
 
       while(length--) {
             unsigned l = tvb_get_uint8(tvb, *offsetp);
-            s = tvb_get_string_enc(pinfo->pool, tvb, *offsetp + 1, l, ENC_ASCII);
+            s = (char*)tvb_get_string_enc(pinfo->pool, tvb, *offsetp + 1, l, ENC_ASCII);
             proto_tree_add_string_format(tt, hf_item, tvb, *offsetp, l + 1, s, "\"%s\"", s);
             *offsetp += l + 1;
       }
@@ -2332,7 +2329,7 @@ static void listOfTextItem(tvbuff_t *tvb, packet_info* pinfo, int *offsetp, prot
                         }
                         *offsetp += l*2 + 2;
                   } else {
-                        s = tvb_get_string_enc(pinfo->pool, tvb, *offsetp + 2, l, ENC_ASCII);
+                        s = (char*)tvb_get_string_enc(pinfo->pool, tvb, *offsetp + 2, l, ENC_ASCII);
                         tti = proto_tree_add_none_format(tt, hf_x11_textitem_string, tvb, *offsetp, l + 2,
                                                          "textitem (string): delta = %d, \"%s\"",
                                                          delta, s);
@@ -3587,7 +3584,7 @@ static void dissect_x11_request(tvbuff_t *tvb, packet_info *pinfo,
                   query_ext_offset += 2;
                   /* Some unused bytes */
                   query_ext_offset += 2;
-                  name = tvb_get_string_enc(wmem_file_scope(), tvb, query_ext_offset, v16, ENC_ASCII);
+                  name = (char*)tvb_get_string_enc(wmem_file_scope(), tvb, query_ext_offset, v16, ENC_ASCII);
 
                   /* store string of extension, opcode will be set at reply */
                   i = 0;
@@ -4894,7 +4891,6 @@ static void dissect_x11_requests(tvbuff_t *tvb, packet_info *pinfo,
       const char *volatile sep = NULL;
       conversation_t *conversation;
       x11_conv_data_t *volatile state;
-      int length;
       tvbuff_t *volatile next_tvb;
 
       while ((length_remaining = tvb_reported_length_remaining(tvb, offset)) > 0) {
@@ -5090,21 +5086,8 @@ static void dissect_x11_requests(tvbuff_t *tvb, packet_info *pinfo,
              * Construct a tvbuff containing the amount of the payload
              * we have available.  Make its reported length the
              * amount of data in the X11 request.
-             *
-             * XXX - if reassembly isn't enabled. the subdissector
-             * will throw a BoundsError exception, rather than a
-             * ReportedBoundsError exception.  We really want a tvbuff
-             * where the length is "length", the reported length is "plen",
-             * and the "if the snapshot length were infinite" length is the
-             * minimum of the reported length of the tvbuff handed to us
-             * and "plen", with a new type of exception thrown if the offset
-             * is within the reported length but beyond that third length,
-             * with that exception getting the "Unreassembled Packet" error.
              */
-            length = length_remaining;
-            if (length > plen)
-                  length = plen;
-            next_tvb = tvb_new_subset_length_caplen(tvb, offset, length, plen);
+            next_tvb = tvb_new_subset_length(tvb, offset, plen);
 
             /*
              * Set the column appropriately.
@@ -5154,7 +5137,13 @@ static void dissect_x11_requests(tvbuff_t *tvb, packet_info *pinfo,
             /*
              * Skip the X11 message.
              */
-            offset += plen;
+            if (ckd_add(&offset, offset, plen)) {
+                  /*
+                   * Make sure we don't overflow. (Depending on the opcode, we
+                   * might not have tried to dissect a plen's worth of bytes.)
+                   */
+                  break;
+            }
 
             sep = ",";
       }
@@ -5356,7 +5345,13 @@ dissect_x11_replies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
                   }
             }
 
-            offset += plen;
+            if (ckd_add(&offset, offset, plen)) {
+                  /*
+                   * Make sure we don't overflow. (Depending on the opcode, we
+                   * might not have tried to dissect a plen's worth of bytes.)
+                   */
+                  break;
+            }
       }
 
       return;

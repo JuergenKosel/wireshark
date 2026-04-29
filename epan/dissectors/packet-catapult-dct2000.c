@@ -345,7 +345,7 @@ static dissector_handle_t mac_nr_handle;
 static dissector_handle_t eth_handle;
 
 static dissector_handle_t look_for_dissector(const char *protocol_name);
-static unsigned parse_outhdr_string(const unsigned char *outhdr_string, int outhdr_length, unsigned *outhdr_values);
+static unsigned parse_outhdr_string(const char *outhdr_string, int outhdr_length, unsigned *outhdr_values);
 
 static void attach_fp_info(packet_info *pinfo, bool received,
                            const char *protocol_name, int variant,
@@ -785,8 +785,7 @@ static void dissect_rlc_umts(tvbuff_t *tvb, int offset,
                 break;
             case 0xa2:  /* RBID */
                 offset++;  /* skip length */
-                rbid = tvb_get_uint8(tvb, offset);
-                proto_tree_add_item(tree, hf_catapult_dct2000_rbid, tvb, offset, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_item_ret_uint8(tree, hf_catapult_dct2000_rbid, tvb, offset, 1, ENC_BIG_ENDIAN, &rbid);
                 offset++;
                 rbid_set = true;
                 break;
@@ -883,13 +882,9 @@ static void dissect_rlc_umts(tvbuff_t *tvb, int offset,
     }
 }
 
-static char* get_key(tvbuff_t*tvb, int offset)
+static char* get_key(wmem_allocator_t *allocator, tvbuff_t*tvb, int offset)
 {
-    static char key[33];
-    for (int n=0; n < 16; n++) {
-        snprintf(&key[n*2], 33-(n*2), "%02x", tvb_get_uint8(tvb, offset+n));
-    }
-    return key;
+    return tvb_bytes_to_str(allocator, tvb, offset, 16);
 }
 
 
@@ -1112,7 +1107,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, int offset,
                     offset += 2;
                     proto_tree_add_item(sc_tree, hf_catapult_dct2000_ciphering_key,
                                         tvb, offset, 16, ENC_NA);
-                    char *key = get_key(tvb, offset);
+                    char *key = get_key(pinfo->pool, tvb, offset);
 
                     if (!PINFO_FD_VISITED(pinfo)) {
                         if (lte_or_nr == NR) {
@@ -1147,7 +1142,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, int offset,
                 offset += 2;
                 proto_tree_add_item(sc_tree, hf_catapult_dct2000_integrity_key,
                                     tvb, offset, 16, ENC_NA);
-                char *key = get_key(tvb, offset);
+                char *key = get_key(pinfo->pool, tvb, offset);
 
                 if (!PINFO_FD_VISITED(pinfo)) {
                     if (lte_or_nr == NR) {
@@ -1296,8 +1291,8 @@ static void dissect_ccpri_lte(tvbuff_t *tvb, int offset,
     uint16_t            length;
 
     /* Top-level opcode */
-    proto_tree_add_item(tree, hf_catapult_dct2000_lte_ccpri_opcode, tvb, offset, 1, ENC_BIG_ENDIAN);
-    opcode = tvb_get_uint8(tvb, offset++);
+    proto_tree_add_item_ret_uint8(tree, hf_catapult_dct2000_lte_ccpri_opcode, tvb, offset, 1, ENC_BIG_ENDIAN, &opcode);
+    offset++;
 
     /* Skip 2-byte length field */
     offset += 2;
@@ -1413,8 +1408,7 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, int offset,
                     p_pdcp_lte_info->channelType = Channel_DCCH;
 
                     /* UEId */
-                    ueid = tvb_get_ntohs(tvb, offset);
-                    proto_tree_add_item(tree, hf_catapult_dct2000_ueid, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    proto_tree_add_item_ret_uint16(tree, hf_catapult_dct2000_ueid, tvb, offset, 2, ENC_BIG_ENDIAN, &ueid);
                     col_append_fstr(pinfo->cinfo, COL_INFO,
                                     " UEId=%u", ueid);
                     p_pdcp_lte_info->ueid = ueid;
@@ -1486,9 +1480,8 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, int offset,
                             offset++;
 
                             /* UEId */
-                            proto_tree_add_item(tree, hf_catapult_dct2000_ueid,
-                                                tvb, offset, 2, ENC_BIG_ENDIAN);
-                            ueid = tvb_get_ntohs(tvb, offset);
+                            proto_tree_add_item_ret_uint16(tree, hf_catapult_dct2000_ueid,
+                                                           tvb, offset, 2, ENC_BIG_ENDIAN, &ueid);
                             offset += 2;
 
                             col_append_fstr(pinfo->cinfo, COL_INFO, " UEId=%u", ueid);
@@ -1641,7 +1634,7 @@ static dissector_handle_t look_for_dissector(const char *protocol_name)
 
 
 /* Populate outhdr_values array with numbers found in outhdr_string */
-static unsigned parse_outhdr_string(const unsigned char *outhdr_string, int outhdr_string_len, unsigned *outhdr_values)
+static unsigned parse_outhdr_string(const char *outhdr_string, int outhdr_string_len, unsigned *outhdr_values)
 {
     int   n                 = 0;
     int   outhdr_values_found;
@@ -2199,7 +2192,7 @@ static void attach_pdcp_lte_info(packet_info *pinfo, unsigned *outhdr_values,
 /* Attempt to show tty (raw character messages) as text lines. */
 static void dissect_tty_lines(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 {
-    int         next_offset;
+    unsigned    linelen, next_offset;
     proto_tree *tty_tree;
     proto_item *ti;
     int         lines = 0;
@@ -2211,7 +2204,7 @@ static void dissect_tty_lines(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     /* Show the tty lines one at a time. */
     while (tvb_offset_exists(tvb, offset)) {
         /* Find the end of the line. */
-        int linelen = tvb_find_line_end_unquoted(tvb, offset, -1, &next_offset);
+        tvb_find_line_end_unquoted_remaining(tvb, offset, &linelen, &next_offset);
 
         /* Extract & add the string. */
         char *string = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, linelen, ENC_ASCII);
@@ -2224,20 +2217,12 @@ static void dissect_tty_lines(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         }
         else {
             /* Otherwise show as $hex */
-            int n, idx;
-            char *hex_string;
             int tty_string_length = tvb_reported_length_remaining(tvb, offset);
-            int hex_string_length = 1+(2*tty_string_length)+1;
-            hex_string = (char *)wmem_alloc(pinfo->pool, hex_string_length);
 
-            idx = snprintf(hex_string, hex_string_length, "$");
+            wmem_strbuf_t *hex_buf = wmem_strbuf_new(pinfo->pool, "$");
+            wmem_strbuf_append(hex_buf, tvb_bytes_to_str(pinfo->pool, tvb, offset, tty_string_length));
 
-            /* Write hex out to new string */
-            for (n=0; n < tty_string_length; n++) {
-                idx += snprintf(hex_string+idx, 3, "%02x",
-                                  tvb_get_uint8(tvb, offset+n));
-            }
-            string = hex_string;
+            string = wmem_strbuf_finalize(hex_buf);
         }
         lines++;
 
@@ -2396,16 +2381,16 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     proto_tree         *dct2000_tree = NULL;
     proto_item         *ti           = NULL;
     int                 offset       = 0;
-    int                 context_length;
+    unsigned            context_length;
     const char         *context_name;
     uint8_t             port_number;
-    int                 protocol_length;
-    int                 timestamp_length;
+    unsigned            protocol_length;
+    unsigned            timestamp_length;
     const char         *timestamp_string;
-    int                 variant_length;
+    unsigned            variant_length;
     const char         *variant_string;
     uint32_t            variant;
-    int                 outhdr_length;
+    unsigned            outhdr_length;
     const char         *outhdr_string;
     uint8_t             direction;
     tvbuff_t           *next_tvb;
@@ -2436,7 +2421,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     /* by the wiretap module                                             */
 
     /* Context Name */
-    context_name = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &context_length, ENC_ASCII);
+    context_name = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &context_length, ENC_ASCII);
     if (dct2000_tree) {
         proto_tree_add_string(dct2000_tree, hf_catapult_dct2000_context, tvb,
                             offset, context_length, context_name);
@@ -2452,7 +2437,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     offset++;
 
     /* Timestamp in file */
-    timestamp_string = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &timestamp_length, ENC_ASCII);
+    timestamp_string = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &timestamp_length, ENC_ASCII);
     if (dct2000_tree) {
         /* g_ascii_strtod(timestamp_string, NULL)) is much simpler, but *very* slow..
            There will be seconds, a dot, and 4 decimal places.
@@ -2485,7 +2470,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
 
     /* DCT2000 protocol name */
-    protocol_name = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &protocol_length, ENC_ASCII);
+    protocol_name = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &protocol_length, ENC_ASCII);
     if (dct2000_tree) {
         proto_tree_add_string(dct2000_tree, hf_catapult_dct2000_protocol, tvb,
                             offset, protocol_length, protocol_name);
@@ -2498,7 +2483,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
 
     /* Protocol Variant */
-    variant_string = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &variant_length, ENC_ASCII);
+    variant_string = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &variant_length, ENC_ASCII);
     if (!is_comment && !is_sprint) {
         proto_tree_add_string(dct2000_tree, hf_catapult_dct2000_variant, tvb,
                             offset, variant_length, variant_string);
@@ -2506,7 +2491,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     offset += variant_length;
 
     /* Outhdr (shown as string) */
-    outhdr_string = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &outhdr_length, ENC_ASCII);
+    outhdr_string = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &outhdr_length, ENC_ASCII);
     if (!is_comment && !is_sprint && (outhdr_length > 1)) {
         proto_tree_add_string(dct2000_tree, hf_catapult_dct2000_outhdr, tvb,
                             offset, outhdr_length, outhdr_string);
@@ -2682,9 +2667,11 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
             /* UE Id. Skip tag and fixed length */
             offset += 2;
+            /* Ignore first 2 bytes of UEId */
+            offset += 2;
             proto_tree_add_item(tree, hf_catapult_dct2000_ueid,
-                                tvb, offset, 4, ENC_BIG_ENDIAN);
-            offset += 4;
+                                tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
 
             /* NAS PDU tag is 2 bytes */
             uint16_t data_tag = tvb_get_ntohs(tvb, offset);
@@ -2854,11 +2841,11 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
             if (strcmp(protocol_name, "comment") == 0) {
                 /* Extract & add the string. */
                 proto_item *string_ti;
-                const uint8_t *string;
+                const char *string;
 
                 /* Show comment string */
                 string_ti = proto_tree_add_item_ret_string(dct2000_tree, hf_catapult_dct2000_comment, tvb,
-                                                offset, tvb_reported_length_remaining(tvb, offset), ENC_ASCII|ENC_NA, pinfo->pool, &string);
+                                                offset, tvb_reported_length_remaining(tvb, offset), ENC_ASCII|ENC_NA, pinfo->pool, (const uint8_t**)&string);
                 col_append_str(pinfo->cinfo, COL_INFO, string);
 
                 if (catapult_dct2000_dissect_mac_lte_oob_messages) {
@@ -2957,7 +2944,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                     }
 
                     /* Create tvb */
-                    tvbuff_t *mac_nr_tvb = tvb_new_real_data(mac_data, idx, idx);
+                    tvbuff_t *mac_nr_tvb = tvb_new_real_data((const uint8_t*)mac_data, idx, idx);
                     add_new_data_source(pinfo, mac_nr_tvb, "MAC-NR Payload");
                     /* Call the dissector! */
                     call_dissector_only(mac_nr_handle, mac_nr_tvb, pinfo, tree, NULL);
@@ -3078,11 +3065,11 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
             else
             if (strcmp(protocol_name, "sprint") == 0) {
                 /* Extract & add the string. */
-                const uint8_t *string;
+                const char *string;
 
                 /* Show sprint string */
                 proto_tree_add_item_ret_string(dct2000_tree, hf_catapult_dct2000_sprint, tvb,
-                                                offset, tvb_reported_length_remaining(tvb, offset), ENC_ASCII|ENC_NA, pinfo->pool, &string);
+                                                offset, tvb_reported_length_remaining(tvb, offset), ENC_ASCII|ENC_NA, pinfo->pool, (const uint8_t**)&string);
                 col_append_str(pinfo->cinfo, COL_INFO, string);
 
                 return tvb_captured_length(tvb);
@@ -3179,7 +3166,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                                            tvb_get_ntohs(tvb, source_port_offset) :
                                                            0,
                                                        (dest_addr_offset) ?
-                                                         ((source_addr_length == 4) ?
+                                                         ((dest_addr_length == 4) ?
                                                               get_hostname(tvb_get_ipv4(tvb, dest_addr_offset)) :
                                                               get_hostname6(&destv6)
                                                             ) :
@@ -3698,7 +3685,7 @@ void proto_register_catapult_dct2000(void)
 
         { &hf_catapult_dct2000_ueid,
             { "UE Id",
-              "dct2000.ueid", FT_UINT32, BASE_DEC, NULL, 0x0,
+              "dct2000.ueid", FT_UINT16, BASE_DEC, NULL, 0x0,
               "User Equipment Identifier", HFILL
             }
         },

@@ -26,8 +26,6 @@
 
 #include <wsutil/array.h>
 
-#define PROTO_SHORT_NAME "WASSP"
-#define PROTO_LONG_NAME "Wireless Access Station Session Protocol"
 #define LBS_HDR_MAGIC 0x7c83
 #define MU_NETFLOW_RECORD_SIZE 46
 #define WASSP_SNMP 161
@@ -5869,7 +5867,7 @@ tlv_dissect:
 	offset = dissect_wassp_tlv(wassp_tree, tvb, pinfo, offset, ru_msg_type);
 data_dissect:
 	/* Call data dissector on any remaining bytes */
-	call_dissector(data_handle, tvb_new_subset_length(tvb, offset, -1), pinfo, wassp_tree);
+	call_dissector(data_handle, tvb_new_subset_remaining(tvb, offset), pinfo, wassp_tree);
 }
 
 
@@ -5907,7 +5905,7 @@ static int dissect_wassp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree )
 
 	************************************************************************************************************************************************************/
 
-	col_set_str(pinfo->cinfo, COL_PROTOCOL, PROTO_SHORT_NAME);
+	col_set_str(pinfo->cinfo, COL_PROTOCOL, "WASSP");
 	remain_len = tvb_reported_length_remaining(tvb, WASSP_HDR_VERSION);
 	next_tvb = tvb;
 	ru_msg_type = (wassp_ru_msg_t)tvb_get_uint8(tvb, WASSP_HDR_TYPE);
@@ -6007,7 +6005,7 @@ static int dissect_wassp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree )
 		else
 		{
 			col_append_fstr(pinfo->cinfo, COL_INFO, " (Message fragment %u)", seq_number);
-			next_tvb = tvb_new_subset_length(tvb, WASSP_HDR_LEN, -1);
+			next_tvb = tvb_new_subset_remaining(tvb, WASSP_HDR_LEN);
 		}
 	}
 

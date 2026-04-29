@@ -20,7 +20,7 @@
 
 #include "ui/capture_opts.h"
 #include "capture_info.h"
-#include "cfile.h"
+#include <epan/cfile.h>
 #include "capture/capture_session.h"
 
 #ifdef __cplusplus

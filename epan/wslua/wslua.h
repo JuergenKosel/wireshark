@@ -138,14 +138,15 @@ struct _wslua_pinfo {
 
 struct _wslua_tvbrange {
     struct _wslua_tvb* tvb;
-    int offset;
-    int len;
+    unsigned offset;
+    unsigned len;
 };
 
 struct _wslua_tw {
     funnel_text_window_t* ws_tw;
     bool expired;
     void* close_cb_data;
+    char* title;
 };
 
 typedef struct _wslua_field_t {
@@ -349,6 +350,7 @@ struct _wslua_filehandler {
 struct _wslua_dir {
     GDir* dir;
     char* ext;
+    char* path;
 };
 
 struct _wslua_progdlg {
@@ -541,6 +543,18 @@ extern int wslua_reg_attributes(lua_State *L, const wslua_attribute_table *t, bo
 #define WSLUA_ATTRIBUTE_RWREG(class,name) { #name, class##_get_##name, class##_set_##name }
 #define WSLUA_ATTRIBUTE_ROREG(class,name) { #name, class##_get_##name, NULL }
 #define WSLUA_ATTRIBUTE_WOREG(class,name) { #name, NULL, class##_set_##name }
+
+/* Body of a __pairs metamethod that hands the generic-for protocol
+ * a stateless iterator `C##_pairs_iter`. The iterator must accept
+ * (self, prev_key_or_nil) and return the next (key, value) pair or a
+ * single nil when done. Use inside a WSLUA_METAMETHOD body so the
+ * caller retains control of any doc comments shown in the manual. */
+#define WSLUA_STATELESS_PAIRS_BODY(C)                 \
+    check##C(L, 1);                                   \
+    lua_pushcfunction(L, C##_pairs_iter);             \
+    lua_pushvalue(L, 1);                              \
+    lua_pushnil(L);                                   \
+    return 3
 
 #define WSLUA_ATTRIBUTE_FUNC_SETTER(C,field) \
     static int C##_set_##field (lua_State* L) { \
@@ -783,6 +797,7 @@ extern tvbuff_t* lua_tvb;
 extern bool lua_initialized;
 extern int lua_dissectors_table_ref;
 extern int lua_heur_dissectors_table_ref;
+extern const char* lua_app_env_var_prefix;
 extern GPtrArray* lua_outstanding_FuncSavers;
 
 WSLUA_DECLARE_CLASSES()
@@ -836,7 +851,7 @@ extern int Proto_commit(lua_State* L);
 
 extern TreeItem create_TreeItem(proto_tree* tree, proto_item* item);
 
-extern void clear_outstanding_FuncSavers(void);
+extern void clear_outstanding_FuncSavers(lua_State* L);
 
 extern void Int64_pack(lua_State* L, luaL_Buffer *b, int idx, bool asLittleEndian);
 extern int Int64_unpack(lua_State* L, const char *buff, bool asLittleEndian);
@@ -865,7 +880,7 @@ extern void clear_outstanding_FieldInfo(void);
 
 extern void wslua_print_stack(char* s, lua_State* L);
 
-extern void wslua_init(register_cb cb, void *client_data);
+extern void wslua_init(register_cb cb, void *client_data, const char* app_env_var_prefix);
 extern void wslua_early_cleanup(void);
 extern void wslua_cleanup(void);
 

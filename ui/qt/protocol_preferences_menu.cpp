@@ -13,7 +13,7 @@
 #include <epan/prefs-int.h>
 #include <epan/proto.h>
 
-#include <cfile.h>
+#include <epan/cfile.h>
 #include <ui/commandline.h>
 #include <ui/preference_utils.h>
 #include <wsutil/utf8_entities.h>
@@ -264,6 +264,8 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
         break;
     }
     case PREF_UINT:
+    case PREF_INT:
+    case PREF_FLOAT:
     case PREF_STRING:
     case PREF_SAVE_FILENAME:
     case PREF_OPEN_FILENAME:

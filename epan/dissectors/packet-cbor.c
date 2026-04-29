@@ -88,6 +88,8 @@ static expert_field ei_cbor_embedded_bstr;
 static dissector_handle_t cbor_handle;
 static dissector_handle_t cborseq_handle;
 
+static heur_dissector_list_t cbor_bstr_heur;
+
 #define CBOR_TYPE_USIGNED_INT   0
 #define CBOR_TYPE_NEGATIVE_INT  1
 #define CBOR_TYPE_BYTE_STRING   2
@@ -395,23 +397,29 @@ dissect_cbor_byte_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tre
 		break;
 	}
 
-	if (length > INT32_MAX || *offset + (int)length < *offset) {
+	if (length > INT32_MAX) {
 		expert_add_info_format(pinfo, subtree, &ei_cbor_too_long_length,
 			"the length (%" PRIu64 ") of the byte string too long", length);
 		return false;
 	}
 
 	proto_item *item_data = proto_tree_add_item(subtree, hf_cbor_type_byte_string, tvb, *offset, (int)length, ENC_NA);
-	*offset += (int)length;
+	if (ckd_add(offset, *offset, length)) {
+		expert_add_info_format(pinfo, subtree, &ei_cbor_too_long_length,
+			"the length (%" PRIu64 ") of the byte string too long", length);
+		return false;
+	}
 
 	proto_item_append_text(item, ": (%" PRIu64 " byte%s)", length, plurality(length, "", "s"));
 	proto_item_set_end(item, tvb, *offset);
 
 	if (cbor_dissect_embeded_bstr && length) {
-		tvbuff_t *sub_tvb = tvb_new_subset_length(tvb, *offset - (int)length, (int)length);
-		bool valid = cbor_heuristic(sub_tvb, pinfo, subtree, NULL);
+		tvbuff_t *heur_tvb = tvb_new_subset_length(tvb, *offset - (int)length, (int)length);
+
+		heur_dtbl_entry_t *entry = NULL;
+		bool valid = dissector_try_heuristic(cbor_bstr_heur, heur_tvb, pinfo, subtree, &entry, NULL);
 		if (valid) {
-			expert_add_info(pinfo, item_data, &ei_cbor_embedded_bstr);
+			expert_add_info_format(pinfo, item_data, &ei_cbor_embedded_bstr, "Heuristic dissection matched as: %s", entry->display_name);
 		}
 	}
 
@@ -424,7 +432,7 @@ dissect_cbor_text_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tre
 {
 	const uint8_t *value = NULL;
 	uint64_t length = 0;
-	int      eof_type;
+	int      eof_type, new_offset;
 	proto_tree *subtree;
 	proto_item *item;
 
@@ -500,14 +508,14 @@ dissect_cbor_text_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tre
 		break;
 	}
 
-	if (length > INT32_MAX || *offset + (int)length < *offset) {
+	if (ckd_add(&new_offset, *offset, length)) {
 		expert_add_info_format(pinfo, subtree, &ei_cbor_too_long_length,
 			"the length (%" PRIu64 ") of the text string too long", length);
 		return false;
 	}
 
 	proto_tree_add_item_ret_string(subtree, hf_cbor_type_text_string, tvb, *offset, (int)length, ENC_BIG_ENDIAN|ENC_UTF_8, pinfo->pool, &value);
-	*offset += (int)length;
+	*offset = new_offset;
 
 	proto_item_append_text(item, ": %s", value);
 	proto_item_set_end(item, tvb, *offset);
@@ -889,7 +897,7 @@ dissect_cbor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 
 	cbor_root = proto_tree_add_item(parent_tree, proto_cbor, tvb, offset, -1, ENC_NA);
 	cbor_tree = proto_item_add_subtree(cbor_root, ett_cbor);
-	dissect_cbor_main_type(tvb, pinfo, cbor_tree, &offset);
+	(void) dissect_cbor_main_type(tvb, pinfo, cbor_tree, &offset);
 
 	proto_item_set_len(cbor_root, offset);
 	return offset;
@@ -1133,7 +1141,7 @@ proto_register_cbor(void)
 		{ &ei_cbor_max_recursion_depth_reached,
 		  { "cbor.max_recursion_depth_reached", PI_PROTOCOL, PI_WARN, "Maximum allowed recursion depth reached. Dissection stopped.", EXPFILL }},
 		{ &ei_cbor_embedded_bstr,
-		  { "cbor.embedded_bstr", PI_COMMENTS_GROUP, PI_COMMENT, "Heuristic dissection of CBOR embedded in a byte string", EXPFILL }},
+		  { "cbor.embedded_bstr", PI_COMMENTS_GROUP, PI_COMMENT, "Heuristic dissection of data in a byte string", EXPFILL }},
 	};
 
 	expert_module_t *expert_cbor;
@@ -1151,12 +1159,12 @@ proto_register_cbor(void)
 	prefs_register_bool_preference(
 			module_cbor,
 			"dissect_embeded_bstr",  /* mispelt but best leave */
-			"Dissect bstr-embedded CBOR",
-			"If enabled, a heuristic dissection of byte strings as embedded "
-			"CBOR/sequence is performed.",
+			"Attempt heuristic dissection of byte strings",
+			"If enabled, a heuristic dissection of byte string contents is performed.",
 			&cbor_dissect_embeded_bstr
 	);
 
+    cbor_bstr_heur = register_heur_dissector_list_with_description("cbor.bstr", "CBOR byte string content", proto_cbor);
 }
 
 void
@@ -1168,6 +1176,9 @@ proto_reg_handoff_cbor(void)
 
 	dissector_add_string("media_type.suffix", "cbor", cbor_handle); /* RFC 8949 */
 	dissector_add_string("media_type.suffix", "cbor-seq", cborseq_handle); /* RFC 8742 */
+
+	// register for CBOR-in-CBOR heuristic
+	heur_dissector_add("cbor.bstr", cbor_heuristic, "CBOR in CBOR byte string", "cbor_cbor", proto_cbor, HEURISTIC_ENABLE);
 }
 
 /*

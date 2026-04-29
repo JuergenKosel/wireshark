@@ -1067,7 +1067,7 @@ raknet_dissect_common_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *rak
      */
     if (! *has_multiple_messages) {
         *has_multiple_messages =
-            tvb_reported_length_remaining(tvb, offset) > (int)payload_octets
+            tvb_reported_length_remaining(tvb, offset) > payload_octets
             ? true : false;
     }
 
@@ -1944,11 +1944,7 @@ proto_register_raknet(void)
     /*
      * Register the protocol with Wireshark.
      */
-    proto_raknet = proto_register_protocol (
-            "RakNet game networking protocol", /* name */
-            "RakNet", /* short name */
-            "raknet"  /* abbrev */
-            );
+    proto_raknet = proto_register_protocol ("RakNet game networking protocol", "RakNet", "raknet");
 
     /*
      * Register expert support.

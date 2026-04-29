@@ -1,7 +1,7 @@
 /* packet-tecmp.c
  * Technically Enhanced Capture Module Protocol (TECMP) dissector.
  * By <lars.voelker@technica-engineering.de>
- * Copyright 2019-2025 Dr. Lars Völker
+ * Copyright 2019-2026 Dr. Lars Völker
  * Copyright 2020      Ayoub Kaanich
  *
  * Wireshark - Network traffic analyzer
@@ -200,6 +200,7 @@ static int hf_tecmp_payload_data_cycle;
 static int hf_tecmp_payload_data_frame_id;
 static int hf_tecmp_payload_data_header_crc;
 static int hf_tecmp_payload_data_frame_crc;
+static int hf_tecmp_payload_data_cycle_repetition;
 
 /* Analog */
 static int hf_tecmp_payload_data_analog_value_raw;
@@ -426,6 +427,7 @@ static dissector_handle_t asam_cmp_handle;
 /*** expert info items ***/
 static expert_field ei_tecmp_payload_length_mismatch;
 static expert_field ei_tecmp_payload_header_crc_overflow;
+static expert_field ei_tecmp_payload_invalid_cycle_repetition;
 
 /* TECMP Message Type Names */
 /* Updated by ID Registry */
@@ -1678,7 +1680,7 @@ dissect_tecmp_status_config_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, p
         proto_tree_add_item_ret_uint(tree, hf_tecmp_payload_status_cfg_vendor_technica_segment_length, tvb, offset + 12, 2, ENC_BIG_ENDIAN, &data_length);
 
         offset += 14;
-        if (tvb_captured_length_remaining(tvb, offset) >= (int)data_length) {
+        if (tvb_captured_length_remaining(tvb, offset) >= data_length) {
             proto_tree_add_item(tree, hf_tecmp_payload_status_cfg_vendor_technica_segment_data, tvb, offset, data_length, ENC_NA);
         } else {
             proto_tree_add_item(tree, hf_tecmp_payload_status_cfg_vendor_technica_segment_data, tvb, offset,
@@ -1860,13 +1862,13 @@ dissect_tecmp_status_device_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, p
         proto_tree_add_item(tree, hf_tecmp_payload_status_dev_vendor_technica_res, tvb, offset, 1, ENC_NA);
         offset += 1;
         tmp = tvb_get_uint24(tvb, offset, ENC_BIG_ENDIAN);
-        proto_tree_add_string_format(tree, hf_tecmp_payload_status_dev_vendor_technica_sw, tvb, offset, 3, NULL,
-                                     "Software Version: v%d.%d.%d", (tmp&0x00ff0000)>>16, (tmp&0x0000ff00)>>8, tmp&0x000000ff);
+        proto_tree_add_string_format_value(tree, hf_tecmp_payload_status_dev_vendor_technica_sw, tvb, offset, 3, NULL,
+                                     "v%d.%d.%d", (tmp&0x00ff0000)>>16, (tmp&0x0000ff00)>>8, tmp&0x000000ff);
         offset += 3;
 
         tmp = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
-        proto_tree_add_string_format(tree, hf_tecmp_payload_status_dev_vendor_technica_hw, tvb, offset, 2, NULL,
-                                     "Hardware Version: v%d.%x", (tmp & 0x0000ff00) >> 8, tmp & 0x000000ff);
+        proto_tree_add_string_format_value(tree, hf_tecmp_payload_status_dev_vendor_technica_hw, tvb, offset, 2, NULL,
+                                     "v%d.%x", (tmp & 0x0000ff00) >> 8, tmp & 0x000000ff);
         offset += 2;
 
         ti = proto_tree_add_item(tree, hf_tecmp_payload_status_dev_vendor_technica_buffer_fill_level, tvb, offset, 1, ENC_NA);
@@ -2367,9 +2369,9 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 lin_set_source_and_destination_columns(pinfo, &lin_info);
 
-                if (length2 > 0 && tvb_captured_length_remaining(sub_tvb, offset2) < (int)(length2 + 1)) {
+                if (length2 > 0 && tvb_captured_length_remaining(sub_tvb, offset2) < (length2 + 1)) {
                     expert_add_info(pinfo, ti, &ei_tecmp_payload_length_mismatch);
-                    length2 = MAX(0, MIN((int)length2, tvb_captured_length_remaining(sub_tvb, offset2) - 1));
+                    length2 = MIN(length2, tvb_captured_length_remaining(sub_tvb, offset2 + 1));
                 }
 
                 if (length2 > 0) {
@@ -2378,7 +2380,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
 
                     dissect_lin_message(payload_tvb, pinfo, tree, &lin_info);
-                    offset2 += (int)length2;
+                    offset2 += length2;
                     proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_checksum_8bit, sub_tvb, offset2, 1, ENC_NA);
                 }
 
@@ -2398,9 +2400,9 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                                   &length2);
                 offset2 += 5;
 
-                if (tvb_captured_length_remaining(sub_tvb, offset2) < (int)length2) {
+                if (tvb_captured_length_remaining(sub_tvb, offset2) < length2) {
                     expert_add_info(pinfo, ti, &ei_tecmp_payload_length_mismatch);
-                    length2 = MAX(0, MIN((int)length2, tvb_captured_length_remaining(sub_tvb, offset2)));
+                    length2 = MIN(length2, tvb_captured_length_remaining(sub_tvb, offset2));
                 }
 
                 if (length2 > 0) {
@@ -2459,9 +2461,9 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 flexray_set_source_and_destination_columns(pinfo, &fr_info);
 
-                if (tvb_captured_length_remaining(sub_tvb, offset2) < (int)length2) {
+                if (tvb_captured_length_remaining(sub_tvb, offset2) < length2) {
                     expert_add_info(pinfo, ti, &ei_tecmp_payload_length_mismatch);
-                    length2 = MAX(0, MIN((int)length2, tvb_captured_length_remaining(sub_tvb, offset2)));
+                    length2 = tvb_captured_length_remaining(sub_tvb, offset2);
                 }
 
                 if (length2 > 0) {
@@ -2474,7 +2476,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 }
 
                 /* new for TECMP 1.6 */
-                if (tvb_captured_length_remaining(sub_tvb, offset2) >= 5) {
+                if (tecmp_msg_type == TECMP_MSG_TYPE_LOG_STREAM && tvb_captured_length_remaining(sub_tvb, offset2) >= 5) {
                     uint32_t header_crc = 0;
                     ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_header_crc, sub_tvb, offset2, 2, ENC_BIG_ENDIAN, &header_crc);
                     if (header_crc > DATA_FR_HEADER_CRC_MAX) {
@@ -2482,6 +2484,19 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     }
                     offset2 += 2;
                     proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_frame_crc, sub_tvb, offset2, 3, ENC_BIG_ENDIAN);
+                } else if (tecmp_msg_type == TECMP_MSG_TYPE_REPLAY_DATA && tvb_captured_length_remaining(sub_tvb, offset2) >= 3) {
+                    uint32_t cycle_rep = 0;
+                    ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_cycle_repetition, sub_tvb, offset2, 1, ENC_BIG_ENDIAN, &cycle_rep);
+                    if (cycle_rep != 1 && cycle_rep != 2 && cycle_rep != 4 && cycle_rep != 8 && cycle_rep != 16 && cycle_rep != 32 && cycle_rep != 64) {
+                        expert_add_info(pinfo, ti, &ei_tecmp_payload_invalid_cycle_repetition);
+                    }
+                    offset2 += 1;
+
+                    uint32_t header_crc = 0;
+                    ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_header_crc, sub_tvb, offset2, 2, ENC_BIG_ENDIAN, &header_crc);
+                    if (header_crc > DATA_FR_HEADER_CRC_MAX) {
+                        expert_add_info(pinfo, ti, &ei_tecmp_payload_header_crc_overflow);
+                    }
                 }
                 break;
 
@@ -2729,16 +2744,20 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 length2 = length;
 
                 if (data_type == TECMP_DATA_TYPE_ETH_10BASE_T1S) {
-                    uint64_t ns = tvb_get_uint64(sub_tvb, offset2, ENC_BIG_ENDIAN);
+                    uint64_t ns;
+                    int64_t ns_delta;
 
-                    nstime_t timestamp;
-                    timestamp.secs = (time_t)(ns / 1000000000);
-                    timestamp.nsecs = (int)(ns % 1000000000);
-                    proto_tree_add_time(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp, sub_tvb, offset2, 8, &timestamp);
-                    ti = proto_tree_add_uint64(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp_ns, sub_tvb, offset2, 8, ns);
+                    proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp, sub_tvb, offset2, 8, ENC_TIME_NSECS|ENC_BIG_ENDIAN);
+                    ti = proto_tree_add_item_ret_uint64(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp_ns, sub_tvb, offset2, 8, ENC_BIG_ENDIAN, &ns);
                     proto_item_set_hidden(ti);
 
-                    ti = proto_tree_add_int64(tecmp_tree, hf_tecmp_payload_data_beacon_to_timestamp_ns, sub_tvb, offset2, 8, (int64_t)timestamp_ns - (int64_t)ns);
+                    if (ckd_sub(&ns_delta, timestamp_ns, ns)) {
+                        /* This indicates that the beacon timestamp must be past
+                         * 2262-04-12, which is unlikely. We could add an expert
+                         * warning that the delta overflowed, but the delta item
+                         * is hidden anyway. So we'll just ignore it. */
+                    }
+                    ti = proto_tree_add_int64(tecmp_tree, hf_tecmp_payload_data_beacon_to_timestamp_ns, sub_tvb, offset2, 8, ns_delta);
                     proto_item_set_generated(ti);
                     proto_item_set_hidden(ti);
 
@@ -3101,6 +3120,7 @@ proto_register_tecmp_payload(void) {
         { &hf_tecmp_payload_data_frame_id,                                  { "Frame ID", "tecmp.payload.data.frame_id", FT_UINT16, BASE_HEX_DEC, NULL, 0x0, NULL, HFILL } },
         { &hf_tecmp_payload_data_header_crc,                                { "Header CRC", "tecmp.payload.data.header_crc", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
         { &hf_tecmp_payload_data_frame_crc,                                 { "Frame CRC", "tecmp.payload.data.frame_crc", FT_UINT24, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_tecmp_payload_data_cycle_repetition,                          { "Cycle Repetition", "tecmp.payload.data.cycle_repetition", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
         { &hf_tecmp_payload_data_length,                                    { "Payload Length", "tecmp.payload.data.payload_length", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
@@ -3392,6 +3412,8 @@ proto_register_tecmp_payload(void) {
            PI_PROTOCOL, PI_WARN, "Payload Length and the length of Payload present in packet do not match!", EXPFILL }},
          { &ei_tecmp_payload_header_crc_overflow, { "tecmp.payload.header_crc_overflow",
            PI_PROTOCOL, PI_WARN, "Header CRC may only be up to 0x07ff!", EXPFILL }},
+         { &ei_tecmp_payload_invalid_cycle_repetition, { "tecmp.payload.invalid_cycle_repetition",
+           PI_PROTOCOL, PI_WARN, "Cycle Repetition can only be 1, 2, 4, 8, 16, 32, or 64!", EXPFILL }},
     };
 
     proto_tecmp_payload = proto_register_protocol("Technically Enhanced Capture Module Protocol Payload", "TECMP Payload", "tecmp.payload");

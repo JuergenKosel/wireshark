@@ -88,7 +88,7 @@
 /* Define to 1 if you have the <grp.h> header file. */
 #cmakedefine HAVE_GRP_H 1
 
-/* Define to use heimdal kerberos */
+/* Define to use heimdal kerberos. Deprecated; use MIT instead. */
 #cmakedefine HAVE_HEIMDAL_KERBEROS 1
 
 /* Define to 1 if you have the `krb5_pac_verify' function. */
@@ -198,6 +198,9 @@
 /* The size of the lua_Integer type, if we have Lua. */
 #cmakedefine LUA_INTEGER_SIZE ${LUA_INTEGER_SIZE}
 
+/* Whether the Lua library has a two-argument lua_resetthread(). */
+#cmakedefine HAVE_TWO_ARGUMENT_LUA_RESETTHREAD 1
+
 /* Define to use MIT kerberos */
 #cmakedefine HAVE_MIT_KERBEROS 1
 
@@ -231,6 +234,9 @@
 /* Define to 1 if you have the macOS CFPropertyListCreateWithStream function */
 #cmakedefine HAVE_CFPROPERTYLISTCREATEWITHSTREAM 1
 
+/* Define to 1 if you have the `pcap_init' function. */
+#cmakedefine HAVE_PCAP_INIT 1
+
 /* Define to 1 if you have the `pcap_open' function. */
 #cmakedefine HAVE_PCAP_OPEN 1
 
@@ -254,6 +260,9 @@
 
 /* Define to 1 if you have the opencore-amrnb library. */
 #cmakedefine HAVE_AMRNB 1
+
+/* Define to 1 if you have the opencore-amrwb library. */
+#cmakedefine HAVE_AMRWB 1
 
 /* Define to 1 if you have the ilbc library. */
 #cmakedefine HAVE_ILBC 1
@@ -317,6 +326,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
+#cmakedefine HAVE_VALGRIND_H 1
 
 /* Define if we have QtMultimedia */
 #cmakedefine QT_MULTIMEDIA_LIB 1

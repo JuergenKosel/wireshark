@@ -33,7 +33,7 @@ DIAG_ON(restrict)
 
 #include "ui/capture_opts.h"
 #include "ui/capture_globals.h"
-#include "sync_pipe.h"
+#include <capture/sync_pipe.h>
 #include "wsutil/file_util.h"
 
 #ifdef _WIN32

@@ -15,9 +15,19 @@
 #ifndef REASSEMBLE_H
 #define REASSEMBLE_H
 
+#include <epan/packet_info.h>
+#include <epan/proto.h>
 #include "ws_symbol_export.h"
 
-/* only in fd_head: packet is defragmented */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* in fd_head: packet is defragmented
+ * in item: this item was used in defragmentation
+ * (An item can have this set when the head does not if defragmentation
+ * was reset due to changing the total length or partial reassembly.)
+ */
 #define FD_DEFRAGMENTED		0x0001
 
 /* there are overlapping fragments */
@@ -48,6 +58,8 @@
  * datagram if we have defragmented it...)
  */
 #define FD_DATALEN_SET		0x0400
+
+struct dissector_handle;
 
 typedef struct _fragment_item {
 	struct _fragment_item *next;
@@ -453,7 +465,7 @@ fragment_set_tot_len(reassembly_table *table, const packet_info *pinfo,
  * If the fragments were previously reassembled, then this state will be
  * cleared, allowing new fragments to extend the reassembled result again.
  */
-void
+WS_DLL_PUBLIC void
 fragment_reset_tot_len(reassembly_table *table, const packet_info *pinfo,
 		       const uint32_t id, const void *data, const uint32_t tot_len);
 
@@ -467,7 +479,7 @@ fragment_reset_tot_len(reassembly_table *table, const packet_info *pinfo,
  * Used for continuous streams like TCP, where the length of a segment cannot
  * be determined without first reassembling and handing to a subdissector.
  */
-void
+WS_DLL_PUBLIC void
 fragment_truncate(reassembly_table *table, const packet_info *pinfo,
 		       const uint32_t id, const void *data, const uint32_t tot_len);
 
@@ -1132,7 +1144,7 @@ reassemble_streaming_data_and_call_subdissector(
 	tvbuff_t* tvb, packet_info* pinfo, unsigned offset, int length,
 	proto_tree* segment_tree, proto_tree* reassembled_tree, reassembly_table streaming_reassembly_table,
 	streaming_reassembly_info_t* reassembly_info, uint64_t cur_frame_num,
-	dissector_handle_t subdissector_handle, proto_tree* subdissector_tree, void* subdissector_data,
+	struct dissector_handle* subdissector_handle, proto_tree* subdissector_tree, void* subdissector_data,
 	const char* label, const fragment_items* frag_hf_items, int hf_segment_data
 );
 
@@ -1167,5 +1179,9 @@ WS_DLL_PUBLIC int
 additional_bytes_expected_to_complete_reassembly(streaming_reassembly_info_t* reassembly_info);
 
 /* ========================================================================= */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

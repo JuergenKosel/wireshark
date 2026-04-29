@@ -232,12 +232,6 @@ wtap_open_return_val nettl_open(wtap *wth, int *err, char **err_info)
 
     /* This is an nettl file */
     wth->file_type_subtype = nettl_file_type_subtype;
-    nettl = g_new(nettl_t,1);
-    wth->priv = (void *)nettl;
-    if (file_hdr.os_vers[2] == '1' && file_hdr.os_vers[3] == '1')
-        nettl->is_hpux_11 = true;
-    else
-        nettl->is_hpux_11 = false;
     wth->subtype_read = nettl_read;
     wth->subtype_seek_read = nettl_seek_read;
     wth->snapshot_length = 0;   /* not available */
@@ -288,6 +282,12 @@ wtap_open_return_val nettl_open(wtap *wth, int *err, char **err_info)
         return WTAP_OPEN_ERROR;
     }
     wth->file_tsprec = WTAP_TSPREC_USEC;
+    nettl = g_new(nettl_t,1);
+    wth->priv = (void *)nettl;
+    if (file_hdr.os_vers[2] == '1' && file_hdr.os_vers[3] == '1')
+        nettl->is_hpux_11 = true;
+    else
+        nettl->is_hpux_11 = false;
 
     return WTAP_OPEN_MINE;
 }
@@ -355,7 +355,7 @@ nettl_read_rec(wtap *wth, FILE_T fh, wtap_rec *rec, int *err, char **err_info)
     int datalen;
     uint8_t dummyc[16];
     int bytes_to_read;
-    uint8_t *pd;
+    const uint8_t *pd;
 
     if (!wtap_read_bytes_or_eof(fh, &rec_hdr.hdr_len, sizeof rec_hdr.hdr_len,
                                 err, err_info))
@@ -604,19 +604,19 @@ nettl_read_rec(wtap *wth, FILE_T fh, wtap_rec *rec, int *err, char **err_info)
      * Read the packet data.
      */
     ws_buffer_assure_space(&rec->data, datalen);
-    pd = ws_buffer_start_ptr(&rec->data);
     if (fddihack) {
         /* read in FC, dest, src, DSAP and SSAP */
         bytes_to_read = 15;
         if (bytes_to_read > datalen)
             bytes_to_read = datalen;
-        if (!wtap_read_bytes(fh, pd, bytes_to_read, err, err_info))
+        if (!wtap_read_bytes_buffer(fh, &rec->data, bytes_to_read, err, err_info))
             return false;
         datalen -= bytes_to_read;
         if (datalen == 0) {
             /* There's nothing past the FC, dest, src, DSAP and SSAP */
             return true;
         }
+        pd = ws_buffer_start_ptr(&rec->data);
         if (pd[13] == 0xAA) {
             /* it's SNAP, have to eat 3 bytes??? */
             bytes_to_read = 3;
@@ -630,10 +630,10 @@ nettl_read_rec(wtap *wth, FILE_T fh, wtap_rec *rec, int *err, char **err_info)
                 return true;
             }
         }
-        if (!wtap_read_bytes(fh, pd + 15, datalen, err, err_info))
+        if (!wtap_read_bytes_buffer(fh, &rec->data, datalen, err, err_info))
             return false;
     } else {
-        if (!wtap_read_bytes(fh, pd, datalen, err, err_info))
+        if (!wtap_read_bytes_buffer(fh, &rec->data, datalen, err, err_info))
             return false;
     }
 

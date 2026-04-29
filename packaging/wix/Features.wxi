@@ -18,10 +18,12 @@
       <ComponentGroupRef Id="CG.Diameter" />
       <ComponentGroupRef Id="CG.RadiusDict" />
       <ComponentGroupRef Id="CG.Dtds" />
+      <ComponentGroupRef Id="CG.Qualcomm" />
       <ComponentGroupRef Id="CG.Tpncp" />
       <ComponentGroupRef Id="CG.Wimaxasncp" />
       <ComponentGroupRef Id="CG.Protobuf" />
       <ComponentGroupRef Id="CG.RequiredDependencies" />
+      <ComponentGroupRef Id="CG.gcrypt" />
 
     </Feature>
     <Feature Id="Fe.TShark" Title="TShark" Level="1" AllowAdvertise="yes" Display="expand" Description="Text based network protocol analyzer.">

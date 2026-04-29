@@ -25,7 +25,10 @@ Then all files ending with _.lua_ are loaded from the global plugins
 directory and its subdirectories. Then all files ending with _.lua_ in the
 personal Lua plugins directory and its subdirectories are loaded. The
 files are processed in ASCIIbetical order (compared byte-by-byte, as `strcmp`),
-descending into each subdirectory depth-first in order.
+descending into each subdirectory depth-first in order. A subdirectory in the
+global or personal plugin directories containing a `init.lua` is loaded as a
+package, where the `init.lua` file is the entry-point of the module and
+reponsible for loading any additional submodules within its directory tree.
 
 Whether or not Lua scripts are enabled can be controlled via the
 _$$enable_lua$$_ variable. Lua scripts are enabled by
@@ -83,6 +86,12 @@ are initialized and before reading any file.
 This means that Lua dissectors can add themselves to tables registered by compiled
 dissectors, but not vice versa; compiled dissectors cannot add themselves to
 dissector tables registered by Lua dissectors.
+
+To align more closely with Lua conventions, Wireshark treats any directory in
+either the global or personal plugin directory that contains a `init.lua` file as a
+package, and will only load the `init.lua` script from that directory. The script is
+then responsible for requiring any additional dependencies, allowing for more control
+over the loading order within the package.
 ====
 
 Wireshark for Windows uses a modified Lua runtime
@@ -455,3 +464,129 @@ On Wireshark versions prior to 4.6 this will give an error (unless another copy
 of the BitOp library is also accessible to the system Lua outside the Wireshark
 distributed code.) On Wireshark version 4.6 and later such statements behave as
 expected but are largely superfluous.
+
+[#wslua_debugger_watch_syntax]
+
+=== Lua Debugger: Watch path syntax
+
+The built-in Lua Debugger (menu:Tools[Lua Debugger]) Watch panel evaluates
+_paths_ into Lua's variable scopes rather than arbitrary expressions. A path
+is one identifier followed by any number of `.name` or `[key]` segments,
+optionally qualified by a section prefix. Expressions, method calls, and
+arithmetic are not accepted — only variable indexing.
+
+==== Prefixes
+
+A Watch spec may start with one of the three debugger section prefixes:
+
+* `Locals.__name__` — a local in the current stack frame.
+* `Upvalues.__name__` — an upvalue of the current stack frame's function.
+* `Globals.__name__` — a global, resolved through `_G` first and then
+  through the current frame's `_ENV` upvalue. The `_ENV` fallback matters for
+  scripts loaded with a file environment (e.g. via `dofile`), where
+  top-level assignments land in `_ENV` rather than raw `_G`.
+
+The exact tokens `Locals`, `Upvalues`, and `Globals` (no trailing `.`) are
+also accepted and select a whole section's contents.
+
+Additionally:
+
+* `_G` is aliased to `Globals`.
+* `_G.` is aliased to `Globals.`.
+* A bare path with no prefix (including a lone identifier) is resolved in
+  `Locals`, then `Upvalues`, then `Globals`, in that order.
+
+==== Grammar
+
+After canonicalization, the Watch grammar is:
+
+[source]
+----
+watch   := section "." body
+         | section
+         | body
+section := "Locals" | "Upvalues" | "Globals"
+body    := ident ( "." ident | "[" key "]" )*
+ident   := [A-Za-z_] [A-Za-z0-9_]*
+key     := integer | boolean | string
+integer := "-"? ( decimal-digits | ("0x" | "0X") hex-digits )
+boolean := "true" | "false"
+string  := '"' ( char-except-"\"\\ | escape )* '"'
+         | "'" ( char-except-'\\ | escape )* "'"
+----
+
+Subscripts mirror Lua's own short-literal syntax and accept:
+
+* *Integer keys* — decimal or hex, optionally negative:
+  `t[0]`, `t[-1]`, `t[0x1F]`, `t[-0X1f]`.
+* *Boolean keys* — Lua-case only: `t[true]`, `t[false]`. `True` and `FALSE`
+  are parsed as identifiers, not booleans.
+* *String keys* — double- or single-quoted with the Lua 5.x short-string
+  escape set: `\a \b \f \n \r \t \v \\ \" \' \?`, decimal bytes `\NNN`
+  (1–3 digits, value ≤ 255), hex bytes `\xHH`, Unicode codepoints
+  `\u{H…}` (1–8 hex digits, value ≤ 0x7FFFFFFF, UTF-8 encoded), and `\z`
+  which skips following whitespace. Raw newlines inside a string key are
+  rejected; use `\n`.
+
+The decoded key is pushed onto the Lua stack and the value is fetched with
+`lua_gettable`, so any matching table key type is reachable.
+
+For *userdata* (Wireshark class instances, e.g. `Proto`, `Field`), a bracket
+key must be a string and is looked up as an attribute name, the same as
+`ud.name`.
+
+==== Canonicalization niceties
+
+Before validation the Watch engine applies:
+
+* Leading and trailing whitespace is trimmed.
+* `_G` and `_G.` are rewritten to `Globals` and `Globals.`.
+* Spaces and tabs around `.` are collapsed outside bracket literals, so
+  `Globals . foo . bar` becomes `Globals.foo.bar`.
+* Whitespace inside `[ ... ]` around the key is tolerated.
+* String escapes inside `["…"]` / `['…']` are decoded before lookup, so
+  `t["a\tb"]` indexes the key `a<TAB>b`.
+
+Path depth is capped at 32 boundaries: the count of each `'.'` and `'['` in
+the canonical path (the same limit as the Variables / Watch UI). The watch
+engine rejects paths that reach this limit.
+
+==== Not supported
+
+The following shapes are intentionally rejected or not aliased, to keep
+Watch strictly a path evaluator:
+
+* Long literal strings (`[[…]]`) as bracket keys — short literals only.
+* Non-integer number keys (`t[1.5]`).
+* Method / function calls, arithmetic, concatenation, comparisons.
+* `_G["weird-key"]`: the `_G[…]` form is not aliased because a bracket key
+  cannot generally be turned into a `Globals.ident` path. Use
+  `Globals.__name__` for identifier-named globals.
+
+==== Examples
+
+[source,lua]
+----
+-- A local 'pkt' in the current frame:
+Locals.pkt
+
+-- A field on a local userdata:
+pkt.src
+
+-- An upvalue table indexed by string:
+Upvalues.cache["session-42"]
+
+-- A numbered entry in a globals table, plus a nested field:
+Globals.sessions[1].name
+
+-- Hex and boolean keys:
+Globals.opcode_table[0x11]
+Globals.flags[true]
+
+-- Unqualified — tried in locals, then upvalues, then globals:
+my_proto
+
+-- _G aliases:
+_G.wireshark_version      -- same as Globals.wireshark_version
+_G                        -- same as Globals (whole section)
+----

@@ -24,8 +24,8 @@ variables:
   CCACHE_DIR: "${CI_PROJECT_DIR}/ccache"
   GIT_SUBMODULE_STRATEGY: normal
   # The Qt versions that we ship in the development installers.
-  WINDOWS_QT_VERSION: "6.9.3"
-  MACOS_QT_VERSION: "6.9.3"
+  WINDOWS_QT_VERSION: "6.10.3"
+  MACOS_QT_VERSION: "6.10.3"
   # Enable color output in various tools.
   # CMake, Ninja, and others: https://bixense.com/clicolors/
   CLICOLOR_FORCE: "1"
@@ -151,7 +151,7 @@ workflow:
   script:
     # setcap restricts our library paths
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - CFLAGS=-Wl,-rpath=$(pwd)/run CXXFLAGS=-Wl,-rpath=$(pwd)/run cmake -GNinja -DENABLE_CCACHE=ON $CMAKE_ARGS ..
+    - CFLAGS=-Wl,-rpath=$(pwd)/run CXXFLAGS=-Wl,-rpath=$(pwd)/run cmake --preset=ninja_ccache $CMAKE_ARGS ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
@@ -195,7 +195,7 @@ workflow:
   before_script:
     - if (-Not (Test-Path C:\Qt)) { New-Item -Path C:\Qt -ItemType "directory" }
     - if (-Not (Test-Path "C:\Qt\$($env:WINDOWS_QT_VERSION)\$($env:AQT_ARCH)\include\QtCore")) {
-        py.exe -m venv "$($env:TEMP)\aqt.venv" ;
+        py.exe -m venv --clear "$($env:TEMP)\aqt.venv" ;
         & $env:TEMP\aqt.venv\Scripts\pip3.exe install aqtinstall ;
         & $env:TEMP\aqt.venv\Scripts\aqt.exe install-qt --outputdir C:\Qt $env:AQT_HOST desktop $env:WINDOWS_QT_VERSION "win64_$($env:AQT_ARCH)" --modules qt5compat qtmultimedia ;
       }
@@ -229,6 +229,8 @@ workflow:
     key: ${CI_JOB_NAME}-master
     paths:
       - ccache/
+      - _download
+      # It might make sense to cache aqtinstall downloads using `--keep --archive-dest`.
   variables:
     HOMEBREW_NO_AUTO_UPDATE: "1"
     HOMEBREW_DISPLAY_INSTALL_TIMES: "1"
@@ -250,7 +252,7 @@ workflow:
     - python3 -m venv $CI_PROJECT_DIR/.venv
     - source $CI_PROJECT_DIR/.venv/bin/activate
     - pip3 install pytest pytest-xdist
-    - export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark
+    - export PYTEST_ADDOPTS="--skip-missing-programs=dumpcap,rawshark --enable-stratoshark"
     - mkdir -p ccache
     - ccache --show-stats
     - mkdir build
@@ -260,25 +262,19 @@ workflow:
     - if [ ! -d "$WIRESHARK_BASE_DIR/Qt" ] ; then mkdir "$WIRESHARK_BASE_DIR/Qt" ; fi
     - if [ ! -d "$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos/lib/QtCore.framework" ] ; then
         pip3 install aqtinstall ;
-        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia ;
+        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia --timeout 10 ;
       fi
     - export CMAKE_PREFIX_PATH="$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos"
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja
-      -DENABLE_CCACHE=ON
+    - cmake --preset=ninja_ccache
       -DWIRESHARK_BASE_DIR=$WIRESHARK_BASE_DIR
       -DBUILD_stratoshark=on
       -DFALCO_PLUGINS="$FALCO_PLUGIN_DIR/libcloudtrail.so;$FALCO_PLUGIN_DIR/libgcpaudit.so;$FALCO_PLUGIN_DIR/libk8saudit.so"
-      -DTEST_EXTRA_ARGS=--disable-capture
       ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja test-programs
-    - pytest --disable-capture --junitxml=../macos_tests.xml
-  after_script:
-    # The cache should be large enough to be useful but it shouldn't take
-    # too long to restore+save each run.
-    - ccache --max-size $( gdu --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
+    - pytest --enable-stratoshark --disable-capture --junitxml=../macos_tests.xml
   needs: []
 
 .build-mingw:
@@ -300,7 +296,7 @@ workflow:
     - mkdir build
     - cd build
   script:
-    - mingw64-cmake -G Ninja -DENABLE_CCACHE=Yes -DFETCH_lua=Yes ..
+    - mingw64-cmake --preset=ninja_ccache -DFETCH_lua=Yes ..
     - ninja
   after_script:
     # The cache should be large enough to be useful but it shouldn't take
@@ -316,7 +312,6 @@ Source Package:
     - !reference [.if-2x-daily-schedule]
   script:
     - ../tools/make-version.py --set-release --wireshark-version-file=wireshark_version.txt --stratoshark-version-file=stratoshark_version.txt ..
-    - ../tools/update-appdata.py
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     - cmake -G Ninja $CMAKE_ARGS ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
@@ -326,10 +321,8 @@ Source Package:
     - ninja release_notes
     - WIRESHARK_VERSION=$(< wireshark_version.txt)
     - cp -v "doc/Wireshark Release Notes.html" ../wireshark-release-notes-${WIRESHARK_VERSION}.html
-    - cp -v "doc/Wireshark Release Notes.txt" ../wireshark-release-notes-${WIRESHARK_VERSION}.txt
     - STRATOSHARK_VERSION=$(< stratoshark_version.txt)
     - cp -v "doc/Stratoshark Release Notes.html" ../stratoshark-release-notes-${STRATOSHARK_VERSION}.html
-    - cp -v "doc/Stratoshark Release Notes.txt" ../stratoshark-release-notes-${STRATOSHARK_VERSION}.txt
     - cd ..
   after_script:
     # - ccache --max-size $( du --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
@@ -338,14 +331,12 @@ Source Package:
     - stat --format="%n %s bytes" wireshark-*.tar.*
     - for digest in sha512 sha256 sha1 ; do openssl $digest wireshark-*.tar.* ; done
     - if [ -n "$MC_DESTINATION_DIST" ] ; then mc --quiet cp wireshark-*.tar.* "$MC_DESTINATION_DIST/" ; fi
-    - if [ -n "$MC_DESTINATION_RELEASE" ] ; then mc --quiet cp {wire,strato}shark-release-notes-*.{txt,html} "$MC_DESTINATION_RELEASE/" ; fi
+    - if [ -n "$MC_DESTINATION_RELEASE" ] ; then mc --quiet cp {wire,strato}shark-release-notes-*.html "$MC_DESTINATION_RELEASE/" ; fi
   artifacts:
     paths:
       - wireshark-*.tar.*
       - wireshark-release-notes-*.html
-      - wireshark-release-notes-*.txt
       - stratoshark-release-notes-*.html
-      - stratoshark-release-notes-*.txt
 
 # Job to generate packages for Debian stable
 Debian Stable APT Package:
@@ -405,11 +396,10 @@ Fedora RPM Package:
 #     - tshark --version
 #  needs: [ 'Fedora RPM Package' ]
 
-openSUSE 15.6 RPM Package:
+openSUSE 16.0 RPM Package:
   extends: .build-rpm
-  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.6-dev
+  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-16.0-dev
   script:
-    - source /gcc-latest.env
     # Shared GitLab runners limit the log size to 4M, so reduce verbosity. See
     # https://gitlab.com/gitlab-com/support-forum/issues/2790
     - export FORCE_CMAKE_NINJA_NON_VERBOSE=1
@@ -418,13 +408,13 @@ openSUSE 15.6 RPM Package:
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja wireshark_rpm
 
-openSUSE 15.6 RPM Test:
+openSUSE 16.0 RPM Test:
   extends: .test-rpm
-  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.6-dev
+  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-16.0-dev
   script:
     - zypper --no-gpg-checks --no-remote install -y build/packaging/rpm/RPMS/x86_64/*.rpm
     - tshark --version
-  needs: [ 'openSUSE 15.6 RPM Package' ]
+  needs: [ 'openSUSE 16.0 RPM Package' ]
 
 Rocky Linux 9 RPM Package:
   extends: .build-rpm
@@ -445,6 +435,26 @@ Rocky Linux 9 RPM Test:
     - dnf --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
     - tshark --version
   needs: [ 'Rocky Linux 9 RPM Package' ]
+
+Rocky Linux 10 RPM Package:
+  extends: .build-rpm
+  image: registry.gitlab.com/wireshark/wireshark-containers/rockylinux-10-dev
+  script:
+    # Shared GitLab runners limit the log size to 4M, so reduce verbosity. See
+    # https://gitlab.com/gitlab-com/support-forum/issues/2790
+    - export FORCE_CMAKE_NINJA_NON_VERBOSE=1
+    - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
+    - cmake -G Ninja -DBUILD_stratoshark=ON ..
+    - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
+    - ninja wireshark_rpm
+
+Rocky Linux 10 RPM Test:
+  extends: .test-rpm
+  image: registry.gitlab.com/wireshark/wireshark-containers/rockylinux-10-dev
+  script:
+    - dnf --nogpgcheck localinstall -y build/packaging/rpm/RPMS/x86_64/*.rpm
+    - tshark --version
+  needs: [ 'Rocky Linux 10 RPM Package' ]
 
 Ubuntu APT Package:
   extends: .build-ubuntu
@@ -526,8 +536,8 @@ Arch Linux :
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
-    - install -v -D -m 755 -t $WIRESHARK_PREFIX/lib/stratoshark/plugins/4.7/epan run/plugins/4.7/epan/falco-events.so
-    - install -v -D -m 755 -t $WIRESHARK_PREFIX/lib/stratoshark/plugins/falco run/plugins/falco/*.so
+    - install -v -D -m 755 -t $WIRESHARK_PREFIX/lib/stratoshark/plugins/4.7/epan run/plugins/stratoshark/4.7/epan/falco-events.so
+    - install -v -D -m 755 -t $WIRESHARK_PREFIX/lib/stratoshark/plugins/falco run/plugins/stratoshark/falco/*.so
     # XXX Need to add an install prereqs script
     - tar -C / -cJf $CI_PROJECT_DIR/wireshark-arch-$WIRESHARK_VERSION.tar.xz opt/wireshark-$WIRESHARK_VERSION
   artifacts:
@@ -536,17 +546,20 @@ Arch Linux :
 
 Windows x64 Package:
   variables:
-    FALCO_PLUGIN_DIR: "$WIRESHARK_BASE_DIR/wireshark-x64-libs/falcosecurity-plugins-2025-09-09-1-x64-ws"
+    FALCO_PLUGIN_DIR: "$WIRESHARK_BASE_DIR/wireshark-x64-libs/falcosecurity-plugins-2026-03-16-2-x64-ws"
   extends: .build-windows
   rules: !reference [.if-w-w-only-merged]
   tags:
     - wireshark-windows-x64-package
+  environment:
+    name: windows-package
   script:
     - C:\Windows\py.exe ..\tools\make-version.py --set-release --wireshark-version-file=wireshark_version.txt --stratoshark-version-file=stratoshark_version.txt ..
     - cmake -G "Visual Studio 17 2022" -A x64
       -DENABLE_LTO=off
       -DBUILD_stratoshark=on
       -DFALCO_PLUGINS="$FALCO_PLUGIN_DIR/cloudtrail.dll;$FALCO_PLUGIN_DIR/gcpaudit.dll;$FALCO_PLUGIN_DIR/k8saudit.dll"
+      -DFALCO_PLUGIN_DLLS="$FALCO_PLUGIN_DIR/libunwind.dll"
       -DENABLE_SIGNED_NSIS=on ..
     - msbuild /verbosity:minimal "/consoleloggerparameters:PerformanceSummary;NoSummary" /maxcpucount Wireshark.sln
     - msbuild /verbosity:minimal /maxcpucount test-programs.vcxproj
@@ -574,7 +587,7 @@ Windows x64 Package:
     - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-x64.exe).Hash.ToLower()
     - Set-Content -Path stratoshark-release-info-$($stratosharkVersion)-windows-x64.ini -Value ("[DEFAULT]`nnsis_sha256 = $stratosharkNsisSha256")
     - if (Test-Path env:MC_DESTINATION_RELEASE) { C:\gitlab-builds\bin\mc --quiet cp $(Get-ChildItem "*shark-release-info-*-windows-*.ini") "$env:MC_DESTINATION_RELEASE/" }
-    - C:\Windows\py.exe -m pytest
+    - C:\Windows\py.exe -m pytest --enable-stratoshark --enable-release
   artifacts:
     paths:
       - build/*shark-release-info-*-windows-*.ini
@@ -584,17 +597,20 @@ Windows Arm64 Package:
     AQT_HOST: "windows_arm64"
     AQT_ARCH: "msvc2022_arm64"
     VCVARS_ARCH: "arm64"
-    FALCO_PLUGIN_DIR: "$WIRESHARK_BASE_DIR/wireshark-arm64-libs/falcosecurity-plugins-2025-09-09-1-arm64-ws"
+    FALCO_PLUGIN_DIR: "$WIRESHARK_BASE_DIR/wireshark-arm64-libs/falcosecurity-plugins-2026-03-16-2-arm64-ws"
   extends: .build-windows
   rules: !reference [.if-w-w-only-merged]
   tags:
     - wireshark-windows-arm64-package
+  environment:
+    name: windows-package
   script:
     - C:\Windows\py.exe ..\tools\make-version.py --set-release --wireshark-version-file=wireshark_version.txt --stratoshark-version-file=stratoshark_version.txt ..
     - cmake -G "Visual Studio 17 2022" -A arm64
       -DENABLE_LTO=off
       -DBUILD_stratoshark=on
       -DFALCO_PLUGINS="$FALCO_PLUGIN_DIR/cloudtrail.dll;$FALCO_PLUGIN_DIR/gcpaudit.dll;$FALCO_PLUGIN_DIR/k8saudit.dll"
+      -DFALCO_PLUGIN_DLLS="$FALCO_PLUGIN_DIR/libunwind.dll"
       -DENABLE_SIGNED_NSIS=on ..
     - msbuild /verbosity:minimal "/consoleloggerparameters:PerformanceSummary;NoSummary" /maxcpucount Wireshark.sln
     - msbuild /verbosity:minimal /maxcpucount test-programs.vcxproj
@@ -617,7 +633,7 @@ Windows Arm64 Package:
     - $stratosharkNsisSha256 = (Get-FileHash -Algorithm SHA256 .\packaging\nsis\Stratoshark-*-arm64.exe).Hash.ToLower()
     - Set-Content -Path stratoshark-release-info-$($stratosharkVersion)-windows-arm64.ini -Value ("[DEFAULT]`nnsis_sha256 = $stratosharkNsisSha256")
     - if (Test-Path env:MC_DESTINATION_RELEASE) { C:\gitlab-builds\bin\mc --quiet cp $(Get-ChildItem "*shark-release-info-*-windows-*.ini") "$env:MC_DESTINATION_RELEASE/" }
-    - C:\Windows\py.exe -m pytest
+    - C:\Windows\py.exe -m pytest --enable-stratoshark --enable-release
   artifacts:
     paths:
       - build/*shark-release-info-*-windows-*.ini
@@ -628,7 +644,7 @@ Windows Arm64 Package:
   extends: .build-mingw
   rules: !reference [.if-w-w-only-merged]
   script:
-    - mingw64-cmake -G Ninja -DENABLE_CCACHE=Yes -DFETCH_lua=Yes ..
+    - mingw64-cmake --preset=ninja_ccache -DFETCH_lua=Yes ..
     - ninja
     - ninja user_guide_html
     - ninja wireshark_nsis_prep
@@ -639,26 +655,32 @@ Windows Arm64 Package:
     expire_in: 3 days
 
 macOS Universal Package:
+  extends: .build-macos
   stage: build
   rules: !reference [.if-w-w-only-merged]
   variables:
     CODE_SIGN_IDENTITY: "Wireshark Foundation"
-    WIRESHARK_BASE_DIR: "$CI_PROJECT_DIR/../wireshark-third-party"
-    FALCO_PLUGIN_DIR: "$WIRESHARK_BASE_DIR/macos-universal-master/lib/falco/plugins"
   tags:
-    - wireshark-macos-arm-package
+    - wireshark-macos-universal-package
+  environment:
+    name: macos-package
   retry: 1
   before_script:
-    - export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:$PATH:$HOME/bin"
-    - python3 -m venv $CI_PROJECT_DIR/.venv
+    - brew --version
+    - printf "\e[0Ksection_start:%s:brew_section[collapsed=true]\r\e[0KInstalling prerequisites" "$( date +%s)"
+    - brew install awscli ccache cmake ninja python
+    # - ./tools/macos-setup-brew.sh --install-optional --install-test-deps
+    - printf "\e[0Ksection_end:%s:brew_section\r\e[0K" "$( date +%s)"
+    - export PATH="/opt/homebrew/bin:$PATH:$HOME/bin"
+    - python3 -m venv --clear $CI_PROJECT_DIR/.venv
     - source $CI_PROJECT_DIR/.venv/bin/activate
-    - pip3 install pytest pytest-xdist
+    - pip3 install dmgbuild pyobjc-framework-Quartz pytest pytest-xdist
   script:
     - if [[ $MACOS_REINSTALL_THIRD_PARTY == true ]] ; then rm -rf "$WIRESHARK_BASE_DIR" ; fi
     - if [ ! -d "$WIRESHARK_BASE_DIR/Qt" ] ; then mkdir -p "$WIRESHARK_BASE_DIR/Qt" ; fi
     - if [ ! -d "$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos/lib/QtCore.framework" ] ; then
         pip3 install aqtinstall ;
-        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia ;
+        aqt install-qt --outputdir $WIRESHARK_BASE_DIR/Qt mac desktop $MACOS_QT_VERSION clang_64 --modules qt5compat qtmultimedia --timeout 10 ;
       fi
     - export CMAKE_PREFIX_PATH="$WIRESHARK_BASE_DIR/Qt/$MACOS_QT_VERSION/macos"
     - export PKG_CONFIG_PATH=
@@ -666,23 +688,20 @@ macOS Universal Package:
     - cd build
     - ../tools/make-version.py --set-release --wireshark-version-file=wireshark_version.txt --stratoshark-version-file=stratoshark_version.txt ..
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja
-      -DENABLE_CCACHE=ON
+    - cmake --preset=ninja_ccache
       -DWIRESHARK_BASE_DIR="$WIRESHARK_BASE_DIR"
-      -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
       -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
       -DBUILD_stratoshark=on
       -DFALCO_PLUGINS="$FALCO_PLUGIN_DIR/libcloudtrail.so;$FALCO_PLUGIN_DIR/libgcpaudit.so;$FALCO_PLUGIN_DIR/libk8saudit.so"
-      -DTEST_EXTRA_ARGS=--enable-release
+      -DTEST_EXTRA_ARGS="--enable-stratoshark;--enable-release"
       ..
-    # Temporary hack to fix "Package 'zlib', required by 'libscap', not found"
-    - sed -i .bak '/Requires.*zlib/d' $WIRESHARK_BASE_DIR/macos-universal-master/lib/pkgconfig/libscap.pc
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - for exe in $( find run/{Wire,Strato}shark.app/Contents/MacOS -type f ) ; do
         lipo "$exe" -verify_arch arm64 x86_64 ;
       done
-    - codesign-prep
+    - base64 -d < $MACOS_CODESIGN_PREP_B64 | bash
     - security find-identity -v -s "$CODE_SIGN_IDENTITY"
     - ninja wireshark_dmg
     - ninja stratoshark_dmg
@@ -701,12 +720,12 @@ macOS Universal Package:
         aws s3 cp Stratoshark?dSYM*.dmg "$S3_DESTINATION_MACOS_UNIVERSAL/" ;
       fi
     - $CI_PROJECT_DIR/build/run/tshark --version
-    - WIRESHARK_SPARKLE_SIGNATURE=$( age --decrypt --identity="$MACOS_AGE_IDENTITY" "$MACOS_SPARKLE_BLOB" | /usr/local/Sparkle-2.2.2/bin/sign_update --ed-key-file - Wireshark?[1-9]*.dmg )
+    - WIRESHARK_SPARKLE_SIGNATURE=$( age --decrypt --identity="$MACOS_AGE_IDENTITY" "$MACOS_SPARKLE_BLOB" | $WIRESHARK_BASE_DIR/macos-universal-master/sparkle/bin/sign_update --ed-key-file - Wireshark?[1-9]*.dmg )
     - WIRESHARK_DMG_SHA256=$( shasum --algorithm 256 Wireshark?[1-9]*.dmg | awk '{print $1}' )
     - WIRESHARK_VERSION=$(< ../wireshark_version.txt)
     - printf '[DEFAULT]\nsparkle_signature = %s\ndmg_sha256 = %s\n' "$WIRESHARK_SPARKLE_SIGNATURE" "$WIRESHARK_DMG_SHA256" > wireshark-release-info-${WIRESHARK_VERSION}-macos-arm64.ini
     - cp wireshark-release-info-${WIRESHARK_VERSION}-macos-arm64.ini wireshark-release-info-${WIRESHARK_VERSION}-macos-intel64.ini
-    - STRATOSHARK_SPARKLE_SIGNATURE=$( age --decrypt --identity="$MACOS_AGE_IDENTITY" "$MACOS_SPARKLE_BLOB" | /usr/local/Sparkle-2.2.2/bin/sign_update --ed-key-file - Stratoshark?[0-9]*.dmg )
+    - STRATOSHARK_SPARKLE_SIGNATURE=$( age --decrypt --identity="$MACOS_AGE_IDENTITY" "$MACOS_SPARKLE_BLOB" | $WIRESHARK_BASE_DIR/macos-universal-master/sparkle/bin/sign_update --ed-key-file - Stratoshark?[0-9]*.dmg )
     - STRATOSHARK_DMG_SHA256=$( shasum --algorithm 256 Stratoshark?[0-9]*.dmg | awk '{print $1}' )
     - STRATOSHARK_VERSION=$(< ../stratoshark_version.txt)
     - printf '[DEFAULT]\nsparkle_signature = %s\ndmg_sha256 = %s\n' "$STRATOSHARK_SPARKLE_SIGNATURE" "$STRATOSHARK_DMG_SHA256" > stratoshark-release-info-${STRATOSHARK_VERSION}-macos-arm64.ini
@@ -799,7 +818,7 @@ Commit Check:
     - cd ..
     - git status
     # We have the following options for displaying information in a merge request
-    # from a pipleline job:
+    # from a pipeline job:
     #
     # - The Notes API, which requires a valid GitLab CI_JOB_TOKEN variable, which
     #   isn't available for outside projects:
@@ -818,13 +837,17 @@ Commit Check:
     - TEST_SUITE=commit_checks
     - EXIT_CODE=0
     - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case num_commits --command "[ $NUM_COMMITS -lt 2 ] || (echo 'ℹ️ This merge request has more than one commit. Please squash any trivial ones:\n'; git log --oneline --no-decorate --max-count=$NUM_COMMITS ; false)" || true
+    # If this is a merged results pipeline, then HEAD is a temporary merged commit
+    # with a message like "Merge branch 'X' into 'Y'" and the variable
+    # CI_MERGE_REQUEST_SOURCE_BRANCH_SHA has the real commit to check.
+    # If not, then CI_MERGE_REQUEST_SOURCE_BRANCH_SHA is empty.
     # pre-commit compares the current tree with the passed in commit(s), and thus
     # the parameter is the Nth ancestor of our commit.
     # If we pass in multiple commits, pre-commit will compare each of them with
     # the current tree, which duplicates work and is O(N^2).
     #- ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/pre-commit ./tools/pre-commit $( git log --max-count=$NUM_COMMITS --pretty=format:%h~ ) || EXIT_CODE=1
     - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/pre-commit ./tools/pre-commit "${CI_COMMIT_SHA}~${NUM_COMMITS}" || EXIT_CODE=1
-    - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/validate-commit ./tools/validate-commit.py $( git log --max-count=$NUM_COMMITS --pretty=format:%h ) || EXIT_CODE=1
+    - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/validate-commit ./tools/validate-commit.py $( git log --max-count=$NUM_COMMITS --pretty=format:%h $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA ) || EXIT_CODE=1
     - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/checklicenses ./tools/checklicenses.py || EXIT_CODE=1
     - ./tools/wrap-ci-test.py --file $REPORT_FILE --suite $TEST_SUITE --case tools/check_help_urls ./tools/check_help_urls.py || EXIT_CODE=1
     - exit $EXIT_CODE
@@ -892,7 +915,7 @@ Ubuntu Qt5 Build:
   script:
     - ../tools/debian-setup.sh --install-qt5-deps --yes --no-install-recommends
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DENABLE_CCACHE=ON -DENABLE_WERROR=ON -DUSE_qt6=OFF ..
+    - cmake --preset=ninja_ccache -DENABLE_WERROR=ON -DUSE_qt6=OFF ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - run/wireshark -v
@@ -914,7 +937,8 @@ Clang + Code Checks:
   # needs: [ 'Commit Check' ]
   script:
     - source /clang-latest.env
-    - apt-get update && apt-get --yes install python3-venv
+    - export PYTHON_MINOR_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+    - apt-get update && apt-get --yes install python3-venv "python${PYTHON_MINOR_VERSION}-venv"
     - python3 -m venv $CI_PROJECT_DIR/.venv
     - source $CI_PROJECT_DIR/.venv/bin/activate
     # build-ubuntu puts us in `build`.
@@ -926,7 +950,7 @@ Clang + Code Checks:
     - cd build
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     # We don't have an "All options" job, so build fuzzshark and tfshark here.
-    - cmake -DENABLE_CHECKHF_CONFLICT=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DCMAKE_C_CLANG_TIDY=clang-tidy-$CLANG_VERSION -DCMAKE_CXX_CLANG_TIDY=clang-tidy-$CLANG_VERSION -DBUILD_fuzzshark=ON -DBUILD_tfshark=On -DBUILD_stratoshark=ON -DENABLE_DEBUG=ON -DENABLE_CCACHE=ON -DENABLE_WERROR=ON -G Ninja ..
+    - cmake --preset=ninja_ccache -DENABLE_CHECKHF_CONFLICT=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DCMAKE_C_CLANG_TIDY=clang-tidy-$CLANG_VERSION -DCMAKE_CXX_CLANG_TIDY=clang-tidy-$CLANG_VERSION -DBUILD_fuzzshark=ON -DBUILD_tfshark=On -DBUILD_stratoshark=ON -DENABLE_DEBUG=ON -DENABLE_WERROR=ON ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - printf "\e[0Ksection_start:%s:asn1_section[collapsed=false]\r\e[0KRegenerating ASN.1 dissectors" "$( date +%s)"
     - ninja --quiet asn1
@@ -937,6 +961,14 @@ Clang + Code Checks:
     - ninja idl2wrs-dissectors
     - git diff --exit-code ${CI_COMMIT_SHA} ..
     - printf "\e[0Ksection_end:%s:pidl_section\r\e[0K" "$( date +%s)"
+    - printf "\e[0Ksection_start:%s:corba_section[collapsed=false]\r\e[0KRegenerating CORBA IDL dissectors" "$( date +%s)"
+    - ninja corba-dissectors
+    - git diff --exit-code ${CI_COMMIT_SHA} ..
+    - printf "\e[0Ksection_end:%s:corba_section\r\e[0K" "$( date +%s)"
+    - printf "\e[0Ksection_start:%s:public_header_section[collapsed=false]\r\e[0KGenerating public dissector header list" "$( date +%s)"
+    - ../tools/generate-dissector-lists.py
+    - git diff --exit-code ${CI_COMMIT_SHA} ..
+    - printf "\e[0Ksection_end:%s:public_header_section\r\e[0K" "$( date +%s)"
     - mkdir ../html
     - script --command ninja --flush --quiet --return ../tmp_clang_report.txt
     - ansi2txt < ../tmp_clang_report.txt > ../clang_report.txt
@@ -948,7 +980,9 @@ Clang + Code Checks:
     - ninja checkAPI
     - ninja shellcheck
     - cd ..
-    - pip3 install pyspellchecker
+    - pip3 install pyspellchecker ruff
+    # Run Ruff on '.' and Python3 scripts without .py extension because this is a very quick check.
+    - ruff check . tools/idl2deb tools/asn2deb tools/idl2deb tools/pidl/wscript --extend-exclude tools/pkt-from-core.py --extend-exclude tools/WiresharkXML.py --extend-exclude tools/yacc.py --extend-exclude tools/ncp2222.py
     - ./tools/check_spelling.py --no-wikipedia --comments --commits $NUM_COMMITS | tee spelling_check.txt
     - ./tools/check_typed_item_calls.py --consecutive --label --mask --check-bitmask-fields --commits $NUM_COMMITS | tee item_calls_check.txt
     - ./tools/check_tfs.py --check-value-strings --commits $NUM_COMMITS | tee tfs_check.txt
@@ -973,15 +1007,39 @@ No options:
   needs:
     - job: "Commit Check"
       optional: true
-  script: |
-    cmake -GNinja -DENABLE_CCACHE=ON \
-      -DENABLE_BROTLI=OFF -DENABLE_CAP=OFF -DENABLE_CHECKHF_CONFLICT=ON -DENABLE_GNUTLS=OFF \
-      -DENABLE_KERBEROS=OFF -DENABLE_ILBC=OFF -DENABLE_LUA=OFF -DENABLE_LZ4=OFF \
-      -DENABLE_MINIZIP=OFF -DENABLE_NETLINK=OFF -DENABLE_NGHTTP2=OFF -DENABLE_NGHTTP3=OFF \
-      -DENABLE_BCG729=OFF -DENABLE_OPUS=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGIN_IFDEMO=ON \
-      -DENABLE_PLUGINS=OFF -DENABLE_SBC=OFF -DENABLE_SMI=OFF -DENABLE_SNAPPY=OFF -DENABLE_SPANDSP=OFF \
+  script:
+    - cmake --preset=ninja_ccache
+      -DENABLE_BROTLI=OFF -DENABLE_CAP=OFF -DENABLE_CHECKHF_CONFLICT=ON -DENABLE_GNUTLS=OFF
+      -DENABLE_KERBEROS=OFF -DENABLE_ILBC=OFF -DENABLE_LUA=OFF -DENABLE_LZ4=OFF
+      -DENABLE_MINIZIP=OFF -DENABLE_NETLINK=OFF -DENABLE_NGHTTP2=OFF -DENABLE_NGHTTP3=OFF
+      -DENABLE_BCG729=OFF -DENABLE_OPUS=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGIN_IFDEMO=ON
+      -DENABLE_PLUGINS=OFF -DENABLE_SBC=OFF -DENABLE_SMI=OFF -DENABLE_SNAPPY=OFF -DENABLE_SPANDSP=OFF
       -DENABLE_ZLIB=OFF -DENABLE_ZSTD=OFF -DBUILD_mmdbresolve=OFF ..
-    ninja
+    - ninja
+
+Clang ASAN Build:
+  extends: .build-ubuntu
+  tags:
+    - saas-linux-medium-amd64
+  rules: !reference [.if-plain-merge-request]
+  needs:
+    - job: "Commit Check"
+      optional: true
+  script:
+    - source /clang-latest.env
+    - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
+    - cmake --preset=ninja_ccache -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DENABLE_WERROR=ON -DBUILD_stratoshark=ON ..
+    - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
+    - ninja
+    - ninja test-programs
+    - chown -R user .
+    - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
+    - if [ -f run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
+    - WIRESHARK_DEBUG_WMEM_OVERRIDE=simple PYTEST_ADDOPTS="--skip-missing-programs=dumpcap,rawshark,falcodump --enable-stratoshark" su user -c "pytest --junitxml=../clang_asan_tests.xml"
+  artifacts:
+    when: always
+    reports:
+      junit: clang_asan_tests.xml
 
 # Windows runners are still beta, at least technically:
 # https://docs.gitlab.com/ee/user/gitlab_com/index.html#windows-shared-runners-beta
@@ -994,12 +1052,10 @@ Windows Build:
     - job: "Commit Check"
       optional: true
   script:
-    # lib{sinsp,scap} don't support Configuration=Debug, so we can't enable
-    # BUILD_stratoshark or BUILD_falcodump here just yet.
-    - cmake -G "Visual Studio 17 2022" -A x64 -DENABLE_LTO=off -DBUILD_sshdig=on ..
+    - cmake -G "Visual Studio 17 2022" -A x64 -DENABLE_LTO=off -DBUILD_stratoshark=on ..
     - msbuild /verbosity:minimal /maxcpucount /property:Configuration=Debug Wireshark.sln
     - msbuild /verbosity:minimal /maxcpucount /property:Configuration=Debug test-programs.vcxproj
-    - C:\Windows\py.exe -m pytest --disable-gui --build-type=Debug --junitxml=../windows_tests.xml
+    - C:\Windows\py.exe -m pytest --build-type=Debug --disable-gui --enable-stratoshark --junitxml=../windows_tests.xml
   artifacts:
     when: always
     reports:
@@ -1008,6 +1064,18 @@ Windows Build:
 macOS Build:
   extends: .build-macos
   rules: !reference [.if-w-w-only-merge-request]
+  # allow_failure: true
+  # https://support.gitlab.com/hc/en-us/articles/20417424085020-GitLab-com-hosted-macOS-runners-stuck-preparing-the-instance
+  timeout: 45 minutes
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  after_script:
+    # The cache should be large enough to be useful but it shouldn't take
+    # too long to restore+save each run.
+    - ccache --max-size $( gdu --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
   artifacts:
     when: always
     reports:
@@ -1015,6 +1083,52 @@ macOS Build:
   needs:
     - job: "Commit Check"
       optional: true
+
+AI Trailer Reminder:
+  image: registry.gitlab.com/wireshark/wireshark-containers/ubuntu-dev
+  stage: analysis
+  needs: []
+  allow_failure: true
+  rules:
+    - !reference [.if-plain-merge-request]
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+  script:
+    - |
+      zero="0000000000000000000000000000000000000000"
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        git fetch origin "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" --depth 200 || true
+        base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_MERGE_REQUEST_TARGET_BRANCH_SHA}"
+        head="${CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:-$CI_COMMIT_SHA}"
+        if [ -n "$base" ] && [ "$base" != "$zero" ]; then
+          range="${base}..${head}"
+        else
+          range="$head"
+        fi
+      else
+        git fetch origin "$CI_COMMIT_REF_NAME" --depth 200 || true
+        if [ -n "$CI_COMMIT_BEFORE_SHA" ] && [ "$CI_COMMIT_BEFORE_SHA" != "$zero" ]; then
+          range="${CI_COMMIT_BEFORE_SHA}..${CI_COMMIT_SHA}"
+        else
+          range="$CI_COMMIT_SHA"
+        fi
+      fi
+      commits=$(git rev-list --no-merges "$range" || true)
+      if [ -z "$commits" ]; then
+        echo "No commits found for range '$range'; skipping AI trailer check."
+        exit 0
+      fi
+      missing=0
+      for c in $commits; do
+        if ! git log -1 --format=%B "$c" | grep -qi '^AI-Assisted:'; then
+          echo "WARNING: Commit $c is missing the 'AI-Assisted: yes|no [tool(s)]' trailer."
+          missing=1
+        fi
+      done
+      if [ $missing -eq 1 ]; then
+        echo "Reminder: please add the AI-Assisted trailer to commit messages (warning only)."
+      else
+        echo "All checked commits include the AI-Assisted trailer."
+      fi
 
 # Adapted from https://www.synopsys.com/blogs/software-security/integrating-coverity-scan-with-gitlab-ci/
 # and https://gitlab.gnome.org/GNOME/glib/-/blob/8f57a5b9/.gitlab-ci.yml#L481
@@ -1035,7 +1149,7 @@ Coverity GCC Scan:
     - tar --directory=/tmp --extract --gzip --file /tmp/cov-analysis-linux64.tar.gz
     - mkdir build
     - cd build
-    - cmake -G Ninja ..
+    - cmake -G Ninja -DENABLE_ASSERT=ON ..
     - /tmp/cov-analysis-linux64-*/bin/cov-build --return-emit-failures --dir ../cov-int ninja
     - cd ..
     - tar --create --gzip --file cov-int.tar.gz cov-int
@@ -1126,8 +1240,8 @@ Visual Studio Code Analysis:
     - py -m venv sarif-tools.venv
     - sarif-tools.venv\Scripts\pip.exe install sarif-tools
     - New-Item -Path C:\MinIO -Type "directory"
-    - Invoke-Webrequest -OutFile C:\MinIO\mc.exe https://dl.min.io/client/mc/release/windows-amd64/archive/mc.RELEASE.2024-07-03T20-17-25Z
-    - if ($( Get-FileHash -Algorithm SHA256 -Path C:\MinIO\mc.exe ).Hash -ne "A379139FB32C0ADDB6C05786782602B5106D13402759AC1B4A88285A4D5EAAD3" ) { Exit 1 }
+    - Invoke-Webrequest -OutFile C:\MinIO\mc.exe https://dl.min.io/client/mc/release/windows-amd64/archive/mc.RELEASE.2025-08-13T08-35-41Z
+    - if ($( Get-FileHash -Algorithm SHA256 -Path C:\MinIO\mc.exe ).Hash -ne "C8DB13EBEDA31497F354C0E950809DB0AE9B2A2A69B8AFEE68C128C37300C157" ) { Exit 1 }
     - $env:caexcludepath = "C:\Qt;$env:INCLUDE"
     - cmake -DENABLE_CODE_ANALYSIS=ON -G "Visual Studio 17 2022" -A x64 -DENABLE_LTO=off ..
     - msbuild /verbosity:minimal "/consoleloggerparameters:PerformanceSummary;NoSummary" /maxcpucount:2 Wireshark.sln
@@ -1258,7 +1372,7 @@ ASan Menagerie Fuzz:
   script:
     - MAX_SECONDS=$(( 6 * 60 * 60 ))
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
+    - cmake --preset=ninja_ccache -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
@@ -1279,7 +1393,7 @@ ASan randpkt Fuzz:
   script:
     # XXX Reuse fuzz-asan?
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
+    - cmake --preset=ninja_ccache -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
@@ -1305,7 +1419,7 @@ Valgrind Menagerie Fuzz:
     - DEBIAN_FRONTEND=noninteractive apt-get --yes install valgrind
     - MAX_SECONDS=$(( 3 * 60 * 60 ))
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=OFF -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
+    - cmake --preset=ninja_ccache -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=OFF -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install

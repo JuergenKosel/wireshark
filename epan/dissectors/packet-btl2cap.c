@@ -19,6 +19,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/crc16-tvb.h>
 #include <epan/exceptions.h>
 #include <epan/expert.h>
 #include <epan/decode_as.h>
@@ -123,6 +124,7 @@ static int hf_btl2cap_ext_control_supervisory;
 static int hf_btl2cap_control_type;
 static int hf_btl2cap_ext_control_type;
 static int hf_btl2cap_fcs;
+static int hf_btl2cap_fcs_status;
 static int hf_btl2cap_sdulength;
 static int hf_btl2cap_continuation_to;
 static int hf_btl2cap_reassembled_in;
@@ -168,6 +170,7 @@ static int ett_btl2cap_le_sdu_fragments;
 static expert_field ei_btl2cap_parameter_mismatch;
 static expert_field ei_btl2cap_sdulength_bad;
 static expert_field ei_btl2cap_length_bad;
+static expert_field ei_btl2cap_fcs_bad;
 static expert_field ei_btl2cap_unknown_command_code;
 
 /* Initialize dissector table */
@@ -454,11 +457,12 @@ static const range_string cid_rvals[] = {
     { 0x0002, 0x0002,  "Connectionless Channel" },
     { 0x0003, 0x0003,  "AMP Manager Protocol" },
     { 0x0004, 0x0004,  "Attribute Protocol" },
-    { 0x0005, 0x0005,  "Low Energy L2CAP Signaling Channel" },
+    { 0x0005, 0x0005,  "L2CAP LE Signaling Channel" },
     { 0x0006, 0x0006,  "Security Manager Protocol" },
-    { 0x0007, 0x003E,  "Reserved" },
+    { 0x0007, 0x0007,  "BR/EDR Security Manager Protocol" },
+    { 0x0008, 0x003E,  "Reserved" },
     { 0x003F, 0x003F,  "AMP Test Manager" },
-    { 0x0040, 0xFFFF,  "Dynamically Allocated Channel" },
+    { 0x0040, 0xFFFF,  "Dynamically Allocated" },
     { 0, 0, NULL }
 };
 
@@ -638,8 +642,7 @@ dissect_comrej(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tr
 {
     uint16_t reason;
 
-    reason  = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_rej_reason, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_rej_reason, tvb, offset, 2, ENC_LITTLE_ENDIAN, &reason);
     offset += 2;
 
     switch (reason) {
@@ -704,8 +707,7 @@ dissect_connrequest(tvbuff_t *tvb, int offset, packet_info *pinfo,
     }
     offset += 2;
 
-    scid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(command_tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(command_tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &scid);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s, SCID: 0x%04x)", psm_str, scid);
@@ -1425,12 +1427,10 @@ dissect_movechanrequest(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tre
     uint16_t icid;
     uint8_t ctrl_id;
 
-    icid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &icid);
     offset += 2;
 
-    ctrl_id = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_dcontroller, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint8(tree, hf_btl2cap_dcontroller, tvb, offset, 1, ENC_LITTLE_ENDIAN, &ctrl_id);
     offset += 1;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (ICID: 0x%04x, move to %s)", icid,
@@ -1592,9 +1592,7 @@ dissect_configrequest(tvbuff_t *tvb, int offset, packet_info *pinfo,
 {
     uint16_t dcid;
 
-    dcid = tvb_get_letohs(tvb, offset);
-
-    proto_tree_add_item(tree, hf_btl2cap_dcid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_dcid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &dcid);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (DCID: 0x%04x)", dcid);
@@ -1681,8 +1679,7 @@ dissect_inforequest(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
 {
     uint16_t info_type;
 
-    info_type = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_info_type, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_info_type, tvb, offset, 2, ENC_LITTLE_ENDIAN, &info_type);
     offset   += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", val_to_str_const(info_type, info_type_vals, "Unknown type"));
@@ -1694,12 +1691,10 @@ dissect_inforesponse(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
 {
     uint16_t    info_type, result;
 
-    info_type = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_info_type, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_info_type, tvb, offset, 2, ENC_LITTLE_ENDIAN, &info_type);
     offset   += 2;
 
-    result    = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_info_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_info_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset   += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s, %s)",
@@ -1794,18 +1789,14 @@ dissect_configresponse(tvbuff_t *tvb, int offset, packet_info *pinfo,
     uint16_t           scid;
     uint16_t           result;
 
-
-    scid = tvb_get_letohs(tvb, offset);
-
-    proto_tree_add_item(tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &scid);
     offset += 2;
 
     proto_tree_add_item(tree, hf_btl2cap_flags_reserved, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(tree, hf_btl2cap_flags_continuation, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
 
-    result = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_configuration_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_configuration_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " - %s (SCID: 0x%04x)",
@@ -1880,16 +1871,13 @@ dissect_connresponse(tvbuff_t *tvb, int offset, packet_info *pinfo,
 {
     uint16_t           scid, dcid, result;
 
-    dcid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_dcid,   tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_dcid,   tvb, offset, 2, ENC_LITTLE_ENDIAN, &dcid);
     offset += 2;
 
-    scid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_scid,   tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_scid,   tvb, offset, 2, ENC_LITTLE_ENDIAN, &scid);
     offset += 2;
 
-    result = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset += 2;
 
     proto_tree_add_item(tree, hf_btl2cap_status, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -1996,12 +1984,10 @@ dissect_movechanresponse(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tr
 {
     uint16_t icid, result;
 
-    icid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &icid);
     offset += 2;
 
-    result = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_move_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_move_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (ICID: 0x%04x, %s)", icid,
@@ -2015,12 +2001,10 @@ dissect_movechanconfirmation(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
 {
     uint16_t icid, result;
 
-    icid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &icid);
     offset += 2;
 
-    result = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_move_confirmation_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_move_confirmation_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (ICID: 0x%04x, %s)", icid,
@@ -2034,8 +2018,7 @@ dissect_movechanconfirmationresponse(tvbuff_t *tvb, int offset, packet_info *pin
 {
     uint16_t icid;
 
-    icid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_icid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &icid);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (ICID: 0x%04x)", icid);
@@ -2051,12 +2034,10 @@ dissect_connparamrequest(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tr
     item = proto_tree_add_item(tree, hf_btl2cap_min_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     proto_item_append_text(item, " (%g msec)",  tvb_get_letohs(tvb, offset) * 1.25);
     offset += 2;
-    item = proto_tree_add_item(tree, hf_btl2cap_max_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    proto_item_append_text(item, " (%g msec)",  tvb_get_letohs(tvb, offset) * 1.25);
-    max_interval = tvb_get_letohs(tvb, offset);
+    item = proto_tree_add_item_ret_uint16(tree, hf_btl2cap_max_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN, &max_interval);
+    proto_item_append_text(item, " (%g msec)",  max_interval * 1.25);
     offset += 2;
-    item = proto_tree_add_item(tree, hf_btl2cap_peripheral_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    peripheral_latency = tvb_get_letohs(tvb, offset);
+    item = proto_tree_add_item_ret_uint16(tree, hf_btl2cap_peripheral_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN, &peripheral_latency);
 
     if(peripheral_latency >= 500 || max_interval == 0 ||
        peripheral_latency > 10.0 * tvb_get_letohs(tvb, offset + 2) / (max_interval *1.25))
@@ -2075,8 +2056,7 @@ dissect_connparamresponse(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_t
 {
     uint16_t result;
 
-    result = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btl2cap_conn_param_result, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btl2cap_conn_param_result, tvb, offset, 2, ENC_LITTLE_ENDIAN, &result);
     offset += 2;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)",
@@ -2095,12 +2075,10 @@ dissect_disconnrequestresponse(tvbuff_t *tvb, int offset, packet_info *pinfo,
     unsigned      psm = 0;
     const char   *service_name = "Unknown";
 
-    dcid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(command_tree, hf_btl2cap_dcid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(command_tree, hf_btl2cap_dcid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &dcid);
     offset += 2;
 
-    scid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(command_tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(command_tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &scid);
     offset += 2;
 
     if (!pinfo->fd->visited) {
@@ -2300,7 +2278,7 @@ dissect_b_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 {
     tvbuff_t *next_tvb;
 
-    next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), length);
+    next_tvb = tvb_new_subset_length(tvb, offset, length);
 
     col_append_str(pinfo->cinfo, COL_INFO, "Connection oriented channel");
 
@@ -2631,8 +2609,8 @@ dissect_i_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             mfp->last_frame  = 0;
             mfp->tot_len     = sdulen;
             mfp->reassembled = (uint8_t *) wmem_alloc(wmem_file_scope(), sdulen);
-            tvb_memcpy(tvb, mfp->reassembled, offset, sdulen);
-            mfp->cur_off     = sdulen;
+            tvb_memcpy(tvb, mfp->reassembled, offset, length);
+            mfp->cur_off     = length;
             wmem_tree_insert32(config_data->start_fragments, pinfo->num, mfp);
         } else {
             mfp              = (sdu_reassembly_t *)wmem_tree_lookup32(config_data->start_fragments, pinfo->num);
@@ -2669,13 +2647,15 @@ dissect_i_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             col_append_fstr(pinfo->cinfo, COL_INFO, "[Continuation to #%u] ", mfp->first_frame);
         }
     }
-    if (segment == 0x02 && mfp != NULL && mfp->last_frame == pinfo->num) {
+    if (segment == 0x02 && mfp != NULL && mfp->last_frame == pinfo->num && mfp->cur_off == mfp->tot_len) {
+        /* if mfp->cur_off != mfp->tot_len, there is missing data
+         * or other reassembly issues. */
         next_tvb = tvb_new_child_real_data(tvb, (uint8_t *)mfp->reassembled, mfp->tot_len, mfp->tot_len);
         add_new_data_source(pinfo, next_tvb, "Reassembled L2CAP");
     }
     /*pass up to higher layer if we have a complete packet*/
     if (segment == 0x00) {
-        next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset) - 2, length);
+        next_tvb = tvb_new_subset_length(tvb, offset, length);
     }
     if (next_tvb) {
         if (psm) {
@@ -2730,8 +2710,11 @@ dissect_i_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_tree_add_item(btl2cap_tree, hf_btl2cap_payload, next_tvb, 0, tvb_reported_length(next_tvb), ENC_NA);
         }
     }
-    offset += tvb_reported_length_remaining(tvb, offset) - 2;
-    proto_tree_add_item(btl2cap_tree, hf_btl2cap_fcs, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += length;
+    proto_tree_add_checksum(btl2cap_tree, tvb, offset, hf_btl2cap_fcs,
+        hf_btl2cap_fcs_status, &ei_btl2cap_fcs_bad, pinfo,
+        crc16_plain_tvb_offset(tvb, 0, offset), ENC_LITTLE_ENDIAN,
+        PROTO_CHECKSUM_VERIFY);
     offset +=  2;
     return offset;
 }
@@ -2785,8 +2768,6 @@ dissect_s_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, proto_t
         };
         proto_tree_add_bitmask(btl2cap_tree, tvb, offset, hf_btl2cap_ext_control_field, ett_btl2cap_control, fields, ENC_LITTLE_ENDIAN);
         offset += 4;
-        proto_tree_add_item(btl2cap_tree, hf_btl2cap_fcs, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        offset += 2;
     } else {
         if (ctl_format == L2CAP_IFRAME_CONTROL_FIELD_ENHANCED) {
             static int * const fields[] = {
@@ -2809,21 +2790,24 @@ dissect_s_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, proto_t
             proto_tree_add_bitmask(btl2cap_tree, tvb, offset, hf_btl2cap_control_field, ett_btl2cap_control, fields, ENC_LITTLE_ENDIAN);
         }
         offset += 2;
-        proto_tree_add_item(btl2cap_tree, hf_btl2cap_fcs, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        offset += 2;
     }
 
+    proto_tree_add_checksum(btl2cap_tree, tvb, offset, hf_btl2cap_fcs,
+        hf_btl2cap_fcs_status, &ei_btl2cap_fcs_bad, pinfo,
+        crc16_plain_tvb_offset(tvb, 0, offset), ENC_LITTLE_ENDIAN,
+        PROTO_CHECKSUM_VERIFY);
+    offset += 2;
     return offset;
 }
 
 static int
 dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    int               offset       = 0;
+    unsigned          offset       = 0;
     proto_item       *ti;
     proto_tree       *btl2cap_tree;
     proto_item       *length_item;
-    uint16_t          length;
+    unsigned          length;
     uint16_t          cid;
     uint16_t          psm;
     uint16_t          control;
@@ -2859,18 +2843,18 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         col_clear(pinfo->cinfo, COL_INFO);
     }
 
-    length  = tvb_get_letohs(tvb, offset);
-    length_item = proto_tree_add_item(btl2cap_tree, hf_btl2cap_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    if (tvb_captured_length_remaining(tvb, offset) < length) {
+    length_item = proto_tree_add_item_ret_uint(btl2cap_tree, hf_btl2cap_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &length);
+    /* Note this is captured length - some code later around fragments,
+     * FCS would have to be changed if this were reported length. */
+    if (tvb_captured_length_remaining(tvb, offset + 4) < length) {
         expert_add_info(pinfo, length_item, &ei_btl2cap_length_bad);
-        /* Try to dissect as more as possible */
-        length = tvb_captured_length_remaining(tvb, offset) - 4;
+        /* Try to dissect as much as possible */
+        length = tvb_captured_length_remaining(tvb, offset + 4);
     }
 
     offset += 2;
 
-    cid = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(btl2cap_tree, hf_btl2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(btl2cap_tree, hf_btl2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN, &cid);
     if (p_get_proto_data(pinfo->pool, pinfo, proto_btl2cap, PROTO_DATA_BTL2CAP_CID ) == NULL) {
         uint16_t *value_data;
 
@@ -2928,16 +2912,13 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     "Command: ");
             btl2cap_cmd_tree = proto_item_add_subtree(ti_command, ett_btl2cap_cmd);
 
-            cmd_code = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_cmd_code,   tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint8(btl2cap_cmd_tree, hf_btl2cap_cmd_code,   tvb, offset, 1, ENC_LITTLE_ENDIAN, &cmd_code);
             offset += 1;
 
-            cmd_ident = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_cmd_ident,  tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint8(btl2cap_cmd_tree, hf_btl2cap_cmd_ident,  tvb, offset, 1, ENC_LITTLE_ENDIAN, &cmd_ident);
             offset += 1;
 
-            cmd_length = tvb_get_letohs(tvb, offset);
-            proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_cmd_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint16(btl2cap_cmd_tree, hf_btl2cap_cmd_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &cmd_length);
             proto_item_set_len(ti_command, cmd_length + 4);
             offset += 2;
 
@@ -3039,7 +3020,7 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 break;
 
             case 0x16: /* LE Flow Control Credit */
-                proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+                proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_scid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset += 2;
 
                 proto_tree_add_item(btl2cap_cmd_tree, hf_btl2cap_credits, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -3058,7 +3039,7 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 break;
 
             default:
-                proto_tree_add_expert(btl2cap_cmd_tree, pinfo, &ei_btl2cap_unknown_command_code, tvb, offset, -1);
+                proto_tree_add_expert_remaining(btl2cap_cmd_tree, pinfo, &ei_btl2cap_unknown_command_code, tvb, offset);
                 offset += tvb_reported_length_remaining(tvb, offset);
                 break;
             }
@@ -3147,15 +3128,24 @@ dissect_btl2cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     &hf_btl2cap_control_type,
                     NULL
                 };
+                if (length <= 4) {
+                    expert_add_info_format(pinfo, length_item, &ei_btl2cap_length_bad,
+                            "Control / FCS length too short: %u", length);
+                    THROW(ReportedBoundsError);
+                }
+                length -= 4; /*Control, FCS*/
                 proto_tree_add_bitmask(btl2cap_tree, tvb, offset, hf_btl2cap_control_field, ett_btl2cap_control, fields, ENC_LITTLE_ENDIAN);
                 offset += 2;
-                proto_tree_add_item(btl2cap_tree, hf_btl2cap_fcs, tvb, tvb_reported_length(tvb) - 2, 2, ENC_LITTLE_ENDIAN);
+                proto_tree_add_checksum(btl2cap_tree, tvb, offset + length, hf_btl2cap_fcs,
+                    hf_btl2cap_fcs_status, &ei_btl2cap_fcs_bad, pinfo,
+                    crc16_plain_tvb_offset(tvb, 0, offset), ENC_LITTLE_ENDIAN,
+                    PROTO_CHECKSUM_VERIFY);
 
-                next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset)-2, length);
+                next_tvb = tvb_new_subset_length(tvb, offset, length);
             }
         }
         else {
-            next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), length);
+            next_tvb = tvb_new_subset_length(tvb, offset, length);
         }
         /* call next dissector */
         if (next_tvb && !dissector_try_uint_with_data(l2cap_cid_dissector_table, (uint32_t) cid,
@@ -3722,6 +3712,11 @@ proto_register_btl2cap(void)
             FT_UINT16, BASE_HEX, NULL, 0,
             "Frame Check Sequence", HFILL }
         },
+        { &hf_btl2cap_fcs_status,
+          { "FCS Status",    "btl2cap.fcs.status",
+            FT_UINT8, BASE_NONE, VALS(proto_checksum_vals), 0x0,
+            NULL, HFILL }
+        },
         { &hf_btl2cap_sdulength,
           { "SDU Length",           "btl2cap.sdulength",
             FT_UINT16, BASE_DEC, NULL, 0,
@@ -3876,6 +3871,7 @@ proto_register_btl2cap(void)
         { &ei_btl2cap_parameter_mismatch, { "btl2cap.parameter_mismatch", PI_PROTOCOL, PI_WARN, "Parameter mismatch", EXPFILL }},
         { &ei_btl2cap_sdulength_bad, { "btl2cap.sdulength.bad", PI_MALFORMED, PI_WARN, "SDU length bad", EXPFILL }},
         { &ei_btl2cap_length_bad, { "btl2cap.length.bad", PI_MALFORMED, PI_WARN, "Length too short", EXPFILL }},
+        { &ei_btl2cap_fcs_bad, { "btl2cap.fcs.bad", PI_CHECKSUM, PI_WARN, "Bad FCS", EXPFILL }},
         { &ei_btl2cap_unknown_command_code, { "btl2cap.unknown_command_code", PI_PROTOCOL, PI_WARN, "Unknown Command Code", EXPFILL }},
     };
 
@@ -3883,12 +3879,12 @@ proto_register_btl2cap(void)
     static build_valid_func btl2cap_cid_da_build_value[1] = {btl2cap_cid_value};
     static decode_as_value_t btl2cap_cid_da_values = {btl2cap_cid_prompt, 1, btl2cap_cid_da_build_value};
     static decode_as_t btl2cap_cid_da = {"btl2cap", "btl2cap.cid", 1, 0, &btl2cap_cid_da_values, NULL, NULL,
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
     static build_valid_func btl2cap_psm_da_build_value[1] = {btl2cap_psm_value};
     static decode_as_value_t btl2cap_psm_da_values = {btl2cap_psm_prompt, 1, btl2cap_psm_da_build_value};
     static decode_as_t btl2cap_psm_da = {"btl2cap", "btl2cap.psm", 1, 0, &btl2cap_psm_da_values, NULL, NULL,
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
     /* Register the protocol name and description */
     proto_btl2cap = proto_register_protocol("Bluetooth L2CAP Protocol", "BT L2CAP", "btl2cap");

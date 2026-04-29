@@ -1881,7 +1881,7 @@ static decode_as_t        usb_product_da = {
         "usb", "usb.product",
         1, 0, &usb_product_da_values, NULL, NULL,
         decode_as_default_populate_list, decode_as_default_reset,
-        decode_as_default_change, NULL, NULL };
+        decode_as_default_change, NULL, NULL, NULL };
 
 static build_valid_func   usb_device_da_build_value[1] = {usb_device_value};
 static decode_as_value_t  usb_device_da_values         = {usb_device_prompt, 1, usb_device_da_build_value};
@@ -1889,7 +1889,7 @@ static decode_as_t        usb_device_da = {
         "usb", "usb.device",
         1, 0, &usb_device_da_values, NULL, NULL,
         decode_as_default_populate_list, decode_as_default_reset,
-        decode_as_default_change, NULL, NULL };
+        decode_as_default_change, NULL, NULL, NULL };
 
 static build_valid_func   usb_protocol_da_build_value[1] = {usb_protocol_value};
 static decode_as_value_t  usb_protocol_da_values         = {usb_protocol_prompt, 1, usb_protocol_da_build_value};
@@ -1897,7 +1897,7 @@ static decode_as_t        usb_protocol_da = {
         "usb", "usb.protocol",
         1, 0, &usb_protocol_da_values, NULL, NULL,
         decode_as_default_populate_list, decode_as_default_reset,
-        decode_as_default_change, NULL, NULL };
+        decode_as_default_change, NULL, NULL, NULL };
 
 
 static usb_conv_info_t *
@@ -4527,9 +4527,8 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
     urb_type = tvb_get_uint8(tvb, 8);
     urb->is_request = (urb_type==URB_SUBMIT);
     proto_tree_add_uint(tree, hf_usb_linux_urb_type, tvb, 8, 1, urb_type);
-    proto_tree_add_item(tree, hf_usb_linux_transfer_type, tvb, 9, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint8(tree, hf_usb_linux_transfer_type, tvb, 9, 1, ENC_LITTLE_ENDIAN, &transfer_type);
 
-    transfer_type = tvb_get_uint8(tvb, 9);
     urb->transfer_type = transfer_type;
 
     endpoint_byte = tvb_get_uint8(tvb, 10);   /* direction bit | endpoint */
@@ -4723,8 +4722,8 @@ usb_set_addr(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, uint16_t bus_i
     proto_item     *sub_item;
     usb_address_t  *src_addr = wmem_new0(pinfo->pool, usb_address_t),
                    *dst_addr = wmem_new0(pinfo->pool, usb_address_t);
-    uint8_t        *str_src_addr;
-    uint8_t        *str_dst_addr;
+    const char     *str_src_addr;
+    const char     *str_dst_addr;
 
     if (req) {
         /* request */
@@ -4861,8 +4860,7 @@ dissect_usbpcap_iso_packets(packet_info *pinfo _U_, proto_tree *urb_tree, uint8_
     proto_tree_add_item(urb_tree, hf_usb_win32_iso_start_frame, tvb, offset, 4, ENC_LITTLE_ENDIAN);
     offset += 4;
 
-    num_packets = tvb_get_letohl(tvb, offset);
-    num_packets_ti = proto_tree_add_item(urb_tree, hf_usb_win32_iso_num_packets, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+    num_packets_ti = proto_tree_add_item_ret_uint(urb_tree, hf_usb_win32_iso_num_packets, tvb, offset, 4, ENC_LITTLE_ENDIAN, &num_packets);
     offset += 4;
 
     proto_tree_add_item(urb_tree, hf_usb_win32_iso_error_count, tvb, offset, 4, ENC_LITTLE_ENDIAN);
@@ -4965,7 +4963,7 @@ dissect_linux_usb_iso_transfer(packet_info *pinfo _U_, proto_tree *urb_tree,
     proto_item *tii;
     uint32_t    i;
     unsigned    data_base;
-    uint32_t    iso_status;
+    int32_t     iso_status;
     uint32_t    iso_off = 0;
     uint32_t    iso_len = 0;
 
@@ -5004,7 +5002,7 @@ dissect_linux_usb_iso_transfer(packet_info *pinfo _U_, proto_tree *urb_tree,
         iso_desc_tree = proto_item_add_subtree(iso_desc_ti, ett_usb_isodesc);
 
         proto_tree_add_item_ret_int(iso_desc_tree, hf_usb_iso_status, tvb, offset, 4, ENC_HOST_ENDIAN, &iso_status);
-        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(pinfo->pool, iso_status, &linux_negative_errno_vals_ext, "Error %d"));
+        proto_item_append_text(iso_desc_ti, " [%s]", val_to_str_ext(pinfo->pool, (uint32_t)iso_status, &linux_negative_errno_vals_ext, "Error %d"));
         offset += 4;
 
         proto_tree_add_item_ret_uint(iso_desc_tree, hf_usb_iso_off, tvb, offset, 4, ENC_HOST_ENDIAN, &iso_off);

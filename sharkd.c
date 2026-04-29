@@ -9,7 +9,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdlib.h>
@@ -31,6 +31,7 @@
 #include <wsutil/wslog.h>
 #include <wsutil/version_info.h>
 #include <wsutil/report_message.h>
+#include <app/application_flavor.h>
 #include <wiretap/wtap_opttypes.h>
 
 #include <epan/decode_as.h>
@@ -69,7 +70,6 @@
 
 capture_file cfile;
 
-static uint32_t cum_bytes;
 static frame_data ref_frame;
 
 /*
@@ -142,6 +142,12 @@ main(int argc, char *argv[])
     char                *err_msg = NULL;
     e_prefs             *prefs_p;
     int                  ret = EXIT_SUCCESS;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
+    epan_app_data_t app_data;
+
+    /* Future proof by zeroing out all data */
+    memset(&app_data, 0, sizeof(app_data));
 
     /* Set the program name. */
     g_set_prgname("sharkd");
@@ -175,7 +181,7 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Sharkd", NULL, get_ws_vcs_version_info,
+    ws_init_version_info("Sharkd", NULL, application_get_vcs_version_info,
                          epan_gather_compile_info,
                          epan_gather_runtime_info);
 
@@ -197,23 +203,29 @@ main(int argc, char *argv[])
      * dissection-time handlers for file-type-dependent blocks can
      * register using the file type/subtype value for the file type.
      */
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, true)) {
+    app_data.env_var_prefix = application_configuration_environment_prefix();
+    app_data.col_fmt = application_columns();
+    app_data.num_cols = application_num_columns();
+    app_data.register_func = register_all_protocols;
+    app_data.handoff_func = register_all_protocol_handoffs;
+    if (!epan_init(NULL, NULL, true, &app_data)) {
         ret = SHARKD_EPAN_INIT_FAIL;
         goto clean_exit;
     }
 
-    codecs_init();
+    codecs_init(application_configuration_environment_prefix());
 
     /* Load libwireshark settings from the current profile. */
     prefs_p = epan_load_settings();
 
-    if (!color_filters_init(&err_msg, NULL)) {
+    if (!color_filters_init(&err_msg, NULL, application_configuration_environment_prefix())) {
         fprintf(stderr, "%s\n", err_msg);
         g_free(err_msg);
     }
@@ -275,7 +287,7 @@ process_packet(capture_file *cf, epan_dissect_t *edt, int64_t offset,
 
     /* The frame number of this packet, if we add it to the set of frames,
        would be one more than the count of frames in the file so far. */
-    frame_data_init(&fdlocal, cf->count + 1, rec, offset, cum_bytes);
+    frame_data_init(&fdlocal, cf->count + 1, rec, offset, cf->cum_bytes);
 
     /* If we're going to print packet information, or we're going to
        run a read filter, or display filter, or we're going to process taps, set up to
@@ -309,7 +321,7 @@ process_packet(capture_file *cf, epan_dissect_t *edt, int64_t offset,
     }
 
     if (passed) {
-        frame_data_set_after_dissect(&fdlocal, &cum_bytes);
+        frame_data_set_after_dissect(&fdlocal, &cf->cum_bytes);
         cf->provider.prev_cap = cf->provider.prev_dis = frame_data_sequence_add(cf->provider.frames, &fdlocal);
 
         /* If we're not doing dissection then there won't be any dependent frames.
@@ -415,17 +427,48 @@ load_cap_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
     return err;
 }
 
+void
+cf_close(capture_file *cf)
+{
+    if (cf->state == FILE_CLOSED || cf->state == FILE_READ_PENDING)
+        return; /* Nothing to do */
+
+    if (cf->provider.wth) {
+        wtap_close(cf->provider.wth);
+        cf->provider.wth = NULL;
+    }
+
+    /* We have no file open... */
+    if (cf->filename != NULL) {
+        /* If it's a temporary file, remove it. */
+        if (cf->is_tempfile)
+            ws_unlink(cf->filename);
+        g_free(cf->filename);
+        cf->filename = NULL;
+    }
+
+    if (cf->provider.frames != NULL) {
+        free_frame_data_sequence(cf->provider.frames);
+        cf->provider.frames = NULL;
+    }
+
+    /* We have no file open. */
+    cf->state = FILE_CLOSED;
+}
+
 cf_status_t
 cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile, int *err)
 {
     wtap  *wth;
     char *err_info;
 
-    wth = wtap_open_offline(fname, type, err, &err_info, true);
+    wth = wtap_open_offline(fname, type, err, &err_info, true, application_configuration_environment_prefix());
     if (wth == NULL)
         goto fail;
 
-    /* The open succeeded.  Fill in the information for this file. */
+    /* The open succeeded.  Close whatever capture file we had open,
+       and fill in the information for this file. */
+    cf_close(cf);
 
     cf->provider.wth = wth;
     cf->f_datalen = 0; /* not used, but set it anyway */
@@ -451,6 +494,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     cf->provider.ref = NULL;
     cf->provider.prev_dis = NULL;
     cf->provider.prev_cap = NULL;
+    cf->cum_bytes = 0;
 
     /* Create new epan session for dissection. */
     epan_free(cf->epan);

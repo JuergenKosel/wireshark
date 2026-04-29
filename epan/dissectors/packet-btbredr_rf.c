@@ -1862,11 +1862,9 @@ dissect_btbredr_fhs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     parity_lap_eir_sp_sr = tvb_get_uint64(tvb, offset, ENC_LITTLE_ENDIAN);
     lap = (parity_lap_eir_sp_sr >> 34) & 0xffffff;
     offset += 8;
-    proto_tree_add_item(btbredr_fhs_tree, hf_fhs_uap, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-    uap = tvb_get_uint8(tvb, offset);
+    proto_tree_add_item_ret_uint8(btbredr_fhs_tree, hf_fhs_uap, tvb, offset, 1, ENC_LITTLE_ENDIAN, &uap);
     offset += 1;
-    proto_tree_add_item(btbredr_fhs_tree, hf_fhs_nap, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    nap = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(btbredr_fhs_tree, hf_fhs_nap, tvb, offset, 2, ENC_LITTLE_ENDIAN, &nap);
     offset += 2;
     proto_tree_add_item(btbredr_fhs_tree, hf_fhs_class, tvb, offset, 3, ENC_LITTLE_ENDIAN);
     offset += 3;

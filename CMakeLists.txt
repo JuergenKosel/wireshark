@@ -40,6 +40,10 @@ if(WIN32)
 	if(DEFINED ENV{MSYSTEM})
 		set(_msystem $ENV{MSYSTEM})
 		message(STATUS "Using MSYS2 with MSYSTEM=${_msystem}")
+		if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+			set(CMAKE_INSTALL_PREFIX "$ENV{MINGW_PREFIX}" CACHE PATH "Default install directory inside the MSYS2 POSIX emulation runtime" FORCE)
+			message(STATUS "Using install prefix ${CMAKE_INSTALL_PREFIX}")
+		endif()
 	elseif(MSVC)
 		set(_repository True)
 		message(STATUS "Using 3rd party repository")
@@ -65,16 +69,9 @@ endif()
 set(PROJECT_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}${PROJECT_VERSION_EXTENSION}")
 
 set(STRATOSHARK_MAJOR_VERSION 0)
-set(STRATOSHARK_MINOR_VERSION 9)
-set(STRATOSHARK_PATCH_VERSION 4)
-set(STRATOSHARK_BUILD_VERSION 0)
-set(STRATOSHARK_VERSION_EXTENSION "")
+set(STRATOSHARK_MINOR_VERSION 10)
 
-if(DEFINED ENV{STRATOSHARK_VERSION_EXTRA})
-	set(STRATOSHARK_VERSION_EXTENSION "$ENV{STRATOSHARK_VERSION_EXTRA}")
-endif()
-
-set(STRATOSHARK_VERSION "${STRATOSHARK_MAJOR_VERSION}.${STRATOSHARK_MINOR_VERSION}.${STRATOSHARK_PATCH_VERSION}${STRATOSHARK_VERSION_EXTENSION}")
+set(STRATOSHARK_VERSION "${STRATOSHARK_MAJOR_VERSION}.${STRATOSHARK_MINOR_VERSION}.${PROJECT_PATCH_VERSION}${PROJECT_VERSION_EXTENSION}")
 
 include( CMakeOptions.txt )
 
@@ -82,12 +79,8 @@ include( CMakeOptions.txt )
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# We require minimum C++11. libscap and libsinsp require C++ 17.
-if(BUILD_stratoshark OR BUILD_falcodump OR BUILD_dumpcalls)
-	set(CMAKE_CXX_STANDARD 17)
-else()
-	set(CMAKE_CXX_STANDARD 11)
-endif()
+# We require minimum C++14.
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -246,9 +239,11 @@ if(WIN32)
 	set(LIBS_URL "https://dev-libs.wireshark.org/windows/packages")
 	file(TO_CMAKE_PATH ${EXTRA_INSTALLER_DIR} _file_download_dir)
 
-	# Download Npcap required by the Windows installer
-	set(NPCAP_VERSION "1.83")
-	set(NPCAP_SHA256 "1bf58936296992d6b03e6c36621ca8239a786c13b89d761d210fa21731567ac0")
+	# Download Npcap required by the Windows installer.
+	# We do this here and not in FetchArtifacts.cmake because this
+	# is required by both the Visual Studio and MSYS2 builds.
+	set(NPCAP_VERSION "1.87")
+	set(NPCAP_SHA256 "142c234f09a9618d7cdc2c37f607d6fc06615fad5581f728b60d4ad659f906bd")
 	set(NPCAP_FILENAME "npcap-${NPCAP_VERSION}.exe")
 	set(NPCAP_URL "${LIBS_URL}/Npcap/${NPCAP_FILENAME}")
 	FetchContent_Declare(Npcap
@@ -313,7 +308,11 @@ if(WIN32 AND NOT USE_MSYSTEM)
 endif()
 include(GNUInstallDirs)
 
-set(PROJECT_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
+if (ENABLE_SEPARATE_PROJECT_NAME)
+	set(PROJECT_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}")
+else()
+	set(PROJECT_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
 
 # Make sure our executables can load our libraries if we install into
 # a non-default directory on Unix-like systems other than macOS.
@@ -420,7 +419,7 @@ if (MANIFEST_PROCESSOR_ARCHITECTURE MATCHES "x64")
 	set(MANIFEST_PROCESSOR_ARCHITECTURE "amd64")
 endif()
 set(RC_VERSION ${PROJECT_MAJOR_VERSION},${PROJECT_MINOR_VERSION},${PROJECT_PATCH_VERSION},${PROJECT_BUILD_VERSION})
-set(STRATOSHARK_RC_VERSION ${STRATOSHARK_MAJOR_VERSION},${STRATOSHARK_MINOR_VERSION},${PROJECT_PATCH_VERSION},${STRATOSHARK_BUILD_VERSION})
+set(STRATOSHARK_RC_VERSION ${STRATOSHARK_MAJOR_VERSION},${STRATOSHARK_MINOR_VERSION},${PROJECT_PATCH_VERSION},${PROJECT_BUILD_VERSION})
 
 message(STATUS "V: ${PROJECT_VERSION}, MaV: ${PROJECT_MAJOR_VERSION}, MiV: ${PROJECT_MINOR_VERSION}, PL: ${PROJECT_PATCH_VERSION}, EV: ${PROJECT_VERSION_EXTENSION}.")
 
@@ -429,6 +428,8 @@ include(UseMakePluginReg)
 include(UseMakeTaps)
 include(UseExecutableResources)
 include(UseAsn2Wrs)
+include(UseJsonTranslations)
+include(QrcBuilder)
 
 # The following snippet has been taken from
 # https://github.com/USESystemEngineeringBV/cmake-eclipse-helper/wiki/HowToWorkaroundIndexer
@@ -508,8 +509,8 @@ endif()
 # be reduced further by setting "job pools" to a lower number.
 #
 if(CMAKE_MAKE_PROGRAM MATCHES "ninja" AND OSS_FUZZ)
-	# Assume oss-fuzz linker jobs do not require more than 1.2G per task
-	set(per_job_memory_mb 1200)
+	# Assume oss-fuzz linker jobs do not require more than 8G per task
+	set(per_job_memory_mb 8000)
 	cmake_host_system_information(RESULT total_memory_mb QUERY TOTAL_PHYSICAL_MEMORY)
 	math(EXPR parallel_link_jobs "${total_memory_mb} / ${per_job_memory_mb}")
 	if(parallel_link_jobs LESS 1)
@@ -691,7 +692,16 @@ else() # ! MSVC
 			endif()
 			set(MIN_MACOS_VERSION ${CMAKE_OSX_DEPLOYMENT_TARGET})
 		endif()
-		find_program(ICONUTIL_EXECUTABLE iconutil)
+		find_program(ACTOOL_EXECUTABLE actool)
+		execute_process(
+			COMMAND ${ACTOOL_EXECUTABLE} --version
+			COMMAND xmllint --xpath "//dict/key[text()=\"short-bundle-version\"]/following-sibling::string/text()" -
+			OUTPUT_VARIABLE _actool_version
+		)
+		if(_actool_version VERSION_GREATER_EQUAL "26.0")
+			set(HAVE_LIQUID_GLASS_ICONS True)
+		endif()
+		unset(_actool_version)
 	endif()
 
 	#
@@ -772,7 +782,14 @@ else() # ! MSVC
 		list(APPEND WIRESHARK_COMMON_FLAGS -Qunused-arguments)
 	endif()
 
-	if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+	# Set _FORTIFY_SOURCE to the highest level we can. Since we prepend our
+	# options, allowing users to override our options, check to see if
+	# -D_FORTIFY_SOURCE is already set to avoid a redefinition warning.
+	#
+	# Note the distribution might use a GCC spec file or Clang configuration
+	# file, which takes place before our options, so we have to undefine it
+	# first too.
+	if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT "${CMAKE_C_FLAGS}" MATCHES "-D_FORTIFY_SOURCE")
 		# _FORTIFY_SOURCE requires -O1 or higher, and the Debug
 		# build type has no optimization
 		if((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0") OR
@@ -782,8 +799,13 @@ else() # ! MSVC
 			# with it will give a warning that it has the same effect as
 			# -D_FORTIFY_SOURCE=2
 			list(APPEND WIRESHARK_COMMON_FLAGS
-			-U_FORTIFY_SOURCE	# Run-time buffer overflow detection. For dist like Ubuntu, U_FORTIFY_SOURCE must be input before D_FORTIFY_SOURCE
+			-U_FORTIFY_SOURCE	# For dist like Ubuntu, U_FORTIFY_SOURCE must be input before D_FORTIFY_SOURCE
 			-D_FORTIFY_SOURCE=3				# Fortify sources with compile- and run-time checks for unsafe libc usage and buffer overflows. Requires -O1 or higher
+			)
+		elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+			list(APPEND WIRESHARK_COMMON_FLAGS
+			-U_FORTIFY_SOURCE	# For dist like Ubuntu, U_FORTIFY_SOURCE must be input before D_FORTIFY_SOURCE
+			-D_FORTIFY_SOURCE=2				# Fortify sources with compile- and run-time checks for unsafe libc usage and buffer overflows. Requires -O1 or higher
 			)
 		endif()
 	endif()
@@ -825,7 +847,7 @@ else() # ! MSVC
 		# usage in normal operation.
 		#
 		list(APPEND WIRESHARK_COMMON_FLAGS
-			-Wframe-larger-than=32768
+			-Wstack-usage=32768
 		)
 	endif()
 
@@ -902,12 +924,7 @@ else() # ! MSVC
 			# It can be a lot of work to fix properly and none of them
 			# seem to flag very interesting issues.
 			#
-			-Wno-format-truncation # Enabled with -Wall
-
 			-Wno-format-nonliteral	# Enabled with -Wformat=2
-		)
-		list(APPEND WIRESHARK_C_ONLY_FLAGS
-			-Wno-pointer-sign # Enabled with -Wall
 		)
 	endif()
 
@@ -992,6 +1009,7 @@ else() # ! MSVC
 	set(WIRESHARK_LD_FLAGS
 		# See also CheckCLinkerFlag.cmake
 		-Wl,--as-needed
+		-Wl,--stack,8388608 # For Windows, e.g. MSYS2/mingw
 		# -flto
 		# -fwhopr
 		# -fwhole-program
@@ -1402,6 +1420,7 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 				PrintSupport
 				Widgets
 				Concurrent
+				Network
 				Core5Compat
 			OPTIONAL_COMPONENTS
 				DBus
@@ -1466,6 +1485,9 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 	endif() # USE_qt6
 
 	set(QT_FOUND ON)
+	if(WIN32)
+		ws_find_package(WinSparkle ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
+	endif()
 	if(APPLE)
 		ws_find_package(Sparkle ENABLE_SPARKLE HAVE_SOFTWARE_UPDATE 2)
 	endif()
@@ -1537,8 +1559,7 @@ if(FETCH_lua)
 	# Download and build lua
 	include(${CMAKE_SOURCE_DIR}/cmake/external/lua54/Lua54.cmake)
 else()
-	set(LUA_FIND_VERSIONS "5.4;5.3" CACHE STRING "Lua versions valid for the build (as a list)")
-	ws_find_package(Lua ENABLE_LUA HAVE_LUA)
+	ws_find_package(Lua ENABLE_LUA HAVE_LUA "5.3")
 endif()
 
 ws_find_package(NL ENABLE_NETLINK HAVE_LIBNL)
@@ -1551,6 +1572,8 @@ ws_find_package(SPANDSP ENABLE_SPANDSP HAVE_SPANDSP)
 ws_find_package(BCG729 ENABLE_BCG729 HAVE_BCG729)
 
 ws_find_package(AMRNB ENABLE_AMRNB HAVE_AMRNB)
+
+ws_find_package(AMRWB ENABLE_AMRWB HAVE_AMRWB)
 
 ws_find_package(ILBC ENABLE_ILBC HAVE_ILBC)
 
@@ -1566,9 +1589,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	ws_find_package(CAP ENABLE_CAP HAVE_LIBCAP)
 	find_package(SETCAP)
 endif()
-
-# Windows version updates
-ws_find_package(WinSparkle ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
 
 find_package( Asciidoctor 1.5 )
 find_package( XSLTPROC )
@@ -1590,16 +1610,18 @@ if(GNUTLS_FOUND)
 	# Calculating public keys from PKCS #11 private keys requires GnuTLS
 	# 3.4.0 or greater.
 	#
-	# Check that the support is present in case GnuTLS was compiled
-	# --without-p11-kit as macos-setup.sh did until December 2020.
-	cmake_push_check_state()
-	if(WIN32 AND NOT MINGW)
-		set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=int)
-	endif()
-	set(CMAKE_REQUIRED_INCLUDES ${GNUTLS_INCLUDE_DIRS})
-	set(CMAKE_REQUIRED_LIBRARIES ${GNUTLS_LIBRARIES})
-	check_symbol_exists(gnutls_pkcs11_obj_list_import_url4 gnutls/pkcs11.h HAVE_GNUTLS_PKCS11)
-	cmake_pop_check_state()
+	if (ENABLE_PKCS11)
+		# Check that the support is present in case GnuTLS was compiled
+		# --without-p11-kit as macos-setup.sh did until December 2020.
+		cmake_push_check_state()
+		if(WIN32 AND NOT MINGW)
+			set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=int)
+		endif()
+		set(CMAKE_REQUIRED_INCLUDES ${GNUTLS_INCLUDE_DIRS})
+		set(CMAKE_REQUIRED_LIBRARIES ${GNUTLS_LIBRARIES})
+		check_symbol_exists(gnutls_pkcs11_obj_list_import_url4 gnutls/pkcs11.h HAVE_GNUTLS_PKCS11)
+		cmake_pop_check_state()
+	endif (ENABLE_PKCS11)
 endif()
 
 if (QT_FOUND)
@@ -1646,12 +1668,14 @@ if (QT_FOUND)
 		find_program(DMGBUILD_EXECUTABLE dmgbuild
 			DOC "Path to the dmgbuild utility"
 		)
-		# https://doc.qt.io/qt-5/supported-platforms.html
 		# https://doc.qt.io/archives/qt-6.0/supported-platforms.html
 		# https://doc.qt.io/qt-6.5/supported-platforms.html
 		# https://doc.qt.io/qt-6.8/supported-platforms.html
+		# https://doc-snapshots.qt.io/qt6-6.10/supported-platforms.html
 		# https://doc-snapshots.qt.io/qt6-dev/supported-platforms.html
-		if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.8.0" AND MIN_MACOS_VERSION VERSION_LESS "12.0")
+		if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.10.0" AND MIN_MACOS_VERSION VERSION_LESS "13.0")
+			set(MIN_MACOS_VERSION 13.0)
+		elseif(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.8.0" AND MIN_MACOS_VERSION VERSION_LESS "12.0")
 			set(MIN_MACOS_VERSION 12.0)
 		elseif(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.5.0" AND MIN_MACOS_VERSION VERSION_LESS "11.0")
 			set(MIN_MACOS_VERSION 11.0)
@@ -1737,14 +1761,28 @@ include( UseCheckAPI )
 # If you change the nesting level be sure to check also the INSTALL_RPATH
 # target property.
 if(WIN32 AND NOT USE_MSYSTEM)
-	set(EXTCAP_INSTALL_LIBDIR "extcap/${PROJECT_NAME}" CACHE INTERNAL "The Wireshark extcap dir")
-	if (BUILD_stratoshark)
-		set(STRATOSHARK_EXTCAP_INSTALL_LIBDIR "extcap/${STRATOSHARK_NAME}" CACHE INTERNAL "The Stratoshark extcap dir")
+	if (ENABLE_SEPARATE_PROJECT_NAME)
+		set(EXTCAP_INSTALL_LIBDIR "extcap/${PROJECT_NAME}" CACHE INTERNAL "The Wireshark extcap dir")
+		if (BUILD_stratoshark)
+			set(STRATOSHARK_EXTCAP_INSTALL_LIBDIR "extcap/${STRATOSHARK_NAME}" CACHE INTERNAL "The Stratoshark extcap dir")
+		endif()
+	else()
+		set(EXTCAP_INSTALL_LIBDIR "extcap" CACHE INTERNAL "The Wireshark extcap dir")
+		if (BUILD_stratoshark)
+			set(STRATOSHARK_EXTCAP_INSTALL_LIBDIR "extcap" CACHE INTERNAL "The Stratoshark extcap dir")
+		endif()
 	endif()
 else()
+	if (ENABLE_SEPARATE_PROJECT_NAME)
 	set(EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBEXECDIR}/${PROJECT_NAME}/extcap" CACHE INTERNAL "The Wireshark extcap dir")
 	if (BUILD_stratoshark)
 		set(STRATOSHARK_EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBEXECDIR}/${STRATOSHARK_NAME}/extcap" CACHE INTERNAL "The Stratoshark extcap dir")
+	endif()
+	else()
+		set(EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBEXECDIR}/extcap" CACHE INTERNAL "The Wireshark extcap dir")
+		if (BUILD_stratoshark)
+			set(STRATOSHARK_EXTCAP_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBEXECDIR}/extcap" CACHE INTERNAL "The Stratoshark extcap dir")
+		endif()
 	endif()
 endif()
 
@@ -1770,11 +1808,16 @@ endif()
 if(WIN32 AND NOT USE_MSYSTEM)
 	set(PLUGIN_INSTALL_LIBDIR "plugins" CACHE INTERNAL "The plugin dir")
 else()
-	set(PLUGIN_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/plugins" CACHE INTERNAL "The plugin dir")
+	if (ENABLE_SEPARATE_PROJECT_NAME)
+		set(PLUGIN_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/plugins" CACHE INTERNAL "The plugin dir")
+	else()
+		set(PLUGIN_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/plugins" CACHE INTERNAL "The plugin dir")
+	endif()
 endif()
 set(PLUGIN_INSTALL_FULL_LIBDIR "${CMAKE_INSTALL_PREFIX}/${PLUGIN_INSTALL_LIBDIR}")
 set(PLUGIN_INSTALL_VERSION_LIBDIR "${PLUGIN_INSTALL_LIBDIR}/${PLUGIN_PATH_ID}")
-set(PLUGIN_VERSION_DIR "plugins/${PLUGIN_PATH_ID}")
+set(WIRESHARK_PLUGIN_VERSION_DIR "plugins/wireshark/${PLUGIN_PATH_ID}")
+set(STRATOSHARK_PLUGIN_VERSION_DIR "plugins/stratoshark/${PLUGIN_PATH_ID}")
 
 add_subdirectory( capture )
 add_subdirectory( epan )
@@ -1838,16 +1881,20 @@ add_subdirectory( doc )
 
 if(BUILD_wireshark AND QT_FOUND)
 	add_subdirectory( ui/qt )
+	add_subdirectory( ui/plugins )
 elseif(BUILD_wireshark AND USE_qt6)
 	message(VERBOSE "To use Qt5 instead of Qt6 use CMake option USE_qt6=OFF.")
 endif()
 
 if(BUILD_stratoshark AND QT_FOUND)
+	if(NOT BUILD_wireshark)
+		add_subdirectory( ui/plugins )
+	endif()
 	add_subdirectory( ui/stratoshark )
 endif()
 
-# Location of our plugins. PLUGIN_DIR should allow running
-# from the build directory similar to DATAFILE_DIR above.
+# Location of our plugins. {WIRESHARK,STRATOSHARK}_PLUGIN_DIR should allow
+# running from the build directory similar to DATAFILE_DIR above.
 if(ENABLE_PLUGINS)
 	# Target platform locations
 	# UN*X in general, including macOS if not building an app bundle:
@@ -1857,7 +1904,7 @@ if(ENABLE_PLUGINS)
 	set(HAVE_PLUGINS 1)
 	add_custom_target(plugins)
 	set_target_properties(plugins PROPERTIES FOLDER "Plugins")
-	set(PLUGIN_SRC_DIRS
+	set(WIRESHARK_PLUGIN_SRC_DIRS
 		plugins/epan/ethercat
 		plugins/epan/gryphon
 		plugins/epan/irda
@@ -1884,73 +1931,74 @@ if(ENABLE_PLUGINS)
 		)
 	endif()
 	if(SPANDSP_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/G722
 			plugins/codecs/G726
 		)
 	endif()
 	if(BCG729_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/G729
 		)
 	endif()
 	if(AMRNB_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/amrnb
 		)
 	endif()
+	if(AMRWB_FOUND)
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
+			plugins/codecs/amrwb
+		)
+	endif()
 	if(ILBC_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/iLBC
 		)
 	endif()
 	if(OPUS_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/opus_dec
 		)
 	endif()
 	if(SBC_FOUND)
-		list(APPEND PLUGIN_SRC_DIRS
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
 			plugins/codecs/sbc
 		)
 	endif()
 
 	# Build demo plugin, only if asked explicitly
 	if(ENABLE_PLUGIN_IFDEMO)
-		list(APPEND PLUGIN_SRC_DIRS
-			plugins/epan/pluginifdemo
+		list(APPEND WIRESHARK_PLUGIN_SRC_DIRS
+			plugins/ui/pluginifdemo
 		)
 	endif()
 
 else()
-	set(PLUGIN_SRC_DIRS )
+	set(WIRESHARK_PLUGIN_SRC_DIRS )
 	set(STRATOSHARK_PLUGIN_SRC_DIRS )
 endif()
 
 if(ENABLE_APPLICATION_BUNDLE)
 	if(CMAKE_CFG_INTDIR STREQUAL ".")
-		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
-	else()
-		# Xcode
-		set(_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
-	endif()
-	if(CMAKE_CFG_INTDIR STREQUAL ".")
+		set(_wireshark_plugin_dir "${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
 		set(_stratoshark_plugin_dir "${CMAKE_BINARY_DIR}/run/Stratoshark.app/Contents/PlugIns/stratoshark/${PLUGIN_PATH_ID}")
 	else()
 		# Xcode
+		set(_wireshark_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/PlugIns/wireshark/${PLUGIN_PATH_ID}")
 		set(_stratoshark_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/Stratoshark.app/Contents/PlugIns/stratoshark/${PLUGIN_PATH_ID}")
 	endif()
 elseif(MSVC AND NOT CMAKE_CFG_INTDIR STREQUAL ".")
-	set(_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/${PLUGIN_VERSION_DIR}")
-	set(_stratoshark_plugin_dir ${_plugin_dir})
+	set(_wireshark_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/${WIRESHARK_PLUGIN_VERSION_DIR}")
+	set(_stratoshark_plugin_dir "${CMAKE_BINARY_DIR}/run/$<CONFIG>/${STRATOSHARK_PLUGIN_VERSION_DIR}")
 else()
-	set(_plugin_dir "${DATAFILE_DIR}/${PLUGIN_VERSION_DIR}")
-	set(_stratoshark_plugin_dir ${_plugin_dir})
+	set(_wireshark_plugin_dir "${DATAFILE_DIR}/${WIRESHARK_PLUGIN_VERSION_DIR}")
+	set(_stratoshark_plugin_dir "${DATAFILE_DIR}/${STRATOSHARK_PLUGIN_VERSION_DIR}")
 endif()
-set (PLUGIN_DIR ${_plugin_dir} CACHE INTERNAL "Build time plugin location.")
+set (WIRESHARK_PLUGIN_DIR ${_wireshark_plugin_dir} CACHE INTERNAL "Build time plugin location.")
 set (STRATOSHARK_PLUGIN_DIR ${_stratoshark_plugin_dir} CACHE INTERNAL "Build time Stratoshark plugin location.")
 
-foreach(_plugin_src_dir ${PLUGIN_SRC_DIRS} ${STRATOSHARK_PLUGIN_SRC_DIRS})
+foreach(_plugin_src_dir ${WIRESHARK_PLUGIN_SRC_DIRS} ${STRATOSHARK_PLUGIN_SRC_DIRS})
 	add_subdirectory( ${_plugin_src_dir} )
 endforeach()
 
@@ -2036,6 +2084,11 @@ set_package_properties(AMRNB PROPERTIES
 	DESCRIPTION "AMRNB decoder"
 	URL "https://sourceforge.net/p/opencore-amr"
 	PURPOSE "Support for AMRNB codec in RTP player"
+)
+set_package_properties(AMRWB PROPERTIES
+	DESCRIPTION "AMRWB decoder"
+	URL "https://sourceforge.net/p/opencore-amr"
+	PURPOSE "Support for AMRWB codec in RTP player"
 )
 set_package_properties(ILBC PROPERTIES
 	DESCRIPTION "iLBC decoder"
@@ -2164,7 +2217,7 @@ elseif(APPLE)
 		ui/macosx/cocoa_bridge.mm
 	)
 	if (SPARKLE_FOUND)
-		list(APPEND PLATFORM_UI_SRC ui/macosx/sparkle_bridge.m)
+		list(APPEND PLATFORM_UI_SRC ui/macosx/sparkle_bridge.mm)
 	endif()
 endif()
 
@@ -2172,6 +2225,7 @@ set(TSHARK_TAP_SRC
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-credentials.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-camelsrt.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-diameter-avp.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-dis.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-expert.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-exportobject.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-endpoints.c
@@ -2222,13 +2276,21 @@ set(STRATO_TAP_SRC
 # Copied into ${DATAFILE_DIR} at build time and ${CMAKE_INSTALL_DATADIR}/wireshark
 # at install time.
 set(INSTALL_DIRS
-	resources/share/wireshark/profiles
 	resources/protocols/diameter
 	resources/protocols/dtds
+	resources/protocols/json
+	resources/protocols/qualcomm
 	resources/protocols/radius
 	resources/protocols/tpncp
+	resources/protocols/trdp
 	resources/protocols/wimaxasncp
+	resources/protocols/protobuf
 )
+if (GLOBAL_PROFILE_DATA_DIR)
+	list(APPEND INSTALL_DIRS ${GLOBAL_PROFILE_DATA_DIR})
+else()
+	list(APPEND INSTALL_DIRS resources/share/wireshark/profiles)
+endif()
 
 # Copied into ${DATAFILE_DIR} at build time and ${CMAKE_INSTALL_DATADIR}/wireshark
 # at install time.
@@ -2249,9 +2311,13 @@ set(DOC_FILES
 )
 
 if (BUILD_stratoshark)
-	set(STRATOSHARK_INSTALL_DIRS
-		resources/share/stratoshark/profiles
-	)
+	set(STRATOSHARK_INSTALL_DIRS)
+
+	if (STRATOSHARK_GLOBAL_PROFILE_DATA_DIR)
+		list(APPEND STRATOSHARK_INSTALL_DIRS ${STRATOSHARK_GLOBAL_PROFILE_DATA_DIR})
+	else()
+		list(APPEND STRATOSHARK_INSTALL_DIRS resources/share/stratoshark/profiles)
+	endif()
 
 	set(STRATOSHARK_INSTALL_FILES
 		doc/ws.css
@@ -2326,28 +2392,6 @@ if(USE_REPOSITORY)
 		COMMAND ${CMAKE_COMMAND} -E make_directory "${_dll_output_dir}"
 	)
 
-	# XXX Can (and should) we iterate over these similar to the way
-	# the top-level CMakeLists.txt iterates over the package list?
-
-	# Required DLLs and their corresponding PDBs.
-	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			"$<IF:$<CONFIG:Debug>,${GLIB2_DLLS_DEBUG},${GLIB2_DLLS_RELEASE}>"
-			"$<IF:$<CONFIG:Debug>,${GLIB2_PDBS_DEBUG},${GLIB2_PDBS_RELEASE}>"
-			"${_dll_output_dir}"
-		WORKING_DIRECTORY $<IF:$<CONFIG:Debug>,${GLIB2_DLL_DIR_DEBUG},${GLIB2_DLL_DIR_RELEASE}>
-		COMMAND_EXPAND_LISTS
-	)
-
-	add_custom_command(TARGET copy_cli_dlls PRE_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			"$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_DLL},${PCRE2_RELEASE_DLL}>"
-			"$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_PDB},${PCRE2_RELEASE_PDB}>"
-			"${_dll_output_dir}"
-		WORKING_DIRECTORY $<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_DLL_DIR},${PCRE2_RELEASE_DLL_DIR}>
-		COMMAND_EXPAND_LISTS
-	)
-
 	if (MSVC AND VLD_FOUND)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E "$<IF:$<CONFIG:Debug>,copy_if_different,true>"
@@ -2373,6 +2417,30 @@ if(USE_REPOSITORY)
 			list (APPEND THIRD_PARTY_DLLS "${LIBSSH_DLL_DIR}/${_dll}")
 		endforeach(_dll)
 	endif(LIBSSH_FOUND)
+	foreach(_dll ${GLIB2_DLLS_DEBUG})
+		list(APPEND THIRD_PARTY_DLLS "$<$<CONFIG:Debug>:${GLIB2_DLL_DIR_DEBUG}/${_dll}>")
+	endforeach()
+	foreach(_pdb ${GLIB2_PDBS_DEBUG})
+		list(APPEND THIRD_PARTY_PDBS "$<$<CONFIG:Debug>:${GLIB2_DLL_DIR_DEBUG}/${_pdb}>")
+	endforeach()
+	foreach(_dll ${GLIB2_DLLS_RELEASE})
+		list(APPEND THIRD_PARTY_DLLS "$<$<NOT:$<CONFIG:Debug>>:${GLIB2_DLL_DIR_RELEASE}/${_dll}>")
+	endforeach()
+	foreach(_pdb ${GLIB2_PDBS_RELEASE})
+		list(APPEND THIRD_PARTY_PDBS "$<$<NOT:$<CONFIG:Debug>>:${GLIB2_DLL_DIR_RELEASE}/${_pdb}>")
+	endforeach()
+	foreach(_dll ${PCRE2_DEBUG_DLL})
+		list(APPEND THIRD_PARTY_DLLS "$<$<CONFIG:Debug>:${PCRE2_DEBUG_DLL_DIR}/${_dll}>")
+	endforeach()
+	foreach(_pdb ${PCRE2_DEBUG_PDB})
+		list(APPEND THIRD_PARTY_PDBS "$<$<CONFIG:Debug>:${PCRE2_DEBUG_DLL_DIR}/${_pdb}>")
+	endforeach()
+	foreach(_dll ${PCRE2_RELEASE_DLL})
+		list(APPEND THIRD_PARTY_DLLS "$<$<NOT:$<CONFIG:Debug>>:${PCRE2_RELEASE_DLL_DIR}/${_dll}>")
+	endforeach()
+	foreach(_pdb ${PCRE2_RELEASE_PDB})
+		list(APPEND THIRD_PARTY_PDBS "$<$<NOT:$<CONFIG:Debug>>:${PCRE2_RELEASE_DLL_DIR}/${_pdb}>")
+	endforeach()
 	foreach( _dll ${GCRYPT_DLLS} )
 		list (APPEND THIRD_PARTY_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
 	endforeach(_dll)
@@ -2415,12 +2483,18 @@ if(USE_REPOSITORY)
 	if (SPANDSP_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${SPANDSP_DLL_DIR}/${SPANDSP_DLL}")
 	endif(SPANDSP_FOUND)
+	if (SINSP_FOUND AND FALCO_PLUGIN_DLLS)
+		list (APPEND THIRD_PARTY_DLLS ${FALCO_PLUGIN_DLLS})
+	endif()
 	if (BCG729_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${BCG729_DLL_DIR}/${BCG729_DLL}")
 	endif(BCG729_FOUND)
 	if (AMRNB_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${AMRNB_DLL_DIR}/${AMRNB_DLL}")
 	endif(AMRNB_FOUND)
+	if (AMRWB_FOUND)
+		list (APPEND THIRD_PARTY_DLLS "${AMRWB_DLL_DIR}/${AMRWB_DLL}")
+	endif(AMRWB_FOUND)
 	if (ILBC_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${ILBC_DLL_DIR}/${ILBC_DLL}")
 	endif(ILBC_FOUND)
@@ -2437,33 +2511,49 @@ if(USE_REPOSITORY)
 		list (APPEND THIRD_PARTY_DLLS "${SMI_DLL_DIR}/${SMI_DLL}")
 		# Wireshark.nsi wants SMI_DIR which is the base SMI directory
 		get_filename_component(SMI_DIR ${SMI_DLL_DIR} DIRECTORY)
+
+		#Make the necessary output directories for the SMI MIBs.
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E make_directory
 				"${_dll_output_dir}/snmp"
 			COMMAND ${CMAKE_COMMAND} -E make_directory
 				"${_dll_output_dir}/snmp/mibs"
+		)
+
+		set (SMI_MIBS)
+
+		#List of the subdirectories in the SMI share directory that contain desired MIBs.
+		set(MIB_DIRS "mibs/ietf" "mibs/iana" "mibs/irtf" "mibs/site" "mibs/tubs" "pibs" "yang")
+
+		foreach( _mib_dir ${MIB_DIRS} )
+
+			#Grab everything in the subdirectory, but only keep the files.
+			set(MIBS_FILES "")
+			file(GLOB POTENTIAL_MIBS_FILES
+				CONFIGURE_DEPENDS
+				"${SMI_SHARE_DIR}/${_mib_dir}/*"
+			)
+			foreach(_path ${POTENTIAL_MIBS_FILES})
+				if(NOT IS_DIRECTORY "${_path}")
+					list(APPEND MIBS_FILES "${_path}")
+				endif()
+			endforeach()
+
+			add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/mibs/iana"
+				"${SMI_SHARE_DIR}/${_mib_dir}"
 				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/mibs/ietf"
-				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/mibs/irtf"
-				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/mibs/site"
-				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/mibs/tubs"
-				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/pibs"
-				"${_dll_output_dir}/snmp/mibs"
-			COMMAND ${CMAKE_COMMAND} -E copy_directory
-				"${SMI_SHARE_DIR}/yang"
-				"${_dll_output_dir}/snmp/mibs"
-			#remove the extra directories copied (shallow copying the above would remove the need for this)
+			)
+
+			#Keep track of the MIBs for packaging and installation.
+			list (APPEND SMI_MIBS ${MIBS_FILES})
+
+		endforeach(_mib_dir)
+
+		#remove the extra directories copied
+		#Shallow copying the above would remove the need for this, but there is a character limit (Windows)
+		#on the length of the command, and the SMI_MIBS list can get quite long.
+		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E remove_directory
 				"${_dll_output_dir}/snmp/mibs/iana"
 			COMMAND ${CMAKE_COMMAND} -E remove_directory
@@ -2473,6 +2563,11 @@ if(USE_REPOSITORY)
 			COMMAND ${CMAKE_COMMAND} -E remove_directory
 				"${_dll_output_dir}/snmp/mibs/tubs"
 		)
+
+		#Add the MIBs to the list of files to be installed.
+		cmake_path(SET MIBS_INSTALL_DIR NORMALIZE "${CMAKE_INSTALL_BINDIR}/snmp/mibs")
+		install(FILES ${SMI_MIBS} DESTINATION "${MIBS_INSTALL_DIR}")
+
 	endif(SMI_FOUND)
 	if (SNAPPY_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${SNAPPY_DLL_DIR}/${SNAPPY_DLL}")
@@ -2617,6 +2712,7 @@ set(_protocol_data_dir ${CMAKE_SOURCE_DIR}/resources/protocols)
 # TODO shouldn't this use full (relative) paths instead of glob patterns?
 set(DATA_FILES_SRC
 	${_protocol_data_dir}/tpncp/tpncp.dat
+	${_protocol_data_dir}/trdp/iec_61375-2-3.xml
 	${_protocol_data_dir}/wimaxasncp/*.dtd
 	${_protocol_data_dir}/wimaxasncp/*.xml
 )
@@ -2705,6 +2801,29 @@ add_custom_command(
 	WORKING_DIRECTORY ${_protocol_data_dir}
 )
 
+file(GLOB _json_dict_src_files RELATIVE ${_protocol_data_dir}
+	${_protocol_data_dir}/json/*.xml
+	${_protocol_data_dir}/json/*.txt
+)
+
+set (_json_dict_data_files)
+set (_json_dict_dep_files)
+foreach(_data_file ${_json_dict_src_files})
+	list(APPEND _json_dict_data_files ${DATAFILE_DIR}/${_data_file})
+	list(APPEND _json_dict_dep_files ${_protocol_data_dir}/${_data_file})
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_json_dict_data_files}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${DATAFILE_DIR}/json
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		${_json_dict_src_files}
+		${DATAFILE_DIR}/json
+	VERBATIM
+	DEPENDS ${_json_dict_dep_files}
+	WORKING_DIRECTORY ${_protocol_data_dir}
+)
+
 file(GLOB _protobuf_src_files RELATIVE ${_protocol_data_dir}
 	${_protocol_data_dir}/protobuf/*.proto
 )
@@ -2726,38 +2845,74 @@ add_custom_command(
 	WORKING_DIRECTORY ${_protocol_data_dir}
 )
 
-set(_profiles_src_dir ${CMAKE_SOURCE_DIR}/resources/share/wireshark)
-file(GLOB _profiles_src_files RELATIVE ${_profiles_src_dir} ${_profiles_src_dir}/profiles/*/*)
+file(GLOB _qualcomm_src_files RELATIVE ${_protocol_data_dir}
+	${_protocol_data_dir}/qualcomm/*.dtd
+	${_protocol_data_dir}/qualcomm/*.xml
+)
+
+set (_qualcomm_data_files)
+set (_qualcomm_dep_files)
+foreach(_data_file ${_qualcomm_src_files})
+	list(APPEND _qualcomm_data_files ${DATAFILE_DIR}/${_data_file})
+	list(APPEND _qualcomm_dep_files ${_protocol_data_dir}/${_data_file})
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_qualcomm_data_files}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${DATAFILE_DIR}/qualcomm
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		${_qualcomm_src_files}
+		${DATAFILE_DIR}/qualcomm
+	VERBATIM
+	DEPENDS ${_qualcomm_dep_files}
+	WORKING_DIRECTORY ${_protocol_data_dir}
+)
+
+if (GLOBAL_PROFILE_DATA_DIR)
+	set(_profiles_src_dir ${GLOBAL_PROFILE_DATA_DIR})
+else()
+	set(_profiles_src_dir ${CMAKE_SOURCE_DIR}/resources/share/wireshark/profiles)
+endif()
+	file(GLOB WIRESHARK_PROFILE_FILES RELATIVE ${_profiles_src_dir} ${_profiles_src_dir}/*/*)
 set (_profiles_data_files)
-foreach(_data_file ${_profiles_src_files})
-	list(APPEND _profiles_data_files "${DATAFILE_DIR}/${_data_file}")
+foreach(_data_file ${WIRESHARK_PROFILE_FILES})
+	list(APPEND _profiles_data_files "${DATAFILE_DIR}/profiles/${_data_file}")
 endforeach()
 
 add_custom_command(
 	OUTPUT ${_profiles_data_files}
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
-		"${CMAKE_SOURCE_DIR}/resources/share/wireshark/profiles" "${DATAFILE_DIR}/profiles"
+		"${_profiles_src_dir}" "${DATAFILE_DIR}/profiles"
 )
+
+
+if (BUILD_stratoshark)
+	if (STRATOSHARK_GLOBAL_PROFILE_DATA_DIR)
+		set(_profiles_src_dir ${STRATOSHARK_GLOBAL_PROFILE_DATA_DIR})
+	else()
+		set(_profiles_src_dir ${CMAKE_SOURCE_DIR}/resources/share/stratoshark/profiles)
+	endif()
+	file(GLOB STRATOSHARK_PROFILE_FILES RELATIVE ${_profiles_src_dir} ${_profiles_src_dir}/*/*)
+endif()
 
 set (_stratoshark_profiles_data_files)
 if (BUILD_stratoshark AND ENABLE_APPLICATION_BUNDLE)
-	set(_profiles_src_dir ${CMAKE_SOURCE_DIR}/resources/share/stratoshark)
-	file(GLOB _profiles_src_files RELATIVE ${_profiles_src_dir} ${_profiles_src_dir}/profiles/*/*)
-	foreach(_data_file ${_profiles_src_files})
-		list(APPEND _stratoshark_profiles_data_files "${STRATOSHARK_DATAFILE_DIR}/${_data_file}")
+	foreach(_data_file ${STRATOSHARK_PROFILE_FILES})
+		list(APPEND _stratoshark_profiles_data_files "${STRATOSHARK_DATAFILE_DIR}/profiles/${_data_file}")
 	endforeach()
-
 	add_custom_command(
 		OUTPUT ${_stratoshark_profiles_data_files}
 		COMMAND ${CMAKE_COMMAND} -E copy_directory
-			"${CMAKE_SOURCE_DIR}/resources/share/stratoshark/profiles" "${STRATOSHARK_DATAFILE_DIR}/profiles"
+			"${_profiles_src_dir}" "${STRATOSHARK_DATAFILE_DIR}/profiles"
 	)
 endif()
 
 list(APPEND copy_data_files_depends
 	${_dtds_data_files}
 	${_diameter_data_files}
+	${_qualcomm_data_files}
 	${_radius_data_files}
+	${_json_dict_data_files}
 	${_protobuf_data_files}
 	${_profiles_data_files}
 	${_stratoshark_profiles_data_files}
@@ -2767,24 +2922,32 @@ list(APPEND copy_data_files_depends
 add_custom_target(copy_data_files ALL DEPENDS ${copy_data_files_depends} )
 set_target_properties(copy_data_files PROPERTIES FOLDER "Copy Tasks")
 
-# sources common for wireshark, tshark, rawshark and sharkd
-add_library(shark_common OBJECT
-	cfile.c
+# sources common for executables that support interacting with extcap
+# interfaces.
+#
+# XXX - Should these be put into a shared library? extcap.c uses functions
+# from libwireshark (prefs) so if these were moved into a shared library it
+# would have to be libwireshark or a library that depends on libwireshark.
+# (Note that the files to implement a extcap interface in extcap/ depend
+# on libwsutil and libwiretap, but not libwireshark.)
+set(EXTCAP_SUPPORT_SRC
+	extcap.c
 	extcap_parser.c
-	file_packet_provider.c
-	sync_pipe_write.c
 )
+add_library(extcap_support OBJECT ${EXTCAP_SUPPORT_SRC})
+target_compile_options(extcap_support PRIVATE ${WERROR_COMMON_FLAGS})
 add_library(cli_main OBJECT cli_main.c)
+target_compile_options(cli_main PRIVATE ${WERROR_COMMON_FLAGS})
 
 if(BUILD_wireshark AND QT_FOUND)
 	set(WIRESHARK_SRC
 		file.c
 		fileset.c
-		extcap.c
 		${PLATFORM_UI_SRC}
+		app/wireshark_flavor.c
 	)
 	set(wireshark_FILES
-		$<TARGET_OBJECTS:shark_common>
+		$<TARGET_OBJECTS:extcap_support>
 		${WIRESHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
 	)
@@ -2795,11 +2958,11 @@ if(BUILD_stratoshark AND QT_FOUND)
 	set(STRATOSHARK_SRC
 		file.c
 		fileset.c
-		extcap.c
 		${PLATFORM_UI_SRC}
+		app/stratoshark_flavor.c
 	)
 	set(stratoshark_FILES
-		$<TARGET_OBJECTS:shark_common>
+		$<TARGET_OBJECTS:extcap_support>
 		${STRATOSHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
 	)
@@ -2833,19 +2996,94 @@ if(ENABLE_APPLICATION_BUNDLE)
 
 	# Add files to the Wireshark application bundle
 	# Wireshark.app/Contents
-	file(WRITE ${CMAKE_BINARY_DIR}/packaging/macosx/wireshark/PkgInfo "APPLWshk\n")
-	set(WIRESHARK_BUNDLE_CONTENTS_FILES
-		${CMAKE_BINARY_DIR}/packaging/macosx/wireshark/PkgInfo
-	)
-	set_source_files_properties(${WIRESHARK_BUNDLE_CONTENTS_FILES} PROPERTIES
-		MACOSX_PACKAGE_LOCATION .
-	)
+	if(CMAKE_CFG_INTDIR STREQUAL ".")
+		# Not Xcode
+		file(WRITE ${CMAKE_BINARY_DIR}/packaging/macosx/wireshark/PkgInfo "APPLWshk\n")
+		set(WIRESHARK_BUNDLE_CONTENTS_FILES
+			${CMAKE_BINARY_DIR}/packaging/macosx/wireshark/PkgInfo
+		)
+		set_source_files_properties(${WIRESHARK_BUNDLE_CONTENTS_FILES} PROPERTIES
+			MACOSX_PACKAGE_LOCATION .
+		)
+	else()
+		# Xcode seems to generate its own
+		set(WIRESHARK_BUNDLE_CONTENTS_FILES)
+	endif()
+
+	if(HAVE_LIQUID_GLASS_ICONS)
+		# Compile our Liquid Glass icons to an asset catalog
+		# https://successfulsoftware.net/2025/09/26/updating-application-icons-for-macos-26-tahoe-and-liquid-glass/
+		# https://www.hendrik-erz.de/post/supporting-liquid-glass-icons-in-apps-without-xcode
+		#
+		# You can verify the name(s) with
+		# xcrun --sdk macosx assetutil --info resources/wireshark/Assets.car > /tmp/icon.json
+		# jq '.[] | select(.AssetType="Icon Image") | .Name' < /tmp/icon.json
+		#
+		# On Xcode 15.2 on macOS 14.2.1 the command below returns 0, but does not generate Assets.car.
+		# On Xcode 26.2 on macOS 15.7.3 the command below returns 0 and generates Assets.car along with a bunch of
+		#   dyld[16760]: symbol '_kFigCaptionRegionDisplayAlign_Before' missing from root that overrides /System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia. Use of that symbol in /System/Library/PrivateFrameworks/AVFCore.framework/Versions/A/AVFCore is being set to 0xBAD4007.
+		# warnings. The icon assets otherwise seem to work OK.
+		# On Xcode 26.2 on macOS 26.2 the command below returns 0 and generates Assets.car with no warnings.
+		add_custom_command(
+			OUTPUT
+				${CMAKE_BINARY_DIR}/resources/wireshark/Assets.car
+				${CMAKE_BINARY_DIR}/resources/wireshark/Wireshark.icns
+			COMMAND ${ACTOOL_EXECUTABLE}
+				${CMAKE_SOURCE_DIR}/resources/icons/Wireshark.icon
+				${CMAKE_SOURCE_DIR}/resources/icons/WiresharkCapture.icon
+				--output-format human-readable-text
+				--compile ${CMAKE_BINARY_DIR}/resources/wireshark
+				--output-partial-info-plist ${CMAKE_BINARY_DIR}/resources/wireshark/icon_info.plist --notices --warnings --errors
+				--app-icon Wireshark
+				--alternate-app-icon WiresharkCapture
+				--skip-app-store-deployment
+				--development-region en
+				--platform macosx
+				--minimum-deployment-target ${MIN_MACOS_VERSION}
+				--target-device mac
+				--enable-on-demand-resources NO
+				--print-contents
+		)
+		add_custom_target(generate-wireshark-assets-car
+			DEPENDS
+				${CMAKE_BINARY_DIR}/resources/wireshark/Assets.car
+				${CMAKE_BINARY_DIR}/resources/wireshark/Wireshark.icns
+		)
+
+		add_custom_command(
+			OUTPUT
+				${CMAKE_BINARY_DIR}/resources/stratoshark/Assets.car
+				${CMAKE_BINARY_DIR}/resources/stratoshark/Stratoshark.icns
+			COMMAND ${ACTOOL_EXECUTABLE}
+				${CMAKE_SOURCE_DIR}/resources/icons/Stratoshark.icon
+				${CMAKE_SOURCE_DIR}/resources/icons/StratosharkCapture.icon
+				--output-format human-readable-text
+				--compile ${CMAKE_BINARY_DIR}/resources/stratoshark
+				--output-partial-info-plist ${CMAKE_BINARY_DIR}/resources/stratoshark/icon_info.plist --notices --warnings --errors
+				--app-icon Stratoshark
+				--alternate-app-icon StratosharkCapture
+				--skip-app-store-deployment
+				--development-region en
+				--platform macosx
+				--minimum-deployment-target ${MIN_MACOS_VERSION}
+				--target-device mac
+				--enable-on-demand-resources NO
+				--print-contents
+		)
+		add_custom_target(generate-stratoshark-assets-car
+			DEPENDS
+				${CMAKE_BINARY_DIR}/resources/stratoshark/Assets.car
+				${CMAKE_BINARY_DIR}/resources/stratoshark/Stratoshark.icns
+		)
+	endif()
 
 	# Wireshark.app/Contents/Resources
 	set(WIRESHARK_BUNDLE_RESOURCE_FILES
-		${CMAKE_SOURCE_DIR}/packaging/macosx/Wireshark.icns
-		${CMAKE_SOURCE_DIR}/packaging/macosx/Wiresharkdoc.icns
+		${CMAKE_SOURCE_DIR}/resources/icons/wireshark/Assets.car
+		${CMAKE_SOURCE_DIR}/resources/icons/wireshark/Wireshark.icns
+		${CMAKE_SOURCE_DIR}/resources/icons/wireshark/Wiresharkdoc.icns
 	)
+
 	set_source_files_properties(${WIRESHARK_BUNDLE_RESOURCE_FILES} PROPERTIES
 		MACOSX_PACKAGE_LOCATION Resources
 	)
@@ -2873,24 +3111,25 @@ if(ENABLE_APPLICATION_BUNDLE)
 
 	# Add files to the Stratoshark application bundle
 	# Stratoshark.app/Contents
-	file(WRITE ${CMAKE_BINARY_DIR}/packaging/macosx/stratoshark/PkgInfo "APPLLgry\n")
-	set(STRATOSHARK_BUNDLE_CONTENTS_FILES
-		${CMAKE_BINARY_DIR}/packaging/macosx/stratoshark/PkgInfo
-	)
-	set_source_files_properties(${STRATOSHARK_BUNDLE_CONTENTS_FILES} PROPERTIES
-		MACOSX_PACKAGE_LOCATION .
-	)
+	if(CMAKE_CFG_INTDIR STREQUAL ".")
+		# Not Xcode
+		file(WRITE ${CMAKE_BINARY_DIR}/packaging/macosx/stratoshark/PkgInfo "APPLLgry\n")
+		set(STRATOSHARK_BUNDLE_CONTENTS_FILES
+			${CMAKE_BINARY_DIR}/packaging/macosx/stratoshark/PkgInfo
+		)
+		set_source_files_properties(${STRATOSHARK_BUNDLE_CONTENTS_FILES} PROPERTIES
+			MACOSX_PACKAGE_LOCATION .
+		)
+	else()
+		# Xcode seems to generate its own
+		set(STRATOSHARK_BUNDLE_CONTENTS_FILES)
+	endif()
 
 	# Stratoshark.app/Contents/Resources
-	add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/resources/icons/Stratoshark.icns
-		COMMAND ${ICONUTIL_EXECUTABLE}
-			-c icns
-			-o ${CMAKE_BINARY_DIR}/resources/icons/Stratoshark.icns
-			${CMAKE_SOURCE_DIR}/resources/icons/Stratoshark.iconset
-	)
 	set(STRATOSHARK_BUNDLE_RESOURCE_FILES
-		${CMAKE_BINARY_DIR}/resources/icons/Stratoshark.icns
-		${CMAKE_SOURCE_DIR}/packaging/macosx/Wiresharkdoc.icns
+		${CMAKE_SOURCE_DIR}/resources/icons/stratoshark/Assets.car
+		${CMAKE_SOURCE_DIR}/resources/icons/stratoshark/Stratoshark.icns
+		${CMAKE_SOURCE_DIR}/resources/icons/wireshark/Wiresharkdoc.icns
 	)
 	set_source_files_properties(${STRATOSHARK_BUNDLE_RESOURCE_FILES} PROPERTIES
 		MACOSX_PACKAGE_LOCATION Resources
@@ -2926,6 +3165,7 @@ if(BUILD_wireshark AND QT_FOUND)
 	set(wireshark_LIBS
 		ui
 		qtui
+		uiqt_plugin
 		capchild
 		caputils
 		iface_monitor
@@ -2980,6 +3220,7 @@ if(BUILD_wireshark AND QT_FOUND)
 		set_target_properties(
 			wireshark PROPERTIES
 				MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/packaging/macosx/WiresharkInfo.plist
+				XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.wireshark.Wireshark"
 		)
 		if(CMAKE_CFG_INTDIR STREQUAL ".")
 			# Add a wrapper script which opens the bundle. This is more convenient
@@ -3041,6 +3282,7 @@ if(BUILD_stratoshark AND QT_FOUND)
 	set(stratoshark_LIBS
 		ui
 		ui_stratoshark
+		uiqt_plugin
 		capchild
 		caputils
 		iface_monitor
@@ -3093,6 +3335,7 @@ if(BUILD_stratoshark AND QT_FOUND)
 		set_target_properties(
 			stratoshark PROPERTIES
 				MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/packaging/macosx/StratosharkInfo.plist
+				XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.wireshark.Stratoshark"
 		)
 		if(CMAKE_CFG_INTDIR STREQUAL ".")
 			# Add a wrapper script which opens the bundle. This is more convenient
@@ -3223,10 +3466,10 @@ if(BUILD_tshark)
 	)
 	set(tshark_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:shark_common>
+		$<TARGET_OBJECTS:extcap_support>
 		tshark-tap-register.c
 		tshark.c
-		extcap.c
+		app/wireshark_flavor.c
 		${TSHARK_TAP_SRC}
 	)
 
@@ -3253,9 +3496,9 @@ if(BUILD_strato)
 	)
 	set(strato_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:shark_common>
+		$<TARGET_OBJECTS:extcap_support>
 		strato.c
-		extcap.c
+		app/stratoshark_flavor.c
 		${STRATO_TAP_SRC}
 		strato-tap-register.c
 	)
@@ -3281,8 +3524,8 @@ if(BUILD_tfshark)
 	)
 	set(tfshark_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:shark_common>
 		tfshark.c
+		app/wireshark_flavor.c
 		${TSHARK_TAP_SRC}
 	)
 	set_executable_resources(tfshark "TFShark")
@@ -3304,8 +3547,8 @@ if(BUILD_rawshark AND PCAP_FOUND)
 	)
 	set(rawshark_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:shark_common>
 		rawshark.c
+		app/wireshark_flavor.c
 	)
 	set_executable_resources(rawshark "Rawshark")
 	add_executable(rawshark ${rawshark_FILES})
@@ -3331,18 +3574,18 @@ if(BUILD_sharkd)
 		# XXX - currently doesn't work on Windows if it uses
 		# $<TARGET_OBJECTS:cli_main> and has real_main().
 		#
-		$<TARGET_OBJECTS:shark_common>
 		ui/cli/simple_dialog.c
 		sharkd.c
 		sharkd_daemon.c
 		sharkd_session.c
+		app/wireshark_flavor.c
 		${TSHARK_TAP_SRC}
 	)
 	set_executable_resources(sharkd "SharkD")
 	add_executable(sharkd ${sharkd_FILES})
 	set_extra_executable_properties(sharkd "Executables")
 	target_link_libraries(sharkd ${sharkd_LIBS})
-	target_include_directories(sharkd SYSTEM PUBLIC ${SPEEXDSP_INCLUDE_DIRS})
+	target_include_directories(sharkd SYSTEM PUBLIC ${SPEEXDSP_INCLUDE_DIRS} ${GCRYPT_INCLUDE_DIRS})
 
 	install(TARGETS sharkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
@@ -3355,6 +3598,7 @@ if(BUILD_dftest)
 	)
 	set(dftest_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		dftest.c
 	)
 	set_executable_resources(dftest "Dftest")
@@ -3379,6 +3623,7 @@ if(BUILD_randpkt)
 	)
 	set(randpkt_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		randpkt.c
 	)
 	set_executable_resources(randpkt "Randpkt"
@@ -3405,6 +3650,7 @@ if(BUILD_text2pcap)
 	)
 	set(text2pcap_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		text2pcap.c
 	)
 	set_executable_resources(text2pcap "Text2pcap"
@@ -3426,6 +3672,7 @@ if(BUILD_mergecap)
 	)
 	set(mergecap_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		mergecap.c
 	)
 	set_executable_resources(mergecap "Mergecap")
@@ -3446,6 +3693,7 @@ if(BUILD_reordercap)
 	)
 	set(reordercap_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		reordercap.c
 	)
 	set_executable_resources(reordercap "Reordercap")
@@ -3468,6 +3716,7 @@ if(BUILD_capinfos)
 	)
 	set(capinfos_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		capinfos.c
 	)
 	set_executable_resources(capinfos "Capinfos")
@@ -3490,6 +3739,7 @@ if(BUILD_captype)
 	)
 	set(captype_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		captype.c
 	)
 	set_executable_resources(captype "Captype")
@@ -3511,6 +3761,7 @@ if(BUILD_editcap)
 	)
 	set(editcap_FILES
 		$<TARGET_OBJECTS:cli_main>
+		app/wireshark_flavor.c
 		editcap.c
 	)
 	set_executable_resources(editcap "Editcap")
@@ -3563,8 +3814,8 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		cli_main.c
 		dumpcap.c
 		ringbuffer.c
-		sync_pipe_write.c
 		capture/iface_monitor.c
+		capture/sync_pipe_write.c
 		capture/ws80211_utils.c
 		ui/capture_opts.c
 		${CAPUTILS_SRC}
@@ -4024,6 +4275,9 @@ if(RPMBUILD_EXECUTABLE)
 	if (AMRNB_FOUND)
 		list(APPEND _rpmbuild_with_args --with amrnb)
 	endif()
+	if (AMRWB_FOUND)
+		list(APPEND _rpmbuild_with_args --with amrwb)
+	endif()
 	if (ILBC_FOUND)
 		list(APPEND _rpmbuild_with_args --with ilbc)
 	endif()
@@ -4201,6 +4455,9 @@ if(CLEAN_C_FILES)
 	endif()
 
 	# XXX This also contains object files ($<TARGET_OBJECTS:...>), is that an issue?
+	# It doesn't cause it to fail, but it doesn't set the flags on
+	# those objects' source files, either.
+	# https://discourse.cmake.org/t/set-source-file-properties-and-generator-expressions-to-support-partial-linking-executables/9932/3
 	set_source_files_properties(
 		${CLEAN_C_FILES}
 		PROPERTIES
@@ -4208,9 +4465,13 @@ if(CLEAN_C_FILES)
 	)
 endif()
 
-# CMake 3.31 and later warn, if normalization changes a path (CMP0177).
-# As we want to normalize without the warning, we do it explicitly.
-cmake_path(SET TMP_DST_PATH NORMALIZE "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}")
+if (ENABLE_SEPARATE_PROJECT_NAME)
+    # CMake 3.31 and later warn, if normalization changes a path (CMP0177).
+    # As we want to normalize without the warning, we do it explicitly.
+    cmake_path(SET TMP_DST_PATH NORMALIZE "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}")
+else()
+    set(TMP_DST_PATH "${CMAKE_INSTALL_DATADIR}")
+endif()
 install(
 	FILES
 		${INSTALL_FILES}
@@ -4259,7 +4520,6 @@ if(ASCIIDOCTOR_FOUND AND XSLTPROC_EXECUTABLE)
 endif()
 
 set(SHARK_PUBLIC_HEADERS
-	cfile.h
 	cli_main.h
 	${CMAKE_BINARY_DIR}/ws_version.h
 )
@@ -4289,7 +4549,7 @@ if(BUILD_wireshark AND QT_FOUND AND NOT APPLE AND (NOT WIN32 OR USE_MSYSTEM))
 		install(FILES resources/freedesktop/org.wireshark.Wireshark.desktop
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 	endif()
-	foreach(size 16 24 32 48 64 128 256)
+	foreach(size 16 24 32 48 64 256)
 		install(FILES resources/icons/wsicon${size}.png
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${size}x${size}/apps"
 			RENAME org.wireshark.Wireshark.png)
@@ -4328,7 +4588,13 @@ install(FILES "${CMAKE_BINARY_DIR}/resources/wireshark.pc"
 	EXCLUDE_FROM_ALL
 )
 
-cmake_path(SET TMP_DST_PATH NORMALIZE "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}")
+if (ENABLE_SEPARATE_PROJECT_NAME)
+    # CMake 3.31 and later warn, if normalization changes a path (CMP0177).
+    # As we want to normalize without the warning, we do it explicitly.
+    cmake_path(SET TMP_DST_PATH NORMALIZE "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}")
+else()
+    set(TMP_DST_PATH "${CMAKE_INSTALL_DATADIR}")
+endif()
 install(
 	DIRECTORY
 		${INSTALL_DIRS}
@@ -4345,6 +4611,7 @@ install(
 	PATTERN ".git" EXCLUDE
 	PATTERN ".svn" EXCLUDE
 	PATTERN "Makefile.*" EXCLUDE
+	PATTERN ".editorconfig" EXCLUDE
 )
 
 
@@ -4374,7 +4641,11 @@ if(WIN32 AND NOT USE_MSYSTEM)
 	# path (incorrect relative path computation).
 	set(WIRESHARK_INSTALL_CMAKEDIR "cmake")
 else()
-	set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+	if (ENABLE_SEPARATE_PROJECT_NAME)
+		set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+	else()
+		set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake")
+	endif()
 endif()
 
 include(CMakePackageConfigHelpers)
@@ -4540,6 +4811,7 @@ CHECKAPI(
 	SOURCES
 	  ${WIRESHARK_SRC}
 	  ${TSHARK_TAP_SRC}
+	  ${EXTCAP_SUPPORT_SRC}
 )
 
 find_program(SHELLCHECK_EXECUTABLE shellcheck

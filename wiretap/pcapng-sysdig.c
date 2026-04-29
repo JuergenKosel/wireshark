@@ -63,6 +63,8 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
     uint32_t block_content_length, section_info_t* section_info,
     wtapng_block_t* wblock, int* err, char** err_info)
 {
+    unsigned block_remaining = block_content_length;
+    int byte_order;
     uint16_t cpu_id;
     uint64_t ts;
     uint64_t thread_id;
@@ -75,22 +77,13 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
     unsigned preamble_len = MIN_SYSDIG_PREAMBLE_SIZE + (has_flags ? 4 : 0);
     unsigned event_header_len = MIN_SYSDIG_EVENT_SIZE + (has_nparams ? 4 : 0);
 
-    wblock->block = wtap_block_create(WTAP_BLOCK_SYSDIG_EVENT);
-
-    if (block_content_length < preamble_len + event_header_len) {
+    // Preamble
+    if (ckd_sub(&block_remaining, block_remaining, preamble_len)) {
         *err = WTAP_ERR_BAD_FILE;
-        *err_info = ws_strdup_printf("pcapng: block content length %u of a Sysdig event block is too small (< %u)",
-            block_content_length, preamble_len + event_header_len);
+        *err_info = ws_strdup_printf("pcapng: block content length %u of a Sysdig event block is too small for a preamble of length %u)",
+            block_content_length, preamble_len);
         return false;
     }
-
-    wtap_setup_syscall_rec(wblock->rec);
-    wblock->rec->rec_header.syscall_header.record_type = block_type;
-    wblock->rec->presence_flags = WTAP_HAS_CAP_LEN /*|WTAP_HAS_INTERFACE_ID */;
-    wblock->rec->tsprec = WTAP_TSPREC_NSEC;
-    wblock->rec->rec_header.syscall_header.pathname = wth->pathname;
-
-    // Preamble
     if (!wtap_read_bytes(fh, &cpu_id, sizeof cpu_id, err, err_info)) {
         ws_debug("failed to read sysdig event cpu id");
         return false;
@@ -101,7 +94,14 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
             return false;
         }
     }
+
     // Event header
+    if (ckd_sub(&block_remaining, block_remaining, event_header_len)) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = ws_strdup_printf("pcapng: block content length %u of a Sysdig event block is too small for an event header of length %u)",
+            block_content_length, event_header_len);
+        return false;
+    }
     if (!wtap_read_bytes(fh, &ts, sizeof ts, err, err_info)) {
         ws_debug("failed to read sysdig event timestamp");
         return false;
@@ -126,7 +126,7 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
     }
 
     if (section_info->byte_swapped) {
-        wblock->rec->rec_header.syscall_header.byte_order =
+        byte_order =
 #if G_BYTE_ORDER == G_LITTLE_ENDIAN
             G_BIG_ENDIAN;
 #else
@@ -141,7 +141,7 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
         nparams = GUINT32_SWAP_LE_BE(nparams);
     }
     else {
-        wblock->rec->rec_header.syscall_header.byte_order = G_BYTE_ORDER;
+        byte_order = G_BYTE_ORDER;
     }
 
     if (ts) {
@@ -151,24 +151,33 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
     wblock->rec->ts.secs = (time_t)(ts / 1000000000);
     wblock->rec->ts.nsecs = (int)(ts % 1000000000);
 
-    unsigned block_remaining = block_content_length - preamble_len - event_header_len;
+    // Event data
+    uint32_t event_data_len;
+
+    //
+    // The total event length can't be less than the length of an event's
+    // header.
+    //
+    if (ckd_sub(&event_data_len, event_len, event_header_len)) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = ws_strdup_printf("pcapng: event length %u of a Sysdig event block is less than the event's header length %u",
+                                     event_len, event_header_len);
+        return false;
+    }
+
     if (event_len > block_remaining + event_header_len) {
         ws_debug("Truncating event length %u to %u", event_len, block_remaining + event_header_len);
         // ...or should we just return false here?
         event_len = block_remaining + event_header_len;
     }
 
-    uint32_t event_data_len = event_len - event_header_len;
+    if (ckd_sub(&block_remaining, block_remaining, event_data_len)) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = ws_strdup_printf("pcapng: block content length %u of a Sysdig event block is too small for %u bytes of event data",
+            block_content_length, event_data_len);
+        return false;
+    }
 
-    wblock->rec->rec_header.syscall_header.cpu_id = cpu_id;
-    wblock->rec->rec_header.syscall_header.flags = flags;
-    wblock->rec->rec_header.syscall_header.thread_id = thread_id;
-    wblock->rec->rec_header.syscall_header.event_len = event_len;
-    wblock->rec->rec_header.syscall_header.event_data_len = event_data_len;
-    wblock->rec->rec_header.syscall_header.event_type = event_type;
-    wblock->rec->rec_header.syscall_header.nparams = nparams;
-
-    // Event data
     // XXX Should we include the event header here? It would ensure that
     // we always have data and avoid the "consumed = 1" workaround in the
     // Falco Events dissector.
@@ -177,16 +186,41 @@ pcapng_read_sysdig_event_block(wtap* wth, FILE_T fh, uint32_t block_type,
     }
 
     unsigned pad_len = WS_PADDING_TO_4(event_len + preamble_len);
-    if (pad_len && file_seek(fh, pad_len, SEEK_CUR, err) < 0) {
-        return false;   /* Seek error */
+    if (pad_len != 0) {
+        if (ckd_sub(&block_remaining, block_remaining, pad_len)) {
+            *err = WTAP_ERR_BAD_FILE;
+            *err_info = ws_strdup_printf("pcapng: block content length %u of a Sysdig event block is too small for %u bytes of padding",
+                block_content_length, pad_len);
+            return false;
+        }
+	if (file_seek(fh, pad_len, SEEK_CUR, err) < 0) {
+            return false;   /* Seek error */
+        }
     }
 
     /* Options */
-    unsigned opt_cont_buf_len = block_remaining - (event_data_len + pad_len);
+    unsigned opt_cont_buf_len = block_remaining;
     if (!pcapng_process_options(fh, wblock, section_info, opt_cont_buf_len,
         NULL,
         OPT_LITTLE_ENDIAN, err, err_info))
         return false;
+
+    wblock->block = wtap_block_create(WTAP_BLOCK_SYSDIG_EVENT);
+
+    wtap_setup_syscall_rec(wblock->rec);
+    wblock->rec->rec_header.syscall_header.record_type = block_type;
+    wblock->rec->presence_flags = WTAP_HAS_CAP_LEN /*|WTAP_HAS_INTERFACE_ID */;
+    wblock->rec->tsprec = WTAP_TSPREC_NSEC;
+    wblock->rec->rec_header.syscall_header.pathname = wth->pathname;
+
+    wblock->rec->rec_header.syscall_header.byte_order = byte_order;
+    wblock->rec->rec_header.syscall_header.cpu_id = cpu_id;
+    wblock->rec->rec_header.syscall_header.flags = flags;
+    wblock->rec->rec_header.syscall_header.thread_id = thread_id;
+    wblock->rec->rec_header.syscall_header.event_len = event_len;
+    wblock->rec->rec_header.syscall_header.event_data_len = event_data_len;
+    wblock->rec->rec_header.syscall_header.event_type = event_type;
+    wblock->rec->rec_header.syscall_header.nparams = nparams;
 
     /*
      * We return these to the caller in pcapng_read().

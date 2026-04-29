@@ -17,7 +17,7 @@
 #include <epan/decode_as.h>
 #include <ui/language.h>
 #include <ui/preference_utils.h>
-#include <cfile.h>
+#include <epan/cfile.h>
 #include <ui/commandline.h>
 #include <ui/simple_dialog.h>
 #include <ui/recent.h>
@@ -27,6 +27,8 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/color_utils.h>
 #include <ui/capture_globals.h>
+#include <app/application_flavor.h>
+
 
 #include "main_application.h"
 
@@ -65,7 +67,7 @@ module_prefs_unstash(module_t *module, void *data)
     *must_redissect_p |= module->prefs_changed_flags;
 
     if (prefs_module_has_submodules(module))
-        return prefs_modules_foreach_submodules(module, module_prefs_unstash, data);
+        return prefs_modules_foreach_submodules(module->submodules, module_prefs_unstash, data);
 
     return 0;     /* Keep unstashing. */
 }
@@ -82,7 +84,7 @@ module_prefs_clean_stash(module_t *module, void *)
     }
 
     if (prefs_module_has_submodules(module))
-        return prefs_modules_foreach_submodules(module, module_prefs_clean_stash, Q_NULLPTR);
+        return prefs_modules_foreach_submodules(module->submodules, module_prefs_clean_stash, Q_NULLPTR);
 
     return 0;     /* Keep cleaning modules */
 }
@@ -140,6 +142,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) :
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::Layout)] = pd_ui_->layoutFrame;
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::Columns)] = pd_ui_->columnFrame;
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::FontAndColors)] = pd_ui_->fontandcolorFrame;
+    prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::WelcomePage)] = pd_ui_->welcomePageFrame;
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::Capture)] = pd_ui_->captureFrame;
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::Expert)] = pd_ui_->expertFrame;
     prefs_pane_to_item_[PrefsModel::typeToString(PrefsModel::FilterButtons)] = pd_ui_->filterExpressonsFrame;
@@ -168,7 +171,7 @@ PreferencesDialog::~PreferencesDialog()
 {
     delete pd_ui_;
     delete searchLineEditTimer;
-    prefs_modules_foreach_submodules(NULL, module_prefs_clean_stash, NULL);
+    prefs_modules_for_all_modules(module_prefs_clean_stash, NULL);
 }
 
 void PreferencesDialog::setPane(const QString module_name)
@@ -383,9 +386,9 @@ void PreferencesDialog::apply()
     //       "stashed" value is sometimes the last valid input, not, e.g., the
     //       input when the dialog was opened.
     // XXX - We're also too enthusiastic about setting must_redissect.
-    prefs_modules_foreach_submodules(NULL, module_prefs_unstash, (void *)&redissect_flags);
+    prefs_modules_for_all_modules(module_prefs_unstash, (void *)&redissect_flags);
 
-    extcap_register_preferences();
+    extcap_register_preferences(NULL, NULL);
 
     if (redissect_flags & PREF_EFFECT_GUI_LAYOUT) {
         // Layout type changed, reset sizes
@@ -398,10 +401,11 @@ void PreferencesDialog::apply()
     }
 
     pd_ui_->columnFrame->unstash();
+    pd_ui_->welcomePageFrame->unstash();
     pd_ui_->filterExpressonsFrame->acceptChanges();
     pd_ui_->expertFrame->acceptChanges();
 #ifdef HAVE_LIBGNUTLS
-    pd_ui_->rsaKeysFrame->acceptChanges();
+    redissect_flags |= pd_ui_->rsaKeysFrame->acceptChanges();
 #endif
 
     //Filter expressions don't affect dissection, so there is no need to
@@ -410,14 +414,18 @@ void PreferencesDialog::apply()
     mainApp->emitAppSignal(MainApplication::FilterExpressionsChanged);
 
     prefs_main_write();
-    if (save_decode_as_entries(&err) < 0)
+    if (save_decode_as_entries(application_flavor_name_proper(), application_configuration_environment_prefix(), &err) < 0)
     {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err);
         g_free(err);
     }
 
-    write_language_prefs();
-    mainApp->loadLanguage(QString(language));
+    if (!write_language_prefs(application_configuration_environment_prefix(), &err))
+    {
+        simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err);
+        g_free(err);
+    }
+    mainApp->loadLanguage(QString(get_language_used()));
     /*
      * Apply the protocol preferences first - "gui_prefs_apply()" could
      * cause redissection, and we have to make sure the protocol
@@ -432,10 +440,7 @@ void PreferencesDialog::apply()
         mainApp->emitAppSignal(MainApplication::AggregationChanged);
     }
 
-    mainApp->setMonospaceFont(prefs.gui_font_name);
-
     if (redissect_flags & (PREF_EFFECT_GUI_COLOR)) {
-        ColorUtils::setScheme(prefs.gui_color_scheme);
         mainApp->emitAppSignal(MainApplication::ColorsChanged);
     }
 
@@ -452,9 +457,9 @@ void PreferencesDialog::apply()
         mainApp->emitAppSignal(MainApplication::PacketDissectionChanged);
     }
 
-    if (redissect_flags) {
-        mainApp->emitAppSignal(MainApplication::PreferencesChanged);
-    }
+    write_profile_recent();
+
+    mainApp->emitAppSignal(MainApplication::PreferencesChanged);
 
     if (redissect_flags & PREF_EFFECT_GUI_LAYOUT) {
         mainApp->emitAppSignal(MainApplication::RecentPreferencesRead);

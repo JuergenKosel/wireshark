@@ -26,10 +26,6 @@
 #include "packet-pkix1implicit.h"
 #include "packet-sgp22.h"
 
-#define PNAME  "SGP.22 GSMA Remote SIM Provisioning (RSP)"
-#define PSNAME "SGP.22"
-#define PFNAME "sgp22"
-
 void proto_register_sgp22(void);
 void proto_reg_handoff_sgp22(void);
 
@@ -40,7 +36,6 @@ static int hf_sgp22_GetEuiccInfo2Request_PDU;     /* GetEuiccInfo2Request */
 static int hf_sgp22_EUICCInfo2_PDU;               /* EUICCInfo2 */
 static int hf_sgp22_ProfileInfoListRequest_PDU;   /* ProfileInfoListRequest */
 static int hf_sgp22_ProfileInfoListResponse_PDU;  /* ProfileInfoListResponse */
-static int hf_sgp22_ProfileInfo_PDU;              /* ProfileInfo */
 static int hf_sgp22_StoreMetadataRequest_PDU;     /* StoreMetadataRequest */
 static int hf_sgp22_UpdateMetadataRequest_PDU;    /* UpdateMetadataRequest */
 static int hf_sgp22_PrepareDownloadRequest_PDU;   /* PrepareDownloadRequest */
@@ -94,7 +89,7 @@ static int hf_sgp22_GetBoundProfilePackageResponse_PDU;  /* GetBoundProfilePacka
 static int hf_sgp22_HandleNotification_PDU;       /* HandleNotification */
 static int hf_sgp22_EuiccConfiguredAddressesRequest_PDU;  /* EuiccConfiguredAddressesRequest */
 static int hf_sgp22_EuiccConfiguredAddressesResponse_PDU;  /* EuiccConfiguredAddressesResponse */
-static int hf_sgp22_ISDRProprietaryApplicationTemplate_PDU;  /* ISDRProprietaryApplicationTemplate */
+static int hf_sgp22_sgp22_ISDRProprietaryApplicationTemplate_PDU;  /* ISDRProprietaryApplicationTemplate */
 static int hf_sgp22_LpaeActivationRequest_PDU;    /* LpaeActivationRequest */
 static int hf_sgp22_LpaeActivationResponse_PDU;   /* LpaeActivationResponse */
 static int hf_sgp22_SetDefaultDpAddressRequest_PDU;  /* SetDefaultDpAddressRequest */
@@ -505,6 +500,12 @@ static int ett_sgp22_AuthenticateClientOkEs11;
 static int ett_sgp22_SEQUENCE_OF_EventEntries;
 static int ett_sgp22_EventEntries;
 
+/*--- Cyclic dependencies ---*/
+
+/* VendorSpecificExtension/_item/vendorSpecificData -> VendorSpecificExtension/_item/vendorSpecificData */
+static unsigned dissect_sgp22_T_vendorSpecificData(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+
 
 static int * const UICCCapability_bits[] = {
   &hf_sgp22_UICCCapability_contactlessSupport,
@@ -542,8 +543,8 @@ static int * const UICCCapability_bits[] = {
   NULL
 };
 
-int
-dissect_sgp22_UICCCapability(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_UICCCapability(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     UICCCapability_bits, 32, hf_index, ett_sgp22_UICCCapability,
                                     NULL);
@@ -553,8 +554,8 @@ dissect_sgp22_UICCCapability(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 
 
-static int
-dissect_sgp22_Octet8(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_Octet8(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    8, 8, hf_index, NULL);
 
@@ -563,8 +564,8 @@ dissect_sgp22_Octet8(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-static int
-dissect_sgp22_Octet4(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_Octet4(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    4, 4, hf_index, NULL);
 
@@ -573,8 +574,8 @@ dissect_sgp22_Octet4(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-int
-dissect_sgp22_Octet16(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_Octet16(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    16, 16, hf_index, NULL);
 
@@ -583,8 +584,8 @@ dissect_sgp22_Octet16(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 
 
-int
-dissect_sgp22_OctetTo16(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_OctetTo16(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    1, 16, hf_index, NULL);
 
@@ -593,8 +594,8 @@ dissect_sgp22_OctetTo16(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 
 
-int
-dissect_sgp22_Octet32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_Octet32(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    32, 32, hf_index, NULL);
 
@@ -603,8 +604,8 @@ dissect_sgp22_Octet32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 
 
-int
-dissect_sgp22_Octet1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_Octet1(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    1, 1, hf_index, NULL);
 
@@ -613,8 +614,8 @@ dissect_sgp22_Octet1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-int
-dissect_sgp22_VersionType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_VersionType(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *next_tvb = NULL;
 
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
@@ -638,8 +639,8 @@ dissect_sgp22_VersionType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 
 
 
-static int
-dissect_sgp22_Iccid_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_Iccid_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *next_tvb = NULL;
 
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
@@ -655,8 +656,8 @@ dissect_sgp22_Iccid_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 
 
-int
-dissect_sgp22_Iccid(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_Iccid(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_APP, 26, true, dissect_sgp22_Iccid_U);
 
@@ -670,8 +671,8 @@ static const value_string sgp22_RemoteOpId_U_vals[] = {
 };
 
 
-static int
-dissect_sgp22_RemoteOpId_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteOpId_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -680,8 +681,8 @@ dissect_sgp22_RemoteOpId_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 
 
-static int
-dissect_sgp22_RemoteOpId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteOpId(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 2, true, dissect_sgp22_RemoteOpId_U);
 
@@ -690,8 +691,8 @@ dissect_sgp22_RemoteOpId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 
 
-int
-dissect_sgp22_TransactionId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_TransactionId(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    1, 16, hf_index, NULL);
 
@@ -703,8 +704,8 @@ static const ber_sequence_t GetEuiccInfo1Request_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccInfo1Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccInfo1Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccInfo1Request_U_sequence, hf_index, ett_sgp22_GetEuiccInfo1Request_U);
 
@@ -713,8 +714,8 @@ dissect_sgp22_GetEuiccInfo1Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_GetEuiccInfo1Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccInfo1Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 32, true, dissect_sgp22_GetEuiccInfo1Request_U);
 
@@ -726,8 +727,8 @@ static const ber_sequence_t SEQUENCE_OF_SubjectKeyIdentifier_sequence_of[1] = {
   { &hf_sgp22_euiccCiPKIdListForVerification_item, BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_NOOWNTAG, dissect_pkix1implicit_SubjectKeyIdentifier },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_SubjectKeyIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_SubjectKeyIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_SubjectKeyIdentifier_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_SubjectKeyIdentifier);
 
@@ -742,8 +743,8 @@ static const ber_sequence_t EUICCInfo1_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EUICCInfo1_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EUICCInfo1_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EUICCInfo1_U_sequence, hf_index, ett_sgp22_EUICCInfo1_U);
 
@@ -752,8 +753,8 @@ dissect_sgp22_EUICCInfo1_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 
 
-int
-dissect_sgp22_EUICCInfo1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_EUICCInfo1(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 32, true, dissect_sgp22_EUICCInfo1_U);
 
@@ -765,8 +766,8 @@ static const ber_sequence_t GetEuiccInfo2Request_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccInfo2Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccInfo2Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccInfo2Request_U_sequence, hf_index, ett_sgp22_GetEuiccInfo2Request_U);
 
@@ -775,8 +776,8 @@ dissect_sgp22_GetEuiccInfo2Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_GetEuiccInfo2Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccInfo2Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 34, true, dissect_sgp22_GetEuiccInfo2Request_U);
 
@@ -785,8 +786,8 @@ dissect_sgp22_GetEuiccInfo2Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 
-static int
-dissect_sgp22_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
                                        NULL);
 
@@ -804,8 +805,8 @@ static int * const RspCapability_bits[] = {
   NULL
 };
 
-int
-dissect_sgp22_RspCapability(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_RspCapability(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     RspCapability_bits, 6, hf_index, ett_sgp22_RspCapability,
                                     NULL);
@@ -823,8 +824,8 @@ static const value_string sgp22_T_euiccCategory_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_euiccCategory(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_euiccCategory(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -839,8 +840,8 @@ static int * const PprIds_bits[] = {
   NULL
 };
 
-int
-dissect_sgp22_PprIds(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_PprIds(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     PprIds_bits, 3, hf_index, ett_sgp22_PprIds,
                                     NULL);
@@ -850,8 +851,8 @@ dissect_sgp22_PprIds(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-static int
-dissect_sgp22_UTF8String_SIZE_0_64(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UTF8String_SIZE_0_64(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
                                                         actx, tree, tvb, offset,
                                                         0, 64, hf_index, NULL);
@@ -861,8 +862,8 @@ dissect_sgp22_UTF8String_SIZE_0_64(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 
-static int
-dissect_sgp22_UTF8String(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UTF8String(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
                                             actx, tree, tvb, offset, hf_index,
                                             NULL);
@@ -877,8 +878,8 @@ static const ber_sequence_t CertificationDataObject_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_CertificationDataObject(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_CertificationDataObject(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CertificationDataObject_sequence, hf_index, ett_sgp22_CertificationDataObject);
 
@@ -893,8 +894,8 @@ static int * const T_treProperties_bits[] = {
   NULL
 };
 
-static int
-dissect_sgp22_T_treProperties(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_treProperties(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     T_treProperties_bits, 3, hf_index, ett_sgp22_T_treProperties,
                                     NULL);
@@ -907,8 +908,8 @@ static const ber_sequence_t SEQUENCE_OF_VersionType_sequence_of[1] = {
   { &hf_sgp22_additionalEuiccProfilePackageVersions_item, BER_CLASS_UNI, BER_UNI_TAG_OCTETSTRING, BER_FLAGS_NOOWNTAG, dissect_sgp22_VersionType },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_VersionType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_VersionType(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_VersionType_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_VersionType);
 
@@ -938,8 +939,8 @@ static const ber_sequence_t EUICCInfo2_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EUICCInfo2_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EUICCInfo2_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EUICCInfo2_U_sequence, hf_index, ett_sgp22_EUICCInfo2_U);
 
@@ -948,8 +949,8 @@ dissect_sgp22_EUICCInfo2_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 
 
-static int
-dissect_sgp22_EUICCInfo2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EUICCInfo2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 34, true, dissect_sgp22_EUICCInfo2_U);
 
@@ -958,8 +959,8 @@ dissect_sgp22_EUICCInfo2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 
 
-static int
-dissect_sgp22_CatSupportedClasses(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CatSupportedClasses(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     NULL, 0, hf_index, -1,
                                     NULL);
@@ -969,8 +970,8 @@ dissect_sgp22_CatSupportedClasses(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 
 
-static int
-dissect_sgp22_EuiccFormFactorType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccFormFactorType(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -979,8 +980,8 @@ dissect_sgp22_EuiccFormFactorType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 
 
-static int
-dissect_sgp22_OBJECT_IDENTIFIER(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_OBJECT_IDENTIFIER(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
 
   return offset;
@@ -993,8 +994,8 @@ static const ber_sequence_t DeviceAdditionalFeatureSupport_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DeviceAdditionalFeatureSupport(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeviceAdditionalFeatureSupport(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DeviceAdditionalFeatureSupport_sequence, hf_index, ett_sgp22_DeviceAdditionalFeatureSupport);
 
@@ -1021,8 +1022,8 @@ static const ber_sequence_t DeviceCapabilities_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DeviceCapabilities(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeviceCapabilities(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DeviceCapabilities_sequence, hf_index, ett_sgp22_DeviceCapabilities);
 
@@ -1037,8 +1038,8 @@ static const ber_sequence_t DeviceInfo_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_DeviceInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_DeviceInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DeviceInfo_sequence, hf_index, ett_sgp22_DeviceInfo);
 
@@ -1054,8 +1055,8 @@ const value_string sgp22_ProfileClass_vals[] = {
 };
 
 
-int
-dissect_sgp22_ProfileClass(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ProfileClass(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1077,8 +1078,8 @@ static const ber_choice_t T_searchCriteria_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_T_searchCriteria(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_searchCriteria(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  T_searchCriteria_choice, hf_index, ett_sgp22_T_searchCriteria,
                                  NULL);
@@ -1093,8 +1094,8 @@ static const ber_sequence_t ProfileInfoListRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfileInfoListRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfoListRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ProfileInfoListRequest_U_sequence, hf_index, ett_sgp22_ProfileInfoListRequest_U);
 
@@ -1103,8 +1104,8 @@ dissect_sgp22_ProfileInfoListRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 
 
 
-int
-dissect_sgp22_ProfileInfoListRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ProfileInfoListRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 45, true, dissect_sgp22_ProfileInfoListRequest_U);
 
@@ -1119,8 +1120,8 @@ const value_string sgp22_ProfileState_vals[] = {
 };
 
 
-int
-dissect_sgp22_ProfileState(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ProfileState(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1129,8 +1130,8 @@ dissect_sgp22_ProfileState(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 
 
-static int
-dissect_sgp22_UTF8String_SIZE_0_32(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UTF8String_SIZE_0_32(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
                                                         actx, tree, tvb, offset,
                                                         0, 32, hf_index, NULL);
@@ -1146,8 +1147,8 @@ const value_string sgp22_IconType_vals[] = {
 };
 
 
-int
-dissect_sgp22_IconType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_IconType(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1156,8 +1157,8 @@ dissect_sgp22_IconType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 
 
-static int
-dissect_sgp22_OCTET_STRING_SIZE_0_1024(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_OCTET_STRING_SIZE_0_1024(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    0, 1024, hf_index, NULL);
 
@@ -1173,8 +1174,8 @@ static int * const NotificationEvent_bits[] = {
   NULL
 };
 
-int
-dissect_sgp22_NotificationEvent(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_NotificationEvent(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     NotificationEvent_bits, 4, hf_index, ett_sgp22_NotificationEvent,
                                     NULL);
@@ -1189,8 +1190,8 @@ static const ber_sequence_t NotificationConfigurationInformation_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_NotificationConfigurationInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_NotificationConfigurationInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    NotificationConfigurationInformation_sequence, hf_index, ett_sgp22_NotificationConfigurationInformation);
 
@@ -1202,8 +1203,8 @@ static const ber_sequence_t SEQUENCE_OF_NotificationConfigurationInformation_seq
   { &hf_sgp22_notificationConfigurationInfo_item, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_NotificationConfigurationInformation },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_NotificationConfigurationInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_NotificationConfigurationInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_NotificationConfigurationInformation_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_NotificationConfigurationInformation);
 
@@ -1212,8 +1213,8 @@ dissect_sgp22_SEQUENCE_OF_NotificationConfigurationInformation(bool implicit_tag
 
 
 
-static int
-dissect_sgp22_OCTET_STRING_SIZE_3(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_OCTET_STRING_SIZE_3(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    3, 3, hf_index, NULL);
 
@@ -1228,8 +1229,8 @@ static const ber_sequence_t OperatorId_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_OperatorId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_OperatorId(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    OperatorId_sequence, hf_index, ett_sgp22_OperatorId);
 
@@ -1242,8 +1243,8 @@ static const ber_sequence_t DpProprietaryData_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_DpProprietaryData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_DpProprietaryData(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DpProprietaryData_sequence, hf_index, ett_sgp22_DpProprietaryData);
 
@@ -1252,8 +1253,8 @@ dissect_sgp22_DpProprietaryData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 
 
-static int
-dissect_sgp22_T_vendorOid(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_vendorOid(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier_str(implicit_tag, actx, tree, tvb, offset, hf_sgp22_vendorOid, &actx->external.direct_reference);
 
   return offset;
@@ -1261,11 +1262,14 @@ dissect_sgp22_T_vendorOid(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 
 
 
-static int
-dissect_sgp22_T_vendorSpecificData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_vendorSpecificData(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // VendorSpecificExtension/_item/vendorSpecificData -> VendorSpecificExtension/_item/vendorSpecificData
+  increment_dissection_depth_by_n(actx->pinfo, 1);
 offset=call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, NULL);
 
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -1276,8 +1280,8 @@ static const ber_sequence_t VendorSpecificExtension_item_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_VendorSpecificExtension_item(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_VendorSpecificExtension_item(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    VendorSpecificExtension_item_sequence, hf_index, ett_sgp22_VendorSpecificExtension_item);
 
@@ -1289,8 +1293,8 @@ static const ber_sequence_t VendorSpecificExtension_sequence_of[1] = {
   { &hf_sgp22_VendorSpecificExtension_item, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_VendorSpecificExtension_item },
 };
 
-int
-dissect_sgp22_VendorSpecificExtension(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_VendorSpecificExtension(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       VendorSpecificExtension_sequence_of, hf_index, ett_sgp22_VendorSpecificExtension);
 
@@ -1316,8 +1320,8 @@ static const ber_sequence_t ProfileInfo_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfileInfo_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfo_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ProfileInfo_U_sequence, hf_index, ett_sgp22_ProfileInfo_U);
 
@@ -1326,8 +1330,8 @@ dissect_sgp22_ProfileInfo_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 
 
-static int
-dissect_sgp22_ProfileInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_PRI, 3, true, dissect_sgp22_ProfileInfo_U);
 
@@ -1339,8 +1343,8 @@ static const ber_sequence_t SEQUENCE_OF_ProfileInfo_sequence_of[1] = {
   { &hf_sgp22_profileInfoListOk_item, BER_CLASS_PRI, 3, BER_FLAGS_NOOWNTAG, dissect_sgp22_ProfileInfo },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_ProfileInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_ProfileInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_ProfileInfo_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_ProfileInfo);
 
@@ -1355,8 +1359,8 @@ static const value_string sgp22_ProfileInfoListError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_ProfileInfoListError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfoListError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1376,8 +1380,8 @@ static const ber_choice_t ProfileInfoListResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfileInfoListResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfoListResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  ProfileInfoListResponse_U_choice, hf_index, ett_sgp22_ProfileInfoListResponse_U,
                                  NULL);
@@ -1387,8 +1391,8 @@ dissect_sgp22_ProfileInfoListResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_ProfileInfoListResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInfoListResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 45, true, dissect_sgp22_ProfileInfoListResponse_U);
 
@@ -1411,8 +1415,8 @@ static const ber_sequence_t StoreMetadataRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_StoreMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_StoreMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    StoreMetadataRequest_U_sequence, hf_index, ett_sgp22_StoreMetadataRequest_U);
 
@@ -1421,8 +1425,8 @@ dissect_sgp22_StoreMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_StoreMetadataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_StoreMetadataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 37, true, dissect_sgp22_StoreMetadataRequest_U);
 
@@ -1440,8 +1444,8 @@ static const ber_sequence_t UpdateMetadataRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_UpdateMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UpdateMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    UpdateMetadataRequest_U_sequence, hf_index, ett_sgp22_UpdateMetadataRequest_U);
 
@@ -1450,8 +1454,8 @@ dissect_sgp22_UpdateMetadataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_UpdateMetadataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UpdateMetadataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 42, true, dissect_sgp22_UpdateMetadataRequest_U);
 
@@ -1460,8 +1464,8 @@ dissect_sgp22_UpdateMetadataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 
 
-static int
-dissect_sgp22_BOOLEAN(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_BOOLEAN(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_boolean(implicit_tag, actx, tree, tvb, offset, hf_index, NULL);
 
   return offset;
@@ -1475,8 +1479,8 @@ static const ber_sequence_t SmdpSigned2_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_SmdpSigned2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_SmdpSigned2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SmdpSigned2_sequence, hf_index, ett_sgp22_SmdpSigned2);
 
@@ -1492,8 +1496,8 @@ static const ber_sequence_t PrepareDownloadRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_PrepareDownloadRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PrepareDownloadRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    PrepareDownloadRequest_U_sequence, hf_index, ett_sgp22_PrepareDownloadRequest_U);
 
@@ -1502,8 +1506,8 @@ dissect_sgp22_PrepareDownloadRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 
 
 
-static int
-dissect_sgp22_PrepareDownloadRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PrepareDownloadRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 33, true, dissect_sgp22_PrepareDownloadRequest_U);
 
@@ -1518,8 +1522,8 @@ static const ber_sequence_t EUICCSigned2_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EUICCSigned2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EUICCSigned2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EUICCSigned2_sequence, hf_index, ett_sgp22_EUICCSigned2);
 
@@ -1533,8 +1537,8 @@ static const ber_sequence_t PrepareDownloadResponseOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_PrepareDownloadResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_PrepareDownloadResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    PrepareDownloadResponseOk_sequence, hf_index, ett_sgp22_PrepareDownloadResponseOk);
 
@@ -1553,8 +1557,8 @@ static const value_string sgp22_DownloadErrorCode_vals[] = {
 };
 
 
-static int
-dissect_sgp22_DownloadErrorCode(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DownloadErrorCode(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1568,8 +1572,8 @@ static const ber_sequence_t PrepareDownloadResponseError_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_PrepareDownloadResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_PrepareDownloadResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    PrepareDownloadResponseError_sequence, hf_index, ett_sgp22_PrepareDownloadResponseError);
 
@@ -1589,8 +1593,8 @@ static const ber_choice_t PrepareDownloadResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_PrepareDownloadResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PrepareDownloadResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  PrepareDownloadResponse_U_choice, hf_index, ett_sgp22_PrepareDownloadResponse_U,
                                  NULL);
@@ -1600,8 +1604,8 @@ dissect_sgp22_PrepareDownloadResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_PrepareDownloadResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PrepareDownloadResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 33, true, dissect_sgp22_PrepareDownloadResponse_U);
 
@@ -1617,8 +1621,8 @@ static const ber_sequence_t ServerSigned1_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_ServerSigned1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ServerSigned1(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ServerSigned1_sequence, hf_index, ett_sgp22_ServerSigned1);
 
@@ -1632,8 +1636,8 @@ static const ber_sequence_t CtxParamsForCommonAuthentication_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CtxParamsForCommonAuthentication(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CtxParamsForCommonAuthentication(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CtxParamsForCommonAuthentication_sequence, hf_index, ett_sgp22_CtxParamsForCommonAuthentication);
 
@@ -1651,8 +1655,8 @@ static const ber_choice_t CtxParams1_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_CtxParams1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_CtxParams1(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  CtxParams1_choice, hf_index, ett_sgp22_CtxParams1,
                                  NULL);
@@ -1670,8 +1674,8 @@ static const ber_sequence_t AuthenticateServerRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateServerRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateServerRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateServerRequest_U_sequence, hf_index, ett_sgp22_AuthenticateServerRequest_U);
 
@@ -1680,8 +1684,8 @@ dissect_sgp22_AuthenticateServerRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 
-static int
-dissect_sgp22_AuthenticateServerRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateServerRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 56, true, dissect_sgp22_AuthenticateServerRequest_U);
 
@@ -1698,8 +1702,8 @@ static const ber_sequence_t EuiccSigned1_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccSigned1(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccSigned1(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccSigned1_sequence, hf_index, ett_sgp22_EuiccSigned1);
 
@@ -1715,8 +1719,8 @@ static const ber_sequence_t AuthenticateResponseOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateResponseOk_sequence, hf_index, ett_sgp22_AuthenticateResponseOk);
 
@@ -1737,8 +1741,8 @@ static const value_string sgp22_AuthenticateErrorCode_vals[] = {
 };
 
 
-static int
-dissect_sgp22_AuthenticateErrorCode(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateErrorCode(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1752,8 +1756,8 @@ static const ber_sequence_t AuthenticateResponseError_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_AuthenticateResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_AuthenticateResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateResponseError_sequence, hf_index, ett_sgp22_AuthenticateResponseError);
 
@@ -1773,8 +1777,8 @@ static const ber_choice_t AuthenticateServerResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateServerResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateServerResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  AuthenticateServerResponse_U_choice, hf_index, ett_sgp22_AuthenticateServerResponse_U,
                                  NULL);
@@ -1784,8 +1788,8 @@ dissect_sgp22_AuthenticateServerResponse_U(bool implicit_tag _U_, tvbuff_t *tvb 
 
 
 
-static int
-dissect_sgp22_AuthenticateServerResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateServerResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 56, true, dissect_sgp22_AuthenticateServerResponse_U);
 
@@ -1805,8 +1809,8 @@ const value_string sgp22_CancelSessionReason_vals[] = {
 };
 
 
-int
-dissect_sgp22_CancelSessionReason(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_CancelSessionReason(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1820,8 +1824,8 @@ static const ber_sequence_t CancelSessionRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CancelSessionRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CancelSessionRequest_U_sequence, hf_index, ett_sgp22_CancelSessionRequest_U);
 
@@ -1830,8 +1834,8 @@ dissect_sgp22_CancelSessionRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_CancelSessionRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 65, true, dissect_sgp22_CancelSessionRequest_U);
 
@@ -1846,8 +1850,8 @@ static const ber_sequence_t EuiccCancelSessionSigned_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccCancelSessionSigned(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccCancelSessionSigned(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccCancelSessionSigned_sequence, hf_index, ett_sgp22_EuiccCancelSessionSigned);
 
@@ -1861,8 +1865,8 @@ static const ber_sequence_t CancelSessionResponseOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_CancelSessionResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_CancelSessionResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CancelSessionResponseOk_sequence, hf_index, ett_sgp22_CancelSessionResponseOk);
 
@@ -1877,8 +1881,8 @@ static const value_string sgp22_T_cancelSessionResponseError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_cancelSessionResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_cancelSessionResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -1898,8 +1902,8 @@ static const ber_choice_t CancelSessionResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CancelSessionResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  CancelSessionResponse_U_choice, hf_index, ett_sgp22_CancelSessionResponse_U,
                                  NULL);
@@ -1909,8 +1913,8 @@ dissect_sgp22_CancelSessionResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_CancelSessionResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 65, true, dissect_sgp22_CancelSessionResponse_U);
 
@@ -1925,8 +1929,8 @@ static const ber_sequence_t ControlRefTemplate_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ControlRefTemplate(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ControlRefTemplate(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ControlRefTemplate_sequence, hf_index, ett_sgp22_ControlRefTemplate);
 
@@ -1943,8 +1947,8 @@ static const ber_sequence_t InitialiseSecureChannelRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_InitialiseSecureChannelRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitialiseSecureChannelRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    InitialiseSecureChannelRequest_U_sequence, hf_index, ett_sgp22_InitialiseSecureChannelRequest_U);
 
@@ -1953,8 +1957,8 @@ dissect_sgp22_InitialiseSecureChannelRequest_U(bool implicit_tag _U_, tvbuff_t *
 
 
 
-static int
-dissect_sgp22_InitialiseSecureChannelRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitialiseSecureChannelRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 35, true, dissect_sgp22_InitialiseSecureChannelRequest_U);
 
@@ -1966,8 +1970,8 @@ static const ber_sequence_t T_firstSequenceOf87_sequence_of[1] = {
   { &hf_sgp22_firstSequenceOf87_item, BER_CLASS_CON, 7, BER_FLAGS_IMPLTAG, dissect_sgp22_OCTET_STRING },
 };
 
-static int
-dissect_sgp22_T_firstSequenceOf87(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_firstSequenceOf87(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       T_firstSequenceOf87_sequence_of, hf_index, ett_sgp22_T_firstSequenceOf87);
 
@@ -1979,8 +1983,8 @@ static const ber_sequence_t T_sequenceOf88_sequence_of[1] = {
   { &hf_sgp22_sequenceOf88_item, BER_CLASS_CON, 8, BER_FLAGS_IMPLTAG, dissect_sgp22_OCTET_STRING },
 };
 
-static int
-dissect_sgp22_T_sequenceOf88(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_sequenceOf88(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       T_sequenceOf88_sequence_of, hf_index, ett_sgp22_T_sequenceOf88);
 
@@ -1992,8 +1996,8 @@ static const ber_sequence_t T_secondSequenceOf87_sequence_of[1] = {
   { &hf_sgp22_secondSequenceOf87_item, BER_CLASS_CON, 7, BER_FLAGS_IMPLTAG, dissect_sgp22_OCTET_STRING },
 };
 
-static int
-dissect_sgp22_T_secondSequenceOf87(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_secondSequenceOf87(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       T_secondSequenceOf87_sequence_of, hf_index, ett_sgp22_T_secondSequenceOf87);
 
@@ -2005,8 +2009,8 @@ static const ber_sequence_t T_sequenceOf86_sequence_of[1] = {
   { &hf_sgp22_sequenceOf86_item, BER_CLASS_CON, 6, BER_FLAGS_IMPLTAG, dissect_sgp22_OCTET_STRING },
 };
 
-static int
-dissect_sgp22_T_sequenceOf86(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_sequenceOf86(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       T_sequenceOf86_sequence_of, hf_index, ett_sgp22_T_sequenceOf86);
 
@@ -2023,8 +2027,8 @@ static const ber_sequence_t BoundProfilePackage_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_BoundProfilePackage_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_BoundProfilePackage_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    BoundProfilePackage_U_sequence, hf_index, ett_sgp22_BoundProfilePackage_U);
 
@@ -2033,8 +2037,8 @@ dissect_sgp22_BoundProfilePackage_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 
 
-int
-dissect_sgp22_BoundProfilePackage(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_BoundProfilePackage(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 54, true, dissect_sgp22_BoundProfilePackage_U);
 
@@ -2046,8 +2050,8 @@ static const ber_sequence_t GetEuiccChallengeRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccChallengeRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccChallengeRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccChallengeRequest_U_sequence, hf_index, ett_sgp22_GetEuiccChallengeRequest_U);
 
@@ -2056,8 +2060,8 @@ dissect_sgp22_GetEuiccChallengeRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U
 
 
 
-static int
-dissect_sgp22_GetEuiccChallengeRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccChallengeRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 46, true, dissect_sgp22_GetEuiccChallengeRequest_U);
 
@@ -2070,8 +2074,8 @@ static const ber_sequence_t GetEuiccChallengeResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccChallengeResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccChallengeResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccChallengeResponse_U_sequence, hf_index, ett_sgp22_GetEuiccChallengeResponse_U);
 
@@ -2080,8 +2084,8 @@ dissect_sgp22_GetEuiccChallengeResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 
-static int
-dissect_sgp22_GetEuiccChallengeResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccChallengeResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 46, true, dissect_sgp22_GetEuiccChallengeResponse_U);
 
@@ -2090,8 +2094,8 @@ dissect_sgp22_GetEuiccChallengeResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_INTEGER(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_INTEGER(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2107,8 +2111,8 @@ static const ber_sequence_t NotificationMetadata_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_NotificationMetadata_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NotificationMetadata_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    NotificationMetadata_U_sequence, hf_index, ett_sgp22_NotificationMetadata_U);
 
@@ -2117,8 +2121,8 @@ dissect_sgp22_NotificationMetadata_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-int
-dissect_sgp22_NotificationMetadata(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_NotificationMetadata(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 47, true, dissect_sgp22_NotificationMetadata_U);
 
@@ -2127,8 +2131,8 @@ dissect_sgp22_NotificationMetadata(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 
-static int
-dissect_sgp22_OCTET_STRING_SIZE_5_16(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_OCTET_STRING_SIZE_5_16(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_octet_string(implicit_tag, actx, tree, tvb, offset,
                                                    5, 16, hf_index, NULL);
 
@@ -2142,8 +2146,8 @@ static const ber_sequence_t SuccessResult_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_SuccessResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SuccessResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SuccessResult_sequence, hf_index, ett_sgp22_SuccessResult);
 
@@ -2162,8 +2166,8 @@ static const value_string sgp22_BppCommandId_vals[] = {
 };
 
 
-static int
-dissect_sgp22_BppCommandId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_BppCommandId(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2192,8 +2196,8 @@ static const value_string sgp22_ErrorReason_vals[] = {
 };
 
 
-static int
-dissect_sgp22_ErrorReason(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ErrorReason(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2208,8 +2212,8 @@ static const ber_sequence_t ErrorResult_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_ErrorResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ErrorResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ErrorResult_sequence, hf_index, ett_sgp22_ErrorResult);
 
@@ -2229,8 +2233,8 @@ static const ber_choice_t T_finalResult_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_T_finalResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_finalResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  T_finalResult_choice, hf_index, ett_sgp22_T_finalResult,
                                  NULL);
@@ -2247,8 +2251,8 @@ static const ber_sequence_t ProfileInstallationResultData_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfileInstallationResultData_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInstallationResultData_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ProfileInstallationResultData_U_sequence, hf_index, ett_sgp22_ProfileInstallationResultData_U);
 
@@ -2257,8 +2261,8 @@ dissect_sgp22_ProfileInstallationResultData_U(bool implicit_tag _U_, tvbuff_t *t
 
 
 
-int
-dissect_sgp22_ProfileInstallationResultData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_ProfileInstallationResultData(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 39, true, dissect_sgp22_ProfileInstallationResultData_U);
 
@@ -2267,8 +2271,8 @@ dissect_sgp22_ProfileInstallationResultData(bool implicit_tag _U_, tvbuff_t *tvb
 
 
 
-int
-dissect_sgp22_EuiccSignPIR(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_EuiccSignPIR(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_APP, 55, true, dissect_sgp22_OCTET_STRING);
 
@@ -2282,8 +2286,8 @@ static const ber_sequence_t ProfileInstallationResult_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfileInstallationResult_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInstallationResult_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ProfileInstallationResult_U_sequence, hf_index, ett_sgp22_ProfileInstallationResult_U);
 
@@ -2292,8 +2296,8 @@ dissect_sgp22_ProfileInstallationResult_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 
-static int
-dissect_sgp22_ProfileInstallationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfileInstallationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 55, true, dissect_sgp22_ProfileInstallationResult_U);
 
@@ -2306,8 +2310,8 @@ static const ber_sequence_t ListNotificationRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ListNotificationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ListNotificationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ListNotificationRequest_U_sequence, hf_index, ett_sgp22_ListNotificationRequest_U);
 
@@ -2316,8 +2320,8 @@ dissect_sgp22_ListNotificationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_ListNotificationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ListNotificationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 40, true, dissect_sgp22_ListNotificationRequest_U);
 
@@ -2329,8 +2333,8 @@ static const ber_sequence_t SEQUENCE_OF_NotificationMetadata_sequence_of[1] = {
   { &hf_sgp22_notificationMetadataList_item, BER_CLASS_CON, 47, BER_FLAGS_NOOWNTAG, dissect_sgp22_NotificationMetadata },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_NotificationMetadata(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_NotificationMetadata(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_NotificationMetadata_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_NotificationMetadata);
 
@@ -2344,8 +2348,8 @@ static const value_string sgp22_T_listNotificationsResultError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_listNotificationsResultError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_listNotificationsResultError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2365,8 +2369,8 @@ static const ber_choice_t ListNotificationResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ListNotificationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ListNotificationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  ListNotificationResponse_U_choice, hf_index, ett_sgp22_ListNotificationResponse_U,
                                  NULL);
@@ -2376,8 +2380,8 @@ dissect_sgp22_ListNotificationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U
 
 
 
-static int
-dissect_sgp22_ListNotificationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ListNotificationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 40, true, dissect_sgp22_ListNotificationResponse_U);
 
@@ -2391,8 +2395,8 @@ static const ber_sequence_t SetNicknameRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_SetNicknameRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetNicknameRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SetNicknameRequest_U_sequence, hf_index, ett_sgp22_SetNicknameRequest_U);
 
@@ -2401,8 +2405,8 @@ dissect_sgp22_SetNicknameRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 
-static int
-dissect_sgp22_SetNicknameRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetNicknameRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 41, true, dissect_sgp22_SetNicknameRequest_U);
 
@@ -2418,8 +2422,8 @@ static const value_string sgp22_T_setNicknameResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_setNicknameResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_setNicknameResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2432,8 +2436,8 @@ static const ber_sequence_t SetNicknameResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_SetNicknameResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetNicknameResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SetNicknameResponse_U_sequence, hf_index, ett_sgp22_SetNicknameResponse_U);
 
@@ -2442,8 +2446,8 @@ dissect_sgp22_SetNicknameResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 
 
-static int
-dissect_sgp22_SetNicknameResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetNicknameResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 41, true, dissect_sgp22_SetNicknameResponse_U);
 
@@ -2452,8 +2456,8 @@ dissect_sgp22_SetNicknameResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 
 
-static int
-dissect_sgp22_UTF8String_SIZE_0_255(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_UTF8String_SIZE_0_255(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_constrained_restricted_string(implicit_tag, BER_UNI_TAG_UTF8String,
                                                         actx, tree, tvb, offset,
                                                         0, 255, hf_index, NULL);
@@ -2476,8 +2480,8 @@ static const ber_choice_t ActivationCodeRetrievalInfo_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ActivationCodeRetrievalInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ActivationCodeRetrievalInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  ActivationCodeRetrievalInfo_choice, hf_index, ett_sgp22_ActivationCodeRetrievalInfo,
                                  NULL);
@@ -2491,8 +2495,8 @@ static const ber_sequence_t ConfigureISDPRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ConfigureISDPRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ConfigureISDPRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ConfigureISDPRequest_U_sequence, hf_index, ett_sgp22_ConfigureISDPRequest_U);
 
@@ -2501,8 +2505,8 @@ dissect_sgp22_ConfigureISDPRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_ConfigureISDPRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ConfigureISDPRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 36, true, dissect_sgp22_ConfigureISDPRequest_U);
 
@@ -2517,8 +2521,8 @@ static const ber_sequence_t ReplaceSessionKeysRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ReplaceSessionKeysRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ReplaceSessionKeysRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ReplaceSessionKeysRequest_U_sequence, hf_index, ett_sgp22_ReplaceSessionKeysRequest_U);
 
@@ -2527,8 +2531,8 @@ dissect_sgp22_ReplaceSessionKeysRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 
-static int
-dissect_sgp22_ReplaceSessionKeysRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ReplaceSessionKeysRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 38, true, dissect_sgp22_ReplaceSessionKeysRequest_U);
 
@@ -2548,8 +2552,8 @@ static const ber_choice_t T_searchCriteria_01_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_T_searchCriteria_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_searchCriteria_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  T_searchCriteria_01_choice, hf_index, ett_sgp22_T_searchCriteria_01,
                                  NULL);
@@ -2563,8 +2567,8 @@ static const ber_sequence_t RetrieveNotificationsListRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_RetrieveNotificationsListRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RetrieveNotificationsListRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    RetrieveNotificationsListRequest_U_sequence, hf_index, ett_sgp22_RetrieveNotificationsListRequest_U);
 
@@ -2573,8 +2577,8 @@ dissect_sgp22_RetrieveNotificationsListRequest_U(bool implicit_tag _U_, tvbuff_t
 
 
 
-static int
-dissect_sgp22_RetrieveNotificationsListRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RetrieveNotificationsListRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 43, true, dissect_sgp22_RetrieveNotificationsListRequest_U);
 
@@ -2590,8 +2594,8 @@ static const ber_sequence_t OtherSignedNotification_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-int
-dissect_sgp22_OtherSignedNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_OtherSignedNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    OtherSignedNotification_sequence, hf_index, ett_sgp22_OtherSignedNotification);
 
@@ -2611,8 +2615,8 @@ static const ber_choice_t PendingNotification_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_PendingNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PendingNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  PendingNotification_choice, hf_index, ett_sgp22_PendingNotification,
                                  NULL);
@@ -2625,8 +2629,8 @@ static const ber_sequence_t SEQUENCE_OF_PendingNotification_sequence_of[1] = {
   { &hf_sgp22_notificationList_item, BER_CLASS_ANY/*choice*/, -1/*choice*/, BER_FLAGS_NOOWNTAG|BER_FLAGS_NOTCHKTAG, dissect_sgp22_PendingNotification },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_PendingNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_PendingNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_PendingNotification_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_PendingNotification);
 
@@ -2640,8 +2644,8 @@ static const value_string sgp22_T_notificationsListResultError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_notificationsListResultError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_notificationsListResultError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2661,8 +2665,8 @@ static const ber_choice_t RetrieveNotificationsListResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_RetrieveNotificationsListResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RetrieveNotificationsListResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  RetrieveNotificationsListResponse_U_choice, hf_index, ett_sgp22_RetrieveNotificationsListResponse_U,
                                  NULL);
@@ -2672,8 +2676,8 @@ dissect_sgp22_RetrieveNotificationsListResponse_U(bool implicit_tag _U_, tvbuff_
 
 
 
-static int
-dissect_sgp22_RetrieveNotificationsListResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RetrieveNotificationsListResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 43, true, dissect_sgp22_RetrieveNotificationsListResponse_U);
 
@@ -2686,8 +2690,8 @@ static const ber_sequence_t NotificationSentRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_NotificationSentRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NotificationSentRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    NotificationSentRequest_U_sequence, hf_index, ett_sgp22_NotificationSentRequest_U);
 
@@ -2696,8 +2700,8 @@ dissect_sgp22_NotificationSentRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_NotificationSentRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NotificationSentRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 48, true, dissect_sgp22_NotificationSentRequest_U);
 
@@ -2713,8 +2717,8 @@ static const value_string sgp22_T_deleteNotificationStatus_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_deleteNotificationStatus(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_deleteNotificationStatus(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2727,8 +2731,8 @@ static const ber_sequence_t NotificationSentResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_NotificationSentResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NotificationSentResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    NotificationSentResponse_U_sequence, hf_index, ett_sgp22_NotificationSentResponse_U);
 
@@ -2737,8 +2741,8 @@ dissect_sgp22_NotificationSentResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U
 
 
 
-static int
-dissect_sgp22_NotificationSentResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NotificationSentResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 48, true, dissect_sgp22_NotificationSentResponse_U);
 
@@ -2758,8 +2762,8 @@ static const ber_choice_t T_profileIdentifier_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_T_profileIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_profileIdentifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  T_profileIdentifier_choice, hf_index, ett_sgp22_T_profileIdentifier,
                                  NULL);
@@ -2774,8 +2778,8 @@ static const ber_sequence_t EnableProfileRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EnableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EnableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EnableProfileRequest_U_sequence, hf_index, ett_sgp22_EnableProfileRequest_U);
 
@@ -2784,8 +2788,8 @@ dissect_sgp22_EnableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_EnableProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EnableProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 49, true, dissect_sgp22_EnableProfileRequest_U);
 
@@ -2805,8 +2809,8 @@ static const value_string sgp22_T_enableResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_enableResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_enableResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2819,8 +2823,8 @@ static const ber_sequence_t EnableProfileResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EnableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EnableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EnableProfileResponse_U_sequence, hf_index, ett_sgp22_EnableProfileResponse_U);
 
@@ -2829,8 +2833,8 @@ dissect_sgp22_EnableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_EnableProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EnableProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 49, true, dissect_sgp22_EnableProfileResponse_U);
 
@@ -2850,8 +2854,8 @@ static const ber_choice_t T_profileIdentifier_01_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_T_profileIdentifier_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_profileIdentifier_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  T_profileIdentifier_01_choice, hf_index, ett_sgp22_T_profileIdentifier_01,
                                  NULL);
@@ -2866,8 +2870,8 @@ static const ber_sequence_t DisableProfileRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DisableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DisableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DisableProfileRequest_U_sequence, hf_index, ett_sgp22_DisableProfileRequest_U);
 
@@ -2876,8 +2880,8 @@ dissect_sgp22_DisableProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_DisableProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DisableProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 50, true, dissect_sgp22_DisableProfileRequest_U);
 
@@ -2896,8 +2900,8 @@ static const value_string sgp22_T_disableResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_disableResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_disableResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2910,8 +2914,8 @@ static const ber_sequence_t DisableProfileResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DisableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DisableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DisableProfileResponse_U_sequence, hf_index, ett_sgp22_DisableProfileResponse_U);
 
@@ -2920,8 +2924,8 @@ dissect_sgp22_DisableProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 
 
 
-static int
-dissect_sgp22_DisableProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DisableProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 50, true, dissect_sgp22_DisableProfileResponse_U);
 
@@ -2941,8 +2945,8 @@ static const ber_choice_t DeleteProfileRequest_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DeleteProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeleteProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  DeleteProfileRequest_U_choice, hf_index, ett_sgp22_DeleteProfileRequest_U,
                                  NULL);
@@ -2952,8 +2956,8 @@ dissect_sgp22_DeleteProfileRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_DeleteProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeleteProfileRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 51, true, dissect_sgp22_DeleteProfileRequest_U);
 
@@ -2971,8 +2975,8 @@ static const value_string sgp22_T_deleteResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_deleteResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_deleteResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -2985,8 +2989,8 @@ static const ber_sequence_t DeleteProfileResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_DeleteProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeleteProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    DeleteProfileResponse_U_sequence, hf_index, ett_sgp22_DeleteProfileResponse_U);
 
@@ -2995,8 +2999,8 @@ dissect_sgp22_DeleteProfileResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_DeleteProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_DeleteProfileResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 51, true, dissect_sgp22_DeleteProfileResponse_U);
 
@@ -3011,8 +3015,8 @@ static int * const T_resetOptions_bits[] = {
   NULL
 };
 
-static int
-dissect_sgp22_T_resetOptions(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_resetOptions(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     T_resetOptions_bits, 3, hf_index, ett_sgp22_T_resetOptions,
                                     NULL);
@@ -3026,8 +3030,8 @@ static const ber_sequence_t EuiccMemoryResetRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccMemoryResetRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccMemoryResetRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccMemoryResetRequest_U_sequence, hf_index, ett_sgp22_EuiccMemoryResetRequest_U);
 
@@ -3036,8 +3040,8 @@ dissect_sgp22_EuiccMemoryResetRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_EuiccMemoryResetRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccMemoryResetRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 52, true, dissect_sgp22_EuiccMemoryResetRequest_U);
 
@@ -3054,8 +3058,8 @@ static const value_string sgp22_T_resetResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_resetResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_resetResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3068,8 +3072,8 @@ static const ber_sequence_t EuiccMemoryResetResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccMemoryResetResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccMemoryResetResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccMemoryResetResponse_U_sequence, hf_index, ett_sgp22_EuiccMemoryResetResponse_U);
 
@@ -3078,8 +3082,8 @@ dissect_sgp22_EuiccMemoryResetResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U
 
 
 
-static int
-dissect_sgp22_EuiccMemoryResetResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccMemoryResetResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 52, true, dissect_sgp22_EuiccMemoryResetResponse_U);
 
@@ -3092,8 +3096,8 @@ static const ber_sequence_t GetEuiccDataRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccDataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccDataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccDataRequest_U_sequence, hf_index, ett_sgp22_GetEuiccDataRequest_U);
 
@@ -3102,8 +3106,8 @@ dissect_sgp22_GetEuiccDataRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 
 
-static int
-dissect_sgp22_GetEuiccDataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccDataRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 62, true, dissect_sgp22_GetEuiccDataRequest_U);
 
@@ -3116,8 +3120,8 @@ static const ber_sequence_t GetEuiccDataResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetEuiccDataResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccDataResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetEuiccDataResponse_U_sequence, hf_index, ett_sgp22_GetEuiccDataResponse_U);
 
@@ -3126,8 +3130,8 @@ dissect_sgp22_GetEuiccDataResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 
 
-static int
-dissect_sgp22_GetEuiccDataResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetEuiccDataResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 62, true, dissect_sgp22_GetEuiccDataResponse_U);
 
@@ -3139,8 +3143,8 @@ static const ber_sequence_t GetRatRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetRatRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetRatRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetRatRequest_U_sequence, hf_index, ett_sgp22_GetRatRequest_U);
 
@@ -3149,8 +3153,8 @@ dissect_sgp22_GetRatRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 
 
-static int
-dissect_sgp22_GetRatRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetRatRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 67, true, dissect_sgp22_GetRatRequest_U);
 
@@ -3162,8 +3166,8 @@ static const ber_sequence_t SEQUENCE_OF_OperatorId_sequence_of[1] = {
   { &hf_sgp22_allowedOperators_item, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_OperatorId },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_OperatorId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_OperatorId(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_OperatorId_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_OperatorId);
 
@@ -3176,8 +3180,8 @@ static int * const T_pprFlags_bits[] = {
   NULL
 };
 
-static int
-dissect_sgp22_T_pprFlags(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_pprFlags(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     T_pprFlags_bits, 1, hf_index, ett_sgp22_T_pprFlags,
                                     NULL);
@@ -3193,8 +3197,8 @@ static const ber_sequence_t ProfilePolicyAuthorisationRule_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ProfilePolicyAuthorisationRule(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ProfilePolicyAuthorisationRule(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ProfilePolicyAuthorisationRule_sequence, hf_index, ett_sgp22_ProfilePolicyAuthorisationRule);
 
@@ -3206,8 +3210,8 @@ static const ber_sequence_t RulesAuthorisationTable_sequence_of[1] = {
   { &hf_sgp22_RulesAuthorisationTable_item, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_ProfilePolicyAuthorisationRule },
 };
 
-int
-dissect_sgp22_RulesAuthorisationTable(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+unsigned
+dissect_sgp22_RulesAuthorisationTable(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       RulesAuthorisationTable_sequence_of, hf_index, ett_sgp22_RulesAuthorisationTable);
 
@@ -3220,8 +3224,8 @@ static const ber_sequence_t GetRatResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetRatResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetRatResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetRatResponse_U_sequence, hf_index, ett_sgp22_GetRatResponse_U);
 
@@ -3230,8 +3234,8 @@ dissect_sgp22_GetRatResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 
 
-static int
-dissect_sgp22_GetRatResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetRatResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 67, true, dissect_sgp22_GetRatResponse_U);
 
@@ -3244,8 +3248,8 @@ static const ber_sequence_t LoadCRLRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_LoadCRLRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    LoadCRLRequest_U_sequence, hf_index, ett_sgp22_LoadCRLRequest_U);
 
@@ -3254,8 +3258,8 @@ dissect_sgp22_LoadCRLRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 
 
-static int
-dissect_sgp22_LoadCRLRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 53, true, dissect_sgp22_LoadCRLRequest_U);
 
@@ -3267,8 +3271,8 @@ static const ber_sequence_t T_missingParts_sequence_of[1] = {
   { &hf_sgp22_missingParts_item, BER_CLASS_UNI, BER_UNI_TAG_INTEGER, BER_FLAGS_NOOWNTAG, dissect_sgp22_INTEGER },
 };
 
-static int
-dissect_sgp22_T_missingParts(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_missingParts(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       T_missingParts_sequence_of, hf_index, ett_sgp22_T_missingParts);
 
@@ -3281,8 +3285,8 @@ static const ber_sequence_t LoadCRLResponseOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_LoadCRLResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLResponseOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    LoadCRLResponseOk_sequence, hf_index, ett_sgp22_LoadCRLResponseOk);
 
@@ -3302,8 +3306,8 @@ static const value_string sgp22_LoadCRLResponseError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_LoadCRLResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLResponseError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3323,8 +3327,8 @@ static const ber_choice_t LoadCRLResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_LoadCRLResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  LoadCRLResponse_U_choice, hf_index, ett_sgp22_LoadCRLResponse_U,
                                  NULL);
@@ -3334,8 +3338,8 @@ dissect_sgp22_LoadCRLResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 
 
-static int
-dissect_sgp22_LoadCRLResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LoadCRLResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 53, true, dissect_sgp22_LoadCRLResponse_U);
 
@@ -3344,8 +3348,8 @@ dissect_sgp22_LoadCRLResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 
 
-static int
-dissect_sgp22_ExpirationDate(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ExpirationDate(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_pkix1explicit_Time(implicit_tag, tvb, offset, actx, tree, hf_index);
 
   return offset;
@@ -3353,8 +3357,8 @@ dissect_sgp22_ExpirationDate(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 
 
-static int
-dissect_sgp22_TotalPartialCrlNumber(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_TotalPartialCrlNumber(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3363,8 +3367,8 @@ dissect_sgp22_TotalPartialCrlNumber(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 
 
-static int
-dissect_sgp22_PartialCrlNumber(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_PartialCrlNumber(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3379,8 +3383,8 @@ static const ber_sequence_t InitiateAuthenticationRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_InitiateAuthenticationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitiateAuthenticationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    InitiateAuthenticationRequest_U_sequence, hf_index, ett_sgp22_InitiateAuthenticationRequest_U);
 
@@ -3389,8 +3393,8 @@ dissect_sgp22_InitiateAuthenticationRequest_U(bool implicit_tag _U_, tvbuff_t *t
 
 
 
-static int
-dissect_sgp22_InitiateAuthenticationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitiateAuthenticationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 57, true, dissect_sgp22_InitiateAuthenticationRequest_U);
 
@@ -3399,8 +3403,8 @@ dissect_sgp22_InitiateAuthenticationRequest(bool implicit_tag _U_, tvbuff_t *tvb
 
 
 
-static int
-dissect_sgp22_NULL(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_NULL(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_null(implicit_tag, actx, tree, tvb, offset, hf_index);
 
   return offset;
@@ -3414,8 +3418,8 @@ static const ber_sequence_t AuthenticateClientRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateClientRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateClientRequest_U_sequence, hf_index, ett_sgp22_AuthenticateClientRequest_U);
 
@@ -3424,8 +3428,8 @@ dissect_sgp22_AuthenticateClientRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _
 
 
 
-static int
-dissect_sgp22_AuthenticateClientRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 59, true, dissect_sgp22_AuthenticateClientRequest_U);
 
@@ -3439,8 +3443,8 @@ static const ber_sequence_t GetBoundProfilePackageRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetBoundProfilePackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetBoundProfilePackageRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetBoundProfilePackageRequest_U_sequence, hf_index, ett_sgp22_GetBoundProfilePackageRequest_U);
 
@@ -3449,8 +3453,8 @@ dissect_sgp22_GetBoundProfilePackageRequest_U(bool implicit_tag _U_, tvbuff_t *t
 
 
 
-static int
-dissect_sgp22_GetBoundProfilePackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetBoundProfilePackageRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 58, true, dissect_sgp22_GetBoundProfilePackageRequest_U);
 
@@ -3464,8 +3468,8 @@ static const ber_sequence_t CancelSessionRequestEs9_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CancelSessionRequestEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionRequestEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CancelSessionRequestEs9_U_sequence, hf_index, ett_sgp22_CancelSessionRequestEs9_U);
 
@@ -3474,8 +3478,8 @@ dissect_sgp22_CancelSessionRequestEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 
 
 
-static int
-dissect_sgp22_CancelSessionRequestEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionRequestEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 65, true, dissect_sgp22_CancelSessionRequestEs9_U);
 
@@ -3488,8 +3492,8 @@ static const ber_sequence_t HandleNotification_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_HandleNotification_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_HandleNotification_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    HandleNotification_U_sequence, hf_index, ett_sgp22_HandleNotification_U);
 
@@ -3498,8 +3502,8 @@ dissect_sgp22_HandleNotification_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 
-static int
-dissect_sgp22_HandleNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_HandleNotification(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 61, true, dissect_sgp22_HandleNotification_U);
 
@@ -3525,8 +3529,8 @@ static const ber_choice_t RemoteProfileProvisioningRequest_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_RemoteProfileProvisioningRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteProfileProvisioningRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   int choice;
 
   offset = dissect_ber_choice(actx, tree, tvb, offset,
@@ -3542,8 +3546,8 @@ dissect_sgp22_RemoteProfileProvisioningRequest_U(bool implicit_tag _U_, tvbuff_t
 
 
 
-static int
-dissect_sgp22_RemoteProfileProvisioningRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteProfileProvisioningRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 2, true, dissect_sgp22_RemoteProfileProvisioningRequest_U);
 
@@ -3560,8 +3564,8 @@ static const ber_sequence_t InitiateAuthenticationOkEs9_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_InitiateAuthenticationOkEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitiateAuthenticationOkEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    InitiateAuthenticationOkEs9_sequence, hf_index, ett_sgp22_InitiateAuthenticationOkEs9);
 
@@ -3577,8 +3581,8 @@ static const value_string sgp22_T_initiateAuthenticationError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_initiateAuthenticationError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_initiateAuthenticationError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3598,8 +3602,8 @@ static const ber_choice_t InitiateAuthenticationResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_InitiateAuthenticationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitiateAuthenticationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  InitiateAuthenticationResponse_U_choice, hf_index, ett_sgp22_InitiateAuthenticationResponse_U,
                                  NULL);
@@ -3609,8 +3613,8 @@ dissect_sgp22_InitiateAuthenticationResponse_U(bool implicit_tag _U_, tvbuff_t *
 
 
 
-static int
-dissect_sgp22_InitiateAuthenticationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_InitiateAuthenticationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 57, true, dissect_sgp22_InitiateAuthenticationResponse_U);
 
@@ -3627,8 +3631,8 @@ static const ber_sequence_t AuthenticateClientOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateClientOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateClientOk_sequence, hf_index, ett_sgp22_AuthenticateClientOk);
 
@@ -3654,8 +3658,8 @@ static const value_string sgp22_T_authenticateClientError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_authenticateClientError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_authenticateClientError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3675,8 +3679,8 @@ static const ber_choice_t AuthenticateClientResponseEs9_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateClientResponseEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientResponseEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  AuthenticateClientResponseEs9_U_choice, hf_index, ett_sgp22_AuthenticateClientResponseEs9_U,
                                  NULL);
@@ -3686,8 +3690,8 @@ dissect_sgp22_AuthenticateClientResponseEs9_U(bool implicit_tag _U_, tvbuff_t *t
 
 
 
-static int
-dissect_sgp22_AuthenticateClientResponseEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientResponseEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 59, true, dissect_sgp22_AuthenticateClientResponseEs9_U);
 
@@ -3701,8 +3705,8 @@ static const ber_sequence_t GetBoundProfilePackageOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetBoundProfilePackageOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetBoundProfilePackageOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    GetBoundProfilePackageOk_sequence, hf_index, ett_sgp22_GetBoundProfilePackageOk);
 
@@ -3723,8 +3727,8 @@ static const value_string sgp22_T_getBoundProfilePackageError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_getBoundProfilePackageError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_getBoundProfilePackageError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3744,8 +3748,8 @@ static const ber_choice_t GetBoundProfilePackageResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_GetBoundProfilePackageResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetBoundProfilePackageResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  GetBoundProfilePackageResponse_U_choice, hf_index, ett_sgp22_GetBoundProfilePackageResponse_U,
                                  NULL);
@@ -3755,8 +3759,8 @@ dissect_sgp22_GetBoundProfilePackageResponse_U(bool implicit_tag _U_, tvbuff_t *
 
 
 
-static int
-dissect_sgp22_GetBoundProfilePackageResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_GetBoundProfilePackageResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 58, true, dissect_sgp22_GetBoundProfilePackageResponse_U);
 
@@ -3768,8 +3772,8 @@ static const ber_sequence_t CancelSessionOk_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CancelSessionOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionOk(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    CancelSessionOk_sequence, hf_index, ett_sgp22_CancelSessionOk);
 
@@ -3785,8 +3789,8 @@ static const value_string sgp22_T_cancelSessionError_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_cancelSessionError(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_cancelSessionError(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3806,8 +3810,8 @@ static const ber_choice_t CancelSessionResponseEs9_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_CancelSessionResponseEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionResponseEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  CancelSessionResponseEs9_U_choice, hf_index, ett_sgp22_CancelSessionResponseEs9_U,
                                  NULL);
@@ -3817,8 +3821,8 @@ dissect_sgp22_CancelSessionResponseEs9_U(bool implicit_tag _U_, tvbuff_t *tvb _U
 
 
 
-static int
-dissect_sgp22_CancelSessionResponseEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_CancelSessionResponseEs9(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 65, true, dissect_sgp22_CancelSessionResponseEs9_U);
 
@@ -3832,8 +3836,8 @@ static const ber_sequence_t EventEntries_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EventEntries(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EventEntries(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EventEntries_sequence, hf_index, ett_sgp22_EventEntries);
 
@@ -3845,8 +3849,8 @@ static const ber_sequence_t SEQUENCE_OF_EventEntries_sequence_of[1] = {
   { &hf_sgp22_eventEntries_item, BER_CLASS_UNI, BER_UNI_TAG_SEQUENCE, BER_FLAGS_NOOWNTAG, dissect_sgp22_EventEntries },
 };
 
-static int
-dissect_sgp22_SEQUENCE_OF_EventEntries(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SEQUENCE_OF_EventEntries(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence_of(implicit_tag, actx, tree, tvb, offset,
                                       SEQUENCE_OF_EventEntries_sequence_of, hf_index, ett_sgp22_SEQUENCE_OF_EventEntries);
 
@@ -3860,8 +3864,8 @@ static const ber_sequence_t AuthenticateClientOkEs11_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateClientOkEs11(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientOkEs11(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    AuthenticateClientOkEs11_sequence, hf_index, ett_sgp22_AuthenticateClientOkEs11);
 
@@ -3882,8 +3886,8 @@ static const value_string sgp22_T_authenticateClientError_01_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_authenticateClientError_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_authenticateClientError_01(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -3903,8 +3907,8 @@ static const ber_choice_t AuthenticateClientResponseEs11_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_AuthenticateClientResponseEs11_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientResponseEs11_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  AuthenticateClientResponseEs11_U_choice, hf_index, ett_sgp22_AuthenticateClientResponseEs11_U,
                                  NULL);
@@ -3914,8 +3918,8 @@ dissect_sgp22_AuthenticateClientResponseEs11_U(bool implicit_tag _U_, tvbuff_t *
 
 
 
-static int
-dissect_sgp22_AuthenticateClientResponseEs11(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_AuthenticateClientResponseEs11(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 64, true, dissect_sgp22_AuthenticateClientResponseEs11_U);
 
@@ -3941,8 +3945,8 @@ static const ber_choice_t RemoteProfileProvisioningResponse_U_choice[] = {
   { 0, NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_RemoteProfileProvisioningResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteProfileProvisioningResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   int choice;
 
   offset = dissect_ber_choice(actx, tree, tvb, offset,
@@ -3958,8 +3962,8 @@ dissect_sgp22_RemoteProfileProvisioningResponse_U(bool implicit_tag _U_, tvbuff_
 
 
 
-static int
-dissect_sgp22_RemoteProfileProvisioningResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_RemoteProfileProvisioningResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 2, true, dissect_sgp22_RemoteProfileProvisioningResponse_U);
 
@@ -3971,8 +3975,8 @@ static const ber_sequence_t EuiccConfiguredAddressesRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccConfiguredAddressesRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccConfiguredAddressesRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccConfiguredAddressesRequest_U_sequence, hf_index, ett_sgp22_EuiccConfiguredAddressesRequest_U);
 
@@ -3981,8 +3985,8 @@ dissect_sgp22_EuiccConfiguredAddressesRequest_U(bool implicit_tag _U_, tvbuff_t 
 
 
 
-static int
-dissect_sgp22_EuiccConfiguredAddressesRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccConfiguredAddressesRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 60, true, dissect_sgp22_EuiccConfiguredAddressesRequest_U);
 
@@ -3996,8 +4000,8 @@ static const ber_sequence_t EuiccConfiguredAddressesResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_EuiccConfiguredAddressesResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccConfiguredAddressesResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    EuiccConfiguredAddressesResponse_U_sequence, hf_index, ett_sgp22_EuiccConfiguredAddressesResponse_U);
 
@@ -4006,8 +4010,8 @@ dissect_sgp22_EuiccConfiguredAddressesResponse_U(bool implicit_tag _U_, tvbuff_t
 
 
 
-static int
-dissect_sgp22_EuiccConfiguredAddressesResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_EuiccConfiguredAddressesResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 60, true, dissect_sgp22_EuiccConfiguredAddressesResponse_U);
 
@@ -4021,8 +4025,8 @@ static int * const T_lpaeSupport_bits[] = {
   NULL
 };
 
-static int
-dissect_sgp22_T_lpaeSupport(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_lpaeSupport(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     T_lpaeSupport_bits, 2, hf_index, ett_sgp22_T_lpaeSupport,
                                     NULL);
@@ -4037,8 +4041,8 @@ static const ber_sequence_t ISDRProprietaryApplicationTemplate_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_ISDRProprietaryApplicationTemplate_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ISDRProprietaryApplicationTemplate_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ISDRProprietaryApplicationTemplate_U_sequence, hf_index, ett_sgp22_ISDRProprietaryApplicationTemplate_U);
 
@@ -4047,8 +4051,8 @@ dissect_sgp22_ISDRProprietaryApplicationTemplate_U(bool implicit_tag _U_, tvbuff
 
 
 
-static int
-dissect_sgp22_ISDRProprietaryApplicationTemplate(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_ISDRProprietaryApplicationTemplate(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_PRI, 0, true, dissect_sgp22_ISDRProprietaryApplicationTemplate_U);
 
@@ -4062,8 +4066,8 @@ static int * const T_lpaeOption_bits[] = {
   NULL
 };
 
-static int
-dissect_sgp22_T_lpaeOption(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_lpaeOption(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_bitstring(implicit_tag, actx, tree, tvb, offset,
                                     T_lpaeOption_bits, 2, hf_index, ett_sgp22_T_lpaeOption,
                                     NULL);
@@ -4077,8 +4081,8 @@ static const ber_sequence_t LpaeActivationRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_LpaeActivationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LpaeActivationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    LpaeActivationRequest_U_sequence, hf_index, ett_sgp22_LpaeActivationRequest_U);
 
@@ -4087,8 +4091,8 @@ dissect_sgp22_LpaeActivationRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 
 
-static int
-dissect_sgp22_LpaeActivationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LpaeActivationRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 66, true, dissect_sgp22_LpaeActivationRequest_U);
 
@@ -4103,8 +4107,8 @@ static const value_string sgp22_T_lpaeActivationResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_lpaeActivationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_lpaeActivationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -4117,8 +4121,8 @@ static const ber_sequence_t LpaeActivationResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_LpaeActivationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LpaeActivationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    LpaeActivationResponse_U_sequence, hf_index, ett_sgp22_LpaeActivationResponse_U);
 
@@ -4127,8 +4131,8 @@ dissect_sgp22_LpaeActivationResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 
 
 
-static int
-dissect_sgp22_LpaeActivationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_LpaeActivationResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 66, true, dissect_sgp22_LpaeActivationResponse_U);
 
@@ -4141,8 +4145,8 @@ static const ber_sequence_t SetDefaultDpAddressRequest_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_SetDefaultDpAddressRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetDefaultDpAddressRequest_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SetDefaultDpAddressRequest_U_sequence, hf_index, ett_sgp22_SetDefaultDpAddressRequest_U);
 
@@ -4151,8 +4155,8 @@ dissect_sgp22_SetDefaultDpAddressRequest_U(bool implicit_tag _U_, tvbuff_t *tvb 
 
 
 
-static int
-dissect_sgp22_SetDefaultDpAddressRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetDefaultDpAddressRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 63, true, dissect_sgp22_SetDefaultDpAddressRequest_U);
 
@@ -4167,8 +4171,8 @@ static const value_string sgp22_T_setDefaultDpAddressResult_vals[] = {
 };
 
 
-static int
-dissect_sgp22_T_setDefaultDpAddressResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_T_setDefaultDpAddressResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 NULL);
 
@@ -4181,8 +4185,8 @@ static const ber_sequence_t SetDefaultDpAddressResponse_U_sequence[] = {
   { NULL, 0, 0, 0, NULL }
 };
 
-static int
-dissect_sgp22_SetDefaultDpAddressResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetDefaultDpAddressResponse_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SetDefaultDpAddressResponse_U_sequence, hf_index, ett_sgp22_SetDefaultDpAddressResponse_U);
 
@@ -4191,8 +4195,8 @@ dissect_sgp22_SetDefaultDpAddressResponse_U(bool implicit_tag _U_, tvbuff_t *tvb
 
 
 
-static int
-dissect_sgp22_SetDefaultDpAddressResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sgp22_SetDefaultDpAddressResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_CON, 63, true, dissect_sgp22_SetDefaultDpAddressResponse_U);
 
@@ -4202,462 +4206,455 @@ dissect_sgp22_SetDefaultDpAddressResponse(bool implicit_tag _U_, tvbuff_t *tvb _
 /*--- PDUs ---*/
 
 static int dissect_GetEuiccInfo1Request_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccInfo1Request(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccInfo1Request_PDU);
   return offset;
 }
 static int dissect_EUICCInfo1_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EUICCInfo1(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EUICCInfo1_PDU);
   return offset;
 }
 static int dissect_GetEuiccInfo2Request_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccInfo2Request(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccInfo2Request_PDU);
   return offset;
 }
 static int dissect_EUICCInfo2_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EUICCInfo2(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EUICCInfo2_PDU);
   return offset;
 }
 static int dissect_ProfileInfoListRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ProfileInfoListRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ProfileInfoListRequest_PDU);
   return offset;
 }
 static int dissect_ProfileInfoListResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ProfileInfoListResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ProfileInfoListResponse_PDU);
   return offset;
 }
-static int dissect_ProfileInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
-  asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
-  offset = dissect_sgp22_ProfileInfo(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ProfileInfo_PDU);
-  return offset;
-}
 static int dissect_StoreMetadataRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_StoreMetadataRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_StoreMetadataRequest_PDU);
   return offset;
 }
 static int dissect_UpdateMetadataRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_UpdateMetadataRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_UpdateMetadataRequest_PDU);
   return offset;
 }
 static int dissect_PrepareDownloadRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_PrepareDownloadRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_PrepareDownloadRequest_PDU);
   return offset;
 }
 static int dissect_PrepareDownloadResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_PrepareDownloadResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_PrepareDownloadResponse_PDU);
   return offset;
 }
 static int dissect_AuthenticateServerRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_AuthenticateServerRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_AuthenticateServerRequest_PDU);
   return offset;
 }
 static int dissect_AuthenticateServerResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_AuthenticateServerResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_AuthenticateServerResponse_PDU);
   return offset;
 }
 static int dissect_CancelSessionRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_CancelSessionRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_CancelSessionRequest_PDU);
   return offset;
 }
 static int dissect_CancelSessionResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_CancelSessionResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_CancelSessionResponse_PDU);
   return offset;
 }
 static int dissect_BoundProfilePackage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_BoundProfilePackage(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_BoundProfilePackage_PDU);
   return offset;
 }
 static int dissect_GetEuiccChallengeRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccChallengeRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccChallengeRequest_PDU);
   return offset;
 }
 static int dissect_GetEuiccChallengeResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccChallengeResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccChallengeResponse_PDU);
   return offset;
 }
 static int dissect_ProfileInstallationResult_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ProfileInstallationResult(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ProfileInstallationResult_PDU);
   return offset;
 }
 static int dissect_ListNotificationRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ListNotificationRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ListNotificationRequest_PDU);
   return offset;
 }
 static int dissect_ListNotificationResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ListNotificationResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ListNotificationResponse_PDU);
   return offset;
 }
 static int dissect_NotificationMetadata_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_NotificationMetadata(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_NotificationMetadata_PDU);
   return offset;
 }
 static int dissect_SetNicknameRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_SetNicknameRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_SetNicknameRequest_PDU);
   return offset;
 }
 static int dissect_SetNicknameResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_SetNicknameResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_SetNicknameResponse_PDU);
   return offset;
 }
 static int dissect_ActivationCodeRetrievalInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ActivationCodeRetrievalInfo(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ActivationCodeRetrievalInfo_PDU);
   return offset;
 }
 static int dissect_InitialiseSecureChannelRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_InitialiseSecureChannelRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_InitialiseSecureChannelRequest_PDU);
   return offset;
 }
 static int dissect_ConfigureISDPRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ConfigureISDPRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ConfigureISDPRequest_PDU);
   return offset;
 }
 static int dissect_ReplaceSessionKeysRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ReplaceSessionKeysRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ReplaceSessionKeysRequest_PDU);
   return offset;
 }
 static int dissect_RetrieveNotificationsListRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_RetrieveNotificationsListRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_RetrieveNotificationsListRequest_PDU);
   return offset;
 }
 static int dissect_RetrieveNotificationsListResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_RetrieveNotificationsListResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_RetrieveNotificationsListResponse_PDU);
   return offset;
 }
 static int dissect_NotificationSentRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_NotificationSentRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_NotificationSentRequest_PDU);
   return offset;
 }
 static int dissect_NotificationSentResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_NotificationSentResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_NotificationSentResponse_PDU);
   return offset;
 }
 static int dissect_EnableProfileRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EnableProfileRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EnableProfileRequest_PDU);
   return offset;
 }
 static int dissect_EnableProfileResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EnableProfileResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EnableProfileResponse_PDU);
   return offset;
 }
 static int dissect_DisableProfileRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_DisableProfileRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_DisableProfileRequest_PDU);
   return offset;
 }
 static int dissect_DisableProfileResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_DisableProfileResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_DisableProfileResponse_PDU);
   return offset;
 }
 static int dissect_DeleteProfileRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_DeleteProfileRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_DeleteProfileRequest_PDU);
   return offset;
 }
 static int dissect_DeleteProfileResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_DeleteProfileResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_DeleteProfileResponse_PDU);
   return offset;
 }
 static int dissect_EuiccMemoryResetRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EuiccMemoryResetRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EuiccMemoryResetRequest_PDU);
   return offset;
 }
 static int dissect_EuiccMemoryResetResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EuiccMemoryResetResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EuiccMemoryResetResponse_PDU);
   return offset;
 }
 static int dissect_GetEuiccDataRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccDataRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccDataRequest_PDU);
   return offset;
 }
 static int dissect_GetEuiccDataResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetEuiccDataResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetEuiccDataResponse_PDU);
   return offset;
 }
 static int dissect_GetRatRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetRatRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetRatRequest_PDU);
   return offset;
 }
 static int dissect_GetRatResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetRatResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetRatResponse_PDU);
   return offset;
 }
 static int dissect_LoadCRLRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_LoadCRLRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_LoadCRLRequest_PDU);
   return offset;
 }
 static int dissect_LoadCRLResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_LoadCRLResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_LoadCRLResponse_PDU);
   return offset;
 }
 static int dissect_ExpirationDate_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_ExpirationDate(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ExpirationDate_PDU);
   return offset;
 }
 static int dissect_TotalPartialCrlNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_TotalPartialCrlNumber(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_TotalPartialCrlNumber_PDU);
   return offset;
 }
 static int dissect_PartialCrlNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_PartialCrlNumber(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_PartialCrlNumber_PDU);
   return offset;
 }
 static int dissect_RemoteProfileProvisioningRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_RemoteProfileProvisioningRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_RemoteProfileProvisioningRequest_PDU);
   return offset;
 }
 static int dissect_RemoteProfileProvisioningResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_RemoteProfileProvisioningResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_RemoteProfileProvisioningResponse_PDU);
   return offset;
 }
 static int dissect_InitiateAuthenticationRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_InitiateAuthenticationRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_InitiateAuthenticationRequest_PDU);
   return offset;
 }
 static int dissect_InitiateAuthenticationResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_InitiateAuthenticationResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_InitiateAuthenticationResponse_PDU);
   return offset;
 }
 static int dissect_AuthenticateClientRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_AuthenticateClientRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_AuthenticateClientRequest_PDU);
   return offset;
 }
 static int dissect_AuthenticateClientResponseEs9_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_AuthenticateClientResponseEs9(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_AuthenticateClientResponseEs9_PDU);
   return offset;
 }
 static int dissect_GetBoundProfilePackageRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetBoundProfilePackageRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetBoundProfilePackageRequest_PDU);
   return offset;
 }
 static int dissect_GetBoundProfilePackageResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_GetBoundProfilePackageResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_GetBoundProfilePackageResponse_PDU);
   return offset;
 }
 static int dissect_HandleNotification_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_HandleNotification(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_HandleNotification_PDU);
   return offset;
 }
 static int dissect_EuiccConfiguredAddressesRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EuiccConfiguredAddressesRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EuiccConfiguredAddressesRequest_PDU);
   return offset;
 }
 static int dissect_EuiccConfiguredAddressesResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_EuiccConfiguredAddressesResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_EuiccConfiguredAddressesResponse_PDU);
   return offset;
 }
-static int dissect_ISDRProprietaryApplicationTemplate_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+int dissect_sgp22_ISDRProprietaryApplicationTemplate_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
-  offset = dissect_sgp22_ISDRProprietaryApplicationTemplate(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_ISDRProprietaryApplicationTemplate_PDU);
+  offset = dissect_sgp22_ISDRProprietaryApplicationTemplate(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_sgp22_ISDRProprietaryApplicationTemplate_PDU);
   return offset;
 }
 static int dissect_LpaeActivationRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_LpaeActivationRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_LpaeActivationRequest_PDU);
   return offset;
 }
 static int dissect_LpaeActivationResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_LpaeActivationResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_LpaeActivationResponse_PDU);
   return offset;
 }
 static int dissect_SetDefaultDpAddressRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_SetDefaultDpAddressRequest(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_SetDefaultDpAddressRequest_PDU);
   return offset;
 }
 static int dissect_SetDefaultDpAddressResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_SetDefaultDpAddressResponse(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_SetDefaultDpAddressResponse_PDU);
   return offset;
 }
 static int dissect_AuthenticateClientResponseEs11_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
   offset = dissect_sgp22_AuthenticateClientResponseEs11(false, tvb, offset, &asn1_ctx, tree, hf_sgp22_AuthenticateClientResponseEs11_PDU);
@@ -4721,10 +4718,6 @@ void proto_register_sgp22(void)
     { &hf_sgp22_ProfileInfoListResponse_PDU,
       { "ProfileInfoListResponse", "sgp22.ProfileInfoListResponse",
         FT_UINT32, BASE_DEC, VALS(sgp22_ProfileInfoListResponse_U_vals), 0,
-        NULL, HFILL }},
-    { &hf_sgp22_ProfileInfo_PDU,
-      { "ProfileInfo", "sgp22.ProfileInfo_element",
-        FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_sgp22_StoreMetadataRequest_PDU,
       { "StoreMetadataRequest", "sgp22.StoreMetadataRequest_element",
@@ -4938,7 +4931,7 @@ void proto_register_sgp22(void)
       { "EuiccConfiguredAddressesResponse", "sgp22.EuiccConfiguredAddressesResponse_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_sgp22_ISDRProprietaryApplicationTemplate_PDU,
+    { &hf_sgp22_sgp22_ISDRProprietaryApplicationTemplate_PDU,
       { "ISDRProprietaryApplicationTemplate", "sgp22.ISDRProprietaryApplicationTemplate_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -6188,7 +6181,7 @@ void proto_register_sgp22(void)
     &ett_sgp22_EventEntries,
   };
 
-  proto_sgp22 = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_sgp22 = proto_register_protocol("SGP.22 GSMA Remote SIM Provisioning (RSP)", "SGP.22", "sgp22");
   proto_register_field_array(proto_sgp22, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
@@ -6221,8 +6214,6 @@ void proto_reg_handoff_sgp22(void)
   register_ber_oid_dissector("2.23.146.1.2.0.2", dissect_TotalPartialCrlNumber_PDU, proto_sgp22, "id-rsp-totalPartialCrlNumber");
   register_ber_oid_dissector("2.23.146.1.2.0.3", dissect_PartialCrlNumber_PDU, proto_sgp22, "id-rsp-partialCrlNumber");
   register_ber_oid_dissector("2.23.146.1.3.1.1", dissect_ActivationCodeRetrievalInfo_PDU, proto_sgp22, "id-rsp-metadata-activationCodeRetrievalInfo");
-  dissector_add_uint("sgp22.request", 0xE0, create_dissector_handle(dissect_ISDRProprietaryApplicationTemplate_PDU, proto_sgp22));
-  dissector_add_uint("sgp22.request", 0xE3, create_dissector_handle(dissect_ProfileInfo_PDU, proto_sgp22));
   dissector_add_uint("sgp22.request", 0xBF20, create_dissector_handle(dissect_GetEuiccInfo1Request_PDU, proto_sgp22));
   dissector_add_uint("sgp22.response", 0xBF20, create_dissector_handle(dissect_EUICCInfo1_PDU, proto_sgp22));
   dissector_add_uint("sgp22.request", 0xBF21, create_dissector_handle(dissect_PrepareDownloadRequest_PDU, proto_sgp22));
@@ -6258,7 +6249,7 @@ void proto_reg_handoff_sgp22(void)
   dissector_add_uint("sgp22.request", 0xBF35, create_dissector_handle(dissect_LoadCRLRequest_PDU, proto_sgp22));
   dissector_add_uint("sgp22.response", 0xBF35, create_dissector_handle(dissect_LoadCRLResponse_PDU, proto_sgp22));
   dissector_add_uint("sgp22.request", 0xBF36, create_dissector_handle(dissect_BoundProfilePackage_PDU, proto_sgp22));
-  dissector_add_uint("sgp22.request", 0xBF37, create_dissector_handle(dissect_ProfileInstallationResult_PDU, proto_sgp22));
+  dissector_add_uint("sgp22.response", 0xBF37, create_dissector_handle(dissect_ProfileInstallationResult_PDU, proto_sgp22));
   dissector_add_uint("sgp22.request", 0xBF38, create_dissector_handle(dissect_AuthenticateServerRequest_PDU, proto_sgp22));
   dissector_add_uint("sgp22.response", 0xBF38, create_dissector_handle(dissect_AuthenticateServerResponse_PDU, proto_sgp22));
   dissector_add_uint("sgp22.request", 0xBF39, create_dissector_handle(dissect_InitiateAuthenticationRequest_PDU, proto_sgp22));

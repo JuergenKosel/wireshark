@@ -124,10 +124,12 @@ typedef struct {
  * @param file_type The WTAP_FILE_TYPE_SUBTYPE_XXX output file type
  * @param in_filenames An array of input filenames to merge from
  * @param in_file_count The number of entries in in_filenames
+ * @param add_merging_comment Whether to add "File created by merging:..." comment
  * @param do_append Whether to append by file order instead of chronological order
  * @param mode The IDB_MERGE_MODE_XXX merge mode for interface data
  * @param snaplen The snaplen to limit it to, or 0 to leave as it is in the files
  * @param app_name The application name performing the merge, used in SHB info
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
  * @param cb The callback information to use during execution
  * @param compression_type The compression type to use for the output
  * @return true on success, false on failure
@@ -135,8 +137,8 @@ typedef struct {
 WS_DLL_PUBLIC bool
 merge_files(const char* out_filename, const int file_type,
             const char *const *in_filenames, const unsigned in_file_count,
-            const bool do_append, const idb_merge_mode mode,
-            unsigned snaplen, const char *app_name, merge_progress_callback_t* cb,
+            const bool add_merging_comment, const bool do_append, const idb_merge_mode mode,
+            unsigned snaplen, const char *app_name, const char* app_env_var_prefix, merge_progress_callback_t* cb,
             ws_compression_type compression_type);
 
 /**
@@ -149,19 +151,21 @@ merge_files(const char* out_filename, const int file_type,
  * @param file_type The WTAP_FILE_TYPE_SUBTYPE_XXX output file type
  * @param in_filenames An array of input filenames to merge from
  * @param in_file_count The number of entries in in_filenames
+ * @param add_merging_comment Whether to add "File created by merging:..." comment
  * @param do_append Whether to append by file order instead of chronological order
  * @param mode The IDB_MERGE_MODE_XXX merge mode for interface data
  * @param snaplen The snaplen to limit it to, or 0 to leave as it is in the files
  * @param app_name The application name performing the merge, used in SHB info
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
  * @param cb The callback information to use during execution
  * @return true on success, false on failure
  */
 WS_DLL_PUBLIC bool
 merge_files_to_tempfile(const char *tmpdir, char **out_filenamep, const char *pfx,
                         const int file_type, const char *const *in_filenames,
-                        const unsigned in_file_count, const bool do_append,
-                        const idb_merge_mode mode, unsigned snaplen,
-                        const char *app_name, merge_progress_callback_t* cb);
+                        const unsigned in_file_count, const bool add_merging_comment,
+                        const bool do_append, const idb_merge_mode mode, unsigned snaplen,
+                        const char *app_name, const char* app_env_var_prefix, merge_progress_callback_t* cb);
 
 /**
  * @brief Merge the given input files to the standard output
@@ -169,19 +173,21 @@ merge_files_to_tempfile(const char *tmpdir, char **out_filenamep, const char *pf
  * @param file_type The WTAP_FILE_TYPE_SUBTYPE_XXX output file type
  * @param in_filenames An array of input filenames to merge from
  * @param in_file_count The number of entries in in_filenames
+ * @param add_merging_comment Whether to add "File created by merging:..." comment
  * @param do_append Whether to append by file order instead of chronological order
  * @param mode The IDB_MERGE_MODE_XXX merge mode for interface data
  * @param snaplen The snaplen to limit it to, or 0 to leave as it is in the files
  * @param app_name The application name performing the merge, used in SHB info
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
  * @param cb The callback information to use during execution
  * @return true on success, false on failure
  */
 WS_DLL_PUBLIC bool
 merge_files_to_stdout(const int file_type, const char *const *in_filenames,
-                      const unsigned in_file_count, const bool do_append,
-                      const idb_merge_mode mode, unsigned snaplen,
-                      const char *app_name, merge_progress_callback_t* cb,
-                      ws_compression_type compression_type);
+                      const unsigned in_file_count, const bool add_merging_comment,
+                      const bool do_append, const idb_merge_mode mode, unsigned snaplen,
+                      const char *app_name, const char* app_env_var_prefix,
+                      merge_progress_callback_t* cb, ws_compression_type compression_type);
 
 #ifdef __cplusplus
 }

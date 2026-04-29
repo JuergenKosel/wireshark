@@ -1009,7 +1009,7 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     uint8_t     cip_qpc = 0;
     uint8_t     cip_qi2 = 0;
     uint8_t     cip_fmt = 0;
-    uint8_t     cip_sph = 0;
+    bool        cip_sph = false;
     uint8_t     cip_fn = 0;
     unsigned    datalen = 0;
     unsigned    db_size = 0;
@@ -1044,16 +1044,13 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     offset += 2;
 
     /* tag field defines if CIP header is included or not */
-    ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_tag, tvb, offset, 1, ENC_BIG_ENDIAN);
-
-    tag = tvb_get_uint8(tvb, offset) & IEEE_1722_TAG_MASK;
+    ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_tag, tvb, offset, 1, ENC_BIG_ENDIAN, &tag);
     if (tag > 0x40)
     {
         expert_add_info(pinfo, ti, &ei_1722_61883_incorrect_tag);
     }
 
-    ti_channel = proto_tree_add_item(ti_61883_tree, hf_1722_61883_channel, tvb, offset, 1, ENC_BIG_ENDIAN);
-    channel = tvb_get_uint8(tvb, offset) & IEEE_1722_CHANNEL_MASK;
+    ti_channel = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_channel, tvb, offset, 1, ENC_BIG_ENDIAN, &channel);
     if (channel != IEEE_1722_61883_CHANNEL_AVTP)
     {
         proto_item_append_text(ti_channel, ": Originating Source ID from an IEEE 1394 serial bus");
@@ -1064,8 +1061,7 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     }
     offset += 1;
 
-    ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_tcode, tvb, offset, 1, ENC_BIG_ENDIAN);
-    tcode = tvb_get_uint8(tvb, offset) & IEEE_1722_TCODE_MASK;
+    ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_tcode, tvb, offset, 1, ENC_BIG_ENDIAN, &tcode);
     if (tcode != 0xa0)
     {
        expert_add_info(pinfo, ti, &ei_1722_61883_incorrect_tcode);
@@ -1079,15 +1075,13 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         proto_item_prepend_text(ti, "IIDC 1394 video payload:");
         break;
     case IEEE_1722_61883_TAG_CIP:
-        ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_qi1, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_qi1 = tvb_get_uint8(tvb, offset) & IEEE_1722_QI1_MASK;
+        ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_qi1, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_qi1);
         if (cip_qi1 != 0)
         {
             expert_add_info(pinfo, ti, &ei_1722_61883_incorrect_qi1);
         }
 
-        ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_sid, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_sid = tvb_get_uint8(tvb, offset) & IEEE_1722_SID_MASK;
+        ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_sid, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_sid);
         if (cip_sid != IEEE_1722_61883_SID_AVTP)
         {
             proto_item_append_text(ti, ": Originating Source ID from an IEEE 1394 serial bus");
@@ -1109,8 +1103,7 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         }
         offset += 1;
 
-        ti_cip_dbs = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_dbs, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_dbs = tvb_get_uint8(tvb, offset);
+        ti_cip_dbs = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_dbs, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_dbs);
         offset += 1;
         ti_cip_fn = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_fn, tvb, offset, 1, ENC_BIG_ENDIAN);
 
@@ -1131,29 +1124,25 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
             break;
         }
 
-        ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_qpc, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_qpc = tvb_get_uint8(tvb, offset) & IEEE_1722_QPC_MASK;
+        ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_qpc, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_qpc);
         if (cip_qpc != 0)
         {
             expert_add_info(pinfo, ti, &ei_1722_61883_incorrect_qpc);
         }
 
-        ti_cip_sph = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_sph, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_sph = tvb_get_uint8(tvb, offset) & IEEE_1722_SPH_MASK;
+        ti_cip_sph = proto_tree_add_item_ret_boolean(ti_61883_tree, hf_1722_61883_cip_sph, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_sph);
         offset += 1;
         proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_dbc, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset += 1;
 
-        ti = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_qi2, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_qi2 = tvb_get_uint8(tvb, offset) & IEEE_1722_QI2_MASK;
-        if (cip_qi2 != 0x80)
+        ti = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_qi2, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_qi2);
+        if (cip_qi2 != 0x02)
         {
             expert_add_info(pinfo, ti, &ei_1722_61883_incorrect_qi2);
         }
 
         /* Check format field for 61883-4 MPEG-TS video or 61883-6 for audio */
-        ti_cip_fmt = proto_tree_add_item(ti_61883_tree, hf_1722_61883_cip_fmt, tvb, offset, 1, ENC_BIG_ENDIAN);
-        cip_fmt = tvb_get_uint8(tvb, offset) & IEEE_1722_FMT_MASK;
+        ti_cip_fmt = proto_tree_add_item_ret_uint8(ti_61883_tree, hf_1722_61883_cip_fmt, tvb, offset, 1, ENC_BIG_ENDIAN, &cip_fmt);
         offset += 1;
 
         if ((cip_fmt & 0x20) == 0)
@@ -1229,7 +1218,7 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
             {
                 expert_add_info(pinfo, ti_cip_fn, &ei_1722_61883_4_incorrect_cip_fn);
             }
-            if (cip_sph != 4)
+            if (!cip_sph)
             {
                 expert_add_info(pinfo, ti_cip_sph, &ei_1722_61883_4_incorrect_cip_sph);
             }
@@ -2666,7 +2655,7 @@ static int dissect_1722_acf_can_common(tvbuff_t *tvb, packet_info *pinfo, proto_
     }
 
     /* Add padding bytes to ACF-CAN tree if any */
-    if (pad_length > 0 && tvb_reported_length_remaining(tvb, offset) >= (int)pad_length)
+    if (pad_length > 0 && tvb_reported_length_remaining(tvb, offset) >= pad_length)
     {
         proto_tree_add_item(tree_acf_can, hf_1722_can_padding, tvb, offset, pad_length, ENC_NA);
     }
@@ -2882,7 +2871,7 @@ static int dissect_1722_acf_lin(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
         offset += payload_length;
     }
 
-    if (pad_length > 0 && tvb_reported_length_remaining(tvb, offset) >= (int)pad_length)
+    if (pad_length > 0 && tvb_reported_length_remaining(tvb, offset) >= pad_length)
     {
         proto_tree_add_item(tree_lin, hf_1722_lin_padding, tvb, offset, pad_length, ENC_NA);
     }

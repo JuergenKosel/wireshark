@@ -66,6 +66,22 @@ pcapng_write_section_header_block(ws_cwstream* pfile,  /**< Write information */
                                   int *err /**< Error type */
                                   );
 
+/**
+ * @brief Writes an Interface Description Block (IDB) to a pcapng file.
+ *
+ * This function writes an IDB to the specified pcapng file stream, containing information about the network interface.
+ *
+ * @param pfile The pcapng file stream to write to.
+ * @param comment A comment string for the IDB (optional).
+ * @param name The name of the network interface.
+ * @param descr A description of the network interface.
+ * @param filter A display filter for the interface.
+ * @param os The operating system on which the interface is running.
+ * @param hardware The hardware description of the interface.
+ * @param link_type The link type of the interface (e.g., Ethernet, Wi-Fi).
+ * @param snap_len The snapshot length for packet capture.
+ * @return true if the IDB was successfully written, false otherwise.
+ */
 extern bool
 pcapng_write_interface_description_block(ws_cwstream* pfile,
                                          const char *comment,  /* OPT_COMMENT           1 */
@@ -81,6 +97,20 @@ pcapng_write_interface_description_block(ws_cwstream* pfile,
                                          uint8_t tsresol,       /* IDB_TSRESOL           9 */
                                          int *err);
 
+/**
+ * @brief Writes an Interface Statistics Block to a pcapng file.
+ *
+ * @param pfile The write context for the pcapng file.
+ * @param interface_id The ID of the network interface.
+ * @param bytes_written Pointer to store the number of bytes written.
+ * @param comment Optional comment string (OPT_COMMENT).
+ * @param isb_starttime Start time of the statistics block in 100-nanosecond intervals since January 1, 1601 (ISB_STARTTIME).
+ * @param isb_endtime End time of the statistics block in 100-nanosecond intervals since January 1, 1601 (ISB_ENDTIME).
+ * @param isb_ifrecv Number of packets received by the interface (ISB_IFRECV).
+ * @param isb_ifdrop Number of packets dropped by the interface (ISB_IFDROP).
+ * @param err Pointer to store any error code.
+ * @return true if successful, false otherwise.
+ */
 extern bool
 pcapng_write_interface_statistics_block(ws_cwstream* pfile,
                                         uint32_t interface_id,
@@ -92,6 +122,22 @@ pcapng_write_interface_statistics_block(ws_cwstream* pfile,
                                         uint64_t isb_ifdrop,    /* ISB_IFDROP            5 */
                                         int *err);
 
+/**
+ * @brief Writes an Enhanced Packet Block (EPB) to a pcapng file.
+ *
+ * @param pfile Pointer to the write context.
+ * @param comment Optional comment for the packet.
+ * @param sec Seconds part of the timestamp.
+ * @param usec Microseconds part of the timestamp.
+ * @param caplen Length of the captured data.
+ * @param len Total length of the packet.
+ * @param interface_id ID of the network interface on which the packet was received.
+ * @param ts_mul Timestamp multiplier.
+ * @param pd Pointer to the captured data.
+ * @param flags Flags for the packet.
+ * @param bytes_written Pointer to store the number of bytes written.
+ * @return true if successful, false otherwise.
+ */
 extern bool
 pcapng_write_enhanced_packet_block(ws_cwstream* pfile,
                                    const char *comment,

@@ -19,6 +19,7 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <wsutil/please_report_bug.h>
+#include <app/application_flavor.h>
 #include <wsutil/wslog.h>
 #include <extcap/ssh-base.h>
 #include <writecap/pcapio.h>
@@ -227,7 +228,7 @@ static int read_output_bytes(ssh_channel channel, int bytes, char* outbuf)
  *   READ_LINE_TIMEOUT - reading ended with timeout, line/len contains \0 terminate prompt
  *   READ_LINE_TOO_LONG - buffer is full with no EOLN nor PROMPT found, line is filled with NOT \0 terminated data
  */
-static int ssh_channel_read_line_timeout(ssh_channel channel, char *line, int *len, int max_len) {
+static int ssh_channel_read_line_timeout(ssh_channel channel, char *line, uint32_t* len, uint32_t max_len) {
 	char chr;
 	int rlen = 0;
 
@@ -905,6 +906,7 @@ static int process_buffer_response_ios(ssh_channel channel, uint8_t* packet, ws_
 	time_t pkt_time = 0;
 	uint32_t pkt_usec = 0;
 	uint32_t len = 0;
+	uint64_t bytes_written = 0;
 
 	/* Process response */
 	do {
@@ -919,7 +921,6 @@ static int process_buffer_response_ios(ssh_channel channel, uint8_t* packet, ws_
 					ws_debug("Read packet %d\n", read_packets);
 					if (read_packets > *processed_packets) {
 						int err;
-						uint64_t bytes_written;
 
 						ws_debug("Exporting packet %d\n", *processed_packets);
 						/*  dump the packet to the pcap file */
@@ -1025,6 +1026,7 @@ static int process_buffer_response_ios_xe_16(ssh_channel channel, uint8_t* packe
 	int loop_end = 0;
 	unsigned packet_size = 0;
 	uint32_t len = 0;
+	uint64_t bytes_written = 0;
 
 	/* Process response */
 	do {
@@ -1039,7 +1041,6 @@ static int process_buffer_response_ios_xe_16(ssh_channel channel, uint8_t* packe
 					if (read_packets > *processed_packets) {
 						int err;
 						int64_t cur_time = g_get_real_time();
-						uint64_t bytes_written = 0;
 
 						ws_debug("Exporting packet %d\n", *processed_packets);
 						/*  dump the packet to the pcap file */
@@ -1087,6 +1088,7 @@ static int process_buffer_response_ios_xe_17(ssh_channel channel, uint8_t* packe
 	int loop_end = 0;
 	unsigned packet_size = 0;
 	uint32_t len = 0;
+	uint64_t bytes_written = 0;
 
 	/* Process response */
 	do {
@@ -1113,7 +1115,6 @@ static int process_buffer_response_ios_xe_17(ssh_channel channel, uint8_t* packe
 					if (read_packets > *processed_packets) {
 						int err;
 						int64_t cur_time = g_get_real_time();
-						uint64_t bytes_written;
 
 						ws_debug("Exporting packet %d\n", *processed_packets);
 						/*  dump the packet to the pcap file */
@@ -1242,6 +1243,7 @@ static int process_buffer_response_asa(ssh_channel channel, uint8_t* packet, ws_
 	int status = CISCODUMP_PARSER_STARTING;
 	int loop_end = 0;
 	unsigned packet_size = 0;
+	uint64_t bytes_written = 0;
 
 	do {
 		time_t pkt_time = 0;
@@ -1264,7 +1266,6 @@ static int process_buffer_response_asa(ssh_channel channel, uint8_t* packet, ws_
 					if (status == CISCODUMP_PARSER_END_PACKET) {
 						ws_debug("Read packet %d\n", read_packets);
 						int err;
-						uint64_t bytes_written;
 
 						ws_debug("Exporting packet %d\n", *processed_packets);
 						/*  dump the packet to the pcap file */
@@ -1383,7 +1384,7 @@ static void ssh_loop_read(ssh_channel channel, ws_cwstream* fp, const uint32_t c
 static int detect_host_prompt(ssh_channel channel)
 {
 	char line[SSH_READ_BLOCK_SIZE + 1];
-	int len = 0;
+	uint32_t len = 0;
 	char prompt_2[SSH_READ_BLOCK_SIZE + 1];
 
 	/* Discard any login message */
@@ -1412,7 +1413,7 @@ static int detect_host_prompt(ssh_channel channel)
 			return EXIT_FAILURE;
 	}
 	if (len > 0) {
-		g_strlcpy(prompt_str, line, SSH_READ_BLOCK_SIZE + 1);
+		(void) g_strlcpy(prompt_str, line, SSH_READ_BLOCK_SIZE + 1);
 
 		/* Is there hashtag at the end => enabled mode? */
 		if (prompt_str[strlen(prompt_str)-1] != '#') {
@@ -1437,7 +1438,7 @@ static int detect_host_prompt(ssh_channel channel)
 			return EXIT_FAILURE;
 	}
 	if (len > 0) {
-		g_strlcpy(prompt_2, line, SSH_READ_BLOCK_SIZE + 1);
+		(void) g_strlcpy(prompt_2, line, SSH_READ_BLOCK_SIZE + 1);
 		/* Does second prompt_str match first one? */
 		if (0 == g_strcmp0(prompt_str, prompt_2)) {
 			ws_debug("Detected prompt %s", prompt_str);
@@ -2324,7 +2325,7 @@ int main(int argc, char *argv[])
 		g_free(err_msg);
 	}
 
-	help_url = data_file_url("ciscodump.html");
+	help_url = data_file_url("ciscodump.html", application_configuration_environment_prefix());
 	extcap_base_set_util_info(extcap_conf, argv[0], CISCODUMP_VERSION_MAJOR, CISCODUMP_VERSION_MINOR,
 		CISCODUMP_VERSION_RELEASE, help_url);
 	add_libssh_info(extcap_conf);

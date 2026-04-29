@@ -111,6 +111,10 @@ ShowPacketBytesDialog::ShowPacketBytesDialog(QWidget &parent, CaptureFile &cf) :
 
     connect(ui->buttonBox, SIGNAL(helpRequested()), this, SLOT(helpButton()));
 
+    // XXX - This shouldn't be created if finfo->length == 0 (see
+    // wireshark_main_window_slots and have_packet_bytes), but it might
+    // make sense and simplify some calculations to store the length /
+    // byte location past the end
     setStartAndEnd(0, tvb_reported_length(tvb_) - 1);
     updateFieldBytes(true);
 }
@@ -173,6 +177,7 @@ bool ShowPacketBytesDialog::enableShowSelected()
     // "Show Selected" only works when showing all bytes:
     // - DecodeAs must not alter the number of bytes in the buffer
     // - ShowAs must show all bytes in the buffer
+    // - please update tooltip (minus ROT13) if logic changes
 
     return (((recent.gui_show_bytes_decode == DecodeAsNone) ||
              (recent.gui_show_bytes_decode == DecodeAsROT13)) &&
@@ -587,13 +592,13 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
     switch (recent.gui_show_bytes_decode) {
 
     case DecodeAsNone:
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
         field_bytes_ = QByteArray((const char *)bytes, length);
         break;
 
     case DecodeAsBASE64:
     {
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
         QByteArray ba = QByteArray::fromRawData((const char *)bytes, length);
         if (ba.contains('-') || ba.contains('_')) {
             field_bytes_ = QByteArray::fromBase64(ba, QByteArray::Base64UrlEncoding);
@@ -619,9 +624,9 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
 
         for (auto &tvb_uncompress : tvb_uncompress_list) {
             uncompr_tvb = tvb_uncompress.function(tvb_, start_, length);
-            if (uncompr_tvb && tvb_reported_length(uncompr_tvb) > 0) {
-                bytes = tvb_get_ptr(uncompr_tvb, 0, -1);
-                field_bytes_ = QByteArray((const char *)bytes, tvb_reported_length(uncompr_tvb));
+            if (uncompr_tvb && tvb_captured_length(uncompr_tvb) > 0) {
+                bytes = tvb_get_ptr(uncompr_tvb, 0, tvb_captured_length(uncompr_tvb));
+                field_bytes_ = QByteArray((const char *)bytes, tvb_captured_length(uncompr_tvb));
                 decode_as_name_ = tr("compressed %1").arg(tvb_uncompress.name);
                 tvb_free(uncompr_tvb);
                 break;
@@ -634,13 +639,13 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
     }
 
     case DecodeAsHexDigits:
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
         field_bytes_ = QByteArray::fromHex(QByteArray::fromRawData((const char *)bytes, length));
         break;
 
     case DecodeAsPercentEncoding:
     {
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
 #if GLIB_CHECK_VERSION(2, 66, 0)
         GBytes *ba = g_uri_unescape_bytes((const char*)bytes, length, NULL, NULL);
         if (ba != NULL) {
@@ -659,12 +664,12 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
     }
 
     case DecodeAsQuotedPrintable:
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
         field_bytes_ = decodeQuotedPrintable(bytes, length);
         break;
 
     case DecodeAsROT13:
-        bytes = tvb_get_ptr(tvb_, start_, -1);
+        bytes = tvb_get_ptr(tvb_, start_, length);
         field_bytes_ = QByteArray((const char *)bytes, length);
         rot13(field_bytes_);
         break;
@@ -687,7 +692,6 @@ void ShowPacketBytesDialog::updatePacketBytes(void)
     static const char hexchars[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 
     ui->tePacketBytes->clear();
-    ui->tePacketBytes->setCurrentFont(mainApp->monospaceFont());
 
     switch (recent.gui_show_bytes_show) {
 
@@ -920,6 +924,15 @@ DIAG_ON(stringop-overread)
     }
 }
 
+ShowPacketBytesTextEdit::ShowPacketBytesTextEdit(QWidget *parent) :
+    QTextEdit(parent),
+    show_selected_enabled_(true),
+    menus_enabled_(true)
+{
+    /* Should this pass true to use the current zoom level? */
+    setFont(mainApp->monospaceFont());
+}
+
 void ShowPacketBytesTextEdit::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu *menu = createStandardContextMenu();
@@ -928,13 +941,17 @@ void ShowPacketBytesTextEdit::contextMenuEvent(QContextMenuEvent *event)
     menu->setAttribute(Qt::WA_DeleteOnClose);
     menu->addSeparator();
 
+    QString displayToolTip = tr("<html>Mouse byte selection is enabled when<p>\"Decode as\" = None<p>AND<p>\"Show as\" = ASCII, ASCII & Control, EBCDIC or Raw</html>");
     action = menu->addAction(tr("Show Selected"));
     action->setEnabled(menus_enabled_ && show_selected_enabled_ && textCursor().hasSelection());
+    action->setToolTip(displayToolTip);
     connect(action, SIGNAL(triggered()), this, SLOT(showSelected()));
 
     action = menu->addAction(tr("Show All"));
     action->setEnabled(menus_enabled_);
     connect(action, SIGNAL(triggered()), this, SLOT(showAll()));
+
+    menu->setToolTipsVisible(true);
 
     menu->popup(event->globalPos());
 }

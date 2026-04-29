@@ -23,10 +23,18 @@ If you or your organization would like to contribute or become a sponsor, please
 // Add a summary of **major** changes here.
 // Add other changes to "New and Updated Features" below.
 
+* Welcome Page Overhaul
+  The welcome page has been redesigned to be more informative and easier to navigate. It now highlights the learning sections better and includes a new sidebar with tips and tricks for using Wireshark effectively. The welcome page is now also more accessible, with improved keyboard navigation and screen reader support.
+
+* Lua Debugger
+  A built-in Lua script debugger has been added. It supports breakpoints, single-stepping, variable inspection, expression evaluation, and stack traces. The debugger can be opened from the menu:Tools[Lua Debugger] menu.
+
 Many other improvements have been made.
 See the “New and Updated Features” section below for more details.
 
 //=== Bug Fixes
+
+* wsbuglink:21115[Wireshark Profile Import RCE via Zip-Slip Vulnerability ] - A critical issue that caused Wireshark to crash when importing malformed zip files has been fixed. This bug was reported by Joohyun Park, Hyuk Kwon, Yonghwa Lee, Taisic Yun, Sangjun Song (Theori), with Xint and has been resolved in this release.
 
 //The following bugs have been fixed:
 //* wsbuglink:5000[]
@@ -38,32 +46,61 @@ See the “New and Updated Features” section below for more details.
 
 The following features are either new or have been significantly updated since version 4.6.0:
 
-// * The Windows installers now ship with Npcap 1.83.
-//   They previously shipped with Npcap 1.79.
+* The Windows installers now ship with Npcap 1.87.
+  They previously shipped with Npcap 1.83.
 
-// * The Windows installers now ship with Qt 6.8.3.
-//   They previously shipped with Qt 6.5.3.
+* The Windows and macOS installers now ship with Qt 6.10.3.
+  They previously shipped with Qt 6.9.3.
 
-* Nothing of note.
+* The keyboard shortcuts dialog (menu:About Wireshark[Keyboard Shortcuts]) has been moved out of of the About dialog to the menu:View[Internals,Keyboard Shortcuts] menu and now has a button to print the list of keyboard shortcuts to an HTML file.
+
+* The application icons have been updated and refreshed.
+  The macOS icon now supports Liquid Glass and is sized according to Apple's specifications on older macOS versions.
+  wsbuglink:18131[]
+
+* The RTP Player now supports AMR-WB encoded audio.
+
+* The protocol dissection API has been updated to more safely handle packet data offsets and lengths.
+  See the <<Major API Changes>> section below for details.
 
 // === Removed Features and Support
 
 // === Removed Dissectors
 
 
-//=== New File Format Decoding Support
+=== New File Format Decoding Support
 
-//[commaize]
-//--
-//--
+[commaize]
+--
+M-Module
+--
 
 === New Protocol Support
 
 // Add one protocol per line between the -- delimiters in the format
 // “Full protocol name (Abbreviation)”
-// git log --oneline --diff-filter=A --stat v4.3.0rc0.. epan/dissectors plugins
+// git log --oneline --diff-filter=A --stat v4.7.0rc0.. epan/dissectors plugins
 [commaize]
 --
+DCERPC SCARD_PACK
+ESUN
+Linux mac80211_hwsim Netlink
+MCData
+Mikrotik RoMON
+Multicast Router Discovery (MRD)
+NATS
+NMEA 2000
+Object Transform Protocol (OTP)
+Perforce P4RPC
+PosiStageNet (PSN)
+TrueConf Protocol (TrueConf)
+RDP Conctrl virtual channel Protocol (CONCTRL)
+RDP Video Capture Virtual Channel Extension (RDPECAM)
+Real-Time Tracking Protocol (RTTrP)
+TrueConf
+Ultra Ethernet Transport (UET)
+ZigBee ZCL Generic Tunnel
+Qualcomm Diagnostic (QCDIAG)
 --
 
 === Updated Protocol Support
@@ -86,7 +123,47 @@ Too many protocol updates have been made to list them all here.
 
 //_Non-empty section placeholder._
 
-// === Major API Changes
+=== Major API Changes
+
+The tvb new_subset and tvb length_remaining routines now take unsigned offset
+and length arguments. Negative offsets, indicating an offset relative to the
+end of the _captured_ length of the buffer (not reported) are no longer
+permitted, nor is a length of -1 meaning "to the end of the buffer." For
+the latter, use tvb_new_subset_remaining instead. Internally, tvbuffer lengths
+have long been unsigned; this change should simplify dealing with 32-bit
+unsigned length fields and checking for offsets overflowing.
+
+tvb find_line_end, tvb_find_uint8, tvb_find_uint16 and tvb_ws_mempbrk_pattern_uint8
+has been changed in a similar fashion. They now return a boolean, true
+if found.
+
+Functions tvb_get_string_uint[64] were added that can retrieve an unsigned
+integer encoded as an ASCII-like string from packet data similar to strtoul
+but without string copying or otherwise ensuring NUL termination.
+
+Linking with the Heimdal Kerberos library is now deprecated, and support will likely be removed in a future release.
+Linking with the MIT Kerberos library is still supported.
+
+=== Plugin Development Changes
+
+The list of installed dissector header files has been reduced and is now restricted to ones that contain the following:
+- Functions marked WS_DLL_PUBLIC
+- Structs whose names contain "tap_"
+- The string "PUBLIC_HEADER"
+
+On UN*X systems (excluding macOS when running from an app bundle, as
+with the official installer) extcap binaries are now searched for under
+the libexec directory by default, e.g., `/usr/libexec/wireshark/extcap`
+instead of `/usr/lib64/wireshark/extcap` or similar. This is the customary
+place for helper binaries, which as opposed to libraries do not need
+multiarch support. The location can be overridden via the environment
+variable WIRESHARK_EXTCAP_DIR. The extcap binaries shipped with Wireshark
+are installed in the new location, but third party extcaps may need
+packaging changes. This change was effective in version 4.6.0, but was not
+explicitly noted in the release notes previously. Note that some distributions
+do not use a libexec directory, such as Alpine Linux, which does not have
+multilib support. On such systems extcap binaries should be in the same
+location as before.
 
 == Getting Wireshark
 

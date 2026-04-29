@@ -1,4 +1,4 @@
-/* packet-allJoyn.c
+/* packet-alljoyn.c
  * Routines for AllJoyn (AllJoyn.org) packet dissection
  * Copyright (c) 2013-2014, The Linux Foundation.
  *
@@ -7,6 +7,22 @@
  * Copyright 1998 Gerald Combs
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+/* AI generated comment:
+ * AllJoyn was an open-source discovery and communication framework for the Internet of Things (IoT)
+ * that enabled devices to find and interact with each other. It allowed for remote method calls and
+ * one-way signals between applications on a distributed bus, making it possible for devices from
+ * different brands and types to work together. Although it was sponsored by the AllSeen Alliance,
+ * the framework is now deprecated and the "Windows.Devices.AllJoyn" namespace is considered legacy.
+ * Current status
+ *          Deprecated: AllJoyn is no longer actively maintained as a primary IoT protocol.
+ *                      The namespace in Windows is deprecated.
+ * Successor protocols:
+ *                      Alternatives like Project CHIP (now Matter) and IoTivity have emerged
+ *                      to take its place in the IoT ecosystem.
+ * Wikipedia:
+ * "In 2018, development ended after the source and documentation were copied to GitHub."
  */
 
 #include "config.h"
@@ -499,16 +515,12 @@ handle_message_sasl(tvbuff_t    *tvb,
     command = find_sasl_command(tvb, offset);
 
     if(command) {
-        /* This gives us the offset into the buffer of the terminating character of
-         * the command, the '\n'. + 1 to get the number of bytes used for the
-         * command in the buffer. tvb_find_uint8() returns -1 if not found so the + 1
-         * will result in a newline_offset of 0 if not found.
-         */
-        int newline_offset = tvb_find_uint8(tvb, offset + command->length, -1, '\n') + 1;
+        unsigned param_len, next_offset;
 
+        /* The terminating character of the command is an '\n'. */
         /* If not found see if we should request another segment. */
-        if(0 == newline_offset) {
-            if((unsigned)tvb_captured_length_remaining(tvb, offset) < MAX_SASL_PACKET_LENGTH &&
+        if(!tvb_find_line_end_remaining(tvb, offset + command->length, &param_len, &next_offset)) {
+            if(tvb_captured_length_remaining(tvb, offset) < MAX_SASL_PACKET_LENGTH &&
                 set_pinfo_desegment(pinfo, offset, DESEGMENT_ONE_MORE_SEGMENT)) {
 
                 /* Return the length of the buffer we successfully parsed. */
@@ -517,24 +529,18 @@ handle_message_sasl(tvbuff_t    *tvb,
                 /* If we can't desegment then return 0 meaning we didn't do anything. */
                 return_value = 0;
             }
-
-            return return_value;
-        }
-
-        if(newline_offset > 0) {
-            int length = command->length;
+        } else {
 
             col_add_fstr(pinfo->cinfo, COL_INFO, "SASL-%s", command->text);
 
             /* Add a subtree/row for the command. */
-            proto_tree_add_item(message_tree, hf_alljoyn_sasl_command, tvb, offset, length, ENC_ASCII);
-            offset += length;
-            length = newline_offset - offset;
+            proto_tree_add_item(message_tree, hf_alljoyn_sasl_command, tvb, offset, command->length, ENC_ASCII);
+            offset += command->length;
 
             /* Add a subtree for the parameter. */
-            proto_tree_add_item(message_tree, hf_alljoyn_sasl_parameter, tvb, offset, length, ENC_ASCII);
+            proto_tree_add_item(message_tree, hf_alljoyn_sasl_parameter, tvb, offset, param_len, ENC_ASCII);
 
-            return_value = newline_offset;
+            return_value = next_offset;
         }
     }
 
@@ -877,7 +883,7 @@ parse_arg(tvbuff_t      *tvb,
           uint8_t       *signature_length,
           int            field_starting_offset)
 {
-    int length;
+    unsigned length;
     int padding_start;
     int saved_offset = offset;
 
@@ -894,7 +900,7 @@ parse_arg(tvbuff_t      *tvb,
             const uint8_t *sig_saved;
             int           starting_offset;
             int           number_of_items      = 0;
-            int           packet_length        = (int)tvb_reported_length(tvb);
+            unsigned      packet_length        = tvb_reported_length(tvb);
 
             if(*signature == NULL || *signature_length < 1) {
                 col_set_str(pinfo->cinfo, COL_INFO, "BAD DATA: An array argument needs a signature.");
@@ -909,12 +915,12 @@ parse_arg(tvbuff_t      *tvb,
             add_padding_item(padding_start, offset, tvb, field_tree);
 
             /* This is the length of the entire array in bytes but does not include the length field. */
-            length = (int)tvb_get_uint32(tvb, offset, encoding);
+            length = tvb_get_uint32(tvb, offset, encoding);
 
             padding_start = offset + 4;
             starting_offset = pad_according_to_type(padding_start, field_starting_offset, packet_length, *sig_saved); /* Advance to the data elements. */
 
-            if(length < 0 || length > MAX_ARRAY_LEN || starting_offset + length > packet_length) {
+            if(length > MAX_ARRAY_LEN || starting_offset + length > packet_length) {
                 col_add_fstr(pinfo->cinfo, COL_INFO, "BAD DATA: Array length (in bytes) is %d. Remaining packet length is %d.",
                     length, tvb_reported_length_remaining(tvb, starting_offset));
                 return tvb_reported_length(tvb);
@@ -934,7 +940,7 @@ parse_arg(tvbuff_t      *tvb,
 
                 increment_dissection_depth(pinfo);
 
-                while((offset - starting_offset) < length) {
+                while((unsigned)(offset - starting_offset) < length) {
                     const uint8_t *sig_pointer;
                     uint8_t       remaining_sig_length;
 
@@ -1047,7 +1053,7 @@ parse_arg(tvbuff_t      *tvb,
 
         /* The + 4 is for the length specifier. Object paths may be of "any length"
            according to D-Bus spec. But there are practical limits. */
-        if(length < 0 || length > MAX_ARRAY_LEN || length + 4 > tvb_reported_length_remaining(tvb, offset)) {
+        if(length > MAX_ARRAY_LEN || length + 4 > tvb_reported_length_remaining(tvb, offset)) {
             col_add_fstr(pinfo->cinfo, COL_INFO, "BAD DATA: Object path length is %d. Only %d bytes left in packet.",
                 length, tvb_reported_length_remaining(tvb, offset + 4));
             return tvb_reported_length(tvb);
@@ -1080,9 +1086,9 @@ parse_arg(tvbuff_t      *tvb,
         proto_tree_add_item(field_tree, hf_alljoyn_string_size_32bit, tvb, offset, 4, encoding);
 
         /* Get the length so we can display the string. */
-        length = (int)tvb_get_uint32(tvb, offset, encoding);
+        length = tvb_get_uint32(tvb, offset, encoding);
 
-        if(length < 0 || length > tvb_reported_length_remaining(tvb, offset)) {
+        if(length > tvb_reported_length_remaining(tvb, offset)) {
             col_add_fstr(pinfo->cinfo, COL_INFO, "BAD DATA: String length is %d. Remaining packet length is %d.",
                 length, (int)tvb_reported_length_remaining(tvb, offset));
             return tvb_reported_length(tvb);
@@ -1173,7 +1179,7 @@ parse_arg(tvbuff_t      *tvb,
             increment_dissection_depth(pinfo);
 
             /* The signature of the variant has now been taken care of.  So now take care of the variant data. */
-            while(((sig_pointer - sig_saved) < (length - 1)) && (tvb_reported_length_remaining(tvb, offset) > 0)) {
+            while(((unsigned)(sig_pointer - sig_saved) < (length - 1)) && (tvb_reported_length_remaining(tvb, offset) > 0)) {
                 proto_item_append_text(item, "%c", g_ascii_isprint(*sig_pointer) ? *sig_pointer : '?');
 
                 offset = parse_arg(tvb, pinfo, header_item, encoding, offset, tree, is_reply_to,
@@ -1721,7 +1727,7 @@ ns_parse_questions(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_t
     while(questions--) {
         proto_item *alljoyn_questions_ti;
         proto_tree *alljoyn_questions_tree;
-        int         count;
+        unsigned    count;
 
         alljoyn_questions_ti = proto_tree_add_item(alljoyn_tree, hf_alljoyn_ns_whohas, tvb, *offset, 2, ENC_NA); /* "Who-Has Message" */
         alljoyn_questions_tree = proto_item_add_subtree(alljoyn_questions_ti, ett_alljoyn_whohas);
@@ -1735,8 +1741,7 @@ ns_parse_questions(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_t
 
         (*offset) += 1;
 
-        proto_tree_add_item(alljoyn_questions_tree, hf_alljoyn_ns_whohas_count, tvb, *offset, 1, ENC_NA);
-        count = tvb_get_uint8(tvb, *offset);
+        proto_tree_add_item_ret_uint(alljoyn_questions_tree, hf_alljoyn_ns_whohas_count, tvb, *offset, 1, ENC_NA, &count);
         (*offset) += 1;
 
         while(count--) {
@@ -1803,7 +1808,7 @@ ns_parse_answers_v0(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_
         proto_item *alljoyn_answers_ti;
         proto_tree *alljoyn_answers_tree;
         int         flags;
-        int         count;
+        unsigned    count;
 
         alljoyn_answers_ti = proto_tree_add_item(alljoyn_tree, hf_alljoyn_answer, tvb, *offset, 2, ENC_NA);
         alljoyn_answers_tree = proto_item_add_subtree(alljoyn_answers_ti, ett_alljoyn_ns_answers);
@@ -1817,8 +1822,7 @@ ns_parse_answers_v0(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_
         flags = tvb_get_uint8(tvb, *offset);
         (*offset) += 1;
 
-        proto_tree_add_item(alljoyn_answers_tree, hf_alljoyn_ns_isat_count,  tvb, *offset, 1, ENC_NA);
-        count = tvb_get_uint8(tvb, *offset);
+        proto_tree_add_item_ret_uint(alljoyn_answers_tree, hf_alljoyn_ns_isat_count,  tvb, *offset, 1, ENC_NA, &count);
         (*offset) += 1;
 
         proto_tree_add_item(alljoyn_answers_tree, hf_alljoyn_ns_isat_port,   tvb, *offset, 2, ENC_BIG_ENDIAN);
@@ -1932,7 +1936,7 @@ ns_parse_answers_v1(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_
         proto_item *alljoyn_answers_ti;
         proto_tree *alljoyn_answers_tree;
         int         flags;
-        int         count;
+        unsigned    count;
 
         alljoyn_answers_ti = proto_tree_add_item(alljoyn_tree, hf_alljoyn_answer, tvb, *offset, 2, ENC_NA);
         alljoyn_answers_tree = proto_item_add_subtree(alljoyn_answers_ti, ett_alljoyn_ns_answers);
@@ -1949,8 +1953,7 @@ ns_parse_answers_v1(tvbuff_t *tvb, int* offset, proto_tree* alljoyn_tree, uint8_
         flags = tvb_get_uint8(tvb, *offset);
         (*offset) += 1;
 
-        proto_tree_add_item(alljoyn_answers_tree, hf_alljoyn_ns_isat_count,   tvb, *offset, 1, ENC_NA);
-        count = tvb_get_uint8(tvb, *offset);
+        proto_tree_add_item_ret_uint(alljoyn_answers_tree, hf_alljoyn_ns_isat_count,   tvb, *offset, 1, ENC_NA, &count);
         (*offset) += 1;
 
         /* The entire transport mask. */
@@ -2077,20 +2080,17 @@ dissect_AllJoyn_name_server(tvbuff_t    *tvb,
 
     /* The the sender and message versions as fields for the header protocol. */
     proto_tree_add_item(header_tree, hf_alljoyn_ns_sender_version, tvb, offset, 1, ENC_NA);
-    proto_tree_add_item(header_tree, hf_alljoyn_ns_message_version, tvb, offset, 1, ENC_NA);
-    version = tvb_get_uint8(tvb, offset) & 0xF;
+    proto_tree_add_item_ret_uint8(header_tree, hf_alljoyn_ns_message_version, tvb, offset, 1, ENC_NA, &version);
     offset += 1;
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "VERSION %u", version);
     if(version > 1)
         col_append_str(pinfo->cinfo, COL_INFO, " (UNSUPPORTED)");
 
-    proto_tree_add_item(header_tree, hf_alljoyn_ns_questions, tvb, offset, 1, ENC_NA);
-    questions = tvb_get_uint8(tvb, offset);
+    proto_tree_add_item_ret_uint8(header_tree, hf_alljoyn_ns_questions, tvb, offset, 1, ENC_NA, &questions);
     offset += 1;
 
-    proto_tree_add_item(header_tree, hf_alljoyn_ns_answers, tvb, offset, 1, ENC_NA);
-    answers = tvb_get_uint8(tvb, offset);
+    proto_tree_add_item_ret_uint8(header_tree, hf_alljoyn_ns_answers, tvb, offset, 1, ENC_NA, &answers);
     offset += 1;
 
     if(answers > 0)

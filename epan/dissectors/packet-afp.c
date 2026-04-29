@@ -1154,32 +1154,6 @@ static wmem_map_t *afp_request_hash;
 static unsigned Vol;      /* volume */
 static unsigned Did;      /* parent directory ID */
 
-/*
-* Returns the UTF-16 byte order, as an ENC_xxx_ENDIAN value,
-* by checking the 2-byte byte order mark.
-* If there is no byte order mark, 0xFFFFFFFF is returned.
-*/
-static unsigned
-spotlight_get_utf16_string_byte_order(tvbuff_t *tvb, int offset, int query_length, unsigned encoding) {
-	unsigned byte_order;
-
-	/* check for byte order mark */
-	byte_order = 0xFFFFFFFF;
-	if (query_length >= 2) {
-		uint16_t byte_order_mark;
-		byte_order_mark = tvb_get_uint16(tvb, offset, encoding);
-
-		if (byte_order_mark == 0xFFFE) {
-			byte_order = ENC_BIG_ENDIAN;
-		}
-		else if (byte_order_mark == 0xFEFF) {
-			byte_order = ENC_LITTLE_ENDIAN;
-		}
-	}
-
-	return byte_order;
-}
-
 /* Hash Functions */
 static int   afp_equal (const void *v, const void *v2)
 {
@@ -1319,8 +1293,7 @@ parse_vol_bitmap (proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t bitmap)
 		offset += 4;
 	}
 	if ((bitmap & kFPVolNameBit)) {
-		nameoff = tvb_get_ntohs(tvb, offset);
-		proto_tree_add_item(tree, hf_afp_vol_name_offset,tvb, offset, 2, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint16(tree, hf_afp_vol_name_offset,tvb, offset, 2, ENC_BIG_ENDIAN, &nameoff);
 		offset += 2;
 	}
 	if ((bitmap & kFPVolExtBytesFreeBit)) {
@@ -1337,7 +1310,7 @@ parse_vol_bitmap (proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t bitmap)
 	}
 	if (nameoff) {
 		uint8_t len;
-
+		/* TODO: this doesn't look right! */
 		len = tvb_get_uint8(tvb, offset);
 		proto_tree_add_item(tree, hf_afp_vol_name, tvb, offset, 1, ENC_UTF_8|ENC_BIG_ENDIAN);
 		offset += len +1;
@@ -1478,8 +1451,7 @@ parse_long_filename(proto_tree *tree, tvbuff_t *tvb, int offset, int org_offset)
 	proto_tree_add_item(tree, hf_afp_long_name_offset,tvb, offset, 2, ENC_BIG_ENDIAN);
 	if (lnameoff) {
 		tp_ofs = lnameoff +org_offset;
-		len = tvb_get_uint8(tvb, tp_ofs);
-		proto_tree_add_item(tree, hf_afp_path_len, tvb, tp_ofs,	 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint8(tree, hf_afp_path_len, tvb, tp_ofs,	 1, ENC_BIG_ENDIAN, &len);
 		tp_ofs++;
 		proto_tree_add_item(tree, hf_afp_path_name, tvb, tp_ofs, len, ENC_UTF_8);
 		tp_ofs += len;
@@ -2619,7 +2591,7 @@ dissect_query_afp_login(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 static int
 dissect_query_afp_login_ext(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 {
-	int len;
+	uint16_t len;
 	int len_uam;
 	const char *uam;
 	uint8_t path_type;
@@ -2640,29 +2612,25 @@ dissect_query_afp_login_ext(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	proto_tree_add_item(tree, hf_afp_user_type, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
 	/* only type 3 */
-	len = tvb_get_ntohs(tvb, offset);
-	proto_tree_add_item(tree, hf_afp_user_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint16(tree, hf_afp_user_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
 	offset += 2;
 	proto_tree_add_item(tree, hf_afp_user_name, tvb, offset, len, ENC_UTF_8);
 	offset += len;
 
 	/* directory service */
-	path_type = tvb_get_uint8(tvb, offset);
-	proto_tree_add_item(tree, hf_afp_path_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint8(tree, hf_afp_path_type, tvb, offset, 1, ENC_BIG_ENDIAN, &path_type);
 	offset++;
 	/* FIXME use 16 bit len + unicode from smb dissector */
 	switch (path_type) {
 	case 1:
 	case 2:
-		len = tvb_get_uint8(tvb, offset);
-		proto_tree_add_item(tree, hf_afp_path_len, tvb, offset,	 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint16(tree, hf_afp_path_len, tvb, offset,	 1, ENC_BIG_ENDIAN, &len);
 		offset++;
 		proto_tree_add_item(tree, hf_afp_path_name, tvb, offset, len, ENC_UTF_8);
 		offset += len;
 		break;
 	case 3:
-		len = tvb_get_ntohs(tvb, offset);
-		proto_tree_add_item( tree, hf_afp_path_unicode_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint16( tree, hf_afp_path_unicode_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
 		offset += 2;
 		proto_tree_add_item(tree, hf_afp_path_name, tvb, offset, len, ENC_UTF_8);
 		offset += len;
@@ -3465,8 +3433,7 @@ dissect_query_afp_map_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 {
 	uint8_t type;
 
-	type = tvb_get_uint8(tvb, offset);
-	proto_tree_add_item(tree, hf_afp_map_id_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint8(tree, hf_afp_map_id_type, tvb, offset, 1, ENC_BIG_ENDIAN, &type);
 	offset++;
 
 	if ( type < 5) {
@@ -3535,12 +3502,11 @@ dissect_reply_afp_map_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 static int
 dissect_query_afp_map_name(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset)
 {
-	int len;
-	int type;
-	int size;
+	int     len;
+	uint8_t type;
+	int     size;
 
-	type = tvb_get_uint8(tvb, offset);
-	proto_tree_add_item(tree, hf_afp_map_name_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint8(tree, hf_afp_map_name_type, tvb, offset, 1, ENC_BIG_ENDIAN, &type);
 	offset++;
 	switch (type) {
 	case 5:
@@ -3561,7 +3527,7 @@ dissect_query_afp_map_name(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 		break;
 	}
 	proto_tree_add_item(tree, hf_afp_map_name, tvb, offset, size, ENC_ASCII|ENC_BIG_ENDIAN);
-	offset += len +size;
+	offset += (len+size);
 
 	return offset;
 }
@@ -3722,8 +3688,7 @@ dissect_reply_afp_get_server_message(tvbuff_t *tvb, packet_info *pinfo _U_, prot
 	 */
 	if (bitmap & 0x02) {
 		/* Message is UTF-8, and message length is 2 bytes */
-		len = tvb_get_ntohs(tvb, offset);
-		proto_tree_add_item(tree, hf_afp_message_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint16(tree, hf_afp_message_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
 		offset += 2;
 		if (len) {
 			proto_tree_add_item(tree, hf_afp_message, tvb, offset, len , ENC_UTF_8);
@@ -3736,8 +3701,7 @@ dissect_reply_afp_get_server_message(tvbuff_t *tvb, packet_info *pinfo _U_, prot
 		 * Is the message in some Mac encoding? Always Mac Roman,
 		 * or possibly some other encoding for other locales?
 		 */
-		len = tvb_get_uint8(tvb, offset);
-		proto_tree_add_item(tree, hf_afp_message_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+		proto_tree_add_item_ret_uint16(tree, hf_afp_message_len, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
 		offset += 1;
 		if (len) {
 			proto_tree_add_item(tree, hf_afp_message, tvb, offset, len , ENC_ASCII);
@@ -4231,8 +4195,6 @@ spotlight_dissect_query_loop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 	int query_length;
 	uint64_t query_type;
 	uint64_t complex_query_type;
-	unsigned byte_order;
-	bool mark_exists;
 	tvbuff_t *spotlight_tvb;
 	char *str_tmp;
 
@@ -4299,20 +4261,13 @@ spotlight_dissect_query_loop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 				query_data64 = tvb_get_uint64(tvb, offset + 8, encoding);
 				query_length = ((int)query_data64 & 0xffff) * 8;
 
-				byte_order = spotlight_get_utf16_string_byte_order(tvb, offset + 16, query_length - 8, encoding);
-				if (byte_order == 0xFFFFFFFF) {
-					byte_order = ENC_BIG_ENDIAN;
-					mark_exists = false;
-				} else
-					mark_exists = true;
-
 				sub_tree = proto_tree_add_subtree_format(tree, tvb, offset, query_length + 8,
 								 ett_afp_spotlight_query_line, NULL,
 								 "%s, toc index: %u, utf-16 string: '%s'",
 								 val64_to_str_const(complex_query_type, cpx_qtype_string_values, "Unknown"),
 								 toc_index + 1,
-								 tvb_get_string_enc(pinfo->pool, tvb, offset + (mark_exists ? 18 : 16),
-								 query_length - (mark_exists? 10 : 8), ENC_UTF_16 | byte_order));
+								 tvb_get_string_enc(pinfo->pool, tvb, offset + 16,
+								 query_length - 8, ENC_UTF_16|ENC_BIG_ENDIAN|ENC_BOM));
 				break;
 			default:
 				subquery_count = 1;
@@ -4327,7 +4282,9 @@ spotlight_dissect_query_loop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 			}
 
 			offset += 8;
+			increment_dissection_depth(pinfo);
 			offset = spotlight_dissect_query_loop(tvb, pinfo, sub_tree, offset, complex_query_type, subquery_count, toc_offset, encoding);
+			decrement_dissection_depth(pinfo);
 			count--;
 			break;
 		case SQ_TYPE_NULL:
@@ -4379,15 +4336,7 @@ spotlight_dissect_query_loop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 				break;
 			case SQ_CPX_TYPE_UTF16_STRING: {
 				/* description see above */
-				byte_order = spotlight_get_utf16_string_byte_order(tvb, offset + 16, query_length - 8, encoding);
-				if (byte_order == 0xFFFFFFFF) {
-					byte_order = ENC_BIG_ENDIAN;
-					mark_exists = false;
-				} else
-					mark_exists = true;
-
-				str_tmp = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset + (mark_exists ? 10 : 8),
-								query_length - (mark_exists? 10 : 8), ENC_UTF_16 | byte_order);
+				str_tmp = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset + 8, query_length - 8, ENC_UTF_16|ENC_BIG_ENDIAN|ENC_BOM);
 				proto_tree_add_string(tree, hf_afp_utf_16_string, tvb, offset, query_length, str_tmp);
 				break;
 			}
@@ -4549,7 +4498,7 @@ dissect_spotlight(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 static int
 dissect_query_afp_spotlight(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, afp_request_val *request_val)
 {
-	int len;
+	unsigned len;
 	tvbuff_t *spotlight_tvb;
 
 	PAD(1);
@@ -4764,7 +4713,7 @@ dissect_reply_afp_get_acl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 static int
 dissect_reply_afp_spotlight(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, afp_request_val *request_val)
 {
-	int len;
+	unsigned len;
 	tvbuff_t *spotlight_tvb;
 
 	switch (request_val->spotlight_req_command) {
@@ -5009,7 +4958,7 @@ dissect_afp_server_status(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 				case 4: /* DNS */
 				case 5: /* SSH tunnel */
 					/*
-					 * The AFP specifcation says of
+					 * The AFP specification says of
 					 * the SSH tunnel type:
 					 *
 					 *  IP address (four bytes) with port
@@ -6746,8 +6695,8 @@ proto_register_afp(void)
 
 		{ &hf_afp_message_len,
 		  { "Len",         "afp.message_length",
-		    FT_UINT32, BASE_DEC, NULL, 0x0,
-		    "Message length", HFILL }},
+			FT_UINT16, BASE_DEC, NULL, 0x0,
+			"Message length", HFILL }},
 
 		{ &hf_afp_message,
 		  { "Message",  "afp.message",

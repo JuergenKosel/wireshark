@@ -389,6 +389,7 @@ static void get_new_colinfo_w_submessages(
     }
     /* Copy the remaining from the RTPS frame */
     wmem_strbuf_append(out, &frame_str[idx]);
+    g_free(submessages_dup);
 }
 
 /* ========================================================================== */

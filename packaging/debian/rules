@@ -20,8 +20,7 @@ PROJECT_MINOR_VERSION = $(shell grep '^set(PROJECT_MINOR_VERSION' CMakeLists.txt
 PROJECT_PATCH_VERSION = $(shell grep '^set(PROJECT_PATCH_VERSION' CMakeLists.txt | sed -e 's/set.* //' -e 's/)//')
 STRATOSHARK_MAJOR_VERSION = $(shell grep '^set(STRATOSHARK_MAJOR_VERSION' CMakeLists.txt | sed -e 's/set.* //' -e 's/)//')
 STRATOSHARK_MINOR_VERSION = $(shell grep '^set(STRATOSHARK_MINOR_VERSION' CMakeLists.txt | sed -e 's/set.* //' -e 's/)//')
-STRATOSHARK_PATCH_VERSION = $(shell grep '^set(STRATOSHARK_PATCH_VERSION' CMakeLists.txt | sed -e 's/set.* //' -e 's/)//')
-STRATOSHARK_VERSION = $(shell echo $(DEB_VERSION) | sed -e "s/$(PROJECT_MAJOR_VERSION)\.$(PROJECT_MINOR_VERSION)\.$(PROJECT_PATCH_VERSION)/$(STRATOSHARK_MAJOR_VERSION)\.$(STRATOSHARK_MINOR_VERSION)\.$(STRATOSHARK_PATCH_VERSION)/")
+STRATOSHARK_VERSION = $(shell echo $(DEB_VERSION) | sed -e "s/$(PROJECT_MAJOR_VERSION)\.$(PROJECT_MINOR_VERSION)\.$(PROJECT_PATCH_VERSION)/$(STRATOSHARK_MAJOR_VERSION)\.$(STRATOSHARK_MINOR_VERSION)\.$(PROJECT_PATCH_VERSION)/")
 
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
@@ -89,11 +88,13 @@ HEADER_CHECK_FLAGS = $(shell pkg-config --cflags glib-2.0) \
 	-Idebian/libwireshark-dev/usr/include/libwireshark-dev/epan/dissectors \
 	-Idebian/libwiretap-dev/usr/include/wireshark \
 	-Idebian/libwsutil-dev/usr/include/wireshark \
+	-Idebian/libuiqt-plugin-dev/usr/include/wireshark \
 
 override_dh_install:
 	dh_install
-	# check that all headers can be preprocessed
-	find debian/*-dev/usr/include -type f | sed 's|.*/include/wireshark/|#include <|;s|$$|>|' | $(CC) -E - $(HEADER_CHECK_FLAGS) -o /dev/null
+	# check that all headers can be compiled
+	find debian/*-dev/usr/include -type f | sed 's|.*/include/wireshark/|#include <|;s|$$|>|' | $(CC) -x c -S - $(HEADER_CHECK_FLAGS) -o /dev/null
+	find debian/*-dev/usr/include -type f | sed 's|.*/include/wireshark/|#include <|;s|$$|>|' | $(CC) -x c++ -S - $(HEADER_CHECK_FLAGS) -o /dev/null
 	# check than #include-ing the most widely used headers compiles
 	$(CC) -c debian/headers-check.c $(HEADER_CHECK_FLAGS) -o /dev/null
 
@@ -114,6 +115,7 @@ endif
 override_dh_makeshlibs:
 	for package in $$(grep 'Package: lib.*[0-9]$$' debian/control  | cut -d' ' -f2); do \
 		lib=$${package%%[0-9]*};\
+		lib=$$(echo "$$lib" | sed 's/-/_/');\
 		major=$${package##*[a-z]}; \
 		echo "$$lib $$major $$package (= $(DEB_VERSION))"  > debian/$$package.shlibs; \
 	done

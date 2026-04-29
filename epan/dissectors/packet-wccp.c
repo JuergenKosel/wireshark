@@ -2,6 +2,8 @@
  * Routines for Web Cache C* Protocol dissection
  * Jerry Talkington <jtalkington@users.sourceforge.net>
  *
+ * https://datatracker.ietf.org/doc/html/draft-mclaggan-wccp-v2rev1-00
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -13,10 +15,11 @@
 
 #include <epan/packet.h>
 #include <epan/to_str.h>
-#include <epan/ipproto.h>
 #include <epan/expert.h>
 #include <epan/tfs.h>
+#include <epan/iana-info.h>
 #include <wsutil/array.h>
+#include <wsutil/ws_roundup.h>
 #include "packet-wccp.h"
 
 void proto_register_wccp(void);
@@ -509,7 +512,7 @@ find_wccp_address_table(tvbuff_t *tvb, int offset,
     type = tvb_get_ntohs(tvb, offset);
     item_length = tvb_get_ntohs(tvb, offset+2);
 
-    if ((item_length + 4) > tvb_reported_length_remaining(tvb, offset)) {
+    if ((item_length + 4U) > tvb_reported_length_remaining(tvb, offset)) {
       /* We've run out of packet data without finding an address table,
          so there's no address table in the packet. */
       return;
@@ -1450,37 +1453,48 @@ dissect_wccp2r1_address_table_info(tvbuff_t *tvb, int offset, int length,
 {
   uint16_t address_length;
   uint32_t i;
-  int16_t family;
-  uint16_t table_length;
+  uint16_t family;
+  uint32_t table_length;
   proto_tree *element_tree;
   proto_item *tf;
 
   if (length < 2*4)
     return length - 2*4;
 
-  family = tvb_get_ntohs(tvb, offset);
-  proto_tree_add_item(info_tree, hf_address_table_family, tvb, offset, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint16(info_tree, hf_address_table_family, tvb, offset, 2, ENC_BIG_ENDIAN, &family);
   EAT_AND_CHECK(2,2);
 
-  address_length = tvb_get_ntohs(tvb, offset);
-  proto_tree_add_item(info_tree, hf_address_table_address_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint16(info_tree, hf_address_table_address_length, tvb, offset, 2, ENC_BIG_ENDIAN, &address_length);
   EAT_AND_CHECK(2,2);
 
-  table_length =  tvb_get_ntohl(tvb, offset);
-  tf = proto_tree_add_item(info_tree, hf_address_table_length, tvb, offset, 4, ENC_BIG_ENDIAN);
+  tf = proto_tree_add_item_ret_uint(info_tree, hf_address_table_length, tvb, offset, 4, ENC_BIG_ENDIAN, &table_length);
   element_tree = proto_item_add_subtree(tf, ett_table_element);
   EAT(4);
 
+  /* Allocate the tables if needed */
+  /* An address table component is not allowed to appear more than once in
+   * a packet, so we take the first one. */
   if (wccp_wccp_address_table->in_use == false) {
     wccp_wccp_address_table->family = family;
     wccp_wccp_address_table->table_length =  table_length;
 
-    /* check if the length is valid and allocate the tables if needed */
     switch (wccp_wccp_address_table->family) {
     case 1:
       if (wccp_wccp_address_table->table_ipv4 == NULL)
         wccp_wccp_address_table->table_ipv4 = (uint32_t *)
           wmem_alloc0(pinfo->pool, wccp_wccp_address_table->table_length * 4);
+      break;
+    case 2:
+      if (wccp_wccp_address_table->table_ipv6 == NULL)
+        wccp_wccp_address_table->table_ipv6 = (ws_in6_addr *)
+          wmem_alloc0(pinfo->pool, wccp_wccp_address_table->table_length * sizeof(ws_in6_addr));
+      break;
+    };
+  }
+
+  /* Check if the length is valid */
+  switch (family) {
+    case 1:
       if (address_length != 4) {
         expert_add_info_format(pinfo, tf, &ei_wccp_length_bad,
                                "The Address length must be 4, but I found %d for IPv4 addresses. Correcting this.",
@@ -1489,9 +1503,6 @@ dissect_wccp2r1_address_table_info(tvbuff_t *tvb, int offset, int length,
       }
       break;
     case 2:
-      if (wccp_wccp_address_table->table_ipv6 == NULL)
-        wccp_wccp_address_table->table_ipv6 = (ws_in6_addr *)
-          wmem_alloc0(pinfo->pool, wccp_wccp_address_table->table_length * sizeof(ws_in6_addr));
       if (address_length != 16) {
         expert_add_info_format(pinfo, tf, &ei_wccp_length_bad,
                                "The Address length must be 16, but I found %d for IPv6 addresses. Correcting this.",
@@ -1501,8 +1512,19 @@ dissect_wccp2r1_address_table_info(tvbuff_t *tvb, int offset, int length,
       break;
     default:
       expert_add_info_format(pinfo, tf, &ei_wccp_address_table_family_unknown,
-                      "Unknown address family: %d", wccp_wccp_address_table->family);
-    };
+                      "Unknown address family: %u", wccp_wccp_address_table->family);
+      if (address_length % 4) {
+        expert_add_info_format(pinfo, tf, &ei_wccp_length_bad,
+                               "The Address length must be a multiple of 4. Correcting this.");
+        address_length = WS_ROUNDUP_4(address_length);
+      }
+      /* XXX - In addition to an address length that starts out at 0, the
+       * WS_ROUNDUP_ family can "round up" numbers near UINT_MAX to 0. */
+      if (address_length == 0) {
+        expert_add_info_format(pinfo, tf, &ei_wccp_length_bad,
+                               "The Address length must be at least 4. Correcting this.");
+        address_length = 4;
+      }
   }
 
   /* now read the addresses and print/store them */
@@ -1622,13 +1644,10 @@ dissect_wccp2r1_alt_assignment_map_info(tvbuff_t *tvb, int offset,
   if (length < ALT_ASSIGNMENT_MAP_MIN_LEN )
     return length - ALT_ASSIGNMENT_MAP_MIN_LEN ;
 
-
-  assignment_type = tvb_get_ntohs(tvb, offset);
-  proto_tree_add_item(info_tree, hf_alt_assignment_map_assignment_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint16(info_tree, hf_alt_assignment_map_assignment_type, tvb, offset, 2, ENC_BIG_ENDIAN, &assignment_type);
   EAT_AND_CHECK(2,2);
 
-  assignment_length = tvb_get_ntohs(tvb, offset);
-  tf=proto_tree_add_item(info_tree, hf_alt_assignment_map_assignment_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+  tf=proto_tree_add_item_ret_uint16(info_tree, hf_alt_assignment_map_assignment_length, tvb, offset, 2, ENC_BIG_ENDIAN, &assignment_length);
   EAT(2);
 
   if (length < assignment_length)
@@ -2321,13 +2340,10 @@ dissect_wccp2_alternate_assignment_info(tvbuff_t *tvb, int offset, int length,
   if (length < ALT_ASSIGNMENT_INFO_MIN_LEN)
     return length - ALT_ASSIGNMENT_INFO_MIN_LEN;
 
-
-  assignment_type = tvb_get_ntohs(tvb, offset);
-  proto_tree_add_item(info_tree, hf_alt_assignment_info_assignment_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint16(info_tree, hf_alt_assignment_info_assignment_type, tvb, offset, 2, ENC_BIG_ENDIAN, &assignment_type);
   EAT_AND_CHECK(2,2);
 
-  assignment_length = tvb_get_ntohs(tvb, offset);
-  tf=proto_tree_add_item(info_tree, hf_alt_assignment_info_assignment_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+  tf=proto_tree_add_item_ret_uint16(info_tree, hf_alt_assignment_info_assignment_length, tvb, offset, 2, ENC_BIG_ENDIAN, &assignment_length);
   EAT(2);
 
   if (length < assignment_length)
@@ -2520,8 +2536,7 @@ dissect_wccp2_info(tvbuff_t *tvb, int offset,
 
     proto_tree_add_item(info_tree, hf_item_type, tvb, offset, 2, ENC_BIG_ENDIAN);
 
-    item_length = tvb_get_ntohs(tvb, offset+2);
-    proto_tree_add_item(info_tree, hf_item_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(info_tree, hf_item_length, tvb, offset+2, 2, ENC_BIG_ENDIAN, &item_length);
 
     offset += 4;
 

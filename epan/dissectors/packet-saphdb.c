@@ -663,7 +663,7 @@ dissect_saphdb_part_options_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 				proto_tree_add_item(tree, hf_saphdb_part_option_length, tvb, offset + parsed_length, 2, ENC_LITTLE_ENDIAN);
 				parsed_length += 2;
 
-				if (tvb_reported_length_remaining(tvb, offset + parsed_length) >= option_length) {
+				if ((option_length > 0) && tvb_reported_length_remaining(tvb, offset + parsed_length) >= (unsigned)option_length) {
 					if (option_type == 29) {
 						/* TODO: This need to be CESU-8 decoded */
 						proto_tree_add_item(tree, hf_saphdb_part_option_value_string, tvb, offset + parsed_length, option_length, ENC_UTF_8);
@@ -860,7 +860,7 @@ dissect_saphdb_part_buffer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 			offset += 5;
 			length -= 5;
 
-			if ((error_text_length > 0) && (tvb_reported_length_remaining(tvb, offset) >= error_text_length)) {
+			if ((error_text_length > 0) && (tvb_reported_length_remaining(tvb, offset) >= (unsigned)error_text_length)) {
 				unsigned error_text_padding_length;
 
 				proto_tree_add_item(tree, hf_saphdb_part_error_text, tvb, offset, error_text_length, ENC_ASCII);
@@ -978,7 +978,7 @@ dissect_saphdb_part(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
 	bufferlength = WS_ROUNDUP_8(bufferlength);
 
 	/* Adjust the length */
-	if (bufferlength < 0 || tvb_reported_length_remaining(tvb, offset) < bufferlength) {
+	if (bufferlength < 0 || tvb_reported_length_remaining(tvb, offset) < (unsigned)bufferlength) {
 		bufferlength = tvb_reported_length_remaining(tvb, offset);
 	}
 
@@ -1219,7 +1219,7 @@ dissect_saphdb_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 					offset += dissect_saphdb_segment(tvb, pinfo, message_buffer_tree, NULL, offset, number_of_segments, 1, compressed);
 					compressed_buffer_item = proto_tree_add_item(message_buffer_tree, hf_saphdb_compressed_buffer, tvb, offset, varpartlength, ENC_NA);
 					if (global_saphdb_highlight_items){
-						expert_add_info_format(pinfo, compressed_buffer_item, &ei_saphdb_compressed_unknown, "Packet is compressed and decompression is not supported");
+						expert_add_info(pinfo, compressed_buffer_item, &ei_saphdb_compressed_unknown);
 					}
 
 				} else {
@@ -1432,7 +1432,7 @@ proto_register_saphdb(void)
 
 	/* Register the expert info */
 	static ei_register_info ei[] = {
-		{ &ei_saphdb_compressed_unknown, { "saphdb.compressed", PI_UNDECODED, PI_WARN, "The packet is compressed, and decompression is not supported", EXPFILL }},
+		{ &ei_saphdb_compressed_unknown, { "saphdb.compressed", PI_UNDECODED, PI_WARN, "Packet is compressed and decompression is not supported", EXPFILL }},
 		{ &ei_saphdb_option_part_unknown, { "saphdb.segment.part.option.unknown", PI_UNDECODED, PI_WARN, "The Option Part has a unknown type that is not dissected", EXPFILL }},
 		{ &ei_saphdb_segments_incorrect_order, { "saphdb.segment.segmentno.invalid", PI_MALFORMED, PI_ERROR, "The segments are in incorrect order or are invalid", EXPFILL }},
 		{ &ei_saphdb_segments_number_incorrect, { "saphdb.noofsegm.invalid", PI_MALFORMED, PI_ERROR, "The number of segments is incorrect", EXPFILL }},

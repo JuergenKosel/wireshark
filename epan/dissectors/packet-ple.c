@@ -24,7 +24,7 @@
 #include <epan/tfs.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
-#include <epan/ipproto.h>
+#include <epan/iana-info.h>
 
 #include "packet-mpls.h"
 #include "packet-rtp.h"

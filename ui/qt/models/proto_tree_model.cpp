@@ -9,6 +9,7 @@
 
 #include <ui/qt/models/proto_tree_model.h>
 
+#include <epan/expert.h>
 #include <epan/prefs.h>
 #include <wsutil/wslog.h>
 
@@ -98,6 +99,32 @@ QVariant ProtoTreeModel::data(const QModelIndex &index, int role) const
     }
 
     switch (role) {
+    case Qt::AccessibleTextRole:
+    {
+        QString label = index_node->labelText();
+        uint32_t severity = finfo.flag(PI_SEVERITY_MASK);
+        if (severity > 0) {
+            return QString("%1: %2").arg(val_to_str_const(severity, expert_severity_vals, "Unknown severity"), label);
+        }
+        return label;
+    }
+    case Qt::AccessibleDescriptionRole:
+    {
+        switch(finfo.flag(PI_SEVERITY_MASK)) {
+        case(PI_COMMENT):
+            return tr("Comment");
+        case(PI_CHAT):
+            return tr("Chat");
+        case(PI_NOTE):
+            return tr("Note");
+        case(PI_WARN):
+            return tr("Warning");
+        case(PI_ERROR):
+            return tr("Error");
+        default:
+            return QVariant();
+        }
+    }
     case Qt::DisplayRole:
         return index_node->labelText();
     case Qt::BackgroundRole:
@@ -119,6 +146,9 @@ QVariant ProtoTreeModel::data(const QModelIndex &index, int role) const
             ws_warning("Unhandled severity flag: %u", finfo.flag(PI_SEVERITY_MASK));
         }
         if (finfo.headerInfo().type == FT_PROTOCOL) {
+            if (QApplication::palette().window() == QApplication::palette().base()) {
+                return QApplication::palette().alternateBase();
+            }
             return QApplication::palette().window();
         }
         return QApplication::palette().base();

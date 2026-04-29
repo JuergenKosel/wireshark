@@ -221,8 +221,7 @@ dissect_btle_rf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     ti = proto_tree_add_item(tree, proto_btle_rf, tvb, 0, tvb_captured_length(tvb), ENC_NA);
     btle_rf_tree = proto_item_add_subtree(ti, ett_btle_rf);
 
-    ti = proto_tree_add_item(btle_rf_tree, hf_btle_rf_channel, tvb, 0, 1, ENC_LITTLE_ENDIAN);
-    rf_channel  = tvb_get_uint8(tvb, 0);
+    ti = proto_tree_add_item_ret_uint8(btle_rf_tree, hf_btle_rf_channel, tvb, 0, 1, ENC_LITTLE_ENDIAN, &rf_channel);
     proto_item_append_text(ti, ", %d MHz, %s %d", 2402+2*rf_channel,
                            btle_rf_channel_type(rf_channel),
                            btle_rf_channel_index(rf_channel));

@@ -110,8 +110,8 @@ fills up, *Dumpcap* will switch writing to the next file and so on.
 
 The created filenames are based on the filename given with the *-w*
 option, the number of the file and on the creation date and time, e.g.
-outfile_00001_20250714120117.pcapng,
-outfile_00002_20250714120523.pcapng, ...
+outfile_00001_20260714120117.pcapng,
+outfile_00002_20260714120523.pcapng, ...
 
 With the __files__ option it's also possible to form a "ring buffer".
 This will fill up new files until the number of files specified,
@@ -268,11 +268,11 @@ interfaces, the capture file will be saved in pcapng format, even if
 *-P* is specified.
 --
 
---ifdescr> <description>::
+--ifdescr <description>::
 Use __description__ as the description in the capture file for the
 interface or pipe specified before it with *-i*.
 
---ifname> <name>::
+--ifname <name>::
 Use __name__ as the name in the capture file for the interface or
 pipe specified before it with *-i*.
 
@@ -464,7 +464,7 @@ Set the application flavor.
 Make the *-D* option output and other behavior suitable for packet capture or system call and log capture.
 The default flavor is "wireshark".
 
---capture-comment  <comment>::
+--capture-comment <comment>::
 +
 --
 Add a capture comment to the output file, if supported by the output

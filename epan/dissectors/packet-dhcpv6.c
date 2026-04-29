@@ -1389,7 +1389,7 @@ dhcpv6_domain(proto_tree *subtree, proto_item *v_item _U_, packet_info *pinfo, i
               tvbuff_t *tvb, int dn_field_off, uint16_t dn_field_len)
 {
     int      final_field_off;        /* Last offset of in DN field */
-    uint8_t *label_str;
+    const char *label_str;
     uint8_t  label_len;
     int      remlen;                 /* The number of remaining octets in a domain field */
     uint8_t  num_labels;
@@ -1491,7 +1491,7 @@ dhcpv6_domain(proto_tree *subtree, proto_item *v_item _U_, packet_info *pinfo, i
              */
             wmem_strbuf_append_c(decoded_name_buf, '.');
             total_label_ascii_len++;
-            label_str = tvb_get_string_enc(pinfo->pool, tvb, offset, label_len, ENC_ASCII);
+            label_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, label_len, ENC_ASCII);
             wmem_strbuf_append(decoded_name_buf, label_str);
             offset += label_len;
             total_label_ascii_len += label_len;
@@ -1573,7 +1573,7 @@ dhcpv6_domain(proto_tree *subtree, proto_item *v_item _U_, packet_info *pinfo, i
          * for more info.
          */
         if (offset + label_len - 1 == final_field_off) {
-            label_str = tvb_get_string_enc(pinfo->pool, tvb, first_lab_off + 1, label_len, ENC_ASCII);
+            label_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, first_lab_off + 1, label_len, ENC_ASCII);
             wmem_strbuf_append(decoded_name_buf, label_str);
             total_label_ascii_len += label_len;
             num_labels++;
@@ -1618,7 +1618,7 @@ dhcpv6_domain(proto_tree *subtree, proto_item *v_item _U_, packet_info *pinfo, i
             wmem_strbuf_append_c(decoded_name_buf, '.');
             total_label_ascii_len++;
         }
-        label_str = tvb_get_string_enc(pinfo->pool, tvb, offset, label_len, ENC_ASCII);
+        label_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, label_len, ENC_ASCII);
         wmem_strbuf_append(decoded_name_buf, label_str);
         offset += label_len;
         remlen -= label_len;
@@ -1673,8 +1673,7 @@ dissect_packetcable_cccV6_option(proto_tree *v_tree, proto_item *v_item, packet_
         suboptoff += subopt_len;
         break;
     case PKT_CCCV6_IETF_PROV_SRV:
-        proto_tree_add_item(pkt_s_tree, hf_packetcable_cccV6_prov_srv_type, tvb, suboptoff, 1, ENC_BIG_ENDIAN);
-        type = tvb_get_uint8(tvb, suboptoff);
+        proto_tree_add_item_ret_uint8(pkt_s_tree, hf_packetcable_cccV6_prov_srv_type, tvb, suboptoff, 1, ENC_BIG_ENDIAN, &type);
 
         /** Type 0 is FQDN **/
         if (type == 0) {
@@ -1808,7 +1807,7 @@ dissect_cablelabs_specific_opts(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
                 opt_len = tlv_len;
                 field_len = tlv_len;
 
-                device_type = tvb_get_string_enc(pinfo->pool, tvb, sub_off, field_len, ENC_ASCII);
+                device_type = (char*)tvb_get_string_enc(pinfo->pool, tvb, sub_off, field_len, ENC_ASCII);
 
                 if ((device_type == NULL) || (strlen(device_type) == 0)) {
                     proto_item_append_text(ti, "Packet does not contain Device Type.");
@@ -2248,8 +2247,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
          */
         proto_tree_add_bitmask(subtree, tvb, off, hf_option_s46_rule_flags, ett_dhcpv6_s46_rule_flags, dhcpv6_s46_rule_flags_fields, ENC_BIG_ENDIAN);
         proto_tree_add_item(subtree, hf_option_s46_rule_ea_len, tvb, off + 1, 1, ENC_BIG_ENDIAN);
-        proto_tree_add_item(subtree, hf_option_s46_rule_ipv4_pref_len, tvb, off + 2, 1, ENC_BIG_ENDIAN);
-        ipv4_pref_len = tvb_get_uint8(tvb, off + 2);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_rule_ipv4_pref_len, tvb, off + 2, 1, ENC_BIG_ENDIAN, &ipv4_pref_len);
 
         if (ipv4_pref_len > 32) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_RULE: malformed option");
@@ -2257,8 +2255,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         }
 
         proto_tree_add_item(subtree, hf_option_s46_rule_ipv4_prefix, tvb, off + 3, 4, ENC_BIG_ENDIAN);
-        proto_tree_add_item(subtree, hf_option_s46_rule_ipv6_pref_len, tvb, off + 7, 1, ENC_BIG_ENDIAN);
-        ipv6_pref_len = tvb_get_uint8(tvb, off + 7);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_rule_ipv6_pref_len, tvb, off + 7, 1, ENC_BIG_ENDIAN, &ipv6_pref_len);
 
         if (ipv6_pref_len > 128) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_RULE: malformed option");
@@ -2296,8 +2293,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
             break;
         }
 
-        proto_tree_add_item(subtree, hf_option_s46_dmr_pref_len, tvb, off, 1, ENC_BIG_ENDIAN);
-        dmr_pref_len = tvb_get_uint8(tvb, off);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_dmr_pref_len, tvb, off, 1, ENC_BIG_ENDIAN, &dmr_pref_len);
 
         if (dmr_pref_len > 128) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_DMR: malformed option");
@@ -2318,8 +2314,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         }
 
         proto_tree_add_item(subtree, hf_option_s46_v4v6bind_ipv4_address, tvb, off, 4, ENC_BIG_ENDIAN);
-        proto_tree_add_item(subtree, hf_option_s46_v4v6bind_ipv6_pref_len, tvb, off + 4, 1, ENC_BIG_ENDIAN);
-        ipv6_pref_len = tvb_get_uint8(tvb, off + 4);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_v4v6bind_ipv6_pref_len, tvb, off + 4, 1, ENC_BIG_ENDIAN, &ipv6_pref_len);
 
         if (ipv6_pref_len > 128) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_V4V6BIND: malformed option");
@@ -2350,16 +2345,14 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
             break;
         }
 
-        proto_tree_add_item(subtree, hf_option_s46_portparam_offset, tvb, off, 1, ENC_BIG_ENDIAN);
-        offset = tvb_get_uint8(tvb, off);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_portparam_offset, tvb, off, 1, ENC_BIG_ENDIAN, &offset);
 
         if (offset > 15) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_PORTPARAMS: malformed option");
             break;
         }
 
-        proto_tree_add_item(subtree, hf_option_s46_portparam_psid_len, tvb, off + 1, 1, ENC_BIG_ENDIAN);
-        psid_len = tvb_get_uint8(tvb, off + 1);
+        proto_tree_add_item_ret_uint8(subtree, hf_option_s46_portparam_psid_len, tvb, off + 1, 1, ENC_BIG_ENDIAN, &psid_len);
 
         if (psid_len > 16) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "S46_PORTPARAMS: malformed option");
@@ -2766,7 +2759,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
             proto_item *fi = NULL;
             proto_tree *flags_tree = NULL;
             char       *flags_str= NULL, *suffix;
-            bool        is_client;
+            bool        is_client = false;
             proto_item *exi;
             proto_tree *ex_subtree;
 
@@ -2775,16 +2768,24 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
              * [RFC 4704 Section 5.]
              * Servers MUST only include a OPTION_CLIENT_FQDN in ADVERTISE and REPLY messages.
              * [RFC 4704 Section 6.]
+             * The ADDR-REG-INFORM message ... MAY include other options, such as the Client FQDN option [RFC4704].
+             * [RFC 9686 §4.2]
              */
-            if (msgtype == SOLICIT || msgtype == REQUEST || msgtype == RENEW || msgtype == REBIND)
+            switch (msgtype) {
+            case SOLICIT:
+            case REQUEST:
+            case RENEW:
+            case REBIND:
+            case ADDR_REG_INFORM:
                 is_client = true;
-            else if (msgtype == ADVERTISE || msgtype == REPLY)
-                is_client = false;
-            else {
+                break;
+            case ADVERTISE:
+            case REPLY:
+                break;
+            default:
                 exi = proto_tree_add_uint_format(subtree, hf_clientfqdn_bad_msgtype, tvb, off-4, 1,
                         msgtype,
-                        "Only the following message types are permitted to use OPTION_CLIENT_FQDN:\n"
-                        "SOLICIT, REQUEST, RENEW, REBIND, ADVERTISE, and REPLY");
+                        "OPTION_CLIENT_FQDN not permitted in this message type.");
                 ex_subtree = proto_item_add_subtree(exi, ett_clientfqdn_expert);
                 proto_tree_add_expert(ex_subtree, pinfo, &ei_dhcpv6_clientfqdn_bad_msgtype, tvb, off-4, 1);
                 break;
@@ -2834,11 +2835,11 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
                 && ((flags & 0x5)==0 || (flags & 0x5)==1))
                     suffix = "]\n[Server has overridden the client's S bit]";
             }
-            fi = proto_tree_add_uint_format(subtree, hf_clientfqdn_flags, tvb, off, 1, flags,
-                    "Flags: 0x%02x  %s%s", flags, flags_str, suffix);
+            fi = proto_tree_add_uint_format_value(subtree, hf_clientfqdn_flags, tvb, off, 1, flags,
+                    "0x%02x  %s%s", flags, flags_str, suffix);
             flags_tree = proto_item_add_subtree(fi, ett_clientfqdn_flags);
 
-        if (is_client) {
+            if (is_client) {
                 proto_tree_add_item(flags_tree, hf_clientfqdn_client_n, tvb, off, 1, ENC_BIG_ENDIAN);
                 proto_tree_add_item(flags_tree, hf_clientfqdn_client_s, tvb, off, 1, ENC_BIG_ENDIAN);
             }
@@ -3340,8 +3341,8 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         //
         // This is a very active discussion area in the IETF, so more parameters are expected in the future.
 
-        int adn_len = 0;
-        int addrs_len = 0;
+        uint16_t adn_len = 0;
+        uint16_t addrs_len = 0;
         // off is an offset from the beginning of a DHCPv6 packet. It is NOT zero when we start.
         int offset = 0; // offset within the DNR option. This starts at zero.
         tvbuff_t *next_tvb;
@@ -3359,8 +3360,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
         offset += 2;
 
         // Parsing authentication-domain-name (len + FQDN field)
-        proto_tree_add_item(subtree, hf_dnr_auth_domain_name_len, tvb, off+offset, 2, ENC_BIG_ENDIAN);
-        adn_len = tvb_get_ntohs(tvb, off+offset);
+        proto_tree_add_item_ret_uint16(subtree, hf_dnr_auth_domain_name_len, tvb, off+offset, 2, ENC_BIG_ENDIAN, &adn_len);
         offset += 2;
         if (optlen < offset + adn_len) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option,
@@ -3383,8 +3383,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
                 "DNR v6 error: truncated option (Addr Length truncated)");
             break;
         }
-        addrs_len = tvb_get_ntohs(tvb, off+offset);
-        proto_tree_add_item(subtree, hf_dnr_addrs_len, tvb, off+offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint16(subtree, hf_dnr_addrs_len, tvb, off+offset, 2, ENC_BIG_ENDIAN, &addrs_len);
         offset += 2;
 
         if (addrs_len % 16) {
@@ -3525,8 +3524,7 @@ dissect_dhcpv6_bulk_leasequery_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     ti = proto_tree_add_item(tree, proto_dhcpv6_bulk_leasequery, tvb, 0, -1, ENC_NA );
     bulk_tree = proto_item_add_subtree(ti, ett_dhcpv6_bulk_leasequery);
 
-    size = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_item(bulk_tree, hf_dhcpv6_bulk_leasequery_size, tvb, offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(bulk_tree, hf_dhcpv6_bulk_leasequery_size, tvb, offset, 2, ENC_BIG_ENDIAN, &size);
     offset += 2;
 
     msg_type = tvb_get_uint8( tvb, offset );
@@ -3542,8 +3540,7 @@ dissect_dhcpv6_bulk_leasequery_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     proto_tree_add_item(bulk_tree, hf_dhcpv6_bulk_leasequery_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
-    trans_id = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_item(bulk_tree, hf_dhcpv6_bulk_leasequery_trans_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(bulk_tree, hf_dhcpv6_bulk_leasequery_trans_id, tvb, offset, 2, ENC_BIG_ENDIAN, &trans_id);
     offset += 2;
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s, Transaction ID: %5u",
@@ -4112,8 +4109,8 @@ proto_register_dhcpv6(void)
         { &ei_dhcpv6_invalid_time_value, { "dhcpv6.invalid_time_value", PI_PROTOCOL, PI_WARN, "Invalid time value", EXPFILL }},
         { &ei_dhcpv6_invalid_type, { "dhcpv6.invalid_type", PI_PROTOCOL, PI_WARN, "Invalid type", EXPFILL }},
         { &ei_dhcpv6_error_hopcount, { "dhcpv6.error_hopcount", PI_PROTOCOL, PI_WARN, "Detected error on hop-count", EXPFILL }},
-        { &ei_dhcpv6_clientfqdn_bad_msgtype, { "dhcpv6.bad_msgtype", PI_PROTOCOL, PI_ERROR,
-                                    "This message type is not permitted to use OPTION_CLIENT_FQDN", EXPFILL }},
+        { &ei_dhcpv6_clientfqdn_bad_msgtype, { "dhcpv6.bad_msgtype", PI_PROTOCOL, PI_WARN,
+                  "WARNING: This message type is not permitted to use OPTION_CLIENT_FQDN", EXPFILL }},
         { &ei_dhcpv6_s_bit_should_be_zero, { "dhcpv6.s_bit_should_be_zero", PI_PROTOCOL, PI_ERROR,
                                     "ERROR: When the N-bit is set, the S-bit must be reset", EXPFILL }},
         { &ei_dhcpv6_dnr_adn_only_mode, { "dhcpv6.expert.dnr_adn_only_mode", PI_COMMENTS_GROUP, PI_CHAT,

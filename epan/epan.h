@@ -191,6 +191,18 @@ Display-Filters - the display filter engine at epan/dfilter
 */
 
 /**
+ * @brief Information about the application that wants to use epan.
+ */
+typedef struct {
+	const char* env_var_prefix;		/**< The prefix for the application environment variable used to get the configuration directories. */
+	const char** col_fmt;			/**< Array of columns and their formats */
+	int num_cols;				/**< Number of columns in the list above */
+	register_entity_func register_func;	/**< Callback to register entities for the dissection engine */
+	register_entity_func handoff_func;	/**< Callback to handoff function for entities in the dissection engine */
+	struct _tap_reg const* tap_reg_listeners;	/**< List of tap registration routines to register built-in tap listeners */
+} epan_app_data_t;
+
+/**
  * @brief Initialize the entire epan module.
  *
  * This function must be called only once in a program to set up the module.
@@ -202,7 +214,7 @@ Display-Filters - the display filter engine at epan/dfilter
  * @return true if initialization succeeds, false otherwise.
  */
 WS_DLL_PUBLIC
-bool epan_init(register_cb cb, void *client_data, bool load_plugins);
+bool epan_init(register_cb cb, void *client_data, bool load_plugins, epan_app_data_t* app_data);
 
 /**
  * @brief Load all settings from the current profile that affect epan.
@@ -505,6 +517,16 @@ WS_DLL_PUBLIC const char* epan_get_version(void);
  * @see epan_get_version()
  */
 WS_DLL_PUBLIC void epan_get_version_number(int *major, int *minor, int *micro);
+
+/**
+ * @brief Retrieve the environment prefix string used by epan.
+ *
+ * This provides a "local copy" of the environment prefix used by the application
+ * when epan is initialized and aids in encapsulation.
+ *
+ * @return A pointer to a constant string containing the environment prefix.
+ */
+WS_DLL_PUBLIC const char* epan_get_environment_prefix(void);
 
 /**
  * @brief Set or unset the tree to always be visible when epan_dissect_init() is called.

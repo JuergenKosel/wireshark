@@ -71,7 +71,7 @@ typedef enum _wmem_allocator_type_t {
  * @param size The amount of memory to allocate.
  * @return A void pointer to the newly allocated memory.
  */
-WS_DLL_PUBLIC
+WS_WARN_UNUSED WS_DLL_PUBLIC
 void *
 wmem_alloc(wmem_allocator_t *allocator, const size_t size)
 G_GNUC_MALLOC
@@ -120,7 +120,7 @@ G_GNUC_ALLOC_SIZE(2);
  * @param size The amount of memory to allocate.
  * @return A void pointer to the newly allocated and zeroed memory.
  */
-WS_DLL_PUBLIC
+WS_WARN_UNUSED WS_DLL_PUBLIC
 void *
 wmem_alloc0(wmem_allocator_t *allocator, const size_t size)
 G_GNUC_MALLOC
@@ -176,7 +176,7 @@ wmem_free(wmem_allocator_t *allocator, void *ptr);
  * @return The new location of the memory block. If this is different from ptr
  * then ptr no longer points to valid memory.
  */
-WS_DLL_PUBLIC
+WS_WARN_UNUSED WS_DLL_PUBLIC
 void *
 wmem_realloc(wmem_allocator_t *allocator, void *ptr, const size_t size)
 G_GNUC_ALLOC_SIZE(3);

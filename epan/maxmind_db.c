@@ -11,7 +11,6 @@
  */
 
 #include "config.h"
-
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MMDB
 
 #include <glib.h>
@@ -515,8 +514,12 @@ static void mmdb_resolve_start(void) {
     /* Make sure that these close if we spawn a dumpcap process
      * (capturing or capture stats/sparklines.)
      */
-    fcntl(g_io_channel_unix_get_fd(mmdbr_pipe.stdin_io), F_SETFD, FD_CLOEXEC);
-    fcntl(g_io_channel_unix_get_fd(mmdbr_pipe.stdout_io), F_SETFD, FD_CLOEXEC);
+    if (-1 == fcntl(g_io_channel_unix_get_fd(mmdbr_pipe.stdin_io), F_SETFD, FD_CLOEXEC)) {
+        ws_info("Failure setting CLOEXEC on mmdbr_pipe stdin: %s", g_strerror(errno));
+    }
+    if (-1 == fcntl(g_io_channel_unix_get_fd(mmdbr_pipe.stdout_io), F_SETFD, FD_CLOEXEC)) {
+        ws_info("Failure setting CLOEXEC on mmdbr_pipe stdout: %s", g_strerror(errno));
+    };
 #endif
 
     write_mmdbr_stdin_thread = g_thread_new("write_mmdbr_stdin_worker", write_mmdbr_stdin_worker, NULL);
@@ -659,6 +662,22 @@ maxmind_db_pref_init(module_t *nameres)
             " Wireshark will look in each directory for files ending"
             " with \".mmdb\".",
             maxmind_db_paths_uat);
+
+    if (!mmdb_ipv4_map) {
+        mmdb_ipv4_map = wmem_map_new(wmem_epan_scope(), g_direct_hash, g_direct_equal);
+    }
+
+    if (!mmdb_ipv6_map) {
+        mmdb_ipv6_map = wmem_map_new(wmem_epan_scope(), ipv6_oat_hash, ipv6_equal);
+    }
+
+    if (!mmdb_str_chunk) {
+        mmdb_str_chunk = wmem_map_new(wmem_epan_scope(), wmem_str_hash, g_str_equal);
+    }
+
+    if (!mmdb_ipv6_chunk) {
+        mmdb_ipv6_chunk = wmem_map_new(wmem_epan_scope(), ipv6_oat_hash, ipv6_equal);
+    }
 
     /* This ensures that prefs_apply_all calls maxmind_db_pref_apply() even
      * if the configuration profile and command line don't change the

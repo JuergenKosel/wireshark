@@ -195,7 +195,7 @@ dissect_hello_mt_port_cap_spb_mcid_clv(tvbuff_t *tvb, packet_info* pinfo,
     proto_tree *subtree;
 
     if (sublen != SUBLEN) {
-        proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+        proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                                      "Short SPB MCID TLV (%d vs %d)", sublen, SUBLEN);
         return;
     }
@@ -220,7 +220,7 @@ dissect_hello_mt_port_cap_spb_digest_clv(tvbuff_t *tvb, packet_info* pinfo,
     const int DIGEST_LEN = 32;
     const int SUBLEN     = 1 + DIGEST_LEN;
     if (sublen != SUBLEN) {
-        proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+        proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                               "Short SPB Digest TLV (%d vs %d)", sublen, SUBLEN);
         return;
     }
@@ -253,7 +253,7 @@ dissect_hello_mt_port_cap_spb_bvid_tuples_clv(tvbuff_t *tvb, packet_info* pinfo,
 
     while (sublen > 0) {
         if (sublen < 6) {
-            proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+            proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                                   "Short SPB BVID header entry (%d vs %d)", sublen, 6);
             return;
         }
@@ -430,7 +430,7 @@ dissect_hello_mt_port_cap_clv(tvbuff_t *tvb, packet_info* pinfo,
             length -= 2;
             offset += 2;
             if (subtlvlen > length) {
-                proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+                proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                                       "Short type %d TLV (%d vs %d)", subtype, subtlvlen, length);
                 return;
             }
@@ -921,7 +921,7 @@ dissect_hello_ptp_adj_clv(tvbuff_t *tvb, packet_info* pinfo,
         proto_tree_add_item(tree, hf_isis_hello_neighbor_extended_local_circuit_id, tvb, offset+5+isis->system_id_len, 4, ENC_BIG_ENDIAN);
     break;
     default:
-        proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+        proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                    "malformed TLV (%d vs 1,5,11,15)", length );
     }
 }
@@ -949,7 +949,7 @@ dissect_hello_is_neighbors_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tr
 {
     while ( length > 0 ) {
         if (length<6) {
-            proto_tree_add_expert_format(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset, -1,
+            proto_tree_add_expert_format_remaining(tree, pinfo, &ei_isis_hello_short_clv, tvb, offset,
                 "short is neighbor (%d vs 6)", length );
             return;
         }
@@ -1671,8 +1671,8 @@ proto_register_isis_hello(void)
     };
 
     static ei_register_info ei[] = {
-        { &ei_isis_hello_short_pdu, { "isis.lsp.hello_pdu.bad_length", PI_MALFORMED, PI_ERROR, "PDU length less than header length", EXPFILL }},
-        { &ei_isis_hello_long_pdu, { "isis.lsp.hello_pdu.bad_length", PI_MALFORMED, PI_ERROR, "PDU length greater than packet length", EXPFILL }},
+        { &ei_isis_hello_short_pdu, { "isis.lsp.hello_pdu.bad_length_short", PI_MALFORMED, PI_ERROR, "PDU length less than header length", EXPFILL }},
+        { &ei_isis_hello_long_pdu, { "isis.lsp.hello_pdu.bad_length_long", PI_MALFORMED, PI_ERROR, "PDU length greater than packet length", EXPFILL }},
         { &ei_isis_hello_bad_checksum, { "isis.hello.bad_checksum", PI_CHECKSUM, PI_ERROR, "Bad checksum", EXPFILL }},
         { &ei_isis_hello_subtlv, { "isis.hello.subtlv.unknown", PI_PROTOCOL, PI_WARN, "Unknown Sub-TLV", EXPFILL }},
         { &ei_isis_hello_authentication, { "isis.hello.authentication.unknown", PI_PROTOCOL, PI_WARN, "Unknown authentication type", EXPFILL }},

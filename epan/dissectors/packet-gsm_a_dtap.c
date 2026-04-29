@@ -1153,7 +1153,7 @@ de_day_saving_time(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t
 /*
  * 10.5.3.13 Emergency Number List
  */
-static uint16_t
+uint16_t
 de_emerg_num_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string _U_, int string_len _U_)
 {
     uint32_t    curr_offset;
@@ -1183,7 +1183,9 @@ de_emerg_num_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t 
          *       Table 10.5.135d/3GPP TS 24.008
          * Table 10.5.135d/3GPP TS 24.008: Service Category information element
          */
-        proto_tree_add_bits_item(subtree, hf_gsm_a_spare_bits, tvb, curr_offset<<3, 3, ENC_BIG_ENDIAN);
+        proto_tree_add_bits_item(subtree, hf_gsm_a_spare_bits, tvb, curr_offset<<3, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(subtree, hf_gsm_a_dtap_serv_cat_b7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(subtree, hf_gsm_a_dtap_serv_cat_b6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(subtree, hf_gsm_a_dtap_serv_cat_b5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(subtree, hf_gsm_a_dtap_serv_cat_b4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(subtree, hf_gsm_a_dtap_serv_cat_b3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
@@ -2286,7 +2288,7 @@ de_sub_addr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset
 {
     uint32_t    curr_offset, ia5_string_len, i;
     uint8_t     type_of_sub_addr, afi, dig1, dig2, oct;
-    char       *ia5_string;
+    uint8_t    *ia5_string;
     bool        invalid_ia5_char;
     proto_item *item;
 
@@ -2304,8 +2306,7 @@ de_sub_addr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset
 
     if (!type_of_sub_addr)
     {
-        afi = tvb_get_uint8(tvb, curr_offset);
-        proto_tree_add_item(tree, hf_gsm_a_dtap_afi, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint8(tree, hf_gsm_a_dtap_afi, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &afi);
         curr_offset++;
 
         NO_MORE_DATA_CHECK(len);
@@ -2328,7 +2329,7 @@ de_sub_addr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset
 
             }
 
-            IA5_7BIT_decode(*extracted_address, ia5_string, ia5_string_len);
+            IA5_7BIT_decode((uint8_t*)*extracted_address, ia5_string, ia5_string_len);
 
             item = proto_tree_add_string(tree, hf_gsm_a_dtap_subaddress, tvb, curr_offset, len - (curr_offset - offset), *extracted_address);
 
@@ -3227,8 +3228,7 @@ de_sup_codec_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, uint3
         proto_tree_add_item(tree, hf_gsm_a_dtap_sysid, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         curr_offset++;
         /*  Length Of Bitmap for SysID */
-        proto_tree_add_item(tree, hf_gsm_a_dtap_bitmap_length, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-        length = tvb_get_uint8(tvb,curr_offset);
+        proto_tree_add_item_ret_uint8(tree, hf_gsm_a_dtap_bitmap_length, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &length);
         curr_offset++;
         if (length > 0)
         {

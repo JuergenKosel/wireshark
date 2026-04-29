@@ -45,9 +45,6 @@ dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_t
 /* This is not IANA assigned nor registered */
 #define TCP_PORT_MONGO 27017
 
-/* the code can reasonably attempt to decompress buffer up to 20MB */
-#define MAX_UNCOMPRESSED_SIZE (20 * 1024 * 1024)
-
 /* All opcodes other than OP_COMPRESSED and OP_MSG were removed
  * in MongoDB 5.1 (December 2021)
  */
@@ -295,13 +292,12 @@ static expert_field ei_mongo_document_length_bad;
 static expert_field ei_mongo_section_size_bad;
 static expert_field ei_mongo_unknown;
 static expert_field ei_mongo_unsupported_compression;
-static expert_field ei_mongo_too_large_compressed;
 static expert_field ei_mongo_msg_checksum;
 
 static int
 dissect_fullcollectionname(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
-  int32_t fcn_length, dbn_length;
+  uint32_t fcn_length, dbn_length;
   proto_item *ti;
   proto_tree *fcn_tree;
 
@@ -309,7 +305,8 @@ dissect_fullcollectionname(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
   ti = proto_tree_add_item(tree, hf_mongo_fullcollectionname, tvb, offset, fcn_length, ENC_ASCII);
 
   /* If this doesn't find anything, we'll just throw an exception below */
-  dbn_length = tvb_find_uint8(tvb, offset, fcn_length, '.') - offset;
+  tvb_find_uint8_length(tvb, offset, fcn_length, '.', &dbn_length);
+  dbn_length = dbn_length -offset;
 
   fcn_tree = proto_item_add_subtree(ti, ett_mongo_fcn);
 
@@ -379,9 +376,8 @@ dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_
     int doc_len = -1;   /* Document length */
 
     e_type = tvb_get_uint8(tvb, offset);
-    tvb_get_stringz_enc(pinfo->pool, tvb, offset+1, &str_len, ENC_ASCII);
 
-    element = proto_tree_add_item(elements_tree, hf_mongo_element_name, tvb, offset+1, str_len-1, ENC_UTF_8);
+    element = proto_tree_add_item_ret_length(elements_tree, hf_mongo_element_name, tvb, offset+1, -1, ENC_UTF_8, &str_len);
     element_sub_tree = proto_item_add_subtree(element, ett_mongo_element);
     proto_tree_add_item(element_sub_tree, hf_mongo_element_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 
@@ -437,12 +433,10 @@ dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_
         break;
       case BSON_ELEMENT_TYPE_REGEX:
         /* regex pattern */
-        tvb_get_stringz_enc(pinfo->pool, tvb, offset, &str_len, ENC_ASCII);
-        proto_tree_add_item(element_sub_tree, hf_mongo_element_value_regex_pattern, tvb, offset, str_len, ENC_UTF_8);
+        proto_tree_add_item_ret_length(element_sub_tree, hf_mongo_element_value_regex_pattern, tvb, offset, -1, ENC_UTF_8, &str_len);
         offset += str_len;
         /* regex options */
-        tvb_get_stringz_enc(pinfo->pool, tvb, offset, &str_len, ENC_ASCII);
-        proto_tree_add_item(element_sub_tree, hf_mongo_element_value_regex_options, tvb, offset, str_len, ENC_UTF_8);
+        proto_tree_add_item_ret_length(element_sub_tree, hf_mongo_element_value_regex_options, tvb, offset, -1, ENC_UTF_8, &str_len);
         offset += str_len;
         break;
       case BSON_ELEMENT_TYPE_DB_PTR:
@@ -528,7 +522,7 @@ dissect_mongo_reply(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tr
 {
   proto_item *ti;
   proto_tree *flags_tree;
-  int i, number_returned;
+  uint32_t i, number_returned;
 
   ti = proto_tree_add_item(tree, hf_mongo_reply_flags, tvb, offset, 4, ENC_NA);
   flags_tree = proto_item_add_subtree(ti, ett_mongo_flags);
@@ -544,8 +538,7 @@ dissect_mongo_reply(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tr
   proto_tree_add_item(tree, hf_mongo_starting_from, tvb, offset, 4, ENC_LITTLE_ENDIAN);
   offset += 4;
 
-  proto_tree_add_item(tree, hf_mongo_number_returned, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-  number_returned = tvb_get_letohl(tvb, offset);
+  proto_tree_add_item_ret_uint(tree, hf_mongo_number_returned, tvb, offset, 4, ENC_LITTLE_ENDIAN, &number_returned);
   offset += 4;
 
   for (i=0; i < number_returned; i++)
@@ -770,40 +763,13 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, 
 
 #ifdef HAVE_SNAPPY
   case MONGO_COMPRESSOR_SNAPPY: {
-    unsigned char *decompressed_buffer = NULL;
-    size_t orig_size = 0;
-    snappy_status ret;
-    tvbuff_t* compressed_tvb = NULL;
+    tvbuff_t* uncompressed_tvb = tvb_child_uncompress_snappy(tvb, tvb, offset, tvb_captured_length_remaining(tvb, offset));
+    if (uncompressed_tvb) {
+        add_new_data_source(pinfo, uncompressed_tvb, "Decompressed Data");
 
-    /* get the raw data length */
-    ret = snappy_uncompressed_length(tvb_get_ptr(tvb, offset, -1),
-      tvb_captured_length_remaining(tvb, offset),
-      &orig_size);
-    /* if we get the length and it's reasonably short to allocate a buffer for it
-     * proceed to try decompressing the data
-     */
-    if (ret == SNAPPY_OK && orig_size <= MAX_UNCOMPRESSED_SIZE) {
-      decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, orig_size);
-
-      ret = snappy_uncompress(tvb_get_ptr(tvb, offset, -1),
-        tvb_captured_length_remaining(tvb, offset),
-        decompressed_buffer,
-        &orig_size);
-
-      if (ret == SNAPPY_OK) {
-        compressed_tvb = tvb_new_child_real_data(tvb, decompressed_buffer, (uint32_t)orig_size, (uint32_t)orig_size);
-        add_new_data_source(pinfo, compressed_tvb, "Decompressed Data");
-
-        dissect_opcode_types(compressed_tvb, pinfo, 0, tree, opcode, effective_opcode, command_name);
-      } else {
-        expert_add_info_format(pinfo, ti, &ei_mongo_unsupported_compression, "Error uncompressing snappy data");
-      }
+        dissect_opcode_types(uncompressed_tvb, pinfo, 0, tree, opcode, effective_opcode, command_name);
     } else {
-      if (orig_size > MAX_UNCOMPRESSED_SIZE) {
-        expert_add_info_format(pinfo, ti, &ei_mongo_too_large_compressed, "Uncompressed size too large");
-      } else {
-        expert_add_info_format(pinfo, ti, &ei_mongo_unsupported_compression, "Error uncompressing snappy data");
-      }
+      expert_add_info_format(pinfo, ti, &ei_mongo_unsupported_compression, "Error uncompressing snappy data");
     }
 
     offset = tvb_reported_length(tvb);
@@ -827,9 +793,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, 
 #endif
 
   case MONGO_COMPRESSOR_ZLIB: {
-    tvbuff_t* compressed_tvb = NULL;
-
-    compressed_tvb = tvb_child_uncompress_zlib(tvb, tvb, offset, tvb_captured_length_remaining(tvb, offset));
+    tvbuff_t* compressed_tvb = tvb_child_uncompress_zlib(tvb, tvb, offset, tvb_captured_length_remaining(tvb, offset));
 
     if (compressed_tvb) {
       add_new_data_source(pinfo, compressed_tvb, "Decompressed Data");
@@ -931,7 +895,7 @@ dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_t
     &hf_mongo_msg_flags_exhaustallowed,
     NULL
   };
-  int64_t op_msg_flags;
+  uint64_t op_msg_flags;
   bool checksum_present = false;
 
   proto_tree_add_bitmask_ret_uint64 (tree, tvb, offset, hf_mongo_msg_flags, ett_mongo_msg_flags, mongo_msg_flags, ENC_LITTLE_ENDIAN, &op_msg_flags);
@@ -941,7 +905,7 @@ dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_t
 
   offset += 4;
 
-  while (tvb_reported_length_remaining(tvb, offset) > (checksum_present ? 4 : 0)){
+  while (tvb_reported_length_remaining(tvb, offset) > (checksum_present ? 4U : 0U)){
     offset += dissect_op_msg_section(tvb, pinfo, offset, tree, command_name);
   }
 
@@ -1218,7 +1182,7 @@ proto_register_mongo(void)
     },
     { &hf_mongo_number_returned,
       { "Number Returned", "mongo.number_returned",
-      FT_INT32, BASE_DEC, NULL, 0x0,
+      FT_UINT32, BASE_DEC, NULL, 0x0,
       "Number of documents in the reply", HFILL }
     },
     { &hf_mongo_document,
@@ -1450,7 +1414,7 @@ proto_register_mongo(void)
     },
     { &hf_mongo_element_name,
       { "Element", "mongo.element.name",
-      FT_STRING, BASE_NONE, NULL, 0x0,
+      FT_STRINGZ, BASE_NONE, NULL, 0x0,
       "Element Name", HFILL }
     },
     { &hf_mongo_element_type,
@@ -1510,12 +1474,12 @@ proto_register_mongo(void)
     },
     { &hf_mongo_element_value_regex_pattern,
       { "Value", "mongo.element.value.regex.pattern",
-      FT_STRING, BASE_NONE, NULL, 0x0,
+      FT_STRINGZ, BASE_NONE, NULL, 0x0,
       "Regex Pattern", HFILL }
     },
     { &hf_mongo_element_value_regex_options,
       { "Value", "mongo.element.value.regex.options",
-      FT_STRING, BASE_NONE, NULL, 0x0,
+      FT_STRINGZ, BASE_NONE, NULL, 0x0,
       "Regex Options", HFILL }
     },
     { &hf_mongo_element_value_objectid,
@@ -1623,7 +1587,6 @@ proto_register_mongo(void)
      { &ei_mongo_section_size_bad, { "mongo.msg.sections.section.size.bad",  PI_MALFORMED, PI_ERROR, "Bogus Mongo message section size", EXPFILL }},
      { &ei_mongo_unknown, { "mongo.unknown.expert", PI_UNDECODED, PI_WARN, "Unknown Data (not interpreted)", EXPFILL }},
      { &ei_mongo_unsupported_compression, { "mongo.unsupported_compression.expert", PI_UNDECODED, PI_WARN, "This packet was compressed with an unsupported compressor", EXPFILL }},
-     { &ei_mongo_too_large_compressed, { "mongo.too_large_compressed.expert", PI_UNDECODED, PI_WARN, "The size of the uncompressed packet exceeded the maximum allowed value", EXPFILL }},
      { &ei_mongo_msg_checksum, { "mongo.bad_checksum.expert", PI_UNDECODED, PI_ERROR, "Bad checksum", EXPFILL }},
   };
 

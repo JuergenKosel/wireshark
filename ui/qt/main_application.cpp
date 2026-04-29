@@ -21,6 +21,7 @@
 #include <errno.h>
 
 #include "wsutil/filesystem.h"
+#include "app/application_flavor.h"
 
 #include "epan/addr_resolv.h"
 #include "epan/column-utils.h"
@@ -44,10 +45,10 @@
 
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/software_update.h>
 #include "coloring_rules_dialog.h"
 
 #include "epan/color_filters.h"
-#include "recent_file_status.h"
 
 #include "extcap.h"
 #ifdef HAVE_LIBPCAP
@@ -56,7 +57,6 @@
 
 #include "wsutil/filter_files.h"
 #include "ui/capture_globals.h"
-#include "ui/software_update.h"
 #include "ui/file_dialog.h"
 #include "ui/recent_utils.h"
 
@@ -76,6 +76,7 @@
 
 #include <ui/qt/main_window.h>
 #include <ui/qt/main_status_bar.h>
+#include <ui/qt/utils/workspace_state.h>
 
 #include <QAction>
 #include <QApplication>
@@ -90,6 +91,7 @@
 #include <QLocale>
 #include <QMainWindow>
 #include <QMutableListIterator>
+#include <QProxyStyle>
 #include <QSocketNotifier>
 #include <QThreadPool>
 #include <QUrl>
@@ -114,7 +116,6 @@ MainApplication *mainApp;
 
 // XXX - Copied from ui/gtk/file_dlg.c
 
-static QList<recent_item_status *> recent_captures_;
 static QHash<int, QList<QAction *> > dynamic_menu_groups_;
 static QHash<int, QList<QAction *> > added_menu_groups_;
 static QHash<int, QList<QAction *> > removed_menu_groups_;
@@ -152,112 +153,18 @@ topic_action(topic_action_e action)
     if (mainApp) mainApp->helpTopicAction(action);
 }
 
-/*
- * Add the capture filename to the application-wide "Recent Files" list.
- * Contrary to the name this isn't limited to the "recent" menu.
- */
-/*
- * XXX - We might want to call SHAddToRecentDocs under Windows 7:
- * https://stackoverflow.com/questions/437212/how-do-you-register-a-most-recently-used-list-with-windows-in-preparation-for-win
- */
-extern "C" void
-add_menu_recent_capture_file(const char *cf_name, bool force) {
-    QString normalized_cf_name = QString::fromUtf8(cf_name);
-    QDir cf_path;
-
-    cf_path.setPath(normalized_cf_name);
-    normalized_cf_name = cf_path.absolutePath();
-    normalized_cf_name = QDir::cleanPath(normalized_cf_name);
-    normalized_cf_name = QDir::toNativeSeparators(normalized_cf_name);
-
-    /* Iterate through the recent items list, removing duplicate entries and every
-     * item above count_max
-     */
-    unsigned int cnt = 1;
-    QMutableListIterator<recent_item_status *> rii(recent_captures_);
-    while (rii.hasNext()) {
-        recent_item_status *ri = rii.next();
-        /* if this element string is one of our special items (separator, ...) or
-         * already in the list or
-         * this element is above maximum count (too old), remove it
-         */
-        if (ri->filename.length() < 1 ||
-#ifdef _WIN32
-            /* do a case insensitive compare on win32 */
-            ri->filename.compare(normalized_cf_name, Qt::CaseInsensitive) == 0 ||
-#else   /* _WIN32 */
-            /*
-             * Do a case sensitive compare on UN*Xes.
-             *
-             * XXX - on UN*Xes such as macOS, where you can use pathconf()
-             * to check whether a given file system is case-sensitive or
-             * not, we should check whether this particular file system
-             * is case-sensitive and do the appropriate comparison.
-             */
-            ri->filename.compare(normalized_cf_name) == 0 ||
-#endif
-            (!force && cnt >= prefs.gui_recent_files_count_max)) {
-            rii.remove();
-            delete(ri);
-            cnt--;
-        }
-        cnt++;
-    }
-    mainApp->addRecentItem(normalized_cf_name, 0, false);
-}
-
 /* write all capture filenames of the menu to the user's recent file */
 extern "C" void menu_recent_file_write_all(FILE *rf) {
 
-    /* we have to iterate backwards through the children's list,
-     * so we get the latest item last in the file.
-     */
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    int i = qMin(recent_captures_.size(), (int)(prefs.gui_recent_files_count_max)) - 1;
-#else
-    qsizetype i = qMin(recent_captures_.size(), (qsizetype)prefs.gui_recent_files_count_max) - 1;
-#endif
-    for (; i >= 0; i--) {
-        recent_item_status *ri = recent_captures_.at(i);
-        /* get capture filename from the menu item label */
-        QString cf_name = ri->filename;
+    const QList<RecentFileInfo>& recentFiles = WorkspaceState::instance()->recentCaptureFiles();
+    int rFSize = static_cast<int>(recentFiles.size());
+    for (int i = 0; i < rFSize; i++) {
+        const RecentFileInfo& rfi = recentFiles.at(i);
+
+        QString cf_name = rfi.filename;
         if (!cf_name.isNull()) {
             fprintf (rf, RECENT_KEY_CAPTURE_FILE ": %s\n", qUtf8Printable(cf_name));
         }
-    }
-}
-
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-/** Check to see if Wireshark can shut down safely (e.g. offer to save the
- *  current capture).
- */
-extern "C" int software_update_can_shutdown_callback(void) {
-    return mainApp->softwareUpdateCanShutdown();
-}
-
-/** Shut down Wireshark in preparation for an upgrade.
- */
-extern "C" void software_update_shutdown_request_callback(void) {
-    mainApp->softwareUpdateShutdownRequest();
-}
-#endif // HAVE_SOFTWARE_UPDATE && Q_OS_WIN
-
-// Check each recent item in a separate thread so that we don't hang while
-// calling stat(). This is called periodically because files and entire
-// volumes can disappear and reappear at any time.
-void MainApplication::refreshRecentCaptures() {
-    recent_item_status *ri;
-    RecentFileStatus *rf_status;
-
-    // We're in the middle of a capture. Don't create traffic.
-    if (active_captures_ > 0) return;
-
-    foreach (ri, recent_captures_) {
-        if (ri->in_thread) {
-            continue;
-        }
-        rf_status = new RecentFileStatus(ri->filename, this);
-        QThreadPool::globalInstance()->start(rf_status);
     }
 }
 
@@ -270,12 +177,32 @@ void MainApplication::refreshPacketData()
     }
 }
 
+// The Fusion style, and the Mac style, allow QMessageBox text to be
+// selectable by the mouse. The various Windows styles do not. On
+// Windows we switch between the Fusion style and Windows style depending
+// on dark mode, so to make things consistent on Windows (and between
+// Windows and other platforms) alllow it on all styles.
+class MsgBoxTextStyle : public QProxyStyle
+{
+public:
+    MsgBoxTextStyle(QStyle *style = nullptr) : QProxyStyle(style) {}
+    MsgBoxTextStyle(const QString &key) : QProxyStyle(key) {}
+    int styleHint(StyleHint hint, const QStyleOption *option = nullptr,
+        const QWidget *widget = nullptr, QStyleHintReturn *returnData = nullptr) const override
+    {
+        if (hint == QStyle::SH_MessageBox_TextInteractionFlags)
+            return QProxyStyle::styleHint(hint, option, widget, returnData) | Qt::TextSelectableByMouse;
+        return QProxyStyle::styleHint(hint, option, widget, returnData);
+    }
+};
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && defined(Q_OS_WIN)
 void MainApplication::colorSchemeChanged() {
+    // TODO - Supposedly the windows11 style handles dark mode better.
     if (ColorUtils::themeIsDark()) {
         setStyle(QStyleFactory::create("fusion"));
     } else {
-        setStyle(QStyleFactory::create("windowsvista"));
+        setStyle(new MsgBoxTextStyle("windowsvista"));
     }
 }
 #endif
@@ -394,8 +321,8 @@ void MainApplication::setMonospaceFont(const char *font_string) {
     // Retrieve the effective font and apply it.
     mono_font_.setFamily(QFontInfo(mono_font_).family());
 
-    g_free(prefs.gui_font_name);
-    prefs.gui_font_name = qstring_strdup(mono_font_.toString());
+    wmem_free(wmem_epan_scope(), prefs.gui_font_name);
+    prefs.gui_font_name = wmem_strdup(wmem_epan_scope(), mono_font_.toString().toUtf8().constData());
 }
 
 int MainApplication::monospaceTextSize(const char *str)
@@ -408,16 +335,17 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
     char  *rf_path;
     int    rf_open_errno;
     char *err_msg = NULL;
+    const char* env_prefix = application_configuration_environment_prefix();
 
     bool prev_capture_no_interface_load;
     bool prev_capture_no_extcap;
 
     /* First check if profile exists */
-    if (!profile_exists(profile_name, false)) {
-        if (profile_exists(profile_name, true)) {
+    if (!profile_exists(env_prefix, profile_name, false)) {
+        if (profile_exists(env_prefix, profile_name, true)) {
             char  *pf_dir_path, *pf_dir_path2, *pf_filename;
             /* Copy from global profile */
-            if (create_persconffile_profile(profile_name, &pf_dir_path) == -1) {
+            if (create_persconffile_profile(env_prefix, profile_name, &pf_dir_path) == -1) {
                 simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                     "Can't create directory\n\"%s\":\n%s.",
                     pf_dir_path, g_strerror(errno));
@@ -425,7 +353,7 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
                 g_free(pf_dir_path);
             }
 
-            if (copy_persconffile_profile(profile_name, profile_name, true, &pf_filename,
+            if (copy_persconffile_profile(env_prefix, profile_name, profile_name, true, &pf_filename,
                     &pf_dir_path, &pf_dir_path2) == -1) {
                 simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                     "Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
@@ -452,7 +380,7 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
     /* Get the current geometry, before writing it to disk */
     emit profileChanging();
 
-    if (write_recent_file && profile_exists(get_profile_name(), false))
+    if (write_recent_file && profile_exists(env_prefix, get_profile_name(), false))
     {
         /* Write recent file for profile we are leaving, if it still exists */
         write_profile_recent();
@@ -471,7 +399,7 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
 
     /* Apply command-line preferences */
     commandline_options_reapply();
-    extcap_register_preferences();
+    extcap_register_preferences(NULL, NULL);
 
     /* Switching profile requires reloading the macro list. */
     reloadDisplayFilterMacros();
@@ -489,16 +417,12 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
     timestamp_set_type(recent.gui_time_format);
     timestamp_set_precision(recent.gui_time_precision);
     timestamp_set_seconds_type (recent.gui_seconds_format);
-    tap_update_timer_.setInterval(prefs.tap_update_interval);
 
     prefs_to_capture_opts(&global_capture_opts);
     prefs_apply_all();
 #ifdef HAVE_LIBPCAP
     update_local_interfaces(&global_capture_opts);
 #endif
-
-    setMonospaceFont(prefs.gui_font_name);
-    ColorUtils::setScheme(prefs.gui_color_scheme);
 
     emit columnsChanged();
     emit colorsChanged();
@@ -510,7 +434,7 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
     emit displayFilterListChanged();
 
     /* Reload color filters */
-    if (!color_filters_reload(&err_msg, color_filter_add_cb)) {
+    if (!color_filters_reload(&err_msg, color_filter_add_cb, application_configuration_environment_prefix())) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
         g_free(err_msg);
     }
@@ -531,7 +455,12 @@ void MainApplication::setConfigurationProfile(const char *profile_name, bool wri
 
 void MainApplication::reloadLuaPluginsDelayed()
 {
-    QTimer::singleShot(0, this, &MainApplication::reloadLuaPlugins);
+    QTimer::singleShot(0, this, [this]() {
+        /* Clear the reloading flag so the re-triggered reload
+         * is not blocked by the isReloadingLua() guard. */
+        setReloadingLua(false);
+        emit reloadLuaPlugins();
+    });
 }
 
 const QIcon &MainApplication::normalIcon()
@@ -615,38 +544,16 @@ bool MainApplication::event(QEvent *event)
     return QApplication::event(event);
 }
 
-void MainApplication::clearRecentCaptures() {
-    qDeleteAll(recent_captures_);
-    recent_captures_.clear();
-    emit updateRecentCaptureStatus(NULL, 0, false);
-}
-
 void MainApplication::cleanup()
 {
-    software_update_cleanup();
+    SoftwareUpdate::instance()->cleanup();
     storeCustomColorsInRecent();
     // Write the user's recent file(s) to disk.
     write_profile_recent();
     write_recent();
 
-    qDeleteAll(recent_captures_);
-    recent_captures_.clear();
     // We might end up here via exit_application.
     QThreadPool::globalInstance()->waitForDone();
-}
-
-void MainApplication::itemStatusFinished(const QString filename, qint64 size, bool accessible) {
-    recent_item_status *ri;
-
-    foreach (ri, recent_captures_) {
-        if (filename == ri->filename && (size != ri->size || accessible != ri->accessible)) {
-            ri->size = size;
-            ri->accessible = accessible;
-            ri->in_thread = false;
-
-            emit updateRecentCaptureStatus(filename, size, accessible);
-        }
-    }
 }
 
 MainApplication::MainApplication(int &argc,  char **argv) :
@@ -691,130 +598,34 @@ MainApplication::MainApplication(int &argc,  char **argv) :
     setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
 
+    // We use a lot of style sheets that base their colors on the main
+    // application palette, so this works better.
+    setAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles, true);
+
     // Throw various settings at the wall with the hope that one of them will
     // enable context menu shortcuts QTBUG-69452, QTBUG-109590
     setAttribute(Qt::AA_DontShowShortcutsInContextMenus, false);
     styleHints()->setShowShortcutsInContextMenus(true);
-
-    //
-    // XXX - this means we try to check for the existence of all files
-    // in the recent list every 2 seconds; that causes noticeable network
-    // traffic if any of them are stored on file servers.
-    //
-    // QFileSystemWatcher should allow us to watch for files being
-    // removed or renamed.  It uses kqueues and EVFILT_VNODE on FreeBSD,
-    // NetBSD, FSEvents on macOS, inotify on Linux if available, and
-    // FindFirstChangeNotification() on Windows.  On all other platforms,
-    // it just periodically polls, as we're doing now.
-    //
-    // For unmounts:
-    //
-    // macOS and FreeBSD deliver NOTE_REVOKE notes for EVFILT_VNODE, and
-    // QFileSystemWatcher delivers signals for them, just as it does for
-    // NOTE_DELETE and NOTE_RENAME.
-    //
-    // On Linux, inotify:
-    //
-    //    http://man7.org/linux/man-pages/man7/inotify.7.html
-    //
-    // appears to deliver "filesystem containing watched object was
-    // unmounted" events.  It looks as if Qt turns them into "changed"
-    // events.
-    //
-    // On Windows, it's not clearly documented what happens on a handle
-    // opened with FindFirstChangeNotification() if the volume on which
-    // the path handed to FindFirstChangeNotification() is removed, or
-    // ejected, or whatever the Windowsese is for "unmounted".  The
-    // handle obviously isn't valid any more, but whether it just hangs
-    // around and never delivers any notifications or delivers an
-    // event that turns into an error indication doesn't seem to be
-    // documented.  If it just hangs around, I think our main loop will
-    // receive a WM_DEVICECHANGE Windows message with DBT_DEVICEREMOVECOMPLETE
-    // if an unmount occurs - even for network devices.  If we need to watch
-    // for those, we can use the winEvent method of the QWidget for the
-    // top-level window to get Windows messages.
-    //
-    // Note also that remote file systems might not report file
-    // removal or renames if they're done on the server or done by
-    // another client.  At least on macOS, they *will* get reported
-    // if they're done on the machine running the program doing the
-    // kqueue stuff, and, at least in newer versions, should get
-    // reported on SMB-mounted (and AFP-mounted?) file systems
-    // even if done on the server or another client.
-    //
-    // But, when push comes to shove, the file manager(s) on the
-    // OSes in question probably use the same mechanisms to
-    // monitor folders in folder windows or open/save dialogs or...,
-    // so my inclination is just to use QFileSystemWatcher.
-    //
-    // However, that wouldn't catch files that become *re*-accessible
-    // by virtue of a file system being re-mounted.  The only way to
-    // catch *that* would be to watch for mounts and re-check all
-    // marked-as-inaccessible files.
-    //
-    // macOS and FreeBSD also support EVFILT_FS events, which notify you
-    // of file system mounts and unmounts.  We'd need to add our own
-    // kqueue for that, if we can check those with QSocketNotifier.
-    //
-    // On Linux, at least as of 2006, you're supposed to poll /proc/mounts:
-    //
-    //    https://lkml.org/lkml/2006/2/22/169
-    //
-    // to discover mounts.
-    //
-    // On Windows, you'd probably have to watch for WM_DEVICECHANGE events.
-    //
-    // Then again, with an automounter, a file system containing a
-    // recent capture might get unmounted automatically if you haven't
-    // referred to anything on that file system for a while, and get
-    // treated as inaccessible.  However, if you try to access it,
-    // the automounter will attempt to re-mount it, so the access *will*
-    // succeed if the automounter can remount the file.
-    //
-    // (Speaking of automounters, repeatedly polling recent files will
-    // keep the file system from being unmounted, for what that's worth.)
-    //
-    // At least on macOS, you can determine whether a file is on an
-    // automounted file system by calling statfs() on its path and
-    // checking whether MNT_AUTOMOUNTED is set in f_flags.  FreeBSD
-    // appears to support that flag as well, but no other *BSD appears
-    // to.
-    //
-    // I'm not sure what can be done on Linux.
-    //
-    recent_timer_.setParent(this);
-    connect(&recent_timer_, &QTimer::timeout, this, &MainApplication::refreshRecentCaptures);
-    recent_timer_.start(2000);
 
     packet_data_timer_.setParent(this);
     connect(&packet_data_timer_, &QTimer::timeout, this, &MainApplication::refreshPacketData);
     packet_data_timer_.start(1000);
 
     tap_update_timer_.setParent(this);
-    tap_update_timer_.setInterval(TAP_UPDATE_DEFAULT_INTERVAL);
+    // tap_update_timer interval is set when preferences are set before init
     connect(this, &MainApplication::appInitialized, &tap_update_timer_, [&]() { tap_update_timer_.start(); });
     connect(this, &MainApplication::appInitialized, [this] { emit aggregationVisiblity(); });
     connect(&tap_update_timer_, &QTimer::timeout, this, &MainApplication::updateTaps);
 
-    // Application-wide style sheet
-    QString app_style_sheet = qApp->styleSheet();
-    app_style_sheet += QStringLiteral(
-        "QMessageBox { "
-        "  messagebox-text-interaction-flags: %1;"
-        "}"
-        ).arg(Qt::TextSelectableByMouse);
-    qApp->setStyleSheet(app_style_sheet);
 
     // If our window text is lighter than the window background, assume the theme is dark.
     prefs_set_gui_theme_is_dark(ColorUtils::themeIsDark());
 
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-    connect(this, &MainApplication::softwareUpdateQuit, this, &MainApplication::quit, Qt::QueuedConnection);
-#endif
-
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && defined(Q_OS_WIN)
     colorSchemeChanged();
     connect(styleHints(), &QStyleHints::colorSchemeChanged, this, &MainApplication::colorSchemeChanged);
+#else
+    setStyle(new MsgBoxTextStyle);
 #endif
 
     connect(qApp, &QApplication::aboutToQuit, this, &MainApplication::cleanup);
@@ -827,11 +638,6 @@ MainApplication::~MainApplication()
     free_interface_list(cached_if_list_);
 #endif
     clearDynamicMenuGroupItems();
-}
-
-void MainApplication::registerUpdate(register_action_e action, const char *message)
-{
-    emit splashUpdate(action, message);
 }
 
 void MainApplication::emitAppSignal(AppSignal signal)
@@ -856,6 +662,8 @@ void MainApplication::emitAppSignal(AppSignal signal)
         emit addressResolutionChanged();
         break;
     case PreferencesChanged:
+        tap_update_timer_.setInterval(prefs.tap_update_interval);
+        setMonospaceFont(prefs.gui_font_name);
         emit preferencesChanged();
         break;
     case PacketDissectionChanged:
@@ -864,9 +672,6 @@ void MainApplication::emitAppSignal(AppSignal signal)
     case ProfileChanging:
         emit profileChanging();
         break;
-    case RecentCapturesChanged:
-        emit updateRecentCaptureStatus(NULL, 0, false);
-        break;
     case RecentPreferencesRead:
         emit recentPreferencesRead();
         break;
@@ -874,6 +679,7 @@ void MainApplication::emitAppSignal(AppSignal signal)
         emit fieldsChanged();
         break;
     case ColorsChanged:
+        ColorUtils::setScheme(prefs.gui_color_scheme);
         emit colorsChanged();
         break;
     case FreezePacketList:
@@ -1114,7 +920,7 @@ void MainApplication::setInterfaceList(GList *if_list)
 }
 #endif
 
-void MainApplication::allSystemsGo(const char* name_proper, const char* version)
+void MainApplication::allSystemsGo()
 {
     QString display_filter = NULL;
     initialized_ = true;
@@ -1123,7 +929,10 @@ void MainApplication::allSystemsGo(const char* name_proper, const char* version)
         emit openCaptureFile(pending_open_files_.front(), display_filter, WTAP_TYPE_AUTO);
         pending_open_files_.pop_front();
     }
-    software_update_init(name_proper, version);
+
+    bool sideBarVisible = recent.gui_welcome_page_sidebar_tips_visible ||
+                           recent.gui_welcome_page_sidebar_learn_visible;
+    SoftwareUpdate::instance()->init(!sideBarVisible);
 
 #ifdef HAVE_LIBPCAP
     int err;
@@ -1146,7 +955,7 @@ _e_prefs *MainApplication::readConfigurationFiles(bool reset)
         // heuristic dissectors before reading.
         // (Needed except when this is called at startup.)
         //
-        prefs_reset();
+        prefs_reset(application_configuration_environment_prefix(), application_columns(), application_num_columns());
         proto_reenable_all();
     }
 
@@ -1154,49 +963,6 @@ _e_prefs *MainApplication::readConfigurationFiles(bool reset)
     prefs_p = epan_load_settings();
 
     return prefs_p;
-}
-
-QList<recent_item_status *> MainApplication::recentItems() const {
-    return recent_captures_;
-}
-
-void MainApplication::addRecentItem(const QString filename, qint64 size, bool accessible) {
-    recent_item_status *ri = new(recent_item_status);
-
-    ri->filename = filename;
-    ri->size = size;
-    ri->accessible = accessible;
-    ri->in_thread = false;
-    recent_captures_.prepend(ri);
-
-    itemStatusFinished(filename, size, accessible);
-}
-
-void MainApplication::removeRecentItem(const QString &filename)
-{
-    QMutableListIterator<recent_item_status *> rii(recent_captures_);
-
-    while (rii.hasNext()) {
-        recent_item_status *ri = rii.next();
-#ifdef _WIN32
-        /* Do a case insensitive compare on win32 */
-        if (ri->filename.compare(filename, Qt::CaseInsensitive) == 0) {
-#else
-        /* Do a case sensitive compare on UN*Xes.
-         *
-         * XXX - on UN*Xes such as macOS, where you can use pathconf()
-         * to check whether a given file system is case-sensitive or
-         * not, we should check whether this particular file system
-         * is case-sensitive and do the appropriate comparison.
-         */
-        if (ri->filename.compare(filename) == 0) {
-#endif
-            rii.remove();
-            delete(ri);
-        }
-    }
-
-    emit updateRecentCaptureStatus(NULL, 0, false);
 }
 
 static void switchTranslator(QTranslator& myTranslator, const QString& filename,
@@ -1212,6 +978,7 @@ void MainApplication::loadLanguage(const QString newLanguage)
 {
     QLocale locale;
     QString localeLanguage;
+    const char* env_prefix = application_configuration_environment_prefix();
 
     if (newLanguage.isEmpty() || newLanguage == USE_SYSTEM_LANGUAGE) {
         locale = QLocale::system();
@@ -1225,21 +992,21 @@ void MainApplication::loadLanguage(const QString newLanguage)
     switchTranslator(mainApp->translator,
             QStringLiteral("wireshark_%1.qm").arg(localeLanguage), QStringLiteral(":/i18n/"));
     if (QFile::exists(QStringLiteral("%1/%2/wireshark_%3.qm")
-            .arg(get_datafile_dir()).arg("languages").arg(localeLanguage)))
+            .arg(get_datafile_dir(env_prefix)).arg("languages").arg(localeLanguage)))
         switchTranslator(mainApp->translator,
-                QStringLiteral("wireshark_%1.qm").arg(localeLanguage), QStringLiteral("%1/languages").arg(get_datafile_dir()));
+                QStringLiteral("wireshark_%1.qm").arg(localeLanguage), QStringLiteral("%1/languages").arg(get_datafile_dir(env_prefix)));
     if (QFile::exists(QStringLiteral("%1/wireshark_%3.qm")
-            .arg(gchar_free_to_qstring(get_persconffile_path("languages", false))).arg(localeLanguage)))
+            .arg(gchar_free_to_qstring(get_persconffile_path("languages", false, env_prefix))).arg(localeLanguage)))
         switchTranslator(mainApp->translator,
-                QStringLiteral("wireshark_%1.qm").arg(localeLanguage), gchar_free_to_qstring(get_persconffile_path("languages", false)));
+                QStringLiteral("wireshark_%1.qm").arg(localeLanguage), gchar_free_to_qstring(get_persconffile_path("languages", false, env_prefix)));
     if (QFile::exists(QStringLiteral("%1/qt_%2.qm")
-            .arg(get_datafile_dir()).arg(localeLanguage))) {
+            .arg(get_datafile_dir(env_prefix)).arg(localeLanguage))) {
         switchTranslator(mainApp->translatorQt,
-                QStringLiteral("qt_%1.qm").arg(localeLanguage), QString(get_datafile_dir()));
+                QStringLiteral("qt_%1.qm").arg(localeLanguage), QString(get_datafile_dir(env_prefix)));
     } else if (QFile::exists(QStringLiteral("%1/qt_%2.qm")
-            .arg(get_datafile_dir()).arg(localeLanguage.left(localeLanguage.lastIndexOf('_'))))) {
+            .arg(get_datafile_dir(env_prefix)).arg(localeLanguage.left(localeLanguage.lastIndexOf('_'))))) {
         switchTranslator(mainApp->translatorQt,
-                QStringLiteral("qt_%1.qm").arg(localeLanguage.left(localeLanguage.lastIndexOf('_'))), QString(get_datafile_dir()));
+                QStringLiteral("qt_%1.qm").arg(localeLanguage.left(localeLanguage.lastIndexOf('_'))), QString(get_datafile_dir(env_prefix)));
     } else {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         QString translationPath = QLibraryInfo::path(QLibraryInfo::TranslationsPath);
@@ -1279,39 +1046,6 @@ void MainApplication::zoomTextFont(int zoomLevel)
     zoomed_application_font.setPointSizeF(zoom_size);
     emit zoomRegularFont(zoomed_application_font);
 }
-
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-bool MainApplication::softwareUpdateCanShutdown() {
-    software_update_ok_ = true;
-    // At this point the update is ready to install, but WinSparkle has
-    // not yet run the installer. We need to close our "Wireshark is
-    // running" mutexes since the IsWiresharkRunning NSIS macro checks
-    // for them.
-    //
-    // We must not exit the Qt main event loop here, which means we must
-    // not close the main window.
-
-    // Step 1: See if we have any open files.
-    emit softwareUpdateRequested();
-    if (software_update_ok_ == true) {
-
-        // Step 2: Close the "running" mutexes.
-        close_app_running_mutex();
-    }
-    return software_update_ok_;
-}
-
-void MainApplication::softwareUpdateShutdownRequest() {
-    // At this point the installer has been launched. Neither Wireshark nor
-    // its children should have any "Wireshark is running" mutexes open.
-    // The main window should still be open as noted above in
-    // softwareUpdateCanShutdown and it's safe to exit the Qt main
-    // event loop.
-
-    // Step 3: Quit.
-    emit softwareUpdateQuit();
-}
-#endif
 
 void MainApplication::captureEventHandler(CaptureEvent ev)
 {
@@ -1444,7 +1178,7 @@ void MainApplication::gotoFrame(int frame)
 
 void MainApplication::reloadDisplayFilterMacros()
 {
-    dfilter_macro_reload();
+    dfilter_macro_reload(application_configuration_environment_prefix());
     // The signal is needed when the display filter grammar changes for
     // any reason (not just "fields".)
     mainApp->emitAppSignal(MainApplication::FieldsChanged);

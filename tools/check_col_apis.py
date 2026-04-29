@@ -12,10 +12,12 @@ import os
 import re
 import argparse
 import signal
-from check_common import *
+import concurrent.futures
+from check_common import removeComments, getFilesFromCommits, getFilesFromOpen, findDissectorFilesInFolder, isGeneratedFile, Result
 
 # Try to exit soon after Ctrl-C is pressed.
 should_exit = False
+
 
 def signal_handler(sig, frame):
     global should_exit
@@ -26,6 +28,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 warnings_found = 0
 errors_found = 0
+
 
 class ColCall:
     def __init__(self, file, line_number, name, last_args, generated, verbose):
@@ -40,30 +43,25 @@ class ColCall:
         generated = '(GENERATED) ' if self.generated else ''
         return self.filename + ':' + generated + str(self.line_number) + ' : called ' + self.name + ' with ' + self.last_args
 
-    def check(self):
-        global warnings_found
-
+    def check(self, result):
         self.last_args = self.last_args.replace('\\\"', "'")
         self.last_args = self.last_args.strip()
 
         # Empty string never a good idea
         if self.last_args == r'""':
             if 'append' not in self.name:
-                print('Warning:', self.issue_prefix(), '- if want to clear column, use col_clear() instead')
-                warnings_found += 1
+                result.warn(self.issue_prefix(), '- if want to clear column, use col_clear() instead')
             else:
                 # TODO: pointless if appending, but unlikely to see
                 pass
 
         # This is never a good idea..
         if self.last_args.startswith(r'"%s"'):
-            print('Warning:', self.issue_prefix(), " - don't need fstr API?")
-            warnings_found += 1
+            result.warn(self.issue_prefix(), " - don't need fstr API?")
 
         # Unlikely, but did someone accidentally include a specifier but call str() function with no args?
         if self.last_args.startswith('"') and "%" in self.last_args and 'fstr' not in self.name:
-            print('Warning:', self.issue_prefix(), " - meant to call fstr version of function?")
-            warnings_found += 1
+            result.warn(self.issue_prefix(), " - meant to call fstr version of function?")
 
         ternary_re = re.compile(r'.*\s*\?\s*.*\".*\"\s*:\s*.*\".*\"')
 
@@ -84,21 +82,18 @@ class ColCall:
             else:
                 if self.verbose:
                     # Not easy/possible to judge lifetime of string..
-                    print('Note:', self.issue_prefix(), '- is this persistent enough??')
+                    result.note(self.issue_prefix(), '- is this persistent enough??')
 
         if self.name == 'col_add_str':
             # If literal string, could have used col_set_str instead?
             self.last_args = self.last_args.replace('\\\"', "'")
             self.last_args = self.last_args.strip()
             if self.last_args.startswith('"'):
-                print('Warning:', self.issue_prefix(), '- could call col_set_str() instead')
-                warnings_found += 1
+                result.warn(self.issue_prefix(), '- could call col_set_str() instead')
             elif self.last_args.startswith('val_to_str_const'):
-                print('Warning:', self.issue_prefix(), '- const so could use col_set_str() instead')
-                warnings_found += 1
+                result.warn(self.issue_prefix(), '- const so could use col_set_str() instead')
             elif self.last_args.startswith('val_to_str_ext_const'):
-                print('Warning:', self.issue_prefix(), '- const so could use col_set_str() instead')
-                warnings_found += 1
+                result.warn(self.issue_prefix(), '- const so could use col_set_str() instead')
 
         if self.name == 'col_append_str':
             pass
@@ -110,19 +105,17 @@ class ColCall:
                 # Should contain at least one format specifier!
                 format_string = m.group(1)
                 if '%' not in format_string:
-                    print('Warning:', self.issue_prefix(), 'with no format specifiers  - "' + format_string + '" - use str() version instead')
-                    warnings_found += 1
+                    result.warn(self.issue_prefix(), 'with no format specifiers  - "' + format_string + '" - use _str() version instead')
 
 
 # Check the given dissector file.
 def checkFile(filename, generated, verbose=False):
-    global warnings_found
-    global errors_found
+    result = Result()
 
     # Check file exists - e.g. may have been deleted in a recent commit.
     if not os.path.exists(filename):
-        print(filename, 'does not exist!')
-        return
+        result.note(filename, 'does not exist!')
+        return result
 
     with open(filename, 'r', encoding="utf8") as f:
         full_contents = f.read()
@@ -131,7 +124,8 @@ def checkFile(filename, generated, verbose=False):
         contents = removeComments(full_contents)
 
         # Look for all calls in this file
-        matches = re.finditer(r'(col_set_str|col_add_str|col_add_fstr|col_append_str|col_append_fstr)\((.*?)\)\s*\;', contents, re.MULTILINE|re.DOTALL)
+        matches = re.finditer(r'(col_set_str|col_add_str|col_add_fstr|col_append_str|col_append_fstr)\((.*?)\)\s*\;',
+                              contents, re.MULTILINE | re.DOTALL)
         col_calls = []
 
         last_line_number = 1
@@ -145,7 +139,7 @@ def checkFile(filename, generated, verbose=False):
             # Make search partial to:
             # - avoid finding an earlier identical call
             # - speed up searching by making it shorter
-            remaining_lines_text =  full_contents[last_char_offset:]
+            remaining_lines_text = full_contents[last_char_offset:]
             match_offset = remaining_lines_text.find(m.group(0))
             if match_offset != -1:
                 match_in_lines = len(remaining_lines_text[0:match_offset].splitlines())
@@ -161,75 +155,86 @@ def checkFile(filename, generated, verbose=False):
 
         # Check them all
         for call in col_calls:
-            call.check()
+            call.check(result)
+
+    result.should_exit = should_exit
+    return result
 
 
+if __name__ == '__main__':
+    #################################################################
 
-#################################################################
-# Main logic.
-
-# command-line args.  Controls which dissector files should be checked.
-# If no args given, will scan all dissectors.
-parser = argparse.ArgumentParser(description='Check calls in dissectors')
-parser.add_argument('--file', action='append',
-                    help='specify individual dissector file to test')
-parser.add_argument('--commits', action='store',
-                    help='last N commits to check')
-parser.add_argument('--open', action='store_true',
-                    help='check open files')
-parser.add_argument('--verbose', action='store_true',
-                    help='show extra info')
-
-
-args = parser.parse_args()
+    # command-line args.  Controls which dissector files should be checked.
+    # If no args given, will scan all dissectors.
+    parser = argparse.ArgumentParser(description='Check calls in dissectors')
+    parser.add_argument('--file', action='append',
+                        help='specify individual dissector file to test')
+    parser.add_argument('--commits', action='store',
+                        help='last N commits to check')
+    parser.add_argument('--open', action='store_true',
+                        help='check open files')
+    parser.add_argument('--verbose', action='store_true',
+                        help='show extra info')
 
 
-# Get files from wherever command-line args indicate.
-files = []
-if args.file:
-    # Add specified file(s)
-    for f in args.file:
-        if not os.path.isfile(f) and not f.startswith('epan'):
-            f = os.path.join('epan', 'dissectors', f)
-        if not os.path.isfile(f):
-            print('Chosen file', f, 'does not exist.')
-            exit(1)
-        else:
-            files.append(f)
-elif args.commits:
-    # Get files affected by specified number of commits.
-    files = getFilesFromCommits(args.commits)
-elif args.open:
-    # Unstaged changes.
-    files = getFilesFromOpen()
-else:
-    # Find all dissector files from folder.
-    files =  findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
-    files += findDissectorFilesInFolder(os.path.join('plugins', 'epan'), recursive=True)
-    files += findDissectorFilesInFolder(os.path.join('epan', 'dissectors', 'asn1'), recursive=True)
+    args = parser.parse_args()
 
 
-# If scanning a subset of files, list them here.
-print('Examining:')
-if args.file or args.commits or args.open:
-    if files:
-        print(' '.join(files), '\n')
+    # Get files from wherever command-line args indicate.
+    files = []
+    if args.file:
+        # Add specified file(s)
+        for f in args.file:
+            if not os.path.isfile(f) and not f.startswith('epan'):
+                f = os.path.join('epan', 'dissectors', f)
+            if not os.path.isfile(f):
+                print('Chosen file', f, 'does not exist.')
+                exit(1)
+            else:
+                files.append(f)
+    elif args.commits:
+        # Get files affected by specified number of commits.
+        files = getFilesFromCommits(args.commits)
+    elif args.open:
+        # Unstaged changes.
+        files = getFilesFromOpen()
     else:
-        print('No files to check.\n')
-else:
-    print('All dissectors\n')
+        # Find all dissector files from folder.
+        files = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
+        files += findDissectorFilesInFolder(os.path.join('plugins', 'epan'), recursive=True)
+        files += findDissectorFilesInFolder(os.path.join('epan', 'dissectors', 'asn1'), recursive=True)
 
 
-# Now check the chosen files
-for f in files:
-    if should_exit:
+    # If scanning a subset of files, list them here.
+    print('Examining:')
+    if args.file or args.commits or args.open:
+        if files:
+            print(' '.join(files), '\n')
+        else:
+            print('No files to check.\n')
+    else:
+        print('All dissectors\n')
+
+
+    # Now check the chosen files
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        future_to_file_output = {executor.submit(checkFile, file, isGeneratedFile(file), args.verbose): file for file in files}
+        for future in concurrent.futures.as_completed(future_to_file_output):
+            # File is done - show any output and update warning, error counts
+            result = future.result()
+            output = result.out.getvalue()
+            if len(output):
+                print(output[:-1])
+
+            warnings_found += result.warnings
+            errors_found += result.errors
+
+            if result.should_exit:
+                exit(1)
+
+
+    # Show summary.
+    print(warnings_found, 'warnings found')
+    if errors_found:
+        print(errors_found, 'errors found')
         exit(1)
-
-    checkFile(f, isGeneratedFile(f), verbose=args.verbose)
-
-
-# Show summary.
-print(warnings_found, 'warnings found')
-if errors_found:
-    print(errors_found, 'errors found')
-    exit(1)

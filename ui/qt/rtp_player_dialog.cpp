@@ -163,10 +163,14 @@ RtpPlayerDialog::RtpPlayerDialog(QWidget &parent, CaptureFile &cf, bool capture_
     , first_stream_rel_stop_time_(0.0)
     , streams_length_(0.0)
     , start_marker_time_(0.0)
+    , start_marker_time_play_(0.0)
     , number_ticker_(new QCPAxisTicker)
     , datetime_ticker_(new QCPAxisTickerDateTime)
     , stereo_available_(false)
     , marker_stream_(0)
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    , notify_timer_start_diff_(0)
+#endif
     , marker_stream_requested_out_rate_(0)
     , last_ti_(0)
     , listener_removed_(true)
@@ -1229,7 +1233,7 @@ void RtpPlayerDialog::updateHintLabel()
     qsizetype selected = ui->streamTreeWidget->selectedItems().count();
     int not_muted = 0;
 
-    hint += tr("%1 streams").arg(row_count);
+    hint += tr("%Ln stream(s)", "", row_count);
 
     if (row_count > 0) {
         if (selected > 0) {
@@ -1302,10 +1306,20 @@ void RtpPlayerDialog::updateGraphs()
 
 void RtpPlayerDialog::playFinished(RtpAudioStream *stream, QAudio::Error error)
 {
-    if ((error != QAudio::NoError) && (error != QAudio::UnderrunError)) {
-        setPlaybackError(tr("Playback of stream %1 failed!")
-            .arg(stream->getIDAsQString())
-        );
+    if (error != QAudio::NoError) {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 11, 0))
+        if (error != QAudio::UnderrunError) {
+            setPlaybackError(tr("Playback of stream %1 failed!")
+                .arg(stream->getIDAsQString())
+            );
+        }
+#else
+        if (stream->outputState() != QAudio::IdleState) {
+            setPlaybackError(tr("Playback of stream %1 failed!")
+                .arg(stream->getIDAsQString())
+            );
+        }
+#endif // QT_VERSION < QT_VERSION_CHECK(6,11,0)
     }
     playing_streams_.removeOne(stream);
     if (playing_streams_.isEmpty()) {

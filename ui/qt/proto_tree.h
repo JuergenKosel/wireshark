@@ -14,7 +14,7 @@
 
 #include <epan/proto.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <ui/qt/utils/field_information.h>
 #include <QTreeView>
@@ -45,11 +45,12 @@ protected:
         Value
     };
 
-    virtual void contextMenuEvent(QContextMenuEvent *event);
-    virtual void timerEvent(QTimerEvent *event);
-    virtual void keyReleaseEvent(QKeyEvent *event);
-    virtual bool eventFilter(QObject * obj, QEvent * ev);
-    virtual QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers);
+    virtual void contextMenuEvent(QContextMenuEvent *event) override;
+    virtual void timerEvent(QTimerEvent *event) override;
+    virtual void keyReleaseEvent(QKeyEvent *event) override;
+    virtual void focusInEvent(QFocusEvent *event) override;
+    virtual bool eventFilter(QObject * obj, QEvent * ev) override;
+    virtual QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers) override;
 
     QString traverseTree(const QModelIndex & rootNode, int identLevel = 0) const;
 
@@ -77,6 +78,8 @@ signals:
     void relatedFrame(int, ft_framenum_type_t);
     void showProtocolPreferences(const QString module_name);
     void editProtocolPreference(pref_t *pref, module_t *module);
+    void recolorPacketsRequested();
+    void redissectPacketsRequested();
 
 public slots:
 
@@ -95,7 +98,7 @@ public slots:
     void selectedFrameChanged(QList<int>);
 
 protected slots:
-    void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+    void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected) override;
 #if 0
     void ctxShowPacketBytes();
     void ctxExportPacketBytes();

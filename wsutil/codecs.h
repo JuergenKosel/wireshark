@@ -45,8 +45,10 @@ WS_DLL_PUBLIC void codecs_register_plugin(const codecs_plugin *plug);
  * statically linked and dynamically loaded plugins. This function should
  * be called during application startup or dissector initialization to
  * ensure codec availability for decoding and playback.
+ *
+ * @param app_env_var_prefix The prefix for the application environment variable used to get plugin directory.
  */
-WS_DLL_PUBLIC void codecs_init(void);
+WS_DLL_PUBLIC void codecs_init(const char* app_env_var_prefix);
 
 /**
  * @brief Clean up all registered codecs.
@@ -56,16 +58,6 @@ WS_DLL_PUBLIC void codecs_init(void);
  * codec support (e.g., after preference changes).
  */
 WS_DLL_PUBLIC void codecs_cleanup(void);
-
-/**
- * @brief Retrieve compile-time version information for codec-related libraries.
- *
- * Appends version details for all libraries linked with `libwscodecs` at build time
- * to the provided `GString`.
- *
- * @param str Pointer to a `GString` that will receive the formatted version info.
- */
-WS_DLL_PUBLIC void codec_get_compiled_version_info(GString *str);
 
 struct codec_handle;
 typedef struct codec_handle *codec_handle_t;

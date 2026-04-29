@@ -16,14 +16,11 @@
 
 #include "packet-ber.h"
 #include "packet-media-type.h"
+#include "packet-e212.h"
 #include "packet-pkix1explicit.h"
 #include "packet-pkix1implicit.h"
 #include "packet-sgp22.h"
 #include "packet-sgp32.h"
-
-#define PNAME  "SGP.32 GSMA Remote SIM Provisioning (RSP)"
-#define PSNAME "SGP.32"
-#define PFNAME "sgp32"
 
 void proto_register_sgp32(void);
 void proto_reg_handoff_sgp32(void);
@@ -32,6 +29,7 @@ static int proto_sgp32;
 #include "packet-sgp32-hf.c"
 
 static int ett_sgp32;
+static int ett_sgp32_rPLMN;
 #include "packet-sgp32-ett.c"
 
 #include "packet-sgp32-fn.c"
@@ -169,10 +167,11 @@ void proto_register_sgp32(void)
 
   static int *ett[] = {
     &ett_sgp32,
+    &ett_sgp32_rPLMN,
 #include "packet-sgp32-ettarr.c"
   };
 
-  proto_sgp32 = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_sgp32 = proto_register_protocol("SGP.32 GSMA Remote SIM Provisioning (RSP)", "SGP.32", "sgp32");
   proto_register_field_array(proto_sgp32, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
@@ -193,6 +192,7 @@ void proto_reg_handoff_sgp32(void)
   sgp22_response_dissector_table = find_dissector_table("sgp22.response");
 
   dissector_add_string("media_type", "application/x-gsma-rsp-asn1", sgp32_handle);
+  dissector_add_string("coap_uri_path", "/gsma/rsp2/asn1", sgp32_handle);
 
 #include "packet-sgp32-dis-tab.c"
 }

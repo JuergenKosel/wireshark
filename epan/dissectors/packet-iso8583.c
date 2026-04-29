@@ -519,21 +519,18 @@ static unsigned get_iso8583_msg_len(packet_info *pinfo _U_, tvbuff_t *tvb, int o
  */
 static char* bin2hex(wmem_allocator_t *pool, const uint8_t *bin, enum bin2hex_enum type, uint32_t len)
 {
-  char* ret;
   uint8_t ch;
   const uint8_t* str = bin;
   uint32_t size = len;
-  char* buff;
+  wmem_strbuf_t* buff;
 
-  /* "size" characters, plus terminating NUL */
-  ret = (char *)wmem_alloc(pool, size + 1);
-  buff = ret;
+  buff = wmem_strbuf_new_sized(pool, size);
   if(type == TYPE_BCD)
   {
     if(size % 2) /* odd */
     {
       ch = *str & 0x0f;
-      *buff++ = NIBBLE_2_ASCHEX(ch);
+      wmem_strbuf_append_c(buff, NIBBLE_2_ASCHEX(ch));
       str++;
       size--;
     }
@@ -543,13 +540,12 @@ static char* bin2hex(wmem_allocator_t *pool, const uint8_t *bin, enum bin2hex_en
   while(size-- > 0)
   {
     ch = (*str >> 4) & 0x0f;
-    *buff++ = NIBBLE_2_ASCHEX(ch);
+    wmem_strbuf_append_c(buff, NIBBLE_2_ASCHEX(ch));
     ch = *str & 0x0f;
-    *buff++ = NIBBLE_2_ASCHEX(ch);
+    wmem_strbuf_append_c(buff, NIBBLE_2_ASCHEX(ch));
     str++;
   }
-  *buff = '\0';
-  return ret;
+  return wmem_strbuf_finalize(buff);
 }
 
 static uint64_t hex2bin(const char* hexstr, int len)
@@ -575,12 +571,12 @@ static uint64_t hex2bin(const char* hexstr, int len)
       if((offset -2 + len) > iso8583_len)\
         return NULL
 
-static char *get_bit(const struct iso_type *data_type, int hf, packet_info *pinfo, tvbuff_t *tvb, unsigned *off_set, proto_tree *tree, proto_item **exp, int *length, uint32_t iso8583_len)
+static char *get_bit(const struct iso_type *data_type, int hf, packet_info *pinfo, tvbuff_t *tvb, int *off_set, proto_tree *tree, proto_item **exp, int *length, uint32_t iso8583_len)
 {
   char aux[1024];
   char* ret=NULL;
   uint32_t len;
-  unsigned offset = *off_set;
+  int offset = *off_set;
   bool str_input = false;
 
   /* Check if it is a fixed or variable length
@@ -597,10 +593,10 @@ static char *get_bit(const struct iso_type *data_type, int hf, packet_info *pinf
     {
       case ASCII_CHARSET:
       {
-        uint8_t* sizestr;
+        const char* sizestr;
         checksize(len);
 
-        sizestr = tvb_get_string_enc(pinfo->pool, tvb, offset, len , ENC_ASCII);
+        sizestr = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, len , ENC_ASCII);
         offset += len;
         if (!ws_strtou32(sizestr, NULL, &len))
           return NULL;
@@ -650,7 +646,7 @@ static char *get_bit(const struct iso_type *data_type, int hf, packet_info *pinf
       }
       else if(charset_pref == NUM_NIBBLE_CHARSET)
       {
-        int tlen = (len%2)? len/2 + 1 : len/2;
+        uint32_t tlen = (len%2)? len/2 + 1 : len/2;
         checksize(tlen);
         tvb_memcpy(tvb, aux, offset, tlen);
         if((ret = bin2hex(pinfo->pool, (uint8_t *)aux, TYPE_BCD, len)) == NULL)
@@ -1017,7 +1013,7 @@ proto_register_iso8583(void)
 
   static hf_register_info hf_data[128];
 
-  static const char *hf_data_blurb[128] = {
+  static const char * const hf_data_blurb[128] = {
     /* Bit 1 */
     "Second Bit map present",
     /* Bit 2 */

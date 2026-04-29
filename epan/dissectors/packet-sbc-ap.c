@@ -33,10 +33,6 @@
 #include "packet-lte-rrc.h"
 #include "packet-sctp.h"
 
-#define PNAME  "SBc Application Part"
-#define PSNAME "SBcAP"
-#define PFNAME "sbcap"
-
 void proto_register_sbc_ap(void);
 void proto_reg_handoff_sbc_ap(void);
 
@@ -426,6 +422,24 @@ sbc_ap_get_private_data(packet_info *pinfo)
   return sbc_ap_data;
 }
 
+/*--- Cyclic dependencies ---*/
+
+/* ProtocolIE-Field/value -> ProtocolIE-Field/value */
+static unsigned dissect_sbc_ap_T_ie_field_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+/* ProtocolExtensionField/extensionValue -> ProtocolExtensionField/extensionValue */
+static unsigned dissect_sbc_ap_T_extensionValue(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+/* InitiatingMessage/value -> InitiatingMessage/value */
+static unsigned dissect_sbc_ap_InitiatingMessage_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+/* SuccessfulOutcome/value -> SuccessfulOutcome/value */
+static unsigned dissect_sbc_ap_SuccessfulOutcome_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+/* UnsuccessfulOutcome/value -> UnsuccessfulOutcome/value */
+static unsigned dissect_sbc_ap_UnsuccessfulOutcome_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+
+
 
 static const value_string sbc_ap_Criticality_vals[] = {
   {   0, "reject" },
@@ -435,8 +449,8 @@ static const value_string sbc_ap_Criticality_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_Criticality(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Criticality(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      3, NULL, false, 0, NULL);
 
@@ -456,8 +470,8 @@ static const value_string sbc_ap_ProcedureCode_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_ProcedureCode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProcedureCode(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 255U, &ProcedureCode, false);
 
@@ -466,8 +480,8 @@ dissect_sbc_ap_ProcedureCode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 
 
-static int
-dissect_sbc_ap_ProtocolExtensionID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolExtensionID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, &ProtocolExtensionID, false);
 
@@ -527,8 +541,8 @@ static const value_string sbc_ap_ProtocolIE_ID_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_ProtocolIE_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolIE_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, &ProtocolIE_ID, false);
 
@@ -548,8 +562,8 @@ static const value_string sbc_ap_TriggeringMessage_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_TriggeringMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TriggeringMessage(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      4, NULL, false, 0, NULL);
 
@@ -558,10 +572,13 @@ dissect_sbc_ap_TriggeringMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 
-static int
-dissect_sbc_ap_T_ie_field_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_T_ie_field_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // ProtocolIE-Field/value -> ProtocolIE-Field/value
+  increment_dissection_depth_by_n(actx->pinfo, 1);
   offset = dissect_per_open_type_pdu_new(tvb, offset, actx, tree, hf_index, dissect_ProtocolIEFieldValue);
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -573,8 +590,8 @@ static const per_sequence_t ProtocolIE_Field_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ProtocolIE_Field(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolIE_Field(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_ProtocolIE_Field, ProtocolIE_Field_sequence);
 
@@ -586,8 +603,8 @@ static const per_sequence_t ProtocolIE_Container_sequence_of[1] = {
   { &hf_sbc_ap_ProtocolIE_Container_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_ProtocolIE_Field },
 };
 
-static int
-dissect_sbc_ap_ProtocolIE_Container(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolIE_Container(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ProtocolIE_Container, ProtocolIE_Container_sequence_of,
                                                   0, maxProtocolIEs, false);
@@ -597,10 +614,13 @@ dissect_sbc_ap_ProtocolIE_Container(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 
 
-static int
-dissect_sbc_ap_T_extensionValue(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_T_extensionValue(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // ProtocolExtensionField/extensionValue -> ProtocolExtensionField/extensionValue
+  increment_dissection_depth_by_n(actx->pinfo, 1);
   offset = dissect_per_open_type_pdu_new(tvb, offset, actx, tree, hf_index, dissect_ProtocolExtensionFieldExtensionValue);
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -612,8 +632,8 @@ static const per_sequence_t ProtocolExtensionField_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ProtocolExtensionField(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolExtensionField(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_ProtocolExtensionField, ProtocolExtensionField_sequence);
 
@@ -625,8 +645,8 @@ static const per_sequence_t ProtocolExtensionContainer_sequence_of[1] = {
   { &hf_sbc_ap_ProtocolExtensionContainer_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_ProtocolExtensionField },
 };
 
-static int
-dissect_sbc_ap_ProtocolExtensionContainer(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ProtocolExtensionContainer(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ProtocolExtensionContainer, ProtocolExtensionContainer_sequence_of,
                                                   1, maxProtocolExtensions, false);
@@ -637,8 +657,8 @@ dissect_sbc_ap_ProtocolExtensionContainer(tvbuff_t *tvb _U_, int offset _U_, asn
 
 
 
-static int
-dissect_sbc_ap_PLMNidentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_PLMNidentity(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb=NULL;
   struct sbc_ap_private_data *sbc_ap_data = sbc_ap_get_private_data(actx->pinfo);
   e212_number_type_t number_type = sbc_ap_data->number_type;
@@ -658,8 +678,8 @@ dissect_sbc_ap_PLMNidentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 
-static int
-dissect_sbc_ap_CellIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellIdentity(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      28, 28, false, NULL, 0, NULL, NULL);
 
@@ -674,8 +694,8 @@ static const per_sequence_t EUTRAN_CGI_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_EUTRAN_CGI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_EUTRAN_CGI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   struct sbc_ap_private_data *sbc_ap_data = sbc_ap_get_private_data(actx->pinfo);
   sbc_ap_data->number_type = E212_ECGI;
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
@@ -693,8 +713,8 @@ static const per_sequence_t CellId_Broadcast_List_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CellId_Broadcast_List_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellId_Broadcast_List_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CellId_Broadcast_List_Item, CellId_Broadcast_List_Item_sequence);
 
@@ -706,8 +726,8 @@ static const per_sequence_t CellId_Broadcast_List_sequence_of[1] = {
   { &hf_sbc_ap_CellId_Broadcast_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CellId_Broadcast_List_Item },
 };
 
-static int
-dissect_sbc_ap_CellId_Broadcast_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellId_Broadcast_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CellId_Broadcast_List, CellId_Broadcast_List_sequence_of,
                                                   1, maxnoofCellID, false);
@@ -717,8 +737,8 @@ dissect_sbc_ap_CellId_Broadcast_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 
-static int
-dissect_sbc_ap_TAC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAC(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        2, 2, false, &parameter_tvb);
@@ -739,8 +759,8 @@ static const per_sequence_t TAI_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   struct sbc_ap_private_data *sbc_ap_data = sbc_ap_get_private_data(actx->pinfo);
   sbc_ap_data->number_type = E212_TAI;
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
@@ -758,8 +778,8 @@ static const per_sequence_t ScheduledCellinTAI_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinTAI_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinTAI_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_ScheduledCellinTAI_Item, ScheduledCellinTAI_Item_sequence);
 
@@ -771,8 +791,8 @@ static const per_sequence_t ScheduledCellinTAI_sequence_of[1] = {
   { &hf_sbc_ap_ScheduledCellinTAI_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_ScheduledCellinTAI_Item },
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinTAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinTAI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ScheduledCellinTAI, ScheduledCellinTAI_sequence_of,
                                                   1, maxnoofCellinTAI, false);
@@ -788,8 +808,8 @@ static const per_sequence_t TAI_Broadcast_List_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI_Broadcast_List_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Broadcast_List_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_TAI_Broadcast_List_Item, TAI_Broadcast_List_Item_sequence);
 
@@ -801,8 +821,8 @@ static const per_sequence_t TAI_Broadcast_List_sequence_of[1] = {
   { &hf_sbc_ap_TAI_Broadcast_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_Broadcast_List_Item },
 };
 
-static int
-dissect_sbc_ap_TAI_Broadcast_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Broadcast_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_TAI_Broadcast_List, TAI_Broadcast_List_sequence_of,
                                                   1, maxnoofTAIforWarning, false);
@@ -812,8 +832,8 @@ dissect_sbc_ap_TAI_Broadcast_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 
-static int
-dissect_sbc_ap_Emergency_Area_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Emergency_Area_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        3, 3, false, NULL);
 
@@ -827,8 +847,8 @@ static const per_sequence_t ScheduledCellinEAI_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinEAI_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinEAI_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_ScheduledCellinEAI_Item, ScheduledCellinEAI_Item_sequence);
 
@@ -840,8 +860,8 @@ static const per_sequence_t ScheduledCellinEAI_sequence_of[1] = {
   { &hf_sbc_ap_ScheduledCellinEAI_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_ScheduledCellinEAI_Item },
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinEAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinEAI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ScheduledCellinEAI, ScheduledCellinEAI_sequence_of,
                                                   1, maxnoofCellinEAI, false);
@@ -857,8 +877,8 @@ static const per_sequence_t EmergencyAreaID_Broadcast_List_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_EmergencyAreaID_Broadcast_List_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_EmergencyAreaID_Broadcast_List_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_EmergencyAreaID_Broadcast_List_Item, EmergencyAreaID_Broadcast_List_Item_sequence);
 
@@ -870,8 +890,8 @@ static const per_sequence_t EmergencyAreaID_Broadcast_List_sequence_of[1] = {
   { &hf_sbc_ap_EmergencyAreaID_Broadcast_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_EmergencyAreaID_Broadcast_List_Item },
 };
 
-static int
-dissect_sbc_ap_EmergencyAreaID_Broadcast_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_EmergencyAreaID_Broadcast_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_EmergencyAreaID_Broadcast_List, EmergencyAreaID_Broadcast_List_sequence_of,
                                                   1, maxnoofEmergencyAreaID, false);
@@ -888,8 +908,8 @@ static const per_sequence_t Broadcast_Scheduled_Area_List_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Broadcast_Scheduled_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Scheduled_Area_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Broadcast_Scheduled_Area_List, Broadcast_Scheduled_Area_List_sequence);
 
@@ -898,8 +918,8 @@ dissect_sbc_ap_Broadcast_Scheduled_Area_List(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 
-static int
-dissect_sbc_ap_NRCellIdentity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_NRCellIdentity(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      36, 36, false, NULL, 0, NULL, NULL);
 
@@ -914,8 +934,8 @@ static const per_sequence_t NR_CGI_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_NR_CGI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_NR_CGI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   struct sbc_ap_private_data *sbc_ap_data = sbc_ap_get_private_data(actx->pinfo);
   sbc_ap_data->number_type = E212_NRCGI;
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
@@ -933,8 +953,8 @@ static const per_sequence_t CellId_Broadcast_List_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CellId_Broadcast_List_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellId_Broadcast_List_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CellId_Broadcast_List_5GS_item, CellId_Broadcast_List_5GS_item_sequence);
 
@@ -946,8 +966,8 @@ static const per_sequence_t CellId_Broadcast_List_5GS_sequence_of[1] = {
   { &hf_sbc_ap_CellId_Broadcast_List_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CellId_Broadcast_List_5GS_item },
 };
 
-static int
-dissect_sbc_ap_CellId_Broadcast_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellId_Broadcast_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CellId_Broadcast_List_5GS, CellId_Broadcast_List_5GS_sequence_of,
                                                   1, maxnoofCellsin5GS, false);
@@ -957,8 +977,8 @@ dissect_sbc_ap_CellId_Broadcast_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 
 
-static int
-dissect_sbc_ap_TAC_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAC_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
                                        3, 3, false, &parameter_tvb);
@@ -980,8 +1000,8 @@ static const per_sequence_t TAI_5GS_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   struct sbc_ap_private_data *sbc_ap_data = sbc_ap_get_private_data(actx->pinfo);
   sbc_ap_data->number_type = E212_5GSTAI;
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
@@ -999,8 +1019,8 @@ static const per_sequence_t ScheduledCellinTAI_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinTAI_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinTAI_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_ScheduledCellinTAI_5GS_item, ScheduledCellinTAI_5GS_item_sequence);
 
@@ -1012,8 +1032,8 @@ static const per_sequence_t ScheduledCellinTAI_5GS_sequence_of[1] = {
   { &hf_sbc_ap_ScheduledCellinTAI_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_ScheduledCellinTAI_5GS_item },
 };
 
-static int
-dissect_sbc_ap_ScheduledCellinTAI_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ScheduledCellinTAI_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ScheduledCellinTAI_5GS, ScheduledCellinTAI_5GS_sequence_of,
                                                   1, maxnoofCellsin5GSTAI, false);
@@ -1029,8 +1049,8 @@ static const per_sequence_t TAI_Broadcast_List_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI_Broadcast_List_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Broadcast_List_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_TAI_Broadcast_List_5GS_item, TAI_Broadcast_List_5GS_item_sequence);
 
@@ -1042,8 +1062,8 @@ static const per_sequence_t TAI_Broadcast_List_5GS_sequence_of[1] = {
   { &hf_sbc_ap_TAI_Broadcast_List_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_Broadcast_List_5GS_item },
 };
 
-static int
-dissect_sbc_ap_TAI_Broadcast_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Broadcast_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_TAI_Broadcast_List_5GS, TAI_Broadcast_List_5GS_sequence_of,
                                                   1, maxnoof5GSTAIs, false);
@@ -1060,8 +1080,8 @@ static const per_sequence_t Broadcast_Scheduled_Area_List_5GS_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Broadcast_Scheduled_Area_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Scheduled_Area_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Broadcast_Scheduled_Area_List_5GS, Broadcast_Scheduled_Area_List_5GS_sequence);
 
@@ -1070,8 +1090,8 @@ dissect_sbc_ap_Broadcast_Scheduled_Area_List_5GS(tvbuff_t *tvb _U_, int offset _
 
 
 
-static int
-dissect_sbc_ap_NumberOfBroadcasts(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_NumberOfBroadcasts(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, NULL, false);
 
@@ -1086,8 +1106,8 @@ static const per_sequence_t CellID_Cancelled_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CellID_Cancelled_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellID_Cancelled_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CellID_Cancelled_Item, CellID_Cancelled_Item_sequence);
 
@@ -1099,8 +1119,8 @@ static const per_sequence_t CellID_Cancelled_List_sequence_of[1] = {
   { &hf_sbc_ap_CellID_Cancelled_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CellID_Cancelled_Item },
 };
 
-static int
-dissect_sbc_ap_CellID_Cancelled_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellID_Cancelled_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CellID_Cancelled_List, CellID_Cancelled_List_sequence_of,
                                                   1, maxnoofCellID, false);
@@ -1116,8 +1136,8 @@ static const per_sequence_t CancelledCellinTAI_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CancelledCellinTAI_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinTAI_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CancelledCellinTAI_Item, CancelledCellinTAI_Item_sequence);
 
@@ -1129,8 +1149,8 @@ static const per_sequence_t CancelledCellinTAI_sequence_of[1] = {
   { &hf_sbc_ap_CancelledCellinTAI_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CancelledCellinTAI_Item },
 };
 
-static int
-dissect_sbc_ap_CancelledCellinTAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinTAI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CancelledCellinTAI, CancelledCellinTAI_sequence_of,
                                                   1, maxnoofCellinTAI, false);
@@ -1146,8 +1166,8 @@ static const per_sequence_t TAI_Cancelled_List_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI_Cancelled_List_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Cancelled_List_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_TAI_Cancelled_List_Item, TAI_Cancelled_List_Item_sequence);
 
@@ -1159,8 +1179,8 @@ static const per_sequence_t TAI_Cancelled_List_sequence_of[1] = {
   { &hf_sbc_ap_TAI_Cancelled_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_Cancelled_List_Item },
 };
 
-static int
-dissect_sbc_ap_TAI_Cancelled_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Cancelled_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_TAI_Cancelled_List, TAI_Cancelled_List_sequence_of,
                                                   1, maxnoofTAIforWarning, false);
@@ -1176,8 +1196,8 @@ static const per_sequence_t CancelledCellinEAI_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CancelledCellinEAI_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinEAI_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CancelledCellinEAI_Item, CancelledCellinEAI_Item_sequence);
 
@@ -1189,8 +1209,8 @@ static const per_sequence_t CancelledCellinEAI_sequence_of[1] = {
   { &hf_sbc_ap_CancelledCellinEAI_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CancelledCellinEAI_Item },
 };
 
-static int
-dissect_sbc_ap_CancelledCellinEAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinEAI(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CancelledCellinEAI, CancelledCellinEAI_sequence_of,
                                                   1, maxnoofCellinEAI, false);
@@ -1206,8 +1226,8 @@ static const per_sequence_t EmergencyAreaID_Cancelled_Item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_EmergencyAreaID_Cancelled_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_EmergencyAreaID_Cancelled_Item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_EmergencyAreaID_Cancelled_Item, EmergencyAreaID_Cancelled_Item_sequence);
 
@@ -1219,8 +1239,8 @@ static const per_sequence_t EmergencyAreaID_Cancelled_List_sequence_of[1] = {
   { &hf_sbc_ap_EmergencyAreaID_Cancelled_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_EmergencyAreaID_Cancelled_Item },
 };
 
-static int
-dissect_sbc_ap_EmergencyAreaID_Cancelled_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_EmergencyAreaID_Cancelled_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_EmergencyAreaID_Cancelled_List, EmergencyAreaID_Cancelled_List_sequence_of,
                                                   1, maxnoofEmergencyAreaID, false);
@@ -1237,8 +1257,8 @@ static const per_sequence_t Broadcast_Cancelled_Area_List_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Broadcast_Cancelled_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Cancelled_Area_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Broadcast_Cancelled_Area_List, Broadcast_Cancelled_Area_List_sequence);
 
@@ -1253,8 +1273,8 @@ static const per_sequence_t CellID_Cancelled_List_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CellID_Cancelled_List_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellID_Cancelled_List_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CellID_Cancelled_List_5GS_item, CellID_Cancelled_List_5GS_item_sequence);
 
@@ -1266,8 +1286,8 @@ static const per_sequence_t CellID_Cancelled_List_5GS_sequence_of[1] = {
   { &hf_sbc_ap_CellID_Cancelled_List_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CellID_Cancelled_List_5GS_item },
 };
 
-static int
-dissect_sbc_ap_CellID_Cancelled_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CellID_Cancelled_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CellID_Cancelled_List_5GS, CellID_Cancelled_List_5GS_sequence_of,
                                                   1, maxnoofCellsin5GS, false);
@@ -1283,8 +1303,8 @@ static const per_sequence_t CancelledCellinTAI_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CancelledCellinTAI_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinTAI_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CancelledCellinTAI_5GS_item, CancelledCellinTAI_5GS_item_sequence);
 
@@ -1296,8 +1316,8 @@ static const per_sequence_t CancelledCellinTAI_5GS_sequence_of[1] = {
   { &hf_sbc_ap_CancelledCellinTAI_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CancelledCellinTAI_5GS_item },
 };
 
-static int
-dissect_sbc_ap_CancelledCellinTAI_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CancelledCellinTAI_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CancelledCellinTAI_5GS, CancelledCellinTAI_5GS_sequence_of,
                                                   1, maxnoofCellsin5GSTAI, false);
@@ -1313,8 +1333,8 @@ static const per_sequence_t TAI_Cancelled_List_5GS_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_TAI_Cancelled_List_5GS_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Cancelled_List_5GS_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_TAI_Cancelled_List_5GS_item, TAI_Cancelled_List_5GS_item_sequence);
 
@@ -1326,8 +1346,8 @@ static const per_sequence_t TAI_Cancelled_List_5GS_sequence_of[1] = {
   { &hf_sbc_ap_TAI_Cancelled_List_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_Cancelled_List_5GS_item },
 };
 
-static int
-dissect_sbc_ap_TAI_Cancelled_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_Cancelled_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_TAI_Cancelled_List_5GS, TAI_Cancelled_List_5GS_sequence_of,
                                                   1, maxnoof5GSTAIs, false);
@@ -1344,8 +1364,8 @@ static const per_sequence_t Broadcast_Cancelled_Area_List_5GS_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Broadcast_Cancelled_Area_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Cancelled_Area_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Broadcast_Cancelled_Area_List_5GS, Broadcast_Cancelled_Area_List_5GS_sequence);
 
@@ -1354,8 +1374,8 @@ dissect_sbc_ap_Broadcast_Cancelled_Area_List_5GS(tvbuff_t *tvb _U_, int offset _
 
 
 
-static int
-dissect_sbc_ap_BIT_STRING_SIZE_20(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_BIT_STRING_SIZE_20(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      20, 20, false, NULL, 0, NULL, NULL);
 
@@ -1364,8 +1384,8 @@ dissect_sbc_ap_BIT_STRING_SIZE_20(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 
-static int
-dissect_sbc_ap_BIT_STRING_SIZE_28(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_BIT_STRING_SIZE_28(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      28, 28, false, NULL, 0, NULL, NULL);
 
@@ -1374,8 +1394,8 @@ dissect_sbc_ap_BIT_STRING_SIZE_28(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 
-static int
-dissect_sbc_ap_BIT_STRING_SIZE_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_BIT_STRING_SIZE_18(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      18, 18, false, NULL, 0, NULL, NULL);
 
@@ -1384,8 +1404,8 @@ dissect_sbc_ap_BIT_STRING_SIZE_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 
-static int
-dissect_sbc_ap_BIT_STRING_SIZE_21(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_BIT_STRING_SIZE_21(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      21, 21, false, NULL, 0, NULL, NULL);
 
@@ -1409,8 +1429,8 @@ static const per_choice_t ENB_ID_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_ENB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ENB_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_ENB_ID, ENB_ID_choice,
                                  NULL);
@@ -1426,8 +1446,8 @@ static const per_sequence_t Global_ENB_ID_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Global_ENB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Global_ENB_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Global_ENB_ID, Global_ENB_ID_sequence);
 
@@ -1439,8 +1459,8 @@ static const per_sequence_t Broadcast_Empty_Area_List_sequence_of[1] = {
   { &hf_sbc_ap_Broadcast_Empty_Area_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_Global_ENB_ID },
 };
 
-static int
-dissect_sbc_ap_Broadcast_Empty_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Empty_Area_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Broadcast_Empty_Area_List, Broadcast_Empty_Area_List_sequence_of,
                                                   1, maxnoofeNBIds, false);
@@ -1450,8 +1470,8 @@ dissect_sbc_ap_Broadcast_Empty_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 
 
-static int
-dissect_sbc_ap_BIT_STRING_SIZE_22_32(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_BIT_STRING_SIZE_22_32(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      22, 32, false, NULL, 0, NULL, NULL);
 
@@ -1469,8 +1489,8 @@ static const per_choice_t GNB_ID_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_GNB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_GNB_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_GNB_ID, GNB_ID_choice,
                                  NULL);
@@ -1486,8 +1506,8 @@ static const per_sequence_t Global_GNB_ID_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Global_GNB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Global_GNB_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Global_GNB_ID, Global_GNB_ID_sequence);
 
@@ -1502,8 +1522,8 @@ static const per_sequence_t Global_NgENB_ID_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Global_NgENB_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Global_NgENB_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Global_NgENB_ID, Global_NgENB_ID_sequence);
 
@@ -1523,8 +1543,8 @@ static const per_choice_t Global_RAN_Node_ID_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Global_RAN_Node_ID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Global_RAN_Node_ID(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_Global_RAN_Node_ID, Global_RAN_Node_ID_choice,
                                  NULL);
@@ -1537,8 +1557,8 @@ static const per_sequence_t Broadcast_Empty_Area_List_5GS_sequence_of[1] = {
   { &hf_sbc_ap_Broadcast_Empty_Area_List_5GS_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_Global_RAN_Node_ID },
 };
 
-static int
-dissect_sbc_ap_Broadcast_Empty_Area_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Broadcast_Empty_Area_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Broadcast_Empty_Area_List_5GS, Broadcast_Empty_Area_List_5GS_sequence_of,
                                                   1, maxnoofRANNodes, false);
@@ -1571,8 +1591,8 @@ static const value_string sbc_ap_Cause_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_Cause(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Cause(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 255U, NULL, false);
 
@@ -1586,8 +1606,8 @@ static const value_string sbc_ap_Concurrent_Warning_Message_Indicator_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_Concurrent_Warning_Message_Indicator(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Concurrent_Warning_Message_Indicator(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -1602,8 +1622,8 @@ static const value_string sbc_ap_TypeOfError_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_TypeOfError(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TypeOfError(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      2, NULL, true, 0, NULL);
 
@@ -1619,8 +1639,8 @@ static const per_sequence_t CriticalityDiagnostics_IE_List_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_CriticalityDiagnostics_IE_List_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CriticalityDiagnostics_IE_List_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_CriticalityDiagnostics_IE_List_item, CriticalityDiagnostics_IE_List_item_sequence);
 
@@ -1632,8 +1652,8 @@ static const per_sequence_t CriticalityDiagnostics_IE_List_sequence_of[1] = {
   { &hf_sbc_ap_CriticalityDiagnostics_IE_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_CriticalityDiagnostics_IE_List_item },
 };
 
-static int
-dissect_sbc_ap_CriticalityDiagnostics_IE_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_CriticalityDiagnostics_IE_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_CriticalityDiagnostics_IE_List, CriticalityDiagnostics_IE_List_sequence_of,
                                                   1, maxNrOfErrors, false);
@@ -1651,8 +1671,8 @@ static const per_sequence_t Criticality_Diagnostics_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Criticality_Diagnostics(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Criticality_Diagnostics(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Criticality_Diagnostics, Criticality_Diagnostics_sequence);
 
@@ -1661,8 +1681,8 @@ dissect_sbc_ap_Criticality_Diagnostics(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 
 
-static int
-dissect_sbc_ap_Data_Coding_Scheme(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Data_Coding_Scheme(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      8, 8, false, NULL, 0, &parameter_tvb, NULL);
@@ -1684,8 +1704,8 @@ static const per_sequence_t ECGIList_sequence_of[1] = {
   { &hf_sbc_ap_ECGIList_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_EUTRAN_CGI },
 };
 
-static int
-dissect_sbc_ap_ECGIList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_ECGIList(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_ECGIList, ECGIList_sequence_of,
                                                   1, maxnoofCellID, false);
@@ -1698,8 +1718,8 @@ static const per_sequence_t Emergency_Area_ID_List_sequence_of[1] = {
   { &hf_sbc_ap_Emergency_Area_ID_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_Emergency_Area_ID },
 };
 
-static int
-dissect_sbc_ap_Emergency_Area_ID_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Emergency_Area_ID_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Emergency_Area_ID_List, Emergency_Area_ID_List_sequence_of,
                                                   1, maxnoofEmergencyAreaID, false);
@@ -1709,8 +1729,8 @@ dissect_sbc_ap_Emergency_Area_ID_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 
-static int
-dissect_sbc_ap_Extended_Repetition_Period(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Extended_Repetition_Period(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             4096U, 131071U, NULL, false);
 
@@ -1722,8 +1742,8 @@ static const per_sequence_t Failed_Cell_List_sequence_of[1] = {
   { &hf_sbc_ap_Failed_Cell_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_EUTRAN_CGI },
 };
 
-static int
-dissect_sbc_ap_Failed_Cell_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Failed_Cell_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Failed_Cell_List, Failed_Cell_List_sequence_of,
                                                   1, maxnoofFailedCells, false);
@@ -1736,8 +1756,8 @@ static const per_sequence_t Failed_Cell_List_NR_sequence_of[1] = {
   { &hf_sbc_ap_Failed_Cell_List_NR_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_NR_CGI },
 };
 
-static int
-dissect_sbc_ap_Failed_Cell_List_NR(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Failed_Cell_List_NR(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Failed_Cell_List_NR, Failed_Cell_List_NR_sequence_of,
                                                   1, maxnoofCellsingNB, false);
@@ -1751,8 +1771,8 @@ static const per_sequence_t List_of_TAIs_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_List_of_TAIs_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_TAIs_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_List_of_TAIs_item, List_of_TAIs_item_sequence);
 
@@ -1764,8 +1784,8 @@ static const per_sequence_t List_of_TAIs_sequence_of[1] = {
   { &hf_sbc_ap_List_of_TAIs_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_List_of_TAIs_item },
 };
 
-static int
-dissect_sbc_ap_List_of_TAIs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_TAIs(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_List_of_TAIs, List_of_TAIs_sequence_of,
                                                   1, maxNrOfTAIs, false);
@@ -1779,8 +1799,8 @@ static const per_sequence_t List_of_TAIs_Restart_item_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_List_of_TAIs_Restart_item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_TAIs_Restart_item(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_List_of_TAIs_Restart_item, List_of_TAIs_Restart_item_sequence);
 
@@ -1792,8 +1812,8 @@ static const per_sequence_t List_of_TAIs_Restart_sequence_of[1] = {
   { &hf_sbc_ap_List_of_TAIs_Restart_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_List_of_TAIs_Restart_item },
 };
 
-static int
-dissect_sbc_ap_List_of_TAIs_Restart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_TAIs_Restart(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_List_of_TAIs_Restart, List_of_TAIs_Restart_sequence_of,
                                                   1, maxnoofRestartTAIs, false);
@@ -1806,8 +1826,8 @@ static const per_sequence_t List_of_EAIs_Restart_sequence_of[1] = {
   { &hf_sbc_ap_List_of_EAIs_Restart_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_Emergency_Area_ID },
 };
 
-static int
-dissect_sbc_ap_List_of_EAIs_Restart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_EAIs_Restart(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_List_of_EAIs_Restart, List_of_EAIs_Restart_sequence_of,
                                                   1, maxnoofRestartEAIs, false);
@@ -1820,8 +1840,8 @@ static const per_sequence_t List_of_5GS_TAIs_sequence_of[1] = {
   { &hf_sbc_ap_List_of_5GS_TAIs_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_5GS },
 };
 
-static int
-dissect_sbc_ap_List_of_5GS_TAIs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_5GS_TAIs(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_List_of_5GS_TAIs, List_of_5GS_TAIs_sequence_of,
                                                   1, maxnoof5GSTAIs, false);
@@ -1834,8 +1854,8 @@ static const per_sequence_t List_of_5GS_TAI_for_Restart_sequence_of[1] = {
   { &hf_sbc_ap_List_of_5GS_TAI_for_Restart_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_5GS },
 };
 
-static int
-dissect_sbc_ap_List_of_5GS_TAI_for_Restart(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_List_of_5GS_TAI_for_Restart(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_List_of_5GS_TAI_for_Restart, List_of_5GS_TAI_for_Restart_sequence_of,
                                                   1, maxnoofRestart5GSTAIs, false);
@@ -1845,8 +1865,8 @@ dissect_sbc_ap_List_of_5GS_TAI_for_Restart(tvbuff_t *tvb _U_, int offset _U_, as
 
 
 
-static int
-dissect_sbc_ap_Message_Identifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Message_Identifier(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, -1,
                                      16, 16, false, NULL, 0, &parameter_tvb, NULL);
@@ -1861,8 +1881,8 @@ dissect_sbc_ap_Message_Identifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 
-static int
-dissect_sbc_ap_Number_of_Broadcasts_Requested(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Number_of_Broadcasts_Requested(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 65535U, NULL, false);
 
@@ -1874,8 +1894,8 @@ static const per_sequence_t NR_CGIList_sequence_of[1] = {
   { &hf_sbc_ap_NR_CGIList_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_NR_CGI },
 };
 
-static int
-dissect_sbc_ap_NR_CGIList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_NR_CGIList(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_NR_CGIList, NR_CGIList_sequence_of,
                                                   1, maxnoofCellsingNB, false);
@@ -1885,8 +1905,8 @@ dissect_sbc_ap_NR_CGIList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 
-static int
-dissect_sbc_ap_Omc_Id(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Omc_Id(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        1, 20, false, NULL);
 
@@ -1895,8 +1915,8 @@ dissect_sbc_ap_Omc_Id(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 
 
-static int
-dissect_sbc_ap_Repetition_Period(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Repetition_Period(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
                                                             0U, 4096U, NULL, false);
 
@@ -1908,8 +1928,8 @@ static const per_sequence_t Restarted_Cell_List_sequence_of[1] = {
   { &hf_sbc_ap_Restarted_Cell_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_EUTRAN_CGI },
 };
 
-static int
-dissect_sbc_ap_Restarted_Cell_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Restarted_Cell_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Restarted_Cell_List, Restarted_Cell_List_sequence_of,
                                                   1, maxnoofRestartedCells, false);
@@ -1924,8 +1944,8 @@ static const value_string sbc_ap_RAT_Selector_5GS_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_RAT_Selector_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_RAT_Selector_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -1937,8 +1957,8 @@ static const per_sequence_t Restarted_Cell_List_NR_sequence_of[1] = {
   { &hf_sbc_ap_Restarted_Cell_List_NR_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_NR_CGI },
 };
 
-static int
-dissect_sbc_ap_Restarted_Cell_List_NR(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Restarted_Cell_List_NR(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Restarted_Cell_List_NR, Restarted_Cell_List_NR_sequence_of,
                                                   1, maxnoofCellsforRestartNR, false);
@@ -1953,8 +1973,8 @@ static const value_string sbc_ap_Send_Write_Replace_Warning_Indication_vals[] = 
 };
 
 
-static int
-dissect_sbc_ap_Send_Write_Replace_Warning_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Send_Write_Replace_Warning_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -1968,8 +1988,8 @@ static const value_string sbc_ap_Send_Stop_Warning_Indication_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_Send_Stop_Warning_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Send_Stop_Warning_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -1978,8 +1998,8 @@ dissect_sbc_ap_Send_Stop_Warning_Indication(tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-static int
-dissect_sbc_ap_Serial_Number(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Serial_Number(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      16, 16, false, NULL, 0, &parameter_tvb, NULL);
@@ -2002,8 +2022,8 @@ static const value_string sbc_ap_Stop_All_Indicator_vals[] = {
 };
 
 
-static int
-dissect_sbc_ap_Stop_All_Indicator(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Stop_All_Indicator(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -2015,8 +2035,8 @@ static const per_sequence_t TAI_List_for_Warning_sequence_of[1] = {
   { &hf_sbc_ap_TAI_List_for_Warning_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI },
 };
 
-static int
-dissect_sbc_ap_TAI_List_for_Warning(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_TAI_List_for_Warning(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_TAI_List_for_Warning, TAI_List_for_Warning_sequence_of,
                                                   1, maxnoofTAIforWarning, false);
@@ -2029,8 +2049,8 @@ static const per_sequence_t Unknown_5GS_Tracking_Area_List_sequence_of[1] = {
   { &hf_sbc_ap_Unknown_5GS_Tracking_Area_List_item, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_sbc_ap_TAI_5GS },
 };
 
-static int
-dissect_sbc_ap_Unknown_5GS_Tracking_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Unknown_5GS_Tracking_Area_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_sbc_ap_Unknown_5GS_Tracking_Area_List, Unknown_5GS_Tracking_Area_List_sequence_of,
                                                   1, maxnoof5GSTAIs, false);
@@ -2053,8 +2073,8 @@ static const per_choice_t Warning_Area_List_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Warning_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Area_List(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_Warning_Area_List, Warning_Area_List_choice,
                                  NULL);
@@ -2064,8 +2084,8 @@ dissect_sbc_ap_Warning_Area_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 
-static int
-dissect_sbc_ap_Warning_Message_Content(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Message_Content(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        1, 9600, false, &parameter_tvb);
@@ -2083,8 +2103,8 @@ dissect_sbc_ap_Warning_Message_Content(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 
 
-static int
-dissect_sbc_ap_Warning_Area_Coordinates(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Area_Coordinates(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        1, 1024, false, NULL);
 
@@ -2093,8 +2113,8 @@ dissect_sbc_ap_Warning_Area_Coordinates(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 
-static int
-dissect_sbc_ap_Warning_Security_Information(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Security_Information(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        50, 50, false, NULL);
 
@@ -2103,8 +2123,8 @@ dissect_sbc_ap_Warning_Security_Information(tvbuff_t *tvb _U_, int offset _U_, a
 
 
 
-static int
-dissect_sbc_ap_Warning_Type(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Type(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   tvbuff_t *parameter_tvb = NULL;
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        2, 2, false, &parameter_tvb);
@@ -2138,8 +2158,8 @@ static const per_choice_t Warning_Area_List_5GS_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Warning_Area_List_5GS(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Warning_Area_List_5GS(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_Warning_Area_List_5GS, Warning_Area_List_5GS_choice,
                                  NULL);
@@ -2154,8 +2174,8 @@ static const per_sequence_t Write_Replace_Warning_Request_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Write_Replace_Warning_Request(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Write_Replace_Warning_Request(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Write-Replace-Warning-Request");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Write_Replace_Warning_Request, Write_Replace_Warning_Request_sequence);
@@ -2170,8 +2190,8 @@ static const per_sequence_t Write_Replace_Warning_Response_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Write_Replace_Warning_Response(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Write_Replace_Warning_Response(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Write-Replace-Warning-Response");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Write_Replace_Warning_Response, Write_Replace_Warning_Response_sequence);
@@ -2186,8 +2206,8 @@ static const per_sequence_t Stop_Warning_Request_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Stop_Warning_Request(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Stop_Warning_Request(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Stop-Warning-Request");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Stop_Warning_Request, Stop_Warning_Request_sequence);
@@ -2202,8 +2222,8 @@ static const per_sequence_t Stop_Warning_Response_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Stop_Warning_Response(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Stop_Warning_Response(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Stop-Warning-Response");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Stop_Warning_Response, Stop_Warning_Response_sequence);
@@ -2218,8 +2238,8 @@ static const per_sequence_t Write_Replace_Warning_Indication_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Write_Replace_Warning_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Write_Replace_Warning_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Write-Replace-Warning-Indication");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Write_Replace_Warning_Indication, Write_Replace_Warning_Indication_sequence);
@@ -2234,8 +2254,8 @@ static const per_sequence_t Stop_Warning_Indication_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Stop_Warning_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Stop_Warning_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Stop-Warning-Indication");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Stop_Warning_Indication, Stop_Warning_Indication_sequence);
@@ -2250,8 +2270,8 @@ static const per_sequence_t PWS_Restart_Indication_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_PWS_Restart_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_PWS_Restart_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWS-Restart-Indication");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_PWS_Restart_Indication, PWS_Restart_Indication_sequence);
@@ -2266,8 +2286,8 @@ static const per_sequence_t PWS_Failure_Indication_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_PWS_Failure_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_PWS_Failure_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "PWS-Failure-Indication");
 
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
@@ -2282,8 +2302,8 @@ static const per_sequence_t Error_Indication_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_Error_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_Error_Indication(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   col_append_sep_str(actx->pinfo->cinfo, COL_INFO, NULL, "Error-Indication");
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_Error_Indication, Error_Indication_sequence);
@@ -2293,10 +2313,13 @@ dissect_sbc_ap_Error_Indication(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 
 
 
-static int
-dissect_sbc_ap_InitiatingMessage_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_InitiatingMessage_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // InitiatingMessage/value -> InitiatingMessage/value
+  increment_dissection_depth_by_n(actx->pinfo, 1);
   offset = dissect_per_open_type_pdu_new(tvb, offset, actx, tree, hf_index, dissect_InitiatingMessageValue);
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -2308,8 +2331,8 @@ static const per_sequence_t InitiatingMessage_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_InitiatingMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_InitiatingMessage(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_InitiatingMessage, InitiatingMessage_sequence);
 
@@ -2318,10 +2341,13 @@ dissect_sbc_ap_InitiatingMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 
-static int
-dissect_sbc_ap_SuccessfulOutcome_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_SuccessfulOutcome_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // SuccessfulOutcome/value -> SuccessfulOutcome/value
+  increment_dissection_depth_by_n(actx->pinfo, 1);
   offset = dissect_per_open_type_pdu_new(tvb, offset, actx, tree, hf_index, dissect_SuccessfulOutcomeValue);
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -2333,8 +2359,8 @@ static const per_sequence_t SuccessfulOutcome_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_SuccessfulOutcome(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_SuccessfulOutcome(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_SuccessfulOutcome, SuccessfulOutcome_sequence);
 
@@ -2343,10 +2369,13 @@ dissect_sbc_ap_SuccessfulOutcome(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 
-static int
-dissect_sbc_ap_UnsuccessfulOutcome_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_UnsuccessfulOutcome_value(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // UnsuccessfulOutcome/value -> UnsuccessfulOutcome/value
+  increment_dissection_depth_by_n(actx->pinfo, 1);
   offset = dissect_per_open_type_pdu_new(tvb, offset, actx, tree, hf_index, dissect_UnsuccessfulOutcomeValue);
 
+  decrement_dissection_depth_by_n(actx->pinfo, 1);
   return offset;
 }
 
@@ -2358,8 +2387,8 @@ static const per_sequence_t UnsuccessfulOutcome_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_UnsuccessfulOutcome(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_UnsuccessfulOutcome(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_sbc_ap_UnsuccessfulOutcome, UnsuccessfulOutcome_sequence);
 
@@ -2381,8 +2410,8 @@ static const per_choice_t SBC_AP_PDU_choice[] = {
   { 0, NULL, 0, NULL }
 };
 
-static int
-dissect_sbc_ap_SBC_AP_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+static unsigned
+dissect_sbc_ap_SBC_AP_PDU(tvbuff_t *tvb _U_, uint32_t offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_sbc_ap_SBC_AP_PDU, SBC_AP_PDU_choice,
                                  NULL);
@@ -2393,7 +2422,7 @@ dissect_sbc_ap_SBC_AP_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 /*--- PDUs ---*/
 
 static int dissect_Broadcast_Scheduled_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Scheduled_Area_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Scheduled_Area_List_PDU);
@@ -2401,7 +2430,7 @@ static int dissect_Broadcast_Scheduled_Area_List_PDU(tvbuff_t *tvb _U_, packet_i
   return offset;
 }
 static int dissect_Broadcast_Scheduled_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Scheduled_Area_List_5GS(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Scheduled_Area_List_5GS_PDU);
@@ -2409,7 +2438,7 @@ static int dissect_Broadcast_Scheduled_Area_List_5GS_PDU(tvbuff_t *tvb _U_, pack
   return offset;
 }
 static int dissect_Broadcast_Cancelled_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Cancelled_Area_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Cancelled_Area_List_PDU);
@@ -2417,7 +2446,7 @@ static int dissect_Broadcast_Cancelled_Area_List_PDU(tvbuff_t *tvb _U_, packet_i
   return offset;
 }
 static int dissect_Broadcast_Cancelled_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Cancelled_Area_List_5GS(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Cancelled_Area_List_5GS_PDU);
@@ -2425,7 +2454,7 @@ static int dissect_Broadcast_Cancelled_Area_List_5GS_PDU(tvbuff_t *tvb _U_, pack
   return offset;
 }
 static int dissect_Broadcast_Empty_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Empty_Area_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Empty_Area_List_PDU);
@@ -2433,7 +2462,7 @@ static int dissect_Broadcast_Empty_Area_List_PDU(tvbuff_t *tvb _U_, packet_info 
   return offset;
 }
 static int dissect_Broadcast_Empty_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Broadcast_Empty_Area_List_5GS(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Broadcast_Empty_Area_List_5GS_PDU);
@@ -2441,7 +2470,7 @@ static int dissect_Broadcast_Empty_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_i
   return offset;
 }
 static int dissect_Cause_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Cause(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Cause_PDU);
@@ -2449,7 +2478,7 @@ static int dissect_Cause_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tr
   return offset;
 }
 static int dissect_Concurrent_Warning_Message_Indicator_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Concurrent_Warning_Message_Indicator(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Concurrent_Warning_Message_Indicator_PDU);
@@ -2457,7 +2486,7 @@ static int dissect_Concurrent_Warning_Message_Indicator_PDU(tvbuff_t *tvb _U_, p
   return offset;
 }
 static int dissect_Criticality_Diagnostics_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Criticality_Diagnostics(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Criticality_Diagnostics_PDU);
@@ -2465,7 +2494,7 @@ static int dissect_Criticality_Diagnostics_PDU(tvbuff_t *tvb _U_, packet_info *p
   return offset;
 }
 static int dissect_Data_Coding_Scheme_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Data_Coding_Scheme(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Data_Coding_Scheme_PDU);
@@ -2473,7 +2502,7 @@ static int dissect_Data_Coding_Scheme_PDU(tvbuff_t *tvb _U_, packet_info *pinfo 
   return offset;
 }
 static int dissect_Extended_Repetition_Period_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Extended_Repetition_Period(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Extended_Repetition_Period_PDU);
@@ -2481,7 +2510,7 @@ static int dissect_Extended_Repetition_Period_PDU(tvbuff_t *tvb _U_, packet_info
   return offset;
 }
 static int dissect_Failed_Cell_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Failed_Cell_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Failed_Cell_List_PDU);
@@ -2489,7 +2518,7 @@ static int dissect_Failed_Cell_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
   return offset;
 }
 static int dissect_Failed_Cell_List_NR_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Failed_Cell_List_NR(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Failed_Cell_List_NR_PDU);
@@ -2497,7 +2526,7 @@ static int dissect_Failed_Cell_List_NR_PDU(tvbuff_t *tvb _U_, packet_info *pinfo
   return offset;
 }
 static int dissect_Global_ENB_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Global_ENB_ID(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Global_ENB_ID_PDU);
@@ -2505,7 +2534,7 @@ static int dissect_Global_ENB_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
   return offset;
 }
 static int dissect_Global_RAN_Node_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Global_RAN_Node_ID(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Global_RAN_Node_ID_PDU);
@@ -2513,7 +2542,7 @@ static int dissect_Global_RAN_Node_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo 
   return offset;
 }
 static int dissect_Global_GNB_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Global_GNB_ID(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Global_GNB_ID_PDU);
@@ -2521,7 +2550,7 @@ static int dissect_Global_GNB_ID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
   return offset;
 }
 static int dissect_List_of_TAIs_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_List_of_TAIs(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_List_of_TAIs_PDU);
@@ -2529,7 +2558,7 @@ static int dissect_List_of_TAIs_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, p
   return offset;
 }
 static int dissect_List_of_TAIs_Restart_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_List_of_TAIs_Restart(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_List_of_TAIs_Restart_PDU);
@@ -2537,7 +2566,7 @@ static int dissect_List_of_TAIs_Restart_PDU(tvbuff_t *tvb _U_, packet_info *pinf
   return offset;
 }
 static int dissect_List_of_EAIs_Restart_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_List_of_EAIs_Restart(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_List_of_EAIs_Restart_PDU);
@@ -2545,7 +2574,7 @@ static int dissect_List_of_EAIs_Restart_PDU(tvbuff_t *tvb _U_, packet_info *pinf
   return offset;
 }
 static int dissect_List_of_5GS_TAIs_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_List_of_5GS_TAIs(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_List_of_5GS_TAIs_PDU);
@@ -2553,7 +2582,7 @@ static int dissect_List_of_5GS_TAIs_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
   return offset;
 }
 static int dissect_List_of_5GS_TAI_for_Restart_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_List_of_5GS_TAI_for_Restart(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_List_of_5GS_TAI_for_Restart_PDU);
@@ -2561,7 +2590,7 @@ static int dissect_List_of_5GS_TAI_for_Restart_PDU(tvbuff_t *tvb _U_, packet_inf
   return offset;
 }
 static int dissect_Message_Identifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Message_Identifier(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Message_Identifier_PDU);
@@ -2569,7 +2598,7 @@ static int dissect_Message_Identifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo 
   return offset;
 }
 static int dissect_Number_of_Broadcasts_Requested_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Number_of_Broadcasts_Requested(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Number_of_Broadcasts_Requested_PDU);
@@ -2577,7 +2606,7 @@ static int dissect_Number_of_Broadcasts_Requested_PDU(tvbuff_t *tvb _U_, packet_
   return offset;
 }
 static int dissect_Omc_Id_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Omc_Id(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Omc_Id_PDU);
@@ -2585,7 +2614,7 @@ static int dissect_Omc_Id_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_t
   return offset;
 }
 static int dissect_Repetition_Period_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Repetition_Period(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Repetition_Period_PDU);
@@ -2593,7 +2622,7 @@ static int dissect_Repetition_Period_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _
   return offset;
 }
 static int dissect_Restarted_Cell_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Restarted_Cell_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Restarted_Cell_List_PDU);
@@ -2601,7 +2630,7 @@ static int dissect_Restarted_Cell_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo
   return offset;
 }
 static int dissect_RAT_Selector_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_RAT_Selector_5GS(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_RAT_Selector_5GS_PDU);
@@ -2609,7 +2638,7 @@ static int dissect_RAT_Selector_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
   return offset;
 }
 static int dissect_Restarted_Cell_List_NR_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Restarted_Cell_List_NR(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Restarted_Cell_List_NR_PDU);
@@ -2617,7 +2646,7 @@ static int dissect_Restarted_Cell_List_NR_PDU(tvbuff_t *tvb _U_, packet_info *pi
   return offset;
 }
 static int dissect_Send_Write_Replace_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Send_Write_Replace_Warning_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Send_Write_Replace_Warning_Indication_PDU);
@@ -2625,7 +2654,7 @@ static int dissect_Send_Write_Replace_Warning_Indication_PDU(tvbuff_t *tvb _U_, 
   return offset;
 }
 static int dissect_Send_Stop_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Send_Stop_Warning_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Send_Stop_Warning_Indication_PDU);
@@ -2633,7 +2662,7 @@ static int dissect_Send_Stop_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_in
   return offset;
 }
 static int dissect_Serial_Number_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Serial_Number(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Serial_Number_PDU);
@@ -2641,7 +2670,7 @@ static int dissect_Serial_Number_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
   return offset;
 }
 static int dissect_Stop_All_Indicator_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Stop_All_Indicator(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Stop_All_Indicator_PDU);
@@ -2649,7 +2678,7 @@ static int dissect_Stop_All_Indicator_PDU(tvbuff_t *tvb _U_, packet_info *pinfo 
   return offset;
 }
 static int dissect_Unknown_5GS_Tracking_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Unknown_5GS_Tracking_Area_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Unknown_5GS_Tracking_Area_List_PDU);
@@ -2657,7 +2686,7 @@ static int dissect_Unknown_5GS_Tracking_Area_List_PDU(tvbuff_t *tvb _U_, packet_
   return offset;
 }
 static int dissect_Warning_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Area_List(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Area_List_PDU);
@@ -2665,7 +2694,7 @@ static int dissect_Warning_Area_List_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _
   return offset;
 }
 static int dissect_Warning_Message_Content_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Message_Content(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Message_Content_PDU);
@@ -2673,7 +2702,7 @@ static int dissect_Warning_Message_Content_PDU(tvbuff_t *tvb _U_, packet_info *p
   return offset;
 }
 static int dissect_Warning_Area_Coordinates_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Area_Coordinates(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Area_Coordinates_PDU);
@@ -2681,7 +2710,7 @@ static int dissect_Warning_Area_Coordinates_PDU(tvbuff_t *tvb _U_, packet_info *
   return offset;
 }
 static int dissect_Warning_Security_Information_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Security_Information(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Security_Information_PDU);
@@ -2689,7 +2718,7 @@ static int dissect_Warning_Security_Information_PDU(tvbuff_t *tvb _U_, packet_in
   return offset;
 }
 static int dissect_Warning_Type_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Type(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Type_PDU);
@@ -2697,7 +2726,7 @@ static int dissect_Warning_Type_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, p
   return offset;
 }
 static int dissect_Warning_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Warning_Area_List_5GS(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Warning_Area_List_5GS_PDU);
@@ -2705,7 +2734,7 @@ static int dissect_Warning_Area_List_5GS_PDU(tvbuff_t *tvb _U_, packet_info *pin
   return offset;
 }
 static int dissect_Write_Replace_Warning_Request_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Write_Replace_Warning_Request(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Write_Replace_Warning_Request_PDU);
@@ -2713,7 +2742,7 @@ static int dissect_Write_Replace_Warning_Request_PDU(tvbuff_t *tvb _U_, packet_i
   return offset;
 }
 static int dissect_Write_Replace_Warning_Response_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Write_Replace_Warning_Response(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Write_Replace_Warning_Response_PDU);
@@ -2721,7 +2750,7 @@ static int dissect_Write_Replace_Warning_Response_PDU(tvbuff_t *tvb _U_, packet_
   return offset;
 }
 static int dissect_Stop_Warning_Request_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Stop_Warning_Request(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Stop_Warning_Request_PDU);
@@ -2729,7 +2758,7 @@ static int dissect_Stop_Warning_Request_PDU(tvbuff_t *tvb _U_, packet_info *pinf
   return offset;
 }
 static int dissect_Stop_Warning_Response_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Stop_Warning_Response(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Stop_Warning_Response_PDU);
@@ -2737,7 +2766,7 @@ static int dissect_Stop_Warning_Response_PDU(tvbuff_t *tvb _U_, packet_info *pin
   return offset;
 }
 static int dissect_Write_Replace_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Write_Replace_Warning_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Write_Replace_Warning_Indication_PDU);
@@ -2745,7 +2774,7 @@ static int dissect_Write_Replace_Warning_Indication_PDU(tvbuff_t *tvb _U_, packe
   return offset;
 }
 static int dissect_Stop_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Stop_Warning_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Stop_Warning_Indication_PDU);
@@ -2753,7 +2782,7 @@ static int dissect_Stop_Warning_Indication_PDU(tvbuff_t *tvb _U_, packet_info *p
   return offset;
 }
 static int dissect_PWS_Restart_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_PWS_Restart_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_PWS_Restart_Indication_PDU);
@@ -2761,7 +2790,7 @@ static int dissect_PWS_Restart_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pi
   return offset;
 }
 static int dissect_PWS_Failure_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_PWS_Failure_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_PWS_Failure_Indication_PDU);
@@ -2769,7 +2798,7 @@ static int dissect_PWS_Failure_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pi
   return offset;
 }
 static int dissect_Error_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_Error_Indication(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_Error_Indication_PDU);
@@ -2777,7 +2806,7 @@ static int dissect_Error_Indication_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
   return offset;
 }
 static int dissect_SBC_AP_PDU_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
-  int offset = 0;
+  unsigned offset = 0;
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_sbc_ap_SBC_AP_PDU(tvb, offset, &asn1_ctx, tree, hf_sbc_ap_SBC_AP_PDU_PDU);
@@ -2830,7 +2859,7 @@ dissect_sbc_ap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
     proto_tree      *sbc_ap_tree = NULL;
 
     /* make entry in the Protocol column on summary display */
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "SBcAP");
     col_clear(pinfo->cinfo, COL_INFO);
 
     /* create the sbc_ap protocol tree */
@@ -3573,13 +3602,13 @@ void proto_register_sbc_ap(void) {
 
 
   /* Register protocol */
-  proto_sbc_ap = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_sbc_ap = proto_register_protocol("SBc Application Part", "SBcAP", "sbcap");
   /* Register fields and subtrees */
   proto_register_field_array(proto_sbc_ap, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
   /* Register dissector */
-  sbc_ap_handle = register_dissector(PFNAME, dissect_sbc_ap, proto_sbc_ap);
+  sbc_ap_handle = register_dissector("sbcap", dissect_sbc_ap, proto_sbc_ap);
 
   /* Register dissector tables */
   sbc_ap_ies_dissector_table = register_dissector_table("sbc_ap.ies", "SBC-AP-PROTOCOL-IES", proto_sbc_ap, FT_UINT32, BASE_DEC);

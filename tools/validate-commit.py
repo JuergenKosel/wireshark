@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Verifies whether commit messages adhere to the standards.
 # Checks the author name and email and invokes the tools/commit-msg script.
-# Copy this into .git/hooks/post-commit
+# Preferred setup: run tools/setup-dev.sh (or tools/setup-dev.ps1 on Windows) to
+# configure core.hooksPath=tools/git_hooks and commit.template=.gitmessage.
 #
 # Copyright (c) 2018 Peter Wu <peter@lekensteyn.nl>
 #
@@ -40,6 +41,22 @@ def print_git_user_instructions():
     print('  git commit --amend --reset-author --no-edit')
     print('')
 
+def print_standards():
+    print('''
+Please rewrite your commit message to our standards, matching this format:
+
+    component: a very brief summary of the change
+
+    A commit message should start with a brief summary, followed by a single
+    blank line and an optional longer description. If the change is specific to
+    a single protocol, start the summary line with the abbreviated name of the
+    protocol and a colon.
+
+    Use paragraphs to improve readability. Limit each line to 80 characters.
+
+    Finish with a trailer about possible AI involvement, in the form of
+    AI-Assisted: no|yes [tool(s)]
+''')
 
 def verify_name(name):
     name = name.lower().strip()
@@ -109,8 +126,15 @@ def extract_subject(subject):
 
 
 def verify_body(body):
-    bodynocomments = re.sub('^#.*$', '', body, flags=re.MULTILINE)
-    old_lines = bodynocomments.splitlines(True)
+    git_cut_marker = '\n# ------------------------ >8 ------------------------\n'
+    cut_index = body.find(git_cut_marker)
+    if cut_index == -1:
+        cut_index = len(body) - 1
+    body = body[0:cut_index + 1]
+
+    # XXX Should depend on core.commentChar. Might use 'git stripspace -s' instead?
+    body = re.sub('^#.*\n?', '', body, flags=re.MULTILINE)
+    old_lines = body.splitlines(True)
     is_good = True
     if len(old_lines) >= 2 and old_lines[1].strip():
         print('ERROR: missing blank line after the first subject line.')
@@ -118,22 +142,10 @@ def verify_body(body):
     cleaned_subject = extract_subject(old_lines[0])
     if len(cleaned_subject) > 80:
         # Note that this check is also invoked by the commit-msg hook.
-        print('Warning: keep lines in the commit message under 80 characters.')
+        print("Warning: the subject line '%s' is longer than 80 characters." % (cleaned_subject,))
         is_good = False
     if not is_good:
-        print('''
-Please rewrite your commit message to our standards, matching this format:
-
-    component: a very brief summary of the change
-
-    A commit message should start with a brief summary, followed by a single
-    blank line and an optional longer description. If the change is specific to
-    a single protocol, start the summary line with the abbreviated name of the
-    protocol and a colon.
-
-    Use paragraphs to improve readability. Limit each line to 80 characters.
-
-''')
+        print_standards()
     if any(line.startswith('Bug:') or line.startswith('Ping-Bug:') for line in old_lines):
         sys.stderr.write('''
 To close an issue, use "Closes #1234" or "Fixes #1234" instead of "Bug: 1234".
@@ -151,13 +163,17 @@ for details.
     cp_line = '\n(cherry-picked from commit'
     body = body.replace('\n' + cp_line, cp_line)
 
+    # Some editors (e.g. gitk) add a trailing newline, regardless if it exists.
+    # Reduce any number of newlines at the end of the body to a single newline.
+    body = body.rstrip('\n') + '\n'
+
     try:
         cmd = ['git', 'stripspace']
         newbody = subprocess.check_output(cmd, input=body, universal_newlines=True)
     except OSError as ex:
         print('Warning: unable to invoke git stripspace: %s' % (ex,))
         return is_good
-    if newbody != body:
+    if newbody and newbody != body:
         new_lines = newbody.splitlines(True)
         diff = difflib.unified_diff(old_lines, new_lines,
                                     fromfile='OLD/.git/COMMIT_EDITMSG',
@@ -169,6 +185,11 @@ for details.
             for line in diff
         ]
         print('The commit message does not follow our standards.')
+        print_standards()
+        print('Commit message:')
+        print(body.splitlines(True))
+        print('After git stripspace:')
+        print(newbody.splitlines(True))
         print('Please rewrite it (there are likely whitespace issues):')
         print('')
         print(''.join(diff))
@@ -232,7 +253,7 @@ def main():
                 with open(args.commitmsg) as f:
                     return 0 if verify_body(f.read()) else 1
             except Exception:
-                print("Couldn't verify body of message from file '", + args.commitmsg + "'")
+                print("Couldn't verify body of message from file '" + args.commitmsg + "'")
                 return 1
 
 

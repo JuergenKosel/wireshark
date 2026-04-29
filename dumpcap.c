@@ -7,8 +7,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN LOG_DOMAIN_CAPCHILD
+#include "vcs_version.h"
 
 #include <stdio.h>
 #include <glib.h>
@@ -63,11 +64,10 @@
 #include <wsutil/clopts_common.h>
 #include <wsutil/privileges.h>
 
-#include "sync_pipe.h"
-
 #include "ui/capture_opts.h"
 #include <capture/capture_session.h>
 #include <capture/capture_sync.h>
+#include <capture/sync_pipe.h>
 
 #include "wsutil/tempfile.h"
 #include "wsutil/file_util.h"
@@ -309,11 +309,11 @@ typedef struct _capture_src {
 #endif
     int                          cap_pipe_fd;            /**< the file descriptor of the capture pipe */
     bool                         cap_pipe_modified;      /**< true if data in the pipe uses modified pcap headers */
-    char *                       cap_pipe_databuf;       /**< Pointer to the data buffer we've allocated */
+    uint8_t*                     cap_pipe_databuf;       /**< Pointer to the data buffer we've allocated */
     size_t                       cap_pipe_databuf_size;  /**< Current size of the data buffer */
     unsigned                     cap_pipe_max_pkt_size;  /**< Maximum packet size allowed */
 #if defined(_WIN32)
-    char *                       cap_pipe_buf;           /**< Pointer to the buffer we read into */
+    uint8_t*                     cap_pipe_buf;           /**< Pointer to the buffer we read into */
     DWORD                        cap_pipe_bytes_to_read; /**< Used by cap_pipe_dispatch */
     DWORD                        cap_pipe_bytes_read;    /**< Used by cap_pipe_dispatch */
 #else
@@ -433,6 +433,8 @@ static void capture_loop_get_errmsg(char *errmsg, size_t errmsglen,
                                     size_t secondary_errmsglen,
                                     const char *fname, int err,
                                     bool is_close);
+
+static const char* get_vcs_version_info(void);
 
 static void report_new_capture_file(const char *filename);
 static void report_packet_count(unsigned int packet_count);
@@ -1458,6 +1460,50 @@ dlt_to_linktype(int dlt)
 	return (dlt);
 }
 
+static void
+cap_pipe_ensure_databuf_size(capture_src *pcap_src, uint32_t block_length) {
+
+    size_t new_bufsize = block_length;
+    if (new_bufsize > pcap_src->cap_pipe_databuf_size) {
+        /*
+        * Grow the buffer to the packet size, rounded up to a power of
+        * 2.
+        *
+        * Caveats: This can "round up" to 0 if new_bufsize is 0 or, on
+        * platforms where size_t is 32 bits, larger than 2^31, which is
+        * not very useful. We shouldn't have to worry about 0, because
+        * pcap_src->cap_pipe_databuf_size is initialized to a nonzero
+        * value.
+        *
+        * All the various values of WTAP_MAX_PACKET_SIZE_*, and thus
+        * pcap_src->cap_pipe_max_pkt_size, are smaller than 2^31, but
+        * we don't check all blocks against the max pkt size since
+        * db9ed8844c48326a3a8e3823d1d9f152e6667542. Either we should, or
+        * we should probably have some fixed maximum and report failure
+        * in those cases.
+        */
+        /*
+        * https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+        */
+        /* XXX - Should this be added to wsutil/ws_roundup.h? */
+        new_bufsize--;
+        new_bufsize |= new_bufsize >> 1;
+        new_bufsize |= new_bufsize >> 2;
+        new_bufsize |= new_bufsize >> 4;
+        new_bufsize |= new_bufsize >> 8;
+        new_bufsize |= new_bufsize >> 16;
+        new_bufsize++;
+        if (new_bufsize == 0) {
+            /* Should only happen on platforms where SIZE_WIDTH is 32, which
+             * is new in C23 (or we could add a size check to CMake.)
+             */
+            new_bufsize = UINT32_MAX;
+        }
+        pcap_src->cap_pipe_databuf = (uint8_t*)g_realloc(pcap_src->cap_pipe_databuf, new_bufsize);
+        pcap_src->cap_pipe_databuf_size = new_bufsize;
+    }
+}
+
 /* Take care of byte order in the libpcap headers read from pipes.
  * (function taken from wiretap/libpcap.c) */
 static void
@@ -1493,11 +1539,11 @@ cap_pipe_adjust_pcap_header(bool byte_swapped, struct pcap_hdr *hdr, struct pcap
  * or just read().
  */
 static ssize_t
-cap_pipe_read(int pipe_fd, char *buf, size_t sz, bool from_socket _U_)
+cap_pipe_read(int pipe_fd, uint8_t *buf, size_t sz, bool from_socket _U_)
 {
 #ifdef _WIN32
     if (from_socket) {
-        return recv(pipe_fd, buf, (int)sz, 0);
+        return recv(pipe_fd, (char*)buf, (int)sz, 0);
     } else {
         return -1;
     }
@@ -1622,7 +1668,7 @@ static void *cap_thread_read(void *arg)
 void
 pipe_read_sync(capture_src *pcap_src, void *buf, DWORD nbytes)
 {
-    pcap_src->cap_pipe_buf = (char *) buf;
+    pcap_src->cap_pipe_buf = (uint8_t *) buf;
     pcap_src->cap_pipe_bytes_read = 0;
     pcap_src->cap_pipe_bytes_to_read = nbytes;
     /* We don't have to worry about cap_pipe_read_mtx here */
@@ -2007,7 +2053,7 @@ cap_pipe_open_live(char *pipename,
      * large enough for most regular network packets.  We increase it,
      * up to the maximum size we allow, as necessary.
      */
-    pcap_src->cap_pipe_databuf = (char*)g_malloc(2048);
+    pcap_src->cap_pipe_databuf = (uint8_t*)g_malloc(2048);
     pcap_src->cap_pipe_databuf_size = 2048;
 
     /*
@@ -2040,7 +2086,7 @@ cap_pipe_open_live(char *pipename,
                            g_strerror(errno));
                 goto error;
             } else if (sel_ret > 0) {
-                b = cap_pipe_read(fd, ((char *)&magic)+bytes_read,
+                b = cap_pipe_read(fd, ((uint8_t*)&magic)+bytes_read,
                                   sizeof magic-bytes_read,
                                   pcap_src->from_cap_socket);
                 /* jump messaging, if extcap had an error, stderr will provide the correct message */
@@ -2191,7 +2237,7 @@ pcap_pipe_open_live(int fd,
                            g_strerror(errno));
                 goto error;
             } else if (sel_ret > 0) {
-                b = cap_pipe_read(fd, ((char *)hdr)+bytes_read,
+                b = cap_pipe_read(fd, ((uint8_t*)hdr)+bytes_read,
                                   sizeof(struct pcap_hdr) - bytes_read,
                                   pcap_src->from_cap_socket);
                 if (b <= 0) {
@@ -2306,6 +2352,7 @@ pcapng_read_shb(capture_src *pcap_src,
                 size_t errmsgl)
 {
     pcapng_section_header_block_t shb;
+    pcapng_block_header_t *bh = &pcap_src->cap_pipe_info.pcapng.bh;
 
 #ifdef _WIN32
     if (pcap_src->from_cap_socket)
@@ -2374,7 +2421,6 @@ pcapng_read_shb(capture_src *pcap_src,
          * length and, for other block types, the block type, to read correctly.
          */
         pcap_src->cap_pipe_info.pcapng.byte_swapped = true;
-        pcapng_block_header_t *bh = &pcap_src->cap_pipe_info.pcapng.bh;
         bh->block_total_length = GUINT32_SWAP_LE_BE(bh->block_total_length);
         break;
     default:
@@ -2384,7 +2430,24 @@ pcapng_read_shb(capture_src *pcap_src,
         return -1;
     }
 
+    if ((bh->block_total_length & 0x03) != 0) {
+        snprintf(errmsg, errmsgl,
+                   "block_total_length read from pipe is %u, which is not a multiple of 4.",
+                   bh->block_total_length);
+        return -1;
+    }
+
     pcap_src->cap_pipe_max_pkt_size = WTAP_MAX_PACKET_SIZE_STANDARD;
+
+    cap_pipe_ensure_databuf_size(pcap_src, bh->block_total_length);
+
+    /* Make sure the total length is sane */
+    if (bh->block_total_length < sizeof(pcapng_block_header_t)+sizeof(pcapng_section_header_block_t)+sizeof(uint32_t)) {
+        snprintf(errmsg, errmsgl,
+                   "malformed pcapng SHB block_total_length < minimum");
+        pcap_src->cap_pipe_err = PIPEOF;
+        return -1;
+    }
 
     /* Setup state to capture any options following the section header block */
     pcap_src->cap_pipe_state = STATE_EXPECT_DATA;
@@ -2585,12 +2648,6 @@ pcapng_pipe_open_live(int fd,
         pcap_src->cap_pipe_fd = fd;
     }
 #endif
-    if ((bh->block_total_length & 0x03) != 0) {
-        snprintf(errmsg, errmsgl,
-                   "block_total_length read from pipe is %u, which is not a multiple of 4.",
-                   bh->block_total_length);
-        goto error;
-    }
     if (pcapng_read_shb(pcap_src, errmsg, errmsgl)) {
         goto error;
     }
@@ -2619,7 +2676,6 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t er
     void *    q_status;
 #endif
     ssize_t   b;
-    unsigned new_bufsize;
     pcap_pipe_info_t *pcap_info = &pcap_src->cap_pipe_info.pcap;
 
 #ifdef LOG_CAPTURE_VERBOSE
@@ -2639,7 +2695,7 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t er
             pcap_src->cap_pipe_bytes_read = 0;
 
 #ifdef _WIN32
-            pcap_src->cap_pipe_buf = (char *) &pcap_info->rechdr;
+            pcap_src->cap_pipe_buf = (uint8_t *) &pcap_info->rechdr;
             g_async_queue_push(pcap_src->cap_pipe_pending_q, pcap_src->cap_pipe_buf);
             g_mutex_unlock(pcap_src->cap_pipe_read_mtx);
         }
@@ -2651,7 +2707,7 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t er
         if (pcap_src->from_cap_socket)
 #endif
         {
-            b = cap_pipe_read(pcap_src->cap_pipe_fd, ((char *)&pcap_info->rechdr)+pcap_src->cap_pipe_bytes_read,
+            b = cap_pipe_read(pcap_src->cap_pipe_fd, ((uint8_t*)&pcap_info->rechdr)+pcap_src->cap_pipe_bytes_read,
                  pcap_src->cap_pipe_bytes_to_read - pcap_src->cap_pipe_bytes_read, pcap_src->from_cap_socket);
             if (b <= 0) {
                 if (b == 0)
@@ -2781,25 +2837,7 @@ pcap_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t er
             break;
         }
 
-        if (pcap_info->rechdr.hdr.incl_len > pcap_src->cap_pipe_databuf_size) {
-            /*
-             * Grow the buffer to the packet size, rounded up to a power of
-             * 2.
-             */
-            new_bufsize = pcap_info->rechdr.hdr.incl_len;
-            /*
-             * https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-             */
-            new_bufsize--;
-            new_bufsize |= new_bufsize >> 1;
-            new_bufsize |= new_bufsize >> 2;
-            new_bufsize |= new_bufsize >> 4;
-            new_bufsize |= new_bufsize >> 8;
-            new_bufsize |= new_bufsize >> 16;
-            new_bufsize++;
-            pcap_src->cap_pipe_databuf = (char*)g_realloc(pcap_src->cap_pipe_databuf, new_bufsize);
-            pcap_src->cap_pipe_databuf_size = new_bufsize;
-        }
+        cap_pipe_ensure_databuf_size(pcap_src, pcap_info->rechdr.hdr.incl_len);
 
         if (pcap_info->rechdr.hdr.incl_len) {
             /*
@@ -2867,7 +2905,6 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
 #ifdef _WIN32
     void *    q_status;
 #endif
-    unsigned new_bufsize;
     pcapng_block_header_t *bh = &pcap_src->cap_pipe_info.pcapng.bh;
 
 #ifdef LOG_CAPTURE_VERBOSE
@@ -3041,25 +3078,7 @@ pcapng_pipe_dispatch(loop_data *ld, capture_src *pcap_src, char *errmsg, size_t 
             break;
         }
 
-        if (bh->block_total_length > pcap_src->cap_pipe_databuf_size) {
-            /*
-            * Grow the buffer to the packet size, rounded up to a power of
-            * 2.
-            */
-            new_bufsize = bh->block_total_length;
-            /*
-            * https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-            */
-            new_bufsize--;
-            new_bufsize |= new_bufsize >> 1;
-            new_bufsize |= new_bufsize >> 2;
-            new_bufsize |= new_bufsize >> 4;
-            new_bufsize |= new_bufsize >> 8;
-            new_bufsize |= new_bufsize >> 16;
-            new_bufsize++;
-            pcap_src->cap_pipe_databuf = (unsigned char*)g_realloc(pcap_src->cap_pipe_databuf, new_bufsize);
-            pcap_src->cap_pipe_databuf_size = new_bufsize;
-        }
+        cap_pipe_ensure_databuf_size(pcap_src, bh->block_total_length);
 
         /* The record always has at least the block total length following the header */
         if (bh->block_total_length < sizeof(pcapng_block_header_t)+sizeof(uint32_t)) {
@@ -3745,7 +3764,7 @@ capture_loop_dispatch(loop_data *ld,
                     inpkts = pcap_dispatch(pcap_src->pcap_h, 1, capture_loop_write_packet_cb, (uint8_t *)pcap_src);
                 }
                 if (inpkts < 0) {
-                    if (inpkts == -1) {
+                    if (inpkts == PCAP_ERROR) {
                         /* Error, rather than pcap_breakloop(). */
                         pcap_src->pcap_err = true;
                     }
@@ -3788,7 +3807,7 @@ capture_loop_dispatch(loop_data *ld,
             }
 #endif
             if (inpkts < 0) {
-                if (inpkts == -1) {
+                if (inpkts == PCAP_ERROR) {
                     /* Error, rather than pcap_breakloop(). */
                     pcap_src->pcap_err = true;
                 }
@@ -4331,6 +4350,11 @@ capture_loop_start(capture_options *capture_opts, bool *stats_known, struct pcap
            progress. */
         ws_cwstream_flush(global_ld.pdh, NULL);
         report_new_capture_file(capture_opts->save_file);
+    } else {
+        /* If we're not writing to a file, we're not writing to a pipe.
+         * This is a programming error with the caller, and would lead
+         * to NULL pointer deferences. */
+        ws_assert(!capture_opts->output_to_pipe);
     }
 
     if (capture_opts->has_file_interval) {
@@ -4786,6 +4810,11 @@ capture_loop_get_errmsg(char *errmsg, size_t errmsglen, char *secondary_errmsg,
         snprintf(secondary_errmsg, secondary_errmsglen, "%s", find_space);
         break;
 #endif
+
+    /* XXX - pcapng_write_block can set EINVAL (for block length and data
+     * are not aligned to 4 bytes) or EBADMSG (block_total_length field
+     * is not the same at the start and end of the block) and those should
+     * have more user-friendly messages than what g_strerror provides. */
 
     default:
         if (is_close) {
@@ -5337,7 +5366,7 @@ main(int argc, char *argv[])
 #endif
 
     /* Initialize the version information. */
-    ws_init_version_info("Dumpcap", NULL, get_ws_vcs_version_info, gather_dumpcap_compiled_info,
+    ws_init_version_info("Dumpcap", NULL, get_vcs_version_info, gather_dumpcap_compiled_info,
                          gather_dumpcap_runtime_info);
 
     /* Initialize the pcaps list and IDBs */
@@ -5488,9 +5517,9 @@ main(int argc, char *argv[])
     /* Set the initial values in the capture options. This might be overwritten
        by the command line parameters. */
     if (strcmp(app_flavor_name, "stratoshark") == 0) {
-        capture_opts_init(&global_capture_opts, app_flavor_name, get_interface_list_ss);
+        capture_opts_init(&global_capture_opts, app_flavor_name, get_local_interface_list_ss);
     } else {
-        capture_opts_init(&global_capture_opts, app_flavor_name, get_interface_list_ws);
+        capture_opts_init(&global_capture_opts, app_flavor_name, get_local_interface_list_ws);
     }
     /* We always save to a file - if no file was specified, we save to a
        temporary file. */
@@ -5544,12 +5573,16 @@ main(int argc, char *argv[])
         case LONGOPT_COMPRESS_TYPE:        /* compress type */
         case LONGOPT_CAPTURE_TMPDIR:       /* capture temp directory */
         case LONGOPT_UPDATE_INTERVAL:      /* sync pipe update interval */
-            status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
+        {
+            char* app_prefix = g_ascii_strup(app_flavor_name, -1);
+            status = capture_opts_add_opt(app_prefix, &global_capture_opts, opt, ws_optarg);
+            g_free(app_prefix);
             if (status != 0) {
                 exit_main();
                 return status;
             }
             break;
+        }
             /*** hidden option: Wireshark child mode (using binary output messages) ***/
         case LONGOPT_IFNAME:
             if (global_capture_opts.ifaces->len > 0) {
@@ -6116,6 +6149,26 @@ main(int argc, char *argv[])
     /* capture failed */
     exit_main();
     return EXIT_FAILURE;
+}
+
+//Done here to not have dumpcap depend on "application flavor" details
+static const char*
+get_vcs_version_info(void)
+{
+    if (strcmp(app_flavor_name, "stratoshark") == 0) {
+#ifdef STRATOSHARK_VCS_VERSION
+        return STRATOSHARK_VERSION " (" STRATOSHARK_VCS_VERSION ")";
+#else
+        return STRATOSHARK_VERSION;
+#endif
+    }
+    else {
+#ifdef WIRESHARK_VCS_VERSION
+        return VERSION " (" WIRESHARK_VCS_VERSION ")";
+#else
+        return VERSION;
+#endif
+    }
 }
 
 static void

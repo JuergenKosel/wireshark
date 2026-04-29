@@ -57,16 +57,7 @@
 #define DEFAULT_MODIFIER "Ctrl-"
 #endif
 
-// ':' is not a legal field character, but it appears inside literals and
-// having it as a token character will keep field completion from being
-// offered in a place where it is syntactically impossible.
-//
-// The other place ':' is used in the grammar is to separate display filter
-// macros from their argument lists in the ${macro:arg;arg} format. Adding
-// ':' here means that the first argument of the list won't have a completion
-// pop-up. (We don't do completion for the macro names, maybe we should?)
-// ${macro;arg;arg} is allowed now, though.
-static const QString fld_abbrev_chars_ = ":-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+static const QString fld_abbrev_chars_ = "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
 
 DisplayFilterEdit::DisplayFilterEdit(QWidget *parent, DisplayFilterEditType type) :
     SyntaxLineEdit(parent),
@@ -573,19 +564,32 @@ void DisplayFilterEdit::buildCompletionList(const QString &field_word, const QSt
     completer()->setCompletionPrefix(field_word);
 
     // Only add fields to completion if a field is valid at this position.
-    // Try to compile preamble and check error message.
+    // If the preamble has changed, try to compile it and check the error.
+    // XXX - We only do completion for field names. It would be nice to
+    // have completion for other expected tokens, e.g., macro names. Also
+    // nice, but harder, would be able to suggest value string entries.
+    // (Display filter functions are grammatically the same as fields
+    // and do work.)
     if (preamble != filter_word_preamble_) {
         df_error_t *df_err = NULL;
         dfilter_t *test_df = NULL;
-        if (preamble.size() > 0) {
-            dfilter_compile_full(qUtf8Printable(preamble), &test_df, &df_err,
-                                            DF_EXPAND_MACROS, __func__);
-        }
-        if (test_df == NULL || (df_err != NULL && df_err->code == DF_ERROR_UNEXPECTED_END)) {
-            // Unexpected end of expression means "expected identifier (field) or literal".
+        if (preamble.size() == 0) {
+            // A field can start a filter.
             autocomplete_accepts_field_ = true;
         }
+        else if (!dfilter_compile_full(qUtf8Printable(preamble), &test_df, &df_err,
+                                               DF_EXPAND_MACROS, __func__)) {
+            // Unexpected end of expression means "expected identifier (field) or literal".
+            // Other errors indicate that the current token can't be a field.
+            if (df_err->code == DF_ERROR_UNEXPECTED_END) {
+                autocomplete_accepts_field_ = true;
+            } else {
+                autocomplete_accepts_field_ = false;
+            }
+        }
         else {
+            // A field is *not* grammatical after a valid non-empty filter.
+            // Some other operator is expected first.
             autocomplete_accepts_field_ = false;
         }
         dfilter_free(test_df);

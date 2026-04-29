@@ -1,6 +1,6 @@
 /* packet-f1ap.c
  * Routines for E-UTRAN F1 Application Protocol (F1AP) packet dissection
- * Copyright 2018-2025, Pascal Quantin <pascal@wireshark.org>
+ * Copyright 2018-2026, Pascal Quantin <pascal@wireshark.org>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.473 V18.7.0 (2025-09)
+ * References: 3GPP TS 38.473 V19.2.0 (2026-03)
  */
 
 #include "config.h"
@@ -32,10 +32,6 @@
 #include "packet-nrppa.h"
 #include "packet-lpp.h"
 #include "packet-sctp.h"
-
-#define PNAME  "F1 Application Protocol"
-#define PSNAME "F1AP"
-#define PFNAME "f1ap"
 
 #define SCTP_PORT_F1AP 38472
 
@@ -176,6 +172,20 @@ static int ett_f1ap_NeedForInterruptionInfoNR;
 static int ett_f1ap_RACHConfiguration;
 static int ett_f1ap_SRSPosRRCInactiveValidityAreaConfig;
 static int ett_f1ap_TCIStatesConfigurationsList;
+static int ett_f1ap_executionCondition;
+static int ett_f1ap_noSecurityChangeID;
+static int ett_f1ap_servingCellNoSecurityChangeID;
+static int ett_f1ap_nZP_CSI_RS_ResourceSet;
+static int ett_f1ap_nZP_CSI_RS_Resource;
+static int ett_f1ap_cSI_RSResourceToAddModList;
+static int ett_f1ap_cSI_RSResourceToReleaseList;
+static int ett_f1ap_cSI_RSResourceSetToAddModList;
+static int ett_f1ap_cSI_IMResourceToAddModList;
+static int ett_f1ap_cSI_IMResourceSetToAddModList;
+static int ett_f1ap_OndemandSIB1Config;
+static int ett_f1ap_SBFD_Frequency_Configuration;
+static int ett_f1ap_SSB_resource_config;
+static int ett_f1ap_sRS_Resource;
 #include "packet-f1ap-ett.c"
 
 enum{
@@ -188,8 +198,8 @@ enum{
 
 static void set_stats_message_type(packet_info *pinfo, int type);
 
-static const uint8_t *st_str_packets        = "Total Packets";
-static const uint8_t *st_str_packet_types   = "F1AP Packet Types";
+static const char *st_str_packets        = "Total Packets";
+static const char *st_str_packet_types   = "F1AP Packet Types";
 
 static int st_node_packets = -1;
 static int st_node_packet_types = -1;
@@ -357,6 +367,11 @@ struct f1ap_tap_t {
 #define MTYPE_DU_CU_ACCESS_AND_MOBILITY_INDICATION         156
 #define MTYPE_SRS_INFORMATION_RESERVATION_NOTIFICATION     157
 #define MTYPE_CU_DU_MOBILITY_INITIATION_REQUEST            158
+#define MTYPE_CLI_INDICATION                               159
+#define MTYPE_DU_CU_CSI_RS_COORDINATION_REQUEST            160
+#define MTYPE_DU_CU_CSI_RS_COORDINATION_RESPONSE           161
+#define MTYPE_CU_DU_CSI_RS_COORDINATION_REQUEST            162
+#define MTYPE_CU_DU_CSI_RS_COORDINATION_RESPONSE           163
 
 static const value_string mtype_names[] = {
     { MTYPE_RESET,     "Reset" },
@@ -517,6 +532,11 @@ static const value_string mtype_names[] = {
     { MTYPE_DU_CU_ACCESS_AND_MOBILITY_INDICATION, "DUCUAccessAndMobilityIndication" },
     { MTYPE_SRS_INFORMATION_RESERVATION_NOTIFICATION, "SRSInformationReservationNotification" },
     { MTYPE_CU_DU_MOBILITY_INITIATION_REQUEST, "CUDUMobilityInitiationRequest" },
+    { MTYPE_CLI_INDICATION, "CLI-Indication" },
+    { MTYPE_DU_CU_CSI_RS_COORDINATION_REQUEST, "DUCUCSIRSCoordinationRequest" },
+    { MTYPE_DU_CU_CSI_RS_COORDINATION_RESPONSE, "DUCUCSIRSCoordinationResponse" },
+    { MTYPE_CU_DU_CSI_RS_COORDINATION_REQUEST, "CUDUCSIRSCoordinationRequest" },
+    { MTYPE_CU_DU_CSI_RS_COORDINATION_RESPONSE, "CUDUCSIRSCoordinationResponse" },
     { 0,  NULL }
 };
 static value_string_ext mtype_names_ext = VALUE_STRING_EXT_INIT(mtype_names);
@@ -954,11 +974,25 @@ void proto_register_f1ap(void) {
     &ett_f1ap_RACHConfiguration,
     &ett_f1ap_SRSPosRRCInactiveValidityAreaConfig,
     &ett_f1ap_TCIStatesConfigurationsList,
+    &ett_f1ap_executionCondition,
+    &ett_f1ap_noSecurityChangeID,
+    &ett_f1ap_servingCellNoSecurityChangeID,
+    &ett_f1ap_nZP_CSI_RS_ResourceSet,
+    &ett_f1ap_nZP_CSI_RS_Resource,
+    &ett_f1ap_cSI_RSResourceToAddModList,
+    &ett_f1ap_cSI_RSResourceToReleaseList,
+    &ett_f1ap_cSI_RSResourceSetToAddModList,
+    &ett_f1ap_cSI_IMResourceToAddModList,
+    &ett_f1ap_cSI_IMResourceSetToAddModList,
+    &ett_f1ap_OndemandSIB1Config,
+    &ett_f1ap_SBFD_Frequency_Configuration,
+    &ett_f1ap_SSB_resource_config,
+    &ett_f1ap_sRS_Resource,
 #include "packet-f1ap-ettarr.c"
   };
 
   /* Register protocol */
-  proto_f1ap = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_f1ap = proto_register_protocol("F1 Application Protocol", "F1AP", "f1ap");
   /* Register fields and subtrees */
   proto_register_field_array(proto_f1ap, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));

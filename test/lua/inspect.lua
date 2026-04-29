@@ -110,8 +110,12 @@ end
 
 local function getDictionaryKeys(t)
   local keys, length = {}, #t
-  for k,_ in pairs(t) do
+  local k0 = nil
+  while true do
+    local k = next(t, k0)
+    if k == nil then break end
     if isDictionaryKey(k, length) then table.insert(keys, k) end
+    k0 = k
   end
   table.sort(keys, sortKeys)
   return keys
@@ -148,9 +152,13 @@ local function countTableAppearances(t, tableAppearances)
   if type(t) == 'table' then
     if not tableAppearances[t] then
       tableAppearances[t] = 1
-      for k,v in pairs(t) do
+      local k0 = nil
+      while true do
+        local k, v = next(t, k0)
+        if k == nil then break end
         countTableAppearances(k, tableAppearances)
         countTableAppearances(v, tableAppearances)
+        k0 = k
       end
       countTableAppearances(getmetatable(t), tableAppearances)
     else

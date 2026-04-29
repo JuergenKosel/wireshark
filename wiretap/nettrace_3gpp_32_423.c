@@ -9,6 +9,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "nettrace_3gpp"
 #include "nettrace_3gpp_32_423.h"
 
 #include <sys/types.h>
@@ -43,7 +44,7 @@
  * the null byte at the end.
  */
 #define CLEN(x) (sizeof(x)-1)
-static const unsigned char c_s_msg[] = "<msg";
+static const char c_s_msg[] = "<msg";
 static const unsigned char c_e_msg[] = "</msg>";
 
 /* These are protocol names we may put in the exported-pdu data based on
@@ -51,10 +52,10 @@ static const unsigned char c_e_msg[] = "</msg>";
  * sizeof()/CLEN() on them and slightly reduce our use of magic constants
  * for their size. (Modern compilers should make this no slower than that.)
  */
-static const unsigned char c_sai_req[] = "gsm_map.v3.arg.opcode";
-static const unsigned char c_sai_rsp[] = "gsm_map.v3.res.opcode";
-static const unsigned char c_nas_eps[] = "nas-eps_plain";
-static const unsigned char c_nas_5gs[] = "nas-5gs";
+static const char c_sai_req[] = "gsm_map.v3.arg.opcode";
+static const char c_sai_rsp[] = "gsm_map.v3.res.opcode";
+static const char c_nas_eps[] = "nas-eps_plain";
+static const char c_nas_5gs[] = "nas-5gs";
 
 
 #define RINGBUFFER_START_SIZE INT_MAX
@@ -276,7 +277,7 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 		if (xmlStrcmp(attr->name, (const xmlChar*)"function") == 0) {
 			xmlChar* str = xmlNodeListGetString(root_element->doc, attr->children, 1);
 			if (str != NULL) {
-				size_t function_str_len = strlen(str);
+				size_t function_str_len = strlen((const char*)str);
 				if (function_str_len > MAX_FUNCTION_LEN) {
 					*err = WTAP_ERR_BAD_FILE;
 					*err_info = ws_strdup_printf("nettrace_3gpp_32_423: function_str_len > %d", MAX_FUNCTION_LEN);
@@ -285,7 +286,7 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 					goto end;
 				}
 
-				(void)g_strlcpy(function_str, str, (size_t)function_str_len + 1);
+				(void)g_strlcpy(function_str, (const char*)str, (size_t)function_str_len + 1);
 				ascii_strdown_inplace(function_str);
 
 				xmlFree(str);
@@ -294,7 +295,7 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 		else if (xmlStrcmp(attr->name, (const xmlChar*)"name") == 0) {
 			xmlChar* str = xmlNodeListGetString(root_element->doc, attr->children, 1);
 			if (str != NULL) {
-				size_t name_str_len = strlen(str);
+				size_t name_str_len = strlen((const char*)str);
 				if (name_str_len > MAX_NAME_LEN) {
 					*err = WTAP_ERR_BAD_FILE;
 					*err_info = ws_strdup_printf("nettrace_3gpp_32_423: name_str_len > %d", MAX_NAME_LEN);
@@ -303,7 +304,7 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 					goto end;
 				}
 
-				(void)g_strlcpy(name_str, str, (size_t)name_str_len + 1);
+				(void)g_strlcpy(name_str, (const char*)str, (size_t)name_str_len + 1);
 				ascii_strdown_inplace(name_str);
 				xmlFree(str);
 			}
@@ -320,7 +321,7 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 
 				xmlChar* str_time = xmlNodeListGetString(root_element->doc, attr->children, 1);
 				if (str_time != NULL) {
-					scan_found = sscanf(str_time, "%u.%u", &second, &ms);
+					scan_found = sscanf((const char*)str_time, "%u.%u", &second, &ms);
 
 					if (scan_found == 2) {
 						unsigned start_ms = file_info->start_time.nsecs / 1000000;
@@ -348,20 +349,20 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 			if (xmlStrcmp(cur->name, (const xmlChar*)"initiator") == 0) {
 				xmlChar* initiator_content = xmlNodeGetContent(cur);
 
-				nettrace_parse_address(initiator_content, true/* SRC */, &exported_pdu_info);
+				nettrace_parse_address((char*)initiator_content, true/* SRC */, &exported_pdu_info);
 				xmlFree(initiator_content);
 			}
 			else if (xmlStrcmp(cur->name, (const xmlChar*)"target") == 0) {
 				xmlChar* target_content = xmlNodeGetContent(cur);
 
-				nettrace_parse_address(target_content, false/* DST */, &exported_pdu_info);
+				nettrace_parse_address((char*)target_content, false/* DST */, &exported_pdu_info);
 				xmlFree(target_content);
 			}
 			else if (xmlStrcmp(cur->name, (const xmlChar*)"proxy") == 0) {
 				xmlChar* proxy_content = xmlNodeGetContent(cur);
 
 				/* proxy info will be save in destination ip/port */
-				nettrace_parse_address(proxy_content, false/* SRC */, &proxy_exported_pdu_info);
+				nettrace_parse_address((char*)proxy_content, false/* SRC */, &proxy_exported_pdu_info);
 				xmlFree(proxy_content);
 			}
 			else if (xmlStrcmp(cur->name, (const xmlChar*)"rawMsg") == 0) {
@@ -374,13 +375,13 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 
 						xmlChar* str = xmlNodeListGetString(raw_node->doc, attr->children, 1);
 						if (str != NULL) {
-							size_t proto_str_len = strlen(str);
+							size_t proto_str_len = strlen((char*)str);
 							if (proto_str_len > MAX_PROTO_LEN) {
 								xmlFree(str);
 								status = false;
 								goto end;
 							}
-							(void)g_strlcpy(proto_name_str, str, (size_t)proto_str_len + 1);
+							(void)g_strlcpy(proto_name_str, (const char*)str, (size_t)proto_str_len + 1);
 							ascii_strdown_inplace(proto_name_str);
 							found_protocol = true;
 						}
@@ -439,29 +440,22 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 					}
 				}
 
-				raw_content = xmlNodeGetContent(raw_node);
-				if ((raw_content == NULL) || (raw_content[0] == '\0')) {
-					xmlFree(raw_content);
-					*err = WTAP_ERR_BAD_FILE;
-					*err_info = ws_strdup("nettrace_3gpp_32_423: No raw data bytes");
-					status = false;
-					goto end;
-				}
-
 				/* Fill packet buff */
 				ws_buffer_clean(&rec->data);
 				if (use_proto_table == false) {
-					wtap_buffer_append_epdu_tag(&rec->data, EXP_PDU_TAG_DISSECTOR_NAME, proto_name_str, (uint16_t)strlen(proto_name_str));
+					wtap_buffer_append_epdu_tag(&rec->data, EXP_PDU_TAG_DISSECTOR_NAME, (const uint8_t*)proto_name_str, (uint16_t)strlen(proto_name_str));
 				}
 				else {
-					wtap_buffer_append_epdu_tag(&rec->data, EXP_PDU_TAG_DISSECTOR_TABLE_NAME, dissector_table_str, (uint16_t)strlen(dissector_table_str));
+					wtap_buffer_append_epdu_tag(&rec->data, EXP_PDU_TAG_DISSECTOR_TABLE_NAME, (const uint8_t*)dissector_table_str, (uint16_t)strlen(dissector_table_str));
 					wtap_buffer_append_epdu_uint(&rec->data, EXP_PDU_TAG_DISSECTOR_TABLE_NAME_NUM_VAL, dissector_table_val);
 				}
 
 				if (exported_pdu_info.presence_flags & EXP_PDU_TAG_COL_PROT_BIT) {
-					wtap_buffer_append_epdu_string(&rec->data, EXP_PDU_TAG_COL_PROT_TEXT, exported_pdu_info.proto_col_str);
-					g_free(exported_pdu_info.proto_col_str);
-					exported_pdu_info.proto_col_str = NULL;
+					if (exported_pdu_info.proto_col_str) {
+						wtap_buffer_append_epdu_string(&rec->data, EXP_PDU_TAG_COL_PROT_TEXT, exported_pdu_info.proto_col_str);
+						g_free(exported_pdu_info.proto_col_str);
+						exported_pdu_info.proto_col_str = NULL;
+					}
 				}
 
 				if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP_SRC_BIT) {
@@ -499,8 +493,8 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 				if (exported_pdu_info.presence_flags & EXP_PDU_TAG_SRC_PORT_BIT) {
 					wtap_buffer_append_epdu_uint(&rec->data, EXP_PDU_TAG_SRC_PORT, exported_pdu_info.src_port);
 				}
-				else if (proxy_exported_pdu_info.presence_flags & EXP_PDU_TAG_DST_PORT_BIT) {
-					wtap_buffer_append_epdu_uint(&rec->data, EXP_PDU_TAG_SRC_PORT, proxy_exported_pdu_info.dst_port);
+				else if (proxy_exported_pdu_info.presence_flags & EXP_PDU_TAG_SRC_PORT_BIT) {
+					wtap_buffer_append_epdu_uint(&rec->data, EXP_PDU_TAG_SRC_PORT, proxy_exported_pdu_info.src_port);
 				}
 				if (exported_pdu_info.presence_flags & EXP_PDU_TAG_DST_PORT_BIT) {
 					wtap_buffer_append_epdu_uint(&rec->data, EXP_PDU_TAG_DST_PORT, exported_pdu_info.dst_port);
@@ -510,38 +504,41 @@ nettrace_msg_to_packet(wtap* wth, wtap_rec* rec, const char* text, size_t len, i
 				}
 
 				/* Add end of options */
-				size_t raw_data_len = strlen(raw_content);
 				int exp_pdu_tags_len = wtap_buffer_append_epdu_end(&rec->data);
 
 				/* Convert the hex raw msg data to binary and write to the packet buf*/
-				size_t pkt_data_len = raw_data_len / 2;
-				ws_buffer_assure_space(&rec->data, pkt_data_len);
-				uint8_t* packet_buf = ws_buffer_end_ptr(&rec->data);
+				raw_content = xmlNodeGetContent(raw_node);
+				size_t raw_data_len = raw_content ? strlen((const char*)raw_content) : 0;
+				if (raw_data_len > 0) {
+					size_t pkt_data_len = raw_data_len / 2;
+					ws_buffer_assure_space(&rec->data, pkt_data_len);
+					uint8_t* packet_buf = ws_buffer_end_ptr(&rec->data);
 
-				const char* curr_pos = raw_content;
-				for (size_t i = 0; i < pkt_data_len; i++) {
-					char chr1, chr2;
-					int val1, val2;
+					const char* curr_pos = (const char*)raw_content;
+					for (size_t i = 0; i < pkt_data_len; i++) {
+						char chr1, chr2;
+						int val1, val2;
 
-					chr1 = *curr_pos++;
-					chr2 = *curr_pos++;
-					val1 = g_ascii_xdigit_value(chr1);
-					val2 = g_ascii_xdigit_value(chr2);
-					if ((val1 != -1) && (val2 != -1)) {
-						*packet_buf++ = ((uint8_t)val1 * 16) + val2;
+						chr1 = *curr_pos++;
+						chr2 = *curr_pos++;
+						val1 = g_ascii_xdigit_value(chr1);
+						val2 = g_ascii_xdigit_value(chr2);
+						if ((val1 != -1) && (val2 != -1)) {
+							*packet_buf++ = ((uint8_t)val1 * 16) + val2;
+						}
+						else {
+							/* Something wrong, bail out */
+							*err_info = ws_strdup_printf("nettrace_3gpp_32_423: Could not parse hex data, bufsize %zu index %zu %c%c",
+								(pkt_data_len + exp_pdu_tags_len),
+								i, chr1, chr2);
+							*err = WTAP_ERR_BAD_FILE;
+							xmlFree(raw_content);
+							status = false;
+							goto end;
+						}
 					}
-					else {
-						/* Something wrong, bail out */
-						*err_info = ws_strdup_printf("nettrace_3gpp_32_423: Could not parse hex data, bufsize %zu index %zu %c%c",
-							(pkt_data_len + exp_pdu_tags_len),
-							i, chr1, chr2);
-						*err = WTAP_ERR_BAD_FILE;
-						xmlFree(raw_content);
-						status = false;
-						goto end;
-					}
+					ws_buffer_increase_length(&rec->data, pkt_data_len);
 				}
-				ws_buffer_increase_length(&rec->data, pkt_data_len);
 
 				rec->rec_header.packet_header.caplen = (uint32_t)ws_buffer_length(&rec->data);
 				rec->rec_header.packet_header.len = (uint32_t)ws_buffer_length(&rec->data);
@@ -574,7 +571,7 @@ read_until(GByteArray *buffer, const unsigned char *needle, FILE_T fh, int *err,
 	uint8_t *found_it;
 	int bytes_read = 0;
 
-	while (NULL == (found_it = g_strstr_len(buffer->data, buffer->len, needle))) {
+	while (NULL == (found_it = (uint8_t*)g_strstr_len((const char*)buffer->data, buffer->len, (const char*)needle))) {
 		bytes_read = file_read(read_buffer, RINGBUFFER_CHUNK_SIZE, fh);
 		if (bytes_read < 0) {
 			*err = file_error(fh, err_info);
@@ -611,7 +608,7 @@ nettrace_read(wtap *wth, wtap_rec *rec, int *err, char **err_info, int64_t *data
 	/* Now search backwards for the message start
 	 * (doing it this way should skip over any empty "<msg ... />" tags we have)
 	 */
-	msg_start = g_strrstr_len(buf_start, (unsigned)(msg_end - buf_start), c_s_msg);
+	msg_start = (uint8_t*)g_strrstr_len((const char*)buf_start, msg_end - buf_start, c_s_msg);
 	if (msg_start == NULL || msg_start > msg_end) {
 		*err_info = ws_strdup_printf("nettrace_3gpp_32_423: Found \"%s\" without matching \"%s\"", c_e_msg, c_s_msg);
 		*err = WTAP_ERR_BAD_FILE;
@@ -627,7 +624,7 @@ nettrace_read(wtap *wth, wtap_rec *rec, int *err, char **err_info, int64_t *data
 	*data_offset = file_info->start_offset + msg_offset;
 
 	/* pass all of <msg....</msg> to nettrace_msg_to_packet() */
-	status = nettrace_msg_to_packet(wth, rec, msg_start, msg_len, err, err_info);
+	status = nettrace_msg_to_packet(wth, rec, (const char*)msg_start, msg_len, err, err_info);
 
 	/* Finally, shift our buffer to the end of this message to get ready for the next one.
 	 * Re-use msg_len to get the length of the data we're done with.
@@ -671,7 +668,7 @@ nettrace_seek_read(wtap *wth, int64_t seek_off, wtap_rec *rec, int *err, char **
 	msg_end += CLEN(c_e_msg);
 	msg_len = (unsigned)(msg_end - file_info->buffer->data);
 
-	status = nettrace_msg_to_packet(wth, rec, file_info->buffer->data, msg_len, err, err_info);
+	status = nettrace_msg_to_packet(wth, rec, (const char*)file_info->buffer->data, msg_len, err, err_info);
 	g_byte_array_set_size(file_info->buffer, 0);
 	return status;
 }
@@ -697,13 +694,17 @@ nettrace_close(wtap *wth)
 wtap_open_return_val
 nettrace_3gpp_32_423_file_open(wtap *wth, int *err _U_, char **err_info _U_)
 {
-	nstime_t start_time;
+	nstime_t start_time = NSTIME_INIT_UNSET;
 	nettrace_3gpp_32_423_file_info_t *file_info;
 	xmlDocPtr doc;
 	xmlNodePtr root_element = NULL;
 
-	doc = xmlReadFile(wth->pathname, NULL, XML_PARSE_NOENT | XML_PARSE_NONET);
+	doc = xmlReadFile(wth->pathname, NULL, XML_PARSE_NONET | XML_PARSE_NOERROR);
 	if (doc == NULL) {
+		//const xmlError * error = xmlGetLastError();
+		//if (error) {
+		//	ws_warning("Failed to parse =%s", error->message);
+		//}
 		return WTAP_OPEN_NOT_MINE;
 	}
 
@@ -715,6 +716,8 @@ nettrace_3gpp_32_423_file_open(wtap *wth, int *err _U_, char **err_info _U_)
 
 	//Sanity check
 	if (xmlStrcmp(root_element->name, (const xmlChar*)"traceCollecFile") != 0) {
+		//traceCollecFile note no t(Collec t )
+		ws_debug("traceCollecFile did not match root_element->name %s", root_element->name);
 		xmlFreeDoc(doc);
 		return WTAP_OPEN_NOT_MINE;
 	}
@@ -732,7 +735,7 @@ nettrace_3gpp_32_423_file_open(wtap *wth, int *err _U_, char **err_info _U_)
 					if (xmlStrcmp(attr->name, (const xmlChar*)"fileFormatVersion") == 0) {
 						xmlChar* str_fileformatversion = xmlNodeListGetString(cur->doc, attr->children, 1);
 						if (str_fileformatversion != NULL) {
-							if (strncmp(str_fileformatversion, "32.423", strlen("32.423")) != 0)
+							if (strncmp((const char*)str_fileformatversion, "32.423", strlen("32.423")) != 0)
 								return WTAP_OPEN_NOT_MINE;
 						} else {
 							xmlFreeDoc(doc);
@@ -749,7 +752,7 @@ nettrace_3gpp_32_423_file_open(wtap *wth, int *err _U_, char **err_info _U_)
 								if (xmlStrcmp(attr->name, (const xmlChar*)"beginTime") == 0) {
 									xmlChar* str_begintime = xmlNodeListGetString(cur->doc, attr->children, 1);
 									if (str_begintime != NULL) {
-										iso8601_to_nstime(&start_time, str_begintime, ISO8601_DATETIME);
+										iso8601_to_nstime(&start_time, (const char*)str_begintime, ISO8601_DATETIME);
 										xmlFree(str_begintime);
 									}
 								}

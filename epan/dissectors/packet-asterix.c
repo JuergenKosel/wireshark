@@ -51,7 +51,7 @@ static int ett_asterix_spare_error;
    where search for interpretations can last a long time. By default depth is set to 15,
    which should never be a problem for random data. Users can select a higher depth.
 */
-static unsigned selected_interpretations_depth = depth_15;
+static int selected_interpretations_depth = depth_15;
 
 static unsigned int solution_count;
 static int solutions[MAX_INTERPRETATIONS][MAX_INTERPRETATION_DEPTH + 1];
@@ -213,7 +213,7 @@ static void check_spare_bits (tvbuff_t *tvb, unsigned bit_offset, unsigned bit_s
     uint64_t bits = tvb_get_bits64(tvb, bit_offset, bit_size, ENC_BIG_ENDIAN);
     if (bits != 0)
     {
-        expert_add_info_format(NULL, item, &hf_asterix_spare_error, "Spare bit error");
+        expert_add_info(NULL, item, &hf_asterix_spare_error);
     }
 }
 
@@ -232,7 +232,7 @@ static bool asterix_fspec_check (unsigned fspec_len, unsigned list_length, proto
         fspec_expected_len++;
     }
     if (fspec_len > fspec_expected_len) {
-        expert_add_info_format(NULL, ti, &hf_asterix_fspec_error, "FSPEC error");
+        expert_add_info(NULL, ti, &hf_asterix_fspec_error);
         return false;
     }
     return true;
@@ -250,7 +250,7 @@ static unsigned asterix_dissect_fspec (tvbuff_t *tvb, unsigned offset, proto_tre
         memset(fspec_bit_string, 0, fspec_bit_length);
         unsigned str_index = 0;
         for (unsigned int i = 0; i < fspec_len * 8; i++) {
-            fspec_bit_string[str_index] = (value & (1 << ((fspec_len * 8 - 1) - i))) ? '1' : '0';
+            fspec_bit_string[str_index] = (value & (1U << ((fspec_len * 8 - 1) - i))) ? '1' : '0';
             if (i > 0 && ((i + 1) % 8) == 0) {
                 str_index++;
                 fspec_bit_string[str_index] = ' ';
@@ -264,27 +264,25 @@ static unsigned asterix_dissect_fspec (tvbuff_t *tvb, unsigned offset, proto_tre
 
 static unsigned asterix_parse_re_field (tvbuff_t *tvb, unsigned offset, proto_tree *tree, unsigned fspec_len, unsigned cat)
 {
-    unsigned i = 0;
     int start_offset = offset;
     offset+=fspec_len;
 
     unsigned int ed = -1;
-    for (i = 0; i < sizeof(asterix_properties) / sizeof(asterix_properties[0]); i++)
+    for (size_t i = 0; i < array_length(asterix_properties); i++)
     {
-        dialog_cat_struct prop_cat = asterix_properties[i];
-        if (prop_cat.cat == cat && !prop_cat.cat_basic)
+        const dialog_cat_struct *prop_cat = &asterix_properties[i];
+        if (prop_cat->cat == cat && !prop_cat->cat_basic)
         {
-            ed = *prop_cat.cat_default_value;
+            ed = *prop_cat->edition_default_value;
         }
     }
 
     table_params table_p = {0};
     get_expansion_table(cat, ed, &table_p);
 
-    i = 0;
-    while (i < table_p.table_size) {
+    for (unsigned i = 0; i < table_p.table_size; i++) {
         if (asterix_field_exists(tvb, start_offset, i)) {
-            int *expand = table_p.table_pointer_expand[i];
+            const int *expand = table_p.table_pointer_expand[i];
             int expand_value = -1;
             if (expand != NULL)
             {
@@ -292,7 +290,6 @@ static unsigned asterix_parse_re_field (tvbuff_t *tvb, unsigned offset, proto_tr
             }
             offset += table_p.table_pointer[i](tvb, offset, tree, expand_value);
         }
-        i++;
     }
     return offset - start_offset;
 }
@@ -304,7 +301,7 @@ static bool check_fspec_validity (tvbuff_t *tvb, unsigned offset, table_params *
     while (fs_index < MAX_FSPEC_BIT_LENGTH && i < table->table_size) {
         if (((fs_index + 1) % 8) == 0) {
             if (!asterix_field_exists(tvb, offset, fs_index)) {
-                // FSPEC end, all fields may not have been present, but thats ok
+                // FSPEC end, all fields may not have been present, but that's ok
                 return true;
             }
             fs_index++;
@@ -358,7 +355,7 @@ static int probe_possible_record (tvbuff_t *tvb, unsigned offset, unsigned int c
             fs_index++;
         }
         if (asterix_field_exists(tvb, start_offset, fs_index)) {
-            int *expand = table_p.table_pointer_expand[i];
+            const int *expand = table_p.table_pointer_expand[i];
             int expand_value = -1;
             if (expand != NULL)
             {
@@ -412,7 +409,7 @@ static int probe_possible_records (tvbuff_t *tvb, packet_info *pinfo, int offset
             }
             else if (new_offset < datablock_end)
             {
-                if ((depth + 1) >= selected_interpretations_depth)
+                if ((depth + 1) >= (unsigned)selected_interpretations_depth)
                 {
                     return -2;
                 }
@@ -465,7 +462,7 @@ static int dissect_asterix_record (tvbuff_t *tvb, packet_info *pinfo, unsigned o
             fs_index++;
         }
         if (asterix_field_exists(tvb, start_offset, fs_index)) {
-            int *expand = table_p.table_pointer_expand[i];
+            const int *expand = table_p.table_pointer_expand[i];
             int expand_value = -1;
             if (expand != NULL)
             {
@@ -502,13 +499,22 @@ static void dissect_asterix_records (tvbuff_t *tvb, packet_info *pinfo, int offs
 
     // get edition from settings
     unsigned int ed = -1;
-    for (unsigned i = 0; i < sizeof(asterix_properties) / sizeof(asterix_properties[0]); i++)
+    for (size_t i = 0; i < array_length(asterix_properties); i++)
     {
-        dialog_cat_struct prop_cat = asterix_properties[i];
-        if (prop_cat.cat == cat && prop_cat.cat_basic)
+        const dialog_cat_struct *prop_cat = &asterix_properties[i];
+        if (prop_cat->cat == cat && prop_cat->cat_basic)
         {
-            ed = *prop_cat.cat_default_value;
+            ed = *prop_cat->edition_default_value;
             break;
+        }
+    }
+    // get uap selection
+    int uap = -1;
+    for (size_t i = 0; i < array_length(interpretation_properties); i++)
+    {
+        if (interpretation_properties[i].cat == cat && interpretation_properties[i].ed == ed)
+        {
+            uap = *interpretation_properties[i].int_default_value;
         }
     }
 
@@ -518,6 +524,13 @@ static void dissect_asterix_records (tvbuff_t *tvb, packet_info *pinfo, int offs
 
     uap_table_indexes indexes;
     get_uap_tables(cat, ed, &indexes);
+
+    if (uap >= 0)
+    {
+        // specific uap selected in settings, disable probing
+        indexes.start_index = uap;
+        indexes.end_index = uap;
+    }
 
     // if category unknown both start_index and end_index are 0
     if ((indexes.end_index - indexes.start_index) > 0)
@@ -704,10 +717,19 @@ void proto_register_asterix (void)
     expert_asterix = expert_register_protocol(proto_asterix);
     expert_register_field_array(expert_asterix, ei, array_length(ei));
 
-    for (unsigned i = 0; i < sizeof(asterix_properties) / sizeof(asterix_properties[0]); i++)
+    for (size_t i = 0; i < array_length(asterix_properties); i++)
     {
-        dialog_cat_struct cat = asterix_properties[i];
-        prefs_register_enum_preference(asterix_module, cat.cat_name, cat.cat_name, NULL, cat.cat_default_value, cat.cat_enums, FALSE);
+        const dialog_cat_struct *cat = &asterix_properties[i];
+        prefs_register_enum_preference(asterix_module, cat->edition_name, cat->edition_desc, NULL, cat->edition_default_value, cat->edition_enums, FALSE);
+
+        for (size_t j = 0; j < array_length(interpretation_properties); j++)
+        {
+            if (interpretation_properties[j].cat == cat->cat)
+            {
+                const dialog_int_struct *int_prop = &interpretation_properties[j];
+                prefs_register_enum_preference(asterix_module, int_prop->edition_name, int_prop->edition_desc, NULL, int_prop->int_default_value, int_prop->int_enums, FALSE);
+            }
+        }
     }
 
     prefs_register_enum_preference(asterix_module, "interpretations_depth", "Interpretations depth",

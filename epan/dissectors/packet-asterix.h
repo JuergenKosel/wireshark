@@ -21,17 +21,26 @@ module_t *asterix_module;
 expert_module_t* expert_asterix;
 typedef struct {
     unsigned cat;
-    unsigned *cat_enum;
-    unsigned *cat_default_value;
-    const enum_val_t *cat_enums;
-    const char *cat_name;
+    int *edition_default_value;
+    const enum_val_t *edition_enums;
+    const char *edition_name;
+    const char *edition_desc;
     bool cat_basic;
 } dialog_cat_struct;
+
+typedef struct {
+    unsigned cat;
+    unsigned ed;
+    const char *edition_name;
+    const char *edition_desc;
+    int *int_default_value;
+    const enum_val_t *int_enums;
+} dialog_int_struct;
 
 typedef int (*ttt)(tvbuff_t *, unsigned, proto_tree *, int);
 typedef struct {
     const ttt *table_pointer;
-    int** table_pointer_expand;
+    const int* const * table_pointer_expand;
     unsigned int table_size;
     char uap_name[MAX_UAP_NAME_LENGTH];
 } table_params;
@@ -56,6 +65,7 @@ static void print_icao_string (tvbuff_t *tvb, unsigned offset, unsigned bit_offs
 static void check_spare_bits (tvbuff_t *tvb, unsigned bit_offset, unsigned bit_size, proto_item *item);
 
 static expert_field ei_asterix_overflow;
+/* TODO: these should have an 'ei_' prefix, but usage is inside generated_dissector python module? */
 static expert_field hf_asterix_spare_error;
 static expert_field hf_asterix_fx_error;
 static expert_field hf_asterix_fspec_error;

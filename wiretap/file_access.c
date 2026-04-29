@@ -29,7 +29,6 @@
 #include "wtap_modules.h"
 #include "file_wrappers.h"
 #include "required_file_handlers.h"
-#include <wsutil/application_flavor.h>
 #include <wsutil/array.h>
 #include <wsutil/buffer.h>
 #include <wsutil/str_util.h>
@@ -134,96 +133,16 @@ add_extensions(GSList *extensions, const char *extension,
 	return extensions;
 }
 
-/*
- * File types that can be identified by file extensions.
- *
- * These are used in file open dialogs to offer choices of extensions
- * for which to filter.  Note that the first field can list more than
- * one type of file, because, for example, ".cap" is a popular
- * extension used by a number of capture file types.
- *
- * File types that *don't* have a file extension used for them should
- * *not* be placed here; if there's nothing to put in the last field
- * of the structure, don't put an entry here, not even one with an
- * empty string for the extensions list.
- *
- * All added file types, regardless of extension or lack thereof,
- * must also be added open_info_base[] below.
- */
-static const struct file_extension_info wireshark_file_type_extensions_base[] = {
-	{ "Wireshark/tcpdump/... - pcap", true, "pcap;cap;dmp" },
-	{ "Wireshark/... - pcapng", true, "pcapng;ntar" },
-	{ "Network Monitor, Surveyor, NetScaler", true, "cap" },
-	{ "Sun snoop", true, "snoop" },
-	{ "InfoVista 5View capture", true, "5vw" },
-	{ "Sniffer (DOS)", true, "cap;enc;trc;fdc;syc" },
-	{ "Cinco NetXRay, Sniffer (Windows)", true, "cap;caz" },
-	{ "Endace ERF capture", true, "erf" },
-	{ "EyeSDN USB S0/E1 ISDN trace format", true, "trc" },
-	{ "HP-UX nettl trace", true, "trc0;trc1" },
-	{ "Viavi Observer", true, "bfr" },
-	{ "Colasoft Capsa", true, "cscpkt" },
-	{ "Novell LANalyzer", true, "tr1" },
-	{ "Tektronix K12xx 32-bit .rf5 format", true, "rf5" },
-	{ "Savvius *Peek", true, "pkt;tpc;apc;wpz" },
-	{ "Catapult DCT2000 trace (.out format)", true, "out" },
-	{ "Micropross mplog", true, "mplog" },
-	{ "TamoSoft CommView NCF", true, "ncf" },
-	{ "TamoSoft CommView NCFX", true, "ncfx" },
-	{ "Symbian OS btsnoop", true, "log" },
-	{ "XML files (including Gammu DCT3 traces)", true, "xml" },
-	{ "macOS PacketLogger", true, "pklg" },
-	{ "Daintree SNA", true, "dcf" },
-	{ "IPFIX File Format", true, "pfx;ipfix" },
-	{ "Aethra .aps file", true, "aps" },
-	{ "MPEG2 transport stream", true, "mp2t;ts;m2ts;mpg" },
-	{ "Ixia IxVeriWave .vwr Raw 802.11 Capture", true, "vwr" },
-	{ "CAM Inspector file", true, "camins" },
-	{ "BLF file", true, "blf" },
-	{ "AUTOSAR DLT file", true, "dlt" },
-	{ "TTL file", true, "ttl" },
-	{ "MPEG files", false, "mpeg;mpg;mp3" },
-	{ "Transport-Neutral Encapsulation Format", false, "tnef" },
-	{ "JPEG/JFIF files", false, "jpg;jpeg;jfif" },
-	{ "NetLog file", true, "json" },
-	{ "JavaScript Object Notation file", false, "json" },
-	{ "JSON Log", true, "json;jsonl;log" },
-	{ "MP4 file", false, "mp4" },
-	{ "RTPDump file", false, "rtp;rtpdump" },
-	{ "EMS file", false, "ems" },
-	{ "ASN.1 Basic Encoding Rules", false, "cer;crl;csr;p10;p12;p772;p7c;p7s;p7m;p8;pfx;tsq;tsr" },
-	{ "RFC 7468 files", false, "crt;pem" },
-	{ "PEAK CAN TRC log", true, "trc" },
-};
-
-#define	N_WIRESHARK_FILE_TYPE_EXTENSIONS array_length(wireshark_file_type_extensions_base)
-
-static const struct file_extension_info stratoshark_file_type_extensions_base[] = {
-	{ "Stratoshark/... - scap", true, "scap"},
-	{ "JSON Log", true, "json;jsonl;log" },
-	{"MS Procmon", true, "pml"},
-};
-
-#define N_STRATOSHARK_FILE_TYPE_EXTENSIONS array_length(stratoshark_file_type_extensions_base)
-
 static const struct file_extension_info* file_type_extensions;
 
 static GArray* file_type_extensions_arr;
 
-/* initialize the extensions array if it has not been initialized yet */
-static void
-init_file_type_extensions(void)
+void
+wtap_init_file_type_extensions(const struct file_extension_info* file_extensions, unsigned num_extensions)
 {
-
-	if (file_type_extensions_arr) return;
-
 	file_type_extensions_arr = g_array_new(false,true,sizeof(struct file_extension_info));
 
-	if (application_flavor_is_wireshark()) {
-		g_array_append_vals(file_type_extensions_arr, wireshark_file_type_extensions_base, N_WIRESHARK_FILE_TYPE_EXTENSIONS);
-	} else {
-		g_array_append_vals(file_type_extensions_arr, stratoshark_file_type_extensions_base, N_STRATOSHARK_FILE_TYPE_EXTENSIONS);
-	}
+	g_array_append_vals(file_type_extensions_arr, file_extensions, num_extensions);
 
 	file_type_extensions = (struct file_extension_info*)(void *)file_type_extensions_arr->data;
 }
@@ -231,8 +150,6 @@ init_file_type_extensions(void)
 void
 wtap_register_file_type_extension(const struct file_extension_info *ei)
 {
-	init_file_type_extensions();
-
 	g_array_append_val(file_type_extensions_arr,*ei);
 
 	file_type_extensions = (const struct file_extension_info*)(void *)file_type_extensions_arr->data;
@@ -450,9 +367,6 @@ static const struct open_info open_info_base[] = {
 
 	{ "EGNOS Message Server (EMS) file",        OPEN_INFO_HEURISTIC, ems_open,                 "ems",      NULL, NULL },
 
-	/* Extremely weak heuristics - put them at the end. */
-	{ "Ixia IxVeriWave .vwr Raw Capture",       OPEN_INFO_HEURISTIC, vwr_open,                 "vwr",      NULL, NULL },
-	{ "CAM Inspector file",                     OPEN_INFO_HEURISTIC, camins_open,              "camins",   NULL, NULL },
 	/* NetLog needs to be before JSON because it is a specifically formatted JSON file */
 	{ "NetLog",                                 OPEN_INFO_HEURISTIC, netlog_open,              "json",     NULL, NULL },
 	/* JSON Log needs to be before JSON because it handles a variety of JSON logs */
@@ -462,6 +376,9 @@ static const struct open_info open_info_base[] = {
 	{ "Ruby Marshal Object",                    OPEN_INFO_HEURISTIC, ruby_marshal_open,        "",         NULL, NULL },
 	{ "3gpp phone log",                         OPEN_INFO_MAGIC,     log3gpp_open,             "log",      NULL, NULL },
 	{ "MP4 media file",                         OPEN_INFO_MAGIC,     mp4_open,                 "mp4",      NULL, NULL },
+	/* Extremely weak heuristics - put them at the end. */
+	{ "Ixia IxVeriWave .vwr Raw Capture",       OPEN_INFO_HEURISTIC, vwr_open,                 "vwr",      NULL, NULL },
+	{ "CAM Inspector file",                     OPEN_INFO_HEURISTIC, camins_open,              "camins",   NULL, NULL },
 };
 
 /* this is only used to build the dynamic array on load, do NOT use this
@@ -927,7 +844,7 @@ try_open(wtap *wth, unsigned int type, int *err, char **err_info)
  */
 wtap *
 wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_info,
-		  bool do_random)
+		  bool do_random, const char* app_env_var_prefix)
 {
 	int	fd;
 	ws_statb64 statb;
@@ -1058,6 +975,7 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 	wth->priv = NULL;
 	wth->wslua_data = NULL;
 	wth->shb_hdrs = g_array_new(false, false, sizeof(wtap_block_t));
+	wth->app_env_var_prefix = app_env_var_prefix;
 	shb = wtap_block_create(WTAP_BLOCK_SECTION);
 	if (shb)
 		g_array_append_val(wth->shb_hdrs, shb);
@@ -1198,7 +1116,7 @@ static GHashTable *type_subtype_name_map;
  * types/subtypes.
  */
 void
-wtap_init_file_type_subtypes(void)
+wtap_init_file_type_subtypes(const char* app_env_var_prefix)
 {
 	/* Don't do this twice. */
 	ws_assert(file_type_subtype_table_arr == NULL);
@@ -1235,7 +1153,7 @@ wtap_init_file_type_subtypes(void)
 	 * searches for file types that can write a file format
 	 * start with pcapng, pcap, and nanosecond pcap.
 	 */
-	register_pcapng();
+	register_pcapng(app_env_var_prefix);
 	register_pcap();
 
 	/* Now register the ones found by the build process */
@@ -2047,8 +1965,6 @@ wtap_get_all_capture_file_extensions_list(void)
 	GSList *extensions, *compression_type_extensions;
 	unsigned int i;
 
-	init_file_type_extensions();
-
 	extensions = NULL;	/* empty list, to start with */
 
 	/*
@@ -2287,6 +2203,8 @@ wtap_dump_init_dumper(int file_type_subtype, ws_compression_type compression_typ
 					descr_mand->wtap_encap = params->encap;
 				}
 				if (!wtap_dump_fix_idb(wdh, descr, err)) {
+					wtap_block_array_free(wdh->interface_data);
+					g_free(wdh);
 					return NULL;
 				}
 				g_array_append_val(wdh->interface_data, descr);
@@ -2352,6 +2270,9 @@ wtap_dump_open(const char *filename, int file_type_subtype,
 		   opening it. */
 		wtap_dump_file_close(wdh);
 		ws_unlink(filename);
+		g_free(wdh->priv);
+		wtap_block_array_free(wdh->interface_data);
+		wtap_block_array_unref(wdh->dsbs_initial);
 		g_free(wdh);
 		return NULL;
 	}
@@ -2414,6 +2335,9 @@ wtap_dump_open_tempfile(const char *tmpdir, char **filenamep, const char *pfx,
 		   opening it. */
 		wtap_dump_file_close(wdh);
 		ws_unlink(*filenamep);
+		g_free(wdh->priv);
+		wtap_block_array_free(wdh->interface_data);
+		wtap_block_array_unref(wdh->dsbs_initial);
 		g_free(wdh);
 		return NULL;
 	}
@@ -2449,6 +2373,9 @@ wtap_dump_fdopen(int fd, int file_type_subtype, ws_compression_type compression_
 
 	if (!wtap_dump_open_finish(wdh, err, err_info)) {
 		wtap_dump_file_close(wdh);
+		g_free(wdh->priv);
+		wtap_block_array_free(wdh->interface_data);
+		wtap_block_array_unref(wdh->dsbs_initial);
 		g_free(wdh);
 		return NULL;
 	}
@@ -2507,6 +2434,10 @@ wtap_dump_open_finish(wtap_dumper *wdh, int *err, char **err_info)
 	/* Can we do a seek on the file descriptor?
 	   If not, note that fact. */
 	if (wdh->compression_type != WS_FILE_UNCOMPRESSED) {
+		/* We've already checked this case in wtap_dump_init_dumper
+		 * via wtap_dump_can_compress, so we shouldn't need to return
+		 * WTAP_ERR_COMPRESSION_NOT_SUPPORTED instead of
+		 * WTAP_ERR_CANT_WRITE_TO_PIPE below. */
 		cant_seek = true;
 	} else {
 		fd = ws_fileno((FILE *)wdh->fh);
@@ -2675,9 +2606,8 @@ wtap_dump_close(wtap_dumper *wdh, bool *needs_reload,
 		if (ret) {
 			/* The per-format finish function succeeded,
 			   but the stream close didn't.  Save the
-			   reason why, if our caller asked for it. */
-			if (err != NULL)
-				*err = errno;
+			   reason why. */
+			*err = errno;
 		}
 		ret = false;
 	}
@@ -2902,6 +2832,12 @@ wtap_dump_file_tell(wtap_dumper *wdh, int *err)
 {
 	int64_t rval;
 #if defined (HAVE_ZLIB) || defined (HAVE_ZLIBNG) || defined (HAVE_LZ4FRAME_H)
+	/* XXX - The gzip_writer and lz4_writer structs do contain the
+	 * position in the uncompressed data as an int64_t so we could
+	 * return that, but that should be the same as bytes_dumped as
+	 * we can't seek while compressing. (Alternatively we could return
+	 * the position in the compressed file, but that seems less useful.)
+	 */
 	if (wdh->compression_type != WS_FILE_UNCOMPRESSED) {
 		*err = WTAP_ERR_CANT_SEEK_COMPRESSED;
 		return -1;

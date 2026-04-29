@@ -27,6 +27,7 @@
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <wsutil/strnatcmp.h>
@@ -46,6 +47,7 @@
 #include "ui/failure_message.h"
 
 #define LONGOPT_COMPRESS                LONGOPT_BASE_APPLICATION+1
+#define LONGOPT_NO_MERGING_COMMENT      LONGOPT_BASE_APPLICATION+2
 
 /*
  * Show the usage
@@ -67,6 +69,8 @@ print_usage(FILE *output)
     fprintf(output, "  -I <IDB merge mode> set the merge mode for Interface Description Blocks; default is 'all'.\n");
     fprintf(output, "                    an empty \"-I\" option will list the merge modes.\n");
     fprintf(output, "  --compress <type> compress the output file using the type compression format.\n");
+    fprintf(output, "  --no-merging-comment\n");
+    fprintf(output, "                    do not add \"File created by merging:\" comment.\n");
     fprintf(output, "\n");
     fprintf(output, "Miscellaneous:\n");
     fprintf(output, "  -h, --help        display this help and exit.\n");
@@ -187,11 +191,13 @@ main(int argc, char *argv[])
         {"help", ws_no_argument, NULL, 'h'},
         {"version", ws_no_argument, NULL, 'v'},
         {"compress", ws_required_argument, NULL, LONGOPT_COMPRESS},
+        {"no-merging-comment", ws_no_argument, NULL, LONGOPT_NO_MERGING_COMMENT},
         LONGOPT_WSLOG
         {0, 0, 0, 0 }
     };
 #define OPTSTRING "aF:hI:s:vVw:"
     static const char optstring[] = OPTSTRING;
+    bool                  add_merging_comment = true;
     bool                  do_append        = false;
     bool                  verbose          = false;
     int                   in_file_count    = 0;
@@ -202,6 +208,8 @@ main(int argc, char *argv[])
     idb_merge_mode        mode             = IDB_MERGE_MODE_MAX;
     ws_compression_type   compression_type = WS_FILE_UNKNOWN_COMPRESSION;
     merge_progress_callback_t cb;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
 
     /* Set the program name. */
     g_set_prgname("mergecap");
@@ -238,11 +246,12 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Mergecap", NULL, get_ws_vcs_version_info, NULL, NULL);
+    ws_init_version_info("Mergecap", NULL, application_get_vcs_version_info, NULL, NULL);
 
     init_report_failure_message("mergecap");
 
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     /* Process the options first */
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
@@ -309,6 +318,11 @@ main(int argc, char *argv[])
                     goto clean_exit;
                 }
                 break;
+
+            case LONGOPT_NO_MERGING_COMMENT:
+                add_merging_comment = false;
+                break;
+
             case '?':              /* Bad options if GNU getopt */
             default:
                 /* wslog arguments are okay */
@@ -405,14 +419,14 @@ main(int argc, char *argv[])
         /* merge the files to the standard output */
         status = merge_files_to_stdout(file_type,
                 (const char *const *) &argv[ws_optind],
-                in_file_count, do_append, mode, snaplen,
-                get_appname_and_version(),
+                in_file_count, add_merging_comment, do_append, mode, snaplen,
+                get_appname_and_version(), application_configuration_environment_prefix(),
                 verbose ? &cb : NULL, compression_type);
     } else {
         /* merge the files to the outfile */
         status = merge_files(out_filename, file_type,
                 (const char *const *) &argv[ws_optind], in_file_count,
-                do_append, mode, snaplen, get_appname_and_version(),
+                add_merging_comment, do_append, mode, snaplen, get_appname_and_version(), application_configuration_environment_prefix(),
                 verbose ? &cb : NULL, compression_type);
     }
 

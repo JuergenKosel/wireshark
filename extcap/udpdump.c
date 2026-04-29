@@ -36,7 +36,6 @@
 #endif
 
 #include <writecap/pcapio.h>
-#include <wiretap/wtap.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/filesystem.h>
@@ -46,6 +45,7 @@
 #include <wsutil/wslog.h>
 #include <wsutil/pint.h>
 #include <wsutil/exported_pdu_tlvs.h>
+#include <app/application_flavor.h>
 
 #include <cli_main.h>
 
@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 		g_free(err_msg);
 	}
 
-	help_url = data_file_url("udpdump.html");
+	help_url = data_file_url("udpdump.html", application_configuration_environment_prefix());
 	extcap_base_set_util_info(extcap_conf, argv[0], UDPDUMP_VERSION_MAJOR, UDPDUMP_VERSION_MINOR, UDPDUMP_VERSION_RELEASE,
 		help_url);
 	g_free(help_url);

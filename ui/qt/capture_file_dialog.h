@@ -20,7 +20,7 @@
 #include <ui/packet_range.h>
 
 #include <ui/qt/models/packet_list_record.h>
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include "ui/file_dialog.h"
 

@@ -11,6 +11,13 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/* AI generated comment:
+ * AIM Instant Messenger was a popular instant messaging service launched by America Online (AOL) in 1997
+ *  that used the proprietary OSCAR protocol to enable real-time communication.
+ * The OSCAR (Open System for CommunicAtion in Realtime) protocol handled user login,
+ * buddy lists, and instant messages, and was also used by ICQ.
+ * The service was discontinued on December 15, 2017.
+ */
 #include "config.h"
 
 
@@ -579,13 +586,13 @@ static const aim_family
 }
 
 static int
-aim_get_buddyname(wmem_allocator_t *pool, uint8_t **name, tvbuff_t *tvb, int offset)
+aim_get_buddyname(wmem_allocator_t *pool, char **name, tvbuff_t *tvb, int offset)
 {
 	uint8_t buddyname_length;
 
 	buddyname_length = tvb_get_uint8(tvb, offset);
 
-	*name = tvb_get_string_enc(pool, tvb, offset + 1, buddyname_length, ENC_UTF_8|ENC_NA);
+	*name = (char *)tvb_get_string_enc(pool, tvb, offset + 1, buddyname_length, ENC_UTF_8|ENC_NA);
 
 	return buddyname_length;
 }
@@ -1184,11 +1191,11 @@ dissect_aim_tlv_value_dcinfo(proto_item *ti, uint16_t valueid _U_, tvbuff_t *tvb
 static int
 dissect_aim_tlv_value_string (proto_item *ti, uint16_t valueid _U_, tvbuff_t *tvb, packet_info *pinfo)
 {
-	uint8_t *buf;
+	const char *buf;
 	int string_len;
 
 	string_len = tvb_reported_length(tvb);
-	buf = tvb_get_string_enc(pinfo->pool, tvb, 0, string_len, ENC_UTF_8|ENC_NA);
+	buf = (char*)tvb_get_string_enc(pinfo->pool, tvb, 0, string_len, ENC_UTF_8|ENC_NA);
 	proto_item_set_text(ti, "Value: %s", format_text(pinfo->pool, buf, string_len));
 
 	return string_len;
@@ -1253,7 +1260,7 @@ static int
 dissect_aim_tlv_value_messageblock (proto_item *ti, uint16_t valueid _U_, tvbuff_t *tvb, packet_info *pinfo)
 {
 	proto_tree *entry;
-	uint8_t *buf;
+	const char *buf;
 	uint16_t featurelen;
 	uint32_t blocklen;
 	proto_item* len_item;
@@ -1306,7 +1313,7 @@ dissect_aim_tlv_value_messageblock (proto_item *ti, uint16_t valueid _U_, tvbuff
 		offset += 2;
 
 		/* The actual message */
-		buf = tvb_get_string_enc(pinfo->pool, tvb, offset, blocklen - 4, ENC_ASCII|ENC_NA);
+		buf = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, blocklen - 4, ENC_ASCII|ENC_NA);
 		proto_item_append_text(ti, "Message: %s ",
 				    format_text(pinfo->pool, buf, blocklen - 4));
 		proto_tree_add_item(entry, hf_aim_messageblock_message, tvb,
@@ -1868,7 +1875,7 @@ static int dissect_aim_buddylist_reject(tvbuff_t *tvb, packet_info *pinfo, proto
 
 static int dissect_aim_buddylist_oncoming(tvbuff_t *tvb, packet_info *pinfo, proto_tree *buddy_tree)
 {
-	uint8_t *buddyname;
+	char  *buddyname;
 	int    offset           = 0;
 	int    buddyname_length = aim_get_buddyname( pinfo->pool, &buddyname, tvb, offset );
 
@@ -1891,7 +1898,7 @@ static int dissect_aim_buddylist_oncoming(tvbuff_t *tvb, packet_info *pinfo, pro
 static int dissect_aim_buddylist_offgoing(tvbuff_t *tvb, packet_info *pinfo, proto_tree *buddy_tree)
 {
 
-	uint8_t *buddyname;
+	char  *buddyname;
 	int    offset           = 0;
 	int    buddyname_length = aim_get_buddyname( pinfo->pool, &buddyname, tvb, offset );
 
@@ -1967,7 +1974,7 @@ static int dissect_aim_chat_userinfo_list(tvbuff_t *tvb, packet_info *pinfo, pro
 
 static int dissect_aim_chat_outgoing_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *chat_tree _U_)
 {
-	uint8_t *buddyname;
+	char *buddyname;
 	unsigned char *msg;
 	int buddyname_length;
 
@@ -1986,7 +1993,7 @@ static int dissect_aim_chat_outgoing_msg(tvbuff_t *tvb, packet_info *pinfo, prot
 
 static int dissect_aim_chat_incoming_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *chat_tree)
 {
-	uint8_t *buddyname;
+	char *buddyname;
 	unsigned char *msg;
 	/* channel message to client */
 	int buddyname_length;
@@ -2412,8 +2419,7 @@ static int dissect_aim_generic_ext_status_repl(tvbuff_t *tvb, packet_info *pinfo
 	offset += 2;
 	proto_tree_add_item(gen_tree, hf_generic_ext_status_flags, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset += 1;
-	proto_tree_add_item(gen_tree, hf_generic_ext_status_length, tvb, offset, 1, ENC_BIG_ENDIAN);
-	length = tvb_get_uint8(tvb, offset);
+	proto_tree_add_item_ret_uint8(gen_tree, hf_generic_ext_status_length, tvb, offset, 1, ENC_BIG_ENDIAN, &length);
 	offset += 1;
 	proto_tree_add_item(gen_tree, hf_generic_ext_status_data, tvb, offset, length, ENC_NA);
 	offset += 1;
@@ -2462,7 +2468,7 @@ static const aim_subtype aim_fnac_family_generic[] = {
 /***********************************************************************************************************
  * AIM ICQ
  ***********************************************************************************************************/
-#define ICQ_CLI_OFFLINE_MESSAGE_REQ 	0x003c
+#define ICQ_CLI_OFFLINE_MESSAGE_REQ	0x003c
 #define ICQ_CLI_DELETE_OFFLINE_MSGS	0x003e
 #define ICQ_SRV_OFFLINE_MSGS		0x0041
 #define ICQ_SRV_END_OF_OFFLINE_MSGS	0x0042
@@ -2471,9 +2477,9 @@ static const aim_subtype aim_fnac_family_generic[] = {
 
 static const value_string aim_icq_data_types[] = {
 	{ ICQ_CLI_OFFLINE_MESSAGE_REQ, "Offline Message Request" },
+	{ ICQ_CLI_DELETE_OFFLINE_MSGS, "Delete Offline Messages Request" },
 	{ ICQ_SRV_OFFLINE_MSGS,        "Offline Messages Reply" },
 	{ ICQ_SRV_END_OF_OFFLINE_MSGS, "End Of Offline Messages Reply" },
-	{ ICQ_CLI_DELETE_OFFLINE_MSGS, "Delete Offline Messages Request" },
 	{ ICQ_CLI_META_INFO_REQ,       "Metainfo Request" },
 	{ ICQ_SRV_META_INFO_REPL,      "Metainfo Reply" },
 	{ 0, NULL }
@@ -2490,7 +2496,7 @@ static const aim_tlv icq_tlv[] = {
 };
 
 
-static struct
+static const struct
 {
 	uint16_t subtype;
 	const char *name;
@@ -3011,7 +3017,7 @@ dissect_aim_msg_outgoing(tvbuff_t *tvb, packet_info *pinfo, proto_tree *msg_tree
 	int offset = 0;
 	const aim_tlv *aim_ch_tlvs = NULL;
 	uint16_t channel_id;
-	uint8_t *buddyname;
+	char *buddyname;
 	int buddyname_length;
 
 	/* ICBM Cookie */
@@ -3385,7 +3391,7 @@ static int dissect_aim_snac_signon_signon(tvbuff_t *tvb, packet_info *pinfo,
 {
 	uint8_t buddyname_length = 0;
 	int offset = 0;
-	uint8_t *buddyname;
+	char *buddyname;
 
 	/* Info Type */
 	proto_tree_add_item(tree, hf_aim_infotype, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -3707,8 +3713,7 @@ static int dissect_aim_sst_buddy_down_req (tvbuff_t *tvb, packet_info *pinfo, pr
 	proto_tree_add_item(tree, hf_aim_sst_unknown, tvb, offset, 4, ENC_NA);
 	offset+=4;
 
-	proto_tree_add_item(tree, hf_aim_sst_md5_hash_size, tvb, offset, 1, ENC_BIG_ENDIAN);
-	md5_size = tvb_get_uint8(tvb, offset);
+	proto_tree_add_item_ret_uint8(tree, hf_aim_sst_md5_hash_size, tvb, offset, 1, ENC_BIG_ENDIAN, &md5_size);
 	offset++;
 
 	proto_tree_add_item(tree, hf_aim_sst_md5_hash, tvb, offset, md5_size, ENC_NA);
@@ -3726,16 +3731,14 @@ static int dissect_aim_sst_buddy_down_repl (tvbuff_t *tvb, packet_info *pinfo, p
 	proto_tree_add_item(tree, hf_aim_sst_unknown, tvb, offset, 3, ENC_NA);
 	offset+=3;
 
-	proto_tree_add_item(tree, hf_aim_sst_md5_hash_size, tvb, offset, 1, ENC_BIG_ENDIAN);
-	md5_size = tvb_get_uint8(tvb, offset);
+	proto_tree_add_item_ret_uint8(tree, hf_aim_sst_md5_hash_size, tvb, offset, 1, ENC_BIG_ENDIAN, &md5_size);
 	offset++;
 
 	proto_tree_add_item(tree, hf_aim_sst_md5_hash, tvb, offset, md5_size, ENC_NA);
 
 	offset+=md5_size;
 
-	proto_tree_add_item(tree, hf_aim_sst_icon_size, tvb, offset, 2, ENC_BIG_ENDIAN);
-	icon_size = tvb_get_ntohs(tvb, offset);
+	proto_tree_add_item_ret_uint16(tree, hf_aim_sst_icon_size, tvb, offset, 2, ENC_BIG_ENDIAN, &icon_size);
 	offset+=2;
 
 	if (icon_size)
@@ -3774,8 +3777,7 @@ static int dissect_aim_sst_buddy_up_req (tvbuff_t *tvb, packet_info *pinfo _U_, 
 	proto_tree_add_item(tree, hf_aim_sst_ref_num, tvb, offset, 2, ENC_BIG_ENDIAN);
 	offset+=2;
 
-	proto_tree_add_item(tree, hf_aim_sst_icon_size, tvb, offset, 2, ENC_BIG_ENDIAN);
-	icon_size = tvb_get_ntohs(tvb, offset);
+	proto_tree_add_item_ret_uint16(tree, hf_aim_sst_icon_size, tvb, offset, 2, ENC_BIG_ENDIAN, &icon_size);
 	offset+=2;
 
 	if (icon_size)

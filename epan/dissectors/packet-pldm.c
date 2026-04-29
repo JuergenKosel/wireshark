@@ -711,8 +711,7 @@ int dissect_base(tvbuff_t *tvb, packet_info *pinfo, proto_tree *p_tree, const pl
 				proto_tree_add_item(p_tree, hf_pldm_base_transferFlag, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 				offset += 1;
 				const char *version_string = ver2str(tvb, offset);
-				proto_tree_add_string_format_value(p_tree, hf_pldm_base_typeVersion, tvb, offset, 4,
-				                                   version_string, "%s", version_string);
+				proto_tree_add_string(p_tree, hf_pldm_base_typeVersion, tvb, offset, 4, version_string);
 				// possibly more than one entry
 			}
 			break;
@@ -747,8 +746,7 @@ int dissect_base(tvbuff_t *tvb, packet_info *pinfo, proto_tree *p_tree, const pl
 				proto_tree_add_item(p_tree, hf_pldm_base_PLDMtype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 				offset += 1;
 				const char *version_string = ver2str(tvb, offset);
-				proto_tree_add_string_format_value(p_tree, hf_pldm_base_typeVersion, tvb, offset, 4,
-				                                   version_string, "%s", version_string);
+				proto_tree_add_string(p_tree, hf_pldm_base_typeVersion, tvb, offset, 4, version_string);
 			} else if (!request) {
 				int pldmTypeReceived = GPOINTER_TO_UINT(wmem_map_lookup(pldmTypeMap, GUINT_TO_POINTER(instID)));
 				switch (pldmTypeReceived) {
@@ -1213,9 +1211,7 @@ uint16_t parse_fru_record_table(tvbuff_t *tvb, const packet_info *pinfo,
 						proto_tree_add_item(p_tree, hf_fru_record_field_value, tvb, offset, field_len, ENC_UTF_8);
 						break;
 					case 0x3:
-						// Removed ENC_BOM encoding flag, [ENC_UTF_16 | ENC_BOM] --> [ENC_UTF_16]
-						// as it caused "bad encoding" warning
-						proto_tree_add_item(p_tree, hf_fru_record_field_value, tvb, offset, field_len, ENC_UTF_16);
+						proto_tree_add_item(p_tree, hf_fru_record_field_value, tvb, offset, field_len, ENC_UTF_16 | ENC_BOM);
 						break;
 					case 0x4:
 						proto_tree_add_item(p_tree, hf_fru_record_field_value, tvb,
@@ -1391,12 +1387,12 @@ int dissect_FWU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *p_tree, const pld
 				proto_tree_add_item_ret_uint(p_tree, hf_fwu_pend_ver_str_len, tvb, offset, 1, ENC_LITTLE_ENDIAN, &pend_fw_ver_len);
 				offset += 1;
 				if(act_fw_ver_len > 0) {
-					act_fw_ver_str = tvb_get_string_enc(pinfo->pool, tvb, offset, act_fw_ver_len, act_fw_ver_str_type);
+					act_fw_ver_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, act_fw_ver_len, act_fw_ver_str_type);
 					proto_tree_add_string(p_tree, hf_fwu_act_ver_str, tvb, offset, act_fw_ver_len, act_fw_ver_str);
 					offset += act_fw_ver_len;
 				}
 				if(pend_fw_ver_len > 0) {
-					pend_fw_ver_str = tvb_get_string_enc(pinfo->pool, tvb, offset, pend_fw_ver_len, pend_fw_ver_str_type);
+					pend_fw_ver_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, pend_fw_ver_len, pend_fw_ver_str_type);
 					proto_tree_add_string(p_tree, hf_fwu_pend_ver_str, tvb, offset, pend_fw_ver_len, pend_fw_ver_str);
 					offset += pend_fw_ver_len;
 				}
@@ -1462,13 +1458,13 @@ int dissect_FWU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *p_tree, const pld
 						offset += 4;
 
 						if(act_comp_ver_len > 0) {
-							act_comp_ver_str = tvb_get_string_enc(pinfo->pool, tvb, offset, act_comp_ver_len, act_comp_ver_str_type);
+							act_comp_ver_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, act_comp_ver_len, act_comp_ver_str_type);
 							proto_tree_add_string(components_tree, hf_fwu_act_comp_ver_str, tvb, offset, act_comp_ver_len, act_comp_ver_str);
 							offset += act_comp_ver_len;
 						}
 
 						if(pend_comp_ver_len > 0) {
-							pend_comp_ver_str = tvb_get_string_enc(pinfo->pool, tvb, offset, pend_comp_ver_len, pend_comp_ver_str_type);
+							pend_comp_ver_str = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset, pend_comp_ver_len, pend_comp_ver_str_type);
 							proto_tree_add_string(components_tree, hf_fwu_pend_comp_ver_str, tvb, offset, pend_comp_ver_len, pend_comp_ver_str);
 							offset += pend_comp_ver_len;
 						}

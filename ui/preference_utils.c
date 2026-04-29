@@ -21,6 +21,7 @@
 #include <epan/decode_as.h>
 #include <epan/uat-int.h>
 #include <ui/recent.h>
+#include <app/application_flavor.h>
 
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_opts.h"
@@ -55,14 +56,14 @@ prefs_main_write(void)
 
     /* Create the directory that holds personal configuration files, if
        necessary.  */
-    if (create_persconffile_dir(&pf_dir_path) == -1) {
+    if (create_persconffile_dir(application_configuration_environment_prefix(), &pf_dir_path) == -1) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Can't create directory\n\"%s\"\nfor preferences file: %s.", pf_dir_path,
                 g_strerror(errno));
         g_free(pf_dir_path);
     } else {
         /* Write the preferences out. */
-        err = write_prefs(&pf_path);
+        err = write_prefs(application_configuration_environment_prefix(), &pf_path);
         if (err != 0) {
             simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                     "Can't open preferences file\n\"%s\": %s.", pf_path,
@@ -211,7 +212,7 @@ column_prefs_has_custom(const char *custom_field)
     fmt_data *cfmt;
     int colnr = -1;
 
-    for (int i = 0; i < prefs.num_cols; i++) {
+    for (unsigned i = 0; i < prefs.num_cols; i++) {
         clp = g_list_nth(prefs.col_list, i);
         if (clp == NULL) /* Sanity check, invalid column requested */
             continue;
@@ -308,7 +309,7 @@ void save_migrated_uat(const char *uat_name, bool *old_pref)
 {
     char *err = NULL;
 
-    if (!uat_save(uat_get_table_by_name(uat_name), &err)) {
+    if (!uat_save(uat_get_table_by_name(uat_name), application_configuration_environment_prefix(), &err)) {
         ws_warning("Unable to save %s: %s", uat_name, err);
         g_free(err);
         return;

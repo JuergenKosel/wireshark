@@ -19,9 +19,11 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/additional_toolbar.h
 	widgets/apply_line_edit.h
 	widgets/base_data_source_view.h
+	widgets/capture_card_widget.h
 	widgets/capture_filter_combo.h
 	widgets/capture_filter_edit.h
 	widgets/clickable_label.h
+	widgets/collapsible_section.h
 	widgets/compression_group_box.h
 	widgets/copy_from_profile_button.h
 	widgets/detachable_tabwidget.h
@@ -43,6 +45,8 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/interface_toolbar_lineedit.h
 	widgets/json_data_source_view.h
 	widgets/label_stack.h
+	widgets/info_banner_widget.h
+	widgets/learn_card_widget.h
 	widgets/overlay_scroll_bar.h
 	widgets/packet_list_header.h
 	widgets/path_selection_edit.h
@@ -64,6 +68,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/traffic_tab.h
 	widgets/traffic_tree.h
 	widgets/traffic_types_list.h
+	widgets/welcome_header_widget.h
 	widgets/wireless_timeline.h
 	widgets/wireshark_file_dialog.h
 	widgets/customplot.h
@@ -91,11 +96,13 @@ set(WIRESHARK_UTILS_HEADERS
 	utils/rtp_audio_routing_filter.h
 	utils/rtp_audio_routing.h
 	utils/rtp_audio_silence_generator.h
+	utils/software_update.h
 	utils/stock_icon.h
 	utils/tango_colors.h
 	utils/variant_pointer.h
 	utils/wireshark_mime_data.h
 	utils/wireshark_zip_helper.h
+	utils/workspace_state.h
 )
 
 set(WIRESHARK_MODEL_HEADERS
@@ -129,6 +136,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/pref_models.h
 	models/profile_model.h
 	models/proto_tree_model.h
+	models/recentcapturefiles_list_model.h
 	models/related_packet_delegate.h
 	models/resolved_addresses_models.h
 	models/sparkline_delegate.h
@@ -170,6 +178,9 @@ set(WIRESHARK_QT_HEADERS
 	decode_as_dialog.h
 	display_filter_expression_dialog.h
 	dissector_tables_dialog.h
+	dis_audio_stream.h
+	dis_stream_dialog.h
+	dis_stream_analysis_dialog.h
 	enabled_protocols_dialog.h
 	endpoint_dialog.h
 	expert_info_dialog.h
@@ -201,6 +212,7 @@ set(WIRESHARK_QT_HEADERS
 	interface_frame.h
 	interface_toolbar_reader.h
 	interface_toolbar.h
+	keyboard_shortcuts_dialog.h
 	io_console_dialog.h
 	io_graph.h
 	io_graph_action.h
@@ -240,7 +252,6 @@ set(WIRESHARK_QT_HEADERS
 	proto_tree.h
 	protocol_hierarchy_dialog.h
 	protocol_preferences_menu.h
-	recent_file_status.h
 	resolved_addresses_dialog.h
 	response_time_delay_dialog.h
 	rpc_service_response_time_dialog.h
@@ -275,6 +286,7 @@ set(WIRESHARK_QT_HEADERS
 	uat_frame.h
 	voip_calls_dialog.h
 	welcome_page.h
+	welcome_page_preferences_frame.h
 	wireless_frame.h
 	wireshark_application.h
 	wireshark_dialog.h
@@ -295,12 +307,19 @@ if(ENABLE_PCAP)
 	endif()
 endif()
 
+if(LUA_FOUND)
+	include(${CMAKE_CURRENT_SOURCE_DIR}/lua_debugger/CMakeLists.txt)
+	list(APPEND WIRESHARK_QT_HEADERS ${WIRESHARK_LUA_DEBUGGER_HEADERS})
+endif()
+
 set(WIRESHARK_WIDGET_SRCS
 	widgets/additional_toolbar.cpp
 	widgets/apply_line_edit.cpp
+	widgets/capture_card_widget.cpp
 	widgets/capture_filter_combo.cpp
 	widgets/capture_filter_edit.cpp
 	widgets/clickable_label.cpp
+	widgets/collapsible_section.cpp
 	widgets/compression_group_box.cpp
 	widgets/copy_from_profile_button.cpp
 	widgets/detachable_tabwidget.cpp
@@ -322,6 +341,8 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/interface_toolbar_lineedit.cpp
 	widgets/json_data_source_view.cpp
 	widgets/label_stack.cpp
+	widgets/info_banner_widget.cpp
+	widgets/learn_card_widget.cpp
 	widgets/overlay_scroll_bar.cpp
 	widgets/packet_list_header.cpp
 	widgets/path_selection_edit.cpp
@@ -343,6 +364,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/traffic_tab.cpp
 	widgets/traffic_tree.cpp
 	widgets/traffic_types_list.cpp
+	widgets/welcome_header_widget.cpp
 	widgets/wireless_timeline.cpp
 	widgets/wireshark_file_dialog.cpp
 	widgets/customplot.cpp
@@ -369,9 +391,11 @@ set(WIRESHARK_UTILS_SRCS
 	utils/rtp_audio_routing_filter.cpp
 	utils/rtp_audio_routing.cpp
 	utils/rtp_audio_silence_generator.cpp
+	utils/software_update.cpp
 	utils/stock_icon.cpp
 	utils/wireshark_mime_data.cpp
 	utils/wireshark_zip_helper.cpp
+	utils/workspace_state.cpp
 )
 
 set(WIRESHARK_MODEL_SRCS
@@ -405,7 +429,9 @@ set(WIRESHARK_MODEL_SRCS
 	models/pref_models.cpp
 	models/profile_model.cpp
 	models/proto_tree_model.cpp
+	models/recentcapturefiles_list_model.cpp
 	models/related_packet_delegate.cpp
+	models/multi_color_packet_delegate.cpp
 	models/resolved_addresses_models.cpp
 	models/sparkline_delegate.cpp
 	models/supported_protocols_model.cpp
@@ -443,6 +469,9 @@ set(WIRESHARK_QT_SRC
 	decode_as_dialog.cpp
 	display_filter_expression_dialog.cpp
 	dissector_tables_dialog.cpp
+	dis_audio_stream.cpp
+	dis_stream_dialog.cpp
+	dis_stream_analysis_dialog.cpp
 	enabled_protocols_dialog.cpp
 	endpoint_dialog.cpp
 	export_dissection_dialog.cpp
@@ -470,6 +499,7 @@ set(WIRESHARK_QT_SRC
 	interface_frame.cpp
 	interface_toolbar_reader.cpp
 	interface_toolbar.cpp
+	keyboard_shortcuts_dialog.cpp
 	io_console_dialog.cpp
 	io_graph_action.cpp
 	layout_preferences_frame.cpp
@@ -505,7 +535,6 @@ set(WIRESHARK_QT_SRC
 	proto_tree.cpp
 	protocol_hierarchy_dialog.cpp
 	protocol_preferences_menu.cpp
-	recent_file_status.cpp
 	resolved_addresses_dialog.cpp
 	response_time_delay_dialog.cpp
 	rpc_service_response_time_dialog.cpp
@@ -540,6 +569,7 @@ set(WIRESHARK_QT_SRC
 	uat_frame.cpp
 	voip_calls_dialog.cpp
 	welcome_page.cpp
+	welcome_page_preferences_frame.cpp
 	wireless_frame.cpp
 	wireshark_application.cpp
 	wireshark_dialog.cpp
@@ -558,6 +588,10 @@ if(ENABLE_PCAP)
 			remote_settings_dialog.cpp
 		)
 	endif()
+endif()
+
+if(LUA_FOUND)
+	list(APPEND WIRESHARK_QT_SRC ${WIRESHARK_LUA_DEBUGGER_SRCS})
 endif()
 
 set(WIRESHARK_QT_TAP_SRC
@@ -631,6 +665,7 @@ set(WIRESHARK_QT_UI
 	import_text_dialog.ui
 	interface_frame.ui
 	interface_toolbar.ui
+	keyboard_shortcuts_dialog.ui
 	io_console_dialog.ui
 	io_graph_dialog.ui
 	layout_preferences_frame.ui
@@ -680,9 +715,15 @@ set(WIRESHARK_QT_UI
 	uat_frame.ui
 	voip_calls_dialog.ui
 	welcome_page.ui
-	widgets/splash_overlay.ui
+	welcome_page_preferences_frame.ui
 	wireless_frame.ui
 	wireshark_main_window.ui
+)
+
+set(WIRESHARK_QT_WIDGETS_UI
+	widgets/capture_card_widget.ui
+	widgets/learn_card_widget.ui
+	widgets/welcome_header_widget.ui
 )
 
 if(HAVE_PCAP_REMOTE)
@@ -691,6 +732,15 @@ if(HAVE_PCAP_REMOTE)
 		remote_settings_dialog.ui
 	)
 endif()
+
+if(LUA_FOUND)
+	list(APPEND WIRESHARK_QT_UI ${WIRESHARK_LUA_DEBUGGER_UI})
+endif()
+
+set(WIRESHARK_QT_UI_SRCS
+	${WIRESHARK_QT_UI}
+	${WIRESHARK_QT_WIDGETS_UI}
+)
 
 set(WIRESHARK_QT_TS
 	wireshark_ca.ts
@@ -713,30 +763,79 @@ set(WIRESHARK_QT_TS
 	wireshark_zh_CN.ts
 )
 
+cmake_path(SET TRANSLATION_INSTALL_DIR NORMALIZE "${CMAKE_INSTALL_BINDIR}/translations")
+
+# Translation files (i18n)
+qrc_register(NAME i18n PREFIX "/i18n")
 foreach(_file ${WIRESHARK_QT_TS})
-	get_filename_component(_qresource ${_file} NAME_WE)
-	set(_qresource_qm "${_qresource}.qm")
-	set(i18n_qresource "${i18n_qresource}\n    <file>${_qresource_qm}</file>")
+    get_filename_component(_qresource ${_file} NAME_WE)
+    set(_qresource_qm "${CMAKE_CURRENT_BINARY_DIR}/${_qresource}.qm")
+
+    qrc_add_file(NAME i18n FILE "${_qresource_qm}" ALIAS "${_qresource}.qm" GENERATED ON)
+
+    install(FILES "${_qresource_qm}" DESTINATION "${TRANSLATION_INSTALL_DIR}")
 endforeach()
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
+qrc_finalize(NAME i18n OUTPUT_FILE_NAME "i18n.qrc" OUTPUT_VAR I18N_QRC)
 
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/authors.qrc"
-"<RCC>\n"
-"    <qresource prefix=\"/about\">\n"
-"        <file compress-algo=\"zstd\">authors.csv</file>\n"
-"    </qresource>\n"
-"</RCC>\n"
-)
-
+# Authors file
 add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
-	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
-			< ${CMAKE_SOURCE_DIR}/AUTHORS
-			> ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
-	DEPENDS
-		${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
-		${CMAKE_SOURCE_DIR}/AUTHORS
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
+                    < ${CMAKE_SOURCE_DIR}/AUTHORS
+                    > ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
+        ${CMAKE_SOURCE_DIR}/AUTHORS
 )
+
+qrc_register(NAME authors PREFIX "/about")
+qrc_add_file(NAME authors FILE "${CMAKE_CURRENT_BINARY_DIR}/authors.csv" ALIAS "authors.csv"
+             COMPRESS "zstd" GENERATED ON)
+qrc_finalize(NAME authors OUTPUT_VAR AUTHORS_QRC)
+
+# Generate translatable strings from JSON data files for lupdate
+GENERATE_JSON_TR_STRINGS(
+	INPUT   ${CMAKE_SOURCE_DIR}/resources/json/slides.json
+	OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/slide_tr_strings.cpp
+	CONTEXT InfoBannerWidget
+	EXTRACT slides:tag,title,description,description_sub,body_text,button_label,url
+)
+
+GENERATE_JSON_TR_STRINGS(
+	INPUT   ${CMAKE_SOURCE_DIR}/resources/json/learn_card.json
+	OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/learn_card_tr_strings.cpp
+	CONTEXT LearnCardWidget
+	EXTRACT links:label,short_label,tooltip
+	        buttons:label,tooltip
+)
+
+# Stylesheet resources
+qrc_register(
+	NAME stylesheets
+	PREFIX "/stylesheets"
+)
+qrc_add_files(
+	NAME stylesheets
+	BASE_DIR "${CMAKE_SOURCE_DIR}/ui/stylesheets"
+	FILES
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card-light.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card-light.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/welcome-header-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/welcome-header-light.qss
+)
+qrc_finalize(NAME stylesheets OUTPUT_VAR STYLESHEETS_QRC)
+
+# JSON data resources
+qrc_register(NAME json_resource PREFIX "/json")
+qrc_add_file(NAME json_resource FILE  "${CMAKE_SOURCE_DIR}/resources/json/slides.json" ALIAS "slides.json")
+qrc_add_file(NAME json_resource FILE  "${CMAKE_SOURCE_DIR}/resources/json/learn_card.json" ALIAS "learn_card.json")
+if(CUSTOM_SLIDES_JSON AND EXISTS "${CUSTOM_SLIDES_JSON}")
+    qrc_add_file(NAME json_resource FILE  "${CUSTOM_SLIDES_JSON}" ALIAS "slides_custom.json")
+endif()
+qrc_add_glob(NAME json_resource GLOB "${CMAKE_SOURCE_DIR}/resources/json/banners/*" ALIAS_PREFIX "banners/")
+qrc_finalize(NAME json_resource OUTPUT_VAR JSON_QRC)
 
 # Drop the file modification time of source files from generated files
 # to help with reproducible builds. We do not use QFileInfo.lastModified
@@ -750,10 +849,8 @@ add_custom_command(
 set(CMAKE_AUTORCC_OPTIONS --format-version 1)
 list(APPEND CMAKE_AUTORCC_OPTIONS -compress-algo zlib)
 
-if (APPLE)
-	set(WS_ICON_QRC "wsicon_mac.qrc")
-else()
-	set(WS_ICON_QRC "wsicon.qrc")
+if(NOT APPLE)
+	set(WSICON_QRC ${CMAKE_SOURCE_DIR}/resources/wsicon.qrc)
 endif()
 
 qt_add_resources(WIRESHARK_QT_QRC
@@ -761,12 +858,17 @@ qt_add_resources(WIRESHARK_QT_QRC
 	../../resources/languages/languages.qrc
 	../../resources/layout.qrc
 	../../resources/stock_icons.qrc
-	${CMAKE_SOURCE_DIR}/resources/${WS_ICON_QRC}
-	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
-	${CMAKE_CURRENT_BINARY_DIR}/authors.qrc
+	${WSICON_QRC}
+	${I18N_QRC}
+	${AUTHORS_QRC}
+	${JSON_QRC}
+	${STYLESHEETS_QRC}
 	OPTIONS ${CMAKE_AUTORCC_OPTIONS}
 )
 
+# qt[56]_add_translation is deprecated in Qt 6.2 and later for
+# qt[6]_add_translations, but until we drop Qt 5.15 support it
+# would be more complicated to have two different approaches.
 if (USE_qt6)
 	QT6_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS} OPTIONS -silent)
 else()
@@ -808,7 +910,7 @@ register_tap_files(wireshark-tap-register.c
 	${WIRESHARK_QT_TAP_SRC}
 )
 
-source_group("ui\\UIC Files" FILES ${WIRESHARK_QT_UI})
+source_group("ui\\UIC Files" FILES ${WIRESHARK_QT_UI_SRCS})
 source_group("ui\\qrc" FILES ${WIRESHARK_QT_QRC})
 source_group("ui\\Header" FILES ${WIRESHARK_QT_HEADERS})
 source_group("ui\\Widget Header" FILES ${WIRESHARK_WIDGET_HEADERS})
@@ -832,8 +934,12 @@ add_library(qtui OBJECT
 	${WIRESHARK_QT_NONGENERATED_SRC}
 	${WIRESHARK_3RD_PARTY_WIDGET_SRCS}
 
+	# Generated translation markers for JSON data (lupdate only)
+	${CMAKE_CURRENT_BINARY_DIR}/slide_tr_strings.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/learn_card_tr_strings.cpp
+
 	# For AUTOUIC and AUTORCC.
-	${WIRESHARK_QT_UI}
+	${WIRESHARK_QT_UI_SRCS}
 	${WIRESHARK_QT_QRC}
 
 	${WIRESHARK_QT_TAP_SRC}
@@ -846,6 +952,7 @@ if(USE_qt6)
 		Qt6::Core5Compat
 		Qt6::Concurrent
 		Qt6::PrintSupport
+		Qt6::Network
 	)
 	if(Qt6Multimedia_FOUND)
 		target_link_libraries(qtui PUBLIC Qt6::Multimedia)
@@ -873,6 +980,7 @@ target_include_directories(qtui
 	PRIVATE
 		${CMAKE_CURRENT_BINARY_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/lua_debugger
 )
 
 target_compile_definitions(qtui
@@ -888,7 +996,7 @@ set_target_properties(qtui PROPERTIES
 	# AUTORCC not needed with qt_add_resources
 	#AUTORCC ON
 	# Ensure .qm files are generated before autogenerating i18n.qrc
-	AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM}"
+	AUTOGEN_TARGET_DEPENDS "${WIRESHARK_QT_QM};translations"
 )
 
 if(MSVC)

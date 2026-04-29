@@ -22,6 +22,18 @@
 #endif /* _WIN32 */
 #include <krb5.h>
 
+#ifdef HAVE_MIT_KERBEROS
+#define KRB5_KT_KEY(k)          (&(k)->key)
+#define KRB5_KEY_TYPE(k)        ((k)->enctype)
+#define KRB5_KEY_LENGTH(k)      ((k)->length)
+#define KRB5_KEY_DATA(k)        ((k)->contents)
+#else
+#define KRB5_KT_KEY(k)          (&(k)->keyblock)
+#define KRB5_KEY_TYPE(k)        ((k)->keytype)
+#define KRB5_KEY_LENGTH(k)      ((k)->keyvalue.length)
+#define KRB5_KEY_DATA(k)        ((k)->keyvalue.data)
+#endif
+
 krb5_context keytab_krb5_ctx;
 
 static enc_key_t* enc_key_list = NULL;
@@ -268,7 +280,6 @@ keytab_file_read(const char* filename)
         ret = krb5_kt_next_entry(keytab_krb5_ctx, keytab, &key, &cursor);
         if (ret == 0) {
             enc_key_t* new_key;
-            int i;
             wmem_strbuf_t* str_principal = wmem_strbuf_new(wmem_epan_scope(), "keytab principal ");
 
             new_key = wmem_new0(wmem_epan_scope(), enc_key_t);
@@ -278,19 +289,31 @@ keytab_file_read(const char* filename)
             new_key->next = enc_key_list;
 
             /* generate origin string, describing where this key came from */
-            for (i = 0; i < key.principal->length; i++) {
-                wmem_strbuf_append_printf(str_principal, "%s%s", (i ? "/" : ""), (key.principal->data[i]).data);
-            }
-            wmem_strbuf_append_printf(str_principal, "@%s", key.principal->realm.data);
-            new_key->key_origin = (char*)wmem_strbuf_get_str(str_principal);
-            new_key->keytype = key.key.enctype;
-            new_key->keylength = key.key.length;
+            char* name;
+            krb5_unparse_name(keytab_krb5_ctx, key.principal, &name);
+            wmem_strbuf_append(str_principal, name);
+            new_key->key_origin = (char*)wmem_strbuf_finalize(str_principal);
+#ifdef HAVE_MIT_KERBEROS
+            krb5_free_unparsed_name(keytab_krb5_ctx, name);
+#else
+            /* Heimdal has the other function but it is deprecated, we could
+             * test for this function's presence instead. */
+            krb5_xfree(name);
+#endif
+            new_key->keytype = KRB5_KEY_TYPE(KRB5_KT_KEY(&key));
+            new_key->keylength = MIN(KRB5_KEY_LENGTH(KRB5_KT_KEY(&key)), KRB_MAX_KEY_LENGTH);
             memcpy(new_key->keyvalue,
-                key.key.contents,
-                MIN(key.key.length, KRB_MAX_KEY_LENGTH));
+                KRB5_KEY_DATA(KRB5_KT_KEY(&key)),
+                new_key->keylength);
 
             enc_key_list = new_key;
+#ifdef HAVE_MIT_KERBEROS
+            /* MIT has the other function but it is deprecated, we could
+             * test for this function's presence instead. */
             ret = krb5_free_keytab_entry_contents(keytab_krb5_ctx, &key);
+#else
+            ret = krb5_kt_free_entry(keytab_krb5_ctx, &key);
+#endif
             if (ret) {
                 ws_critical("KERBEROS ERROR: Could not release the entry: %d", ret);
                 ret = 0; /* try to continue with the next entry */
@@ -310,59 +333,6 @@ keytab_file_read(const char* filename)
 }
 
 USES_APPLE_RST
-
-#elif defined (HAVE_LIBNETTLE)
-
-
-static void
-keytab_file_read(const char* service_key_file)
-{
-    FILE* skf;
-    ws_statb64 st;
-    service_key_t* sk;
-    unsigned char buf[SERVICE_KEY_SIZE];
-    int newline_skip = 0, count = 0;
-
-    if (service_key_file != NULL && ws_stat64(service_key_file, &st) == 0) {
-
-        /* The service key file contains raw 192-bit (24 byte) 3DES keys.
-         * There can be zero, one (\n), or two (\r\n) characters between
-         * keys.  Trailing characters are ignored.
-         */
-
-         /* XXX We should support the standard keytab format instead */
-        if (st.st_size > SERVICE_KEY_SIZE) {
-            if ((st.st_size % (SERVICE_KEY_SIZE + 1) == 0) ||
-                (st.st_size % (SERVICE_KEY_SIZE + 1) == SERVICE_KEY_SIZE)) {
-                newline_skip = 1;
-            }
-            else if ((st.st_size % (SERVICE_KEY_SIZE + 2) == 0) ||
-                (st.st_size % (SERVICE_KEY_SIZE + 2) == SERVICE_KEY_SIZE)) {
-                newline_skip = 2;
-            }
-        }
-
-        skf = ws_fopen(service_key_file, "rb");
-        if (!skf) return;
-
-        while (fread(buf, SERVICE_KEY_SIZE, 1, skf) == 1) {
-            sk = g_malloc(sizeof(service_key_t));
-            sk->kvno = buf[0] << 8 | buf[1];
-            sk->keytype = KEYTYPE_DES3_CBC_MD5;
-            sk->length = DES3_KEY_SIZE;
-            sk->contents = g_memdup2(buf + 2, DES3_KEY_SIZE);
-            sk->origin = g_strdup_printf("3DES service key file, key #%d, offset %ld", count, ftell(skf));
-            service_key_list = g_slist_append(service_key_list, (void*)sk);
-            if (fseek(skf, newline_skip, SEEK_CUR) < 0) {
-                ws_critical("unable to seek...");
-                fclose(skf);
-                return;
-            }
-            count++;
-        }
-        fclose(skf);
-    }
-}
 
 #endif
 

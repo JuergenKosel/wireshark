@@ -27,10 +27,6 @@
 void proto_register_openvpn(void);
 void proto_reg_handoff_openvpn(void);
 
-#define PFNAME "openvpn"
-#define PNAME  "OpenVPN Protocol"
-#define PSNAME "OpenVPN"
-
 #define OPENVPN_PORT 1194
 
 /* packet opcode and key-id are combined in one byte */
@@ -176,6 +172,7 @@ dissect_openvpn_msg_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *openvp
   bool           tls_crypt = false;
   unsigned       openvpn_keyid;
   unsigned       openvpn_opcode;
+  char          *openvpn_message_type;
   uint32_t       msg_sessionid = -1;
   uint8_t        openvpn_predict_tlsauth_arraylength;
   proto_item    *ti2;
@@ -184,19 +181,17 @@ dissect_openvpn_msg_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *openvp
   int            wkc_offset = -1;
 
   /* Clear out stuff in the info column */
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
+  col_set_str(pinfo->cinfo, COL_PROTOCOL, "OpenVPN");
   col_clear(pinfo->cinfo,COL_INFO);
 
   /* read opcode and write to info column */
   openvpn_opcode = tvb_get_bits8(tvb, offset*8, 5);
-  col_append_fstr(pinfo->cinfo, COL_INFO, "MessageType: %s",
-                  val_to_str_const(openvpn_opcode, openvpn_message_types, "Unknown Messagetype"));
+  openvpn_message_type = val_to_str(pinfo->pool, openvpn_opcode, openvpn_message_types, "Unknown (0x%02x)");
 
+  col_append_fstr(pinfo->cinfo, COL_INFO, "MessageType: %s", openvpn_message_type);
 
   openvpn_keyid = tvb_get_bits8(tvb, offset*8 + 5, 3);
-  proto_item_append_text(parent_tree, ", Opcode: %s, Key ID: %d",
-                         val_to_str(pinfo->pool, openvpn_opcode, openvpn_message_types, "Unknown (0x%02x)"),
-                         openvpn_keyid);
+  proto_item_append_text(openvpn_tree, ", Opcode: %s, Key ID: %d", openvpn_message_type, openvpn_keyid);
 
   ti2 = proto_tree_add_item(openvpn_tree, hf_openvpn_pdu_type, tvb, offset, 1, ENC_BIG_ENDIAN);
   proto_item_append_text(ti2, " [opcode/key_id]");
@@ -323,11 +318,11 @@ dissect_openvpn_msg_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *openvp
       proto_tree *wkc_tree;
       wkc_offset = tvb_reported_length(tvb) - wkc_len;
 
-      wkc_tree = proto_tree_add_subtree_format(openvpn_tree, tvb, offset, data_len,
-						ett_openvpn_wkc, NULL, "Wrapped client key (%d bytes)",
-						tvb_captured_length_remaining(tvb, wkc_offset));
+      wkc_tree = proto_tree_add_subtree_format(openvpn_tree, tvb, wkc_offset, wkc_len,
+                                               ett_openvpn_wkc, NULL, "Wrapped client key (%d bytes)",
+                                               tvb_reported_length_remaining(tvb, wkc_offset));
 
-      proto_tree_add_item(wkc_tree, hf_openvpn_wkc_data, tvb, wkc_offset, wkc_len, ENC_NA);
+      proto_tree_add_item(wkc_tree, hf_openvpn_wkc_data, tvb, wkc_offset, wkc_len - 2, ENC_NA);
       proto_tree_add_item(wkc_tree, hf_openvpn_wkc_length, tvb,  tvb_reported_length(tvb) - 2, 2, ENC_BIG_ENDIAN);
     }
 
@@ -579,11 +574,7 @@ proto_register_openvpn(void)
   };
   module_t *openvpn_module;
 
-  proto_openvpn = proto_register_protocol (
-    PNAME,   /* name       */
-    PSNAME,  /* short name */
-    PFNAME   /* abbrev     */
-    );
+  proto_openvpn = proto_register_protocol ("OpenVPN Protocol", "OpenVPN", "openvpn");
 
   proto_register_field_array(proto_openvpn, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));

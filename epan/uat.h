@@ -320,12 +320,13 @@ void uat_cleanup(void);
  *
  * @param uat_in Pointer to a uat. Must not be NULL.
  * @param filename Filename to load, NULL to fetch from current profile.
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
  * @param err Upon failure, points to an error string.
  *
  * @return true on success, false on failure.
  */
 WS_DLL_PUBLIC
-bool uat_load(uat_t* uat_in, const char *filename, char** err);
+bool uat_load(uat_t* uat_in, const char *filename, const char* app_env_var_prefix, char** err);
 
 /** Create or update a single UAT entry using a string.
  *
@@ -336,6 +337,7 @@ bool uat_load(uat_t* uat_in, const char *filename, char** err);
  *
  * @return true on success, false on failure.
  */
+WS_DLL_PUBLIC
 bool uat_load_str(uat_t* uat_in, const char* entry, char** err);
 
 /** Given a UAT name or filename, find its pointer.
@@ -370,6 +372,7 @@ void uat_set_default_values(uat_t *uat_in, const char *default_values[]);
  */
 WS_DLL_PUBLIC
 bool uat_fld_chk_str(void*, const char*, unsigned, const void*, const void*, char** err);
+WS_DLL_PUBLIC
 bool uat_fld_chk_oid(void*, const char*, unsigned, const void*, const void*, char** err);
 WS_DLL_PUBLIC
 bool uat_fld_chk_proto(void*, const char*, unsigned, const void*, const void*, char** err);
@@ -403,10 +406,33 @@ WS_DLL_PUBLIC
 void uat_foreach_table(uat_cb_t cb,void* user_data);
 void uat_unload_all(void);
 
+/* Converts an ASCII string using C-style escapes (e.g., for unprintable
+ * characters) into a "stringlike" array of bytes that may include internal
+ * NUL bytes and other unprintable characters. This is the PT_TEXTMOD_STRING
+ * format.
+ */
+uint8_t* uat_unesc(const char* si, unsigned in_len, unsigned* len_p);
+
+/* The same as uat_unesc, but removing the first and last byte. The
+ * assumption is that the first and last byte are quote characters. When
+ * writing the PT_TEXTMOD_STRING format to file, the escaped string is
+ * enclosed in quotes; this function undoes that.
+ *
+ * TODO - This should probably return a uint8_t* as well, but requires
+ * changing types (or casting pointers) in several other files to do so.
+ */
 char* uat_undquote(const char* si, unsigned in_len, unsigned* len_p);
+
+/* Converts a "stringlike" array of bytes into a null-terminated ASCII string
+ * using C-style escapes. The inverse of uat_unesc.
+ */
+char* uat_esc(const uint8_t* buf, unsigned len);
+
+/* Converts a ASCII hexstring into an array of bytes. Used to convert
+ * the PT_TXTMOD_HEXBYTES format.
+ * TODO - This should probably return a uint8_t* as well.
+ */
 char* uat_unbinstring(const char* si, unsigned in_len, unsigned* len_p);
-char* uat_unesc(const char* si, unsigned in_len, unsigned* len_p);
-char* uat_esc(const char* buf, unsigned len);
 
 /* Some strings entirely made of ... already declared */
 
@@ -514,11 +540,15 @@ static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, 
 
 
 /*
- * LSTRING MACROS
+ * LSTRING MACROS - a "string" with an explicit length, so it can contain
+ * internal null characters and possibly unprintable characters, that are
+ * displayed to the user and written to the file using C-style escapes. An
+ * alternative to BUFFER for when the data is often but not necessarily an
+ * ASCII printable string, such as in some types of encryption keys.
  */
 #define UAT_LSTRING_CB_DEF(basename,field_name,rec_t,ptr_element,len_element) \
 static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, unsigned len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-    char* new_val = uat_unesc(buf,len,&(((rec_t*)rec)->len_element)); \
+    uint8_t* new_val = uat_unesc(buf,len,&(((rec_t*)rec)->len_element)); \
     g_free((((rec_t*)rec)->ptr_element)); \
     (((rec_t*)rec)->ptr_element) = new_val; } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\

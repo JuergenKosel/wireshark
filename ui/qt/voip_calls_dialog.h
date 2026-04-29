@@ -14,7 +14,7 @@
 
 #include <mutex>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include "ui/voip_calls.h"
 #include "ui/rtp_stream.h"

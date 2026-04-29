@@ -14,7 +14,7 @@
 #ifndef __IO_GRAPH_ITEM_H__
 #define __IO_GRAPH_ITEM_H__
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include <wsutil/ws_assert.h>
 
 #include <epan/epan_dissect.h>

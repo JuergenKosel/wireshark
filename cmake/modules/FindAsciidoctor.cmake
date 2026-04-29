@@ -61,6 +61,7 @@ if(ASCIIDOCTOR_EXECUTABLE)
         --require ${CMAKE_SOURCE_DIR}/doc/asciidoctor-macros/cveidlink-inline-macro.rb
         --require ${CMAKE_SOURCE_DIR}/doc/asciidoctor-macros/manarg-block.rb
         --require ${CMAKE_SOURCE_DIR}/doc/asciidoctor-macros/wsbuglink-inline-macro.rb
+        --require ${CMAKE_SOURCE_DIR}/doc/asciidoctor-macros/wsrepo-inline-macro.rb
         --require ${CMAKE_SOURCE_DIR}/doc/asciidoctor-macros/wssalink-inline-macro.rb
     )
 
@@ -140,30 +141,6 @@ if(ASCIIDOCTOR_EXECUTABLE)
         # string(REPLACE " " "_" _output_target ${_source_base_name})
         # add_custom_target(generate_${_output_target}_html DEPENDS ${_output_html})
         # set_asciidoctor_target_properties(generate_${_output_target}_html)
-    endfunction()
-
-    function(ASCIIDOCTOR2TXT _asciidocsource)
-        cmake_parse_arguments(arg "CONVERT_UNDERSCORES" "" "" ${ARGN})
-        get_filename_component(_source_base_name ${_asciidocsource} NAME_WE)
-        if (arg_CONVERT_UNDERSCORES)
-            string(REPLACE "_" " " _source_base_name ${_source_base_name})
-        endif()
-        set(_input_html ${_source_base_name}.html)
-        set(_output_txt ${_source_base_name}.txt)
-
-        ADD_CUSTOM_COMMAND(
-            OUTPUT
-                ${_output_txt}
-            COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/html2text.py
-                ${_input_html}
-                > ${_output_txt}
-            DEPENDS
-                ${MAN_INCLUDES}
-                ${CMAKE_SOURCE_DIR}/doc/attributes.adoc
-                ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
-                ${_input_html}
-                ${_asciidocsource}
-        )
     endfunction()
 
     # Generate one or more ROFF man pages
@@ -257,8 +234,8 @@ if(ASCIIDOCTOR_EXECUTABLE)
                     ${ARGN}
             VERBATIM
             )
-            add_custom_target(${_generate_pdf} DEPENDS ${_output_pdf})
-            set_asciidoctor_target_properties(${_generate_pdf})
+            #add_custom_target(${_generate_pdf} DEPENDS ${_output_pdf})
+            #set_asciidoctor_target_properties(${_generate_pdf})
             unset(_generate_pdf)
             unset(_output_pdf)
         ENDMACRO()
@@ -309,8 +286,8 @@ if(ASCIIDOCTOR_EXECUTABLE)
                     ${ARGN}
             VERBATIM
             )
-            add_custom_target(${_generate_epub} DEPENDS ${_output_epub})
-            set_asciidoctor_target_properties(${_generate_epub})
+            #add_custom_target(${_generate_epub} DEPENDS ${_output_epub})
+            #set_asciidoctor_target_properties(${_generate_epub})
             unset(_generate_epub)
             unset(_output_epub)
         ENDMACRO()

@@ -1375,6 +1375,7 @@ static int de_rr_eutran_not_allowed_cells(tvbuff_t *tvb, proto_tree *tree, int b
 /* this function is used for dissecting the H/L presence flags in CSN.1 coded IEs"
    If truncation ( 44.018 section 8.9) is allowed, truncation_length is set to the actual bit length of the CSN.1 string,
    otherwise it is set to 0 */
+/* coverity[+no_checked_return] */
 static bool gsm_rr_csn_HL_flag(tvbuff_t *tvb, proto_tree *tree, unsigned truncation_length, unsigned bit_offset, int hf_bit)
 {
     uint8_t bit_mask        = 0x80 >> (bit_offset % 8);
@@ -2643,7 +2644,7 @@ de_rr_chnl_req_desc2(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, ui
         proto_tree_add_bits_item(tree, hf_gsm_a_rr_pfi, tvb, bit_offset, 7, ENC_BIG_ENDIAN);
         bit_offset += 7;
     }
-    gsm_rr_csn_HL_flag(tvb, tree, 0, bit_offset++, hf_gsm_a_rr_multiple_tbf_procedures);
+    (void) gsm_rr_csn_HL_flag(tvb, tree, 0, bit_offset++, hf_gsm_a_rr_multiple_tbf_procedures);
     bit_offset += 1;
     if (gsm_rr_csn_HL_flag(tvb, tree, (offset+len)<<3, bit_offset++, hf_gsm_a_rr_additions_in_rel_7)) {
         proto_tree_add_bits_item(tree, hf_gsm_a_rr_rlc_non_pers_mode_cap, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
@@ -4040,7 +4041,7 @@ de_rr_ia_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, ui
         if (0 == gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_second_discriminator_bit))
         {
            /* LL */
-           gsm_rr_csn_HL_flag(tvb, subtree, 0,bit_offset++, hf_gsm_a_rr_a_compressed_inter_rat_handover_info);
+           (void) gsm_rr_csn_HL_flag(tvb, subtree, 0,bit_offset++, hf_gsm_a_rr_a_compressed_inter_rat_handover_info);
 
            if (gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_additions_in_rel_13))
             {
@@ -4107,7 +4108,7 @@ de_rr_ia_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, ui
                     length -= 1;
                 }
             }
-            gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_a_compressed_inter_rat_handover_info);
+            (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_a_compressed_inter_rat_handover_info);
 
             if (gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_additions_in_rel_13))
             {
@@ -4743,8 +4744,8 @@ de_rr_p1_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, ui
         proto_tree_add_expert_format(subtree, pinfo, &ei_gsm_a_rr_data_not_dissected, tvb, bit_offset_sav>>3, (bit_offset-bit_offset_sav)>>3,
                     "Group Call Information: Data(Not decoded)");
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_page_indication_1);
-    gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_page_indication_2);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_page_indication_1);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_page_indication_2);
 
     /* Truncation allowed (see 44.018 section 8.9) */
 
@@ -4798,15 +4799,15 @@ de_rr_p2_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, ui
         bit_offset += 3;
         proto_item_append_text(item2, " for Mobile Identity 3");
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_1);
-    gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_2);
-    gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_3);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_1);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_2);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_packet_paging_procedure_3);
 
 
     if (gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_additions_in_release_6_present))
     { /* Additions in release 6 */
         bit_offset += 1;
-        proto_tree_add_expert_format(subtree, pinfo, &ei_gsm_a_rr_data_not_dissected, tvb, bit_offset>>3, -1, "Additions in Release 6: Data (Not decoded)");
+        proto_tree_add_expert_format_remaining(subtree, pinfo, &ei_gsm_a_rr_data_not_dissected, tvb, bit_offset>>3, "Additions in Release 6: Data (Not decoded)");
     }
 
     /* Truncation allowed (see 44.018 section 8.9 */
@@ -4880,7 +4881,8 @@ static uint16_t
 de_rr_packet_ch_desc(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, uint32_t offset, unsigned len _U_, char *add_string _U_, int string_len _U_)
 {
     uint32_t     curr_offset = offset;
-    uint8_t      oct8, second_oct8;
+    uint32_t      oct8;
+    uint8_t       second_oct8;
 
     /* Octet 2 */
     /* Channel Type */
@@ -4891,8 +4893,7 @@ de_rr_packet_ch_desc(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_,
     curr_offset +=1;
 
     /* Octet 3 */
-    oct8 = tvb_get_uint8(tvb, curr_offset);
-    proto_tree_add_item(subtree, hf_gsm_a_rr_training_sequence, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(subtree, hf_gsm_a_rr_training_sequence, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &oct8);
     if ((oct8 & 0x10) == 0x10)
     {
         /* Hopping sequence */
@@ -5320,7 +5321,7 @@ de_rr_si1_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, u
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_nch_position, tvb, bit_offset, 5, ENC_BIG_ENDIAN);
         bit_offset += 5;
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_band_indicator);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_band_indicator);
 
     gsm_rr_padding_bits(subtree, tvb, bit_offset, tvb_len, PADDING_BYTE);
     return tvb_len - offset;
@@ -7521,6 +7522,8 @@ static const value_string gsm_a_rr_cell_reselect_offset_vals[] = {
     {63, "126 dB"},
     { 0, NULL }
 };
+static value_string_ext gsm_a_rr_cell_reselect_offset_vals_ext = VALUE_STRING_EXT_INIT(gsm_a_rr_cell_reselect_offset_vals);
+
 
 static const value_string gsm_a_rr_penalty_time_vals[] = {
     { 0, "20 s"},
@@ -7650,8 +7653,8 @@ de_rr_si3_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, u
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_power_offset, tvb, bit_offset, 2, ENC_BIG_ENDIAN);
         bit_offset += 2;
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_system_information_type_2ter);
-    gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_early_classmark_sending);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_system_information_type_2ter);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_early_classmark_sending);
     if (gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_scheduling_if_and_where))
     { /* Scheduling if and where */
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_where, tvb, bit_offset, 3, ENC_BIG_ENDIAN);
@@ -7662,7 +7665,7 @@ de_rr_si3_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, u
     { /* GPRS indicator */
         bit_offset += de_rr_rest_oct_gprs_indicator(tvb, subtree, bit_offset);
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_3g_early_classmark_sending_restriction);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_3g_early_classmark_sending_restriction);
     if (gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_si2quater_indicator))
     { /* SI2quater Indicator */
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_si2quater_position, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
@@ -7800,7 +7803,7 @@ de_rr_si4_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, u
     }
     else
     { /* Break indicator */
-        gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_break_indicator);
+        (void) gsm_rr_csn_HL_flag(tvb, subtree, bit_len, bit_offset++, hf_gsm_a_rr_break_indicator);
     }
     /* Truncation allowed (see 44.018 section 8.9 */
     gsm_rr_padding_bits(subtree, tvb, bit_offset, tvb_len, PADDING_BYTE);
@@ -7897,7 +7900,7 @@ de_rr_si6_rest_oct(tvbuff_t *tvb, proto_tree *subtree, packet_info *pinfo _U_, u
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_max_lapdm, tvb, bit_offset, 3, ENC_BIG_ENDIAN);
         bit_offset += 3;
     }
-    gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_band_indicator);
+    (void) gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_band_indicator);
     if (gsm_rr_csn_HL_flag(tvb, subtree, 0, bit_offset++, hf_gsm_a_rr_gprs_ms_txpwr_max_ccch_present))
     {
         proto_tree_add_bits_item(subtree, hf_gsm_a_rr_gprs_ms_txpwr_max_ccch, tvb, bit_offset, 5, ENC_BIG_ENDIAN);
@@ -8647,8 +8650,7 @@ de_rr_tlli(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, uint32_t off
 
     curr_offset = offset;
 
-    tlli = tvb_get_ntohl(tvb, curr_offset);
-    proto_tree_add_item(tree, hf_gsm_a_rr_tlli, tvb, curr_offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_gsm_a_rr_tlli, tvb, curr_offset, 4, ENC_BIG_ENDIAN, &tlli);
 
     if(gsm_a_rr_nri_length > 0) {
         /* NRI is in second byte of TLLI */
@@ -12203,7 +12205,7 @@ dissect_ccch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 
     /*  L2 Pseudo Length 10.5.2.19 */
     /* note: dissected out of sequence! */
-    elem_v(tvb, ccch_tree, pinfo, GSM_A_PDU_TYPE_RR, DE_RR_L2_PSEUDO_LEN, 0, NULL);
+    (void) elem_v(tvb, ccch_tree, pinfo, GSM_A_PDU_TYPE_RR, DE_RR_L2_PSEUDO_LEN, 0, NULL);
 
     oct_1_item = proto_tree_add_item(ccch_tree, hf_gsm_a_L3_protocol_discriminator, tvb, 1, 1, ENC_BIG_ENDIAN);
     pd_tree = proto_item_add_subtree(oct_1_item, ett_ccch_oct_1);
@@ -13528,7 +13530,7 @@ proto_register_gsm_a_rr(void)
             },
             { &hf_gsm_a_rr_cell_reselect_offset,
               { "Cell Reselect Offset", "gsm_a.rr.cell_reselect_offset",
-                FT_UINT8, BASE_DEC,  VALS(gsm_a_rr_cell_reselect_offset_vals), 0x00,
+                FT_UINT8, BASE_DEC|BASE_EXT_STRING,  &gsm_a_rr_cell_reselect_offset_vals_ext, 0x00,
                 "Offset to the C2 reselection criterion (Cell Reselect Offset)", HFILL }
             },
             { &hf_gsm_a_rr_temporary_offset,

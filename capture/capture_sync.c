@@ -76,8 +76,7 @@
 
 #include "ui/capture.h"
 #include <capture/capture_sync.h>
-
-#include "sync_pipe.h"
+#include <capture/sync_pipe.h>
 
 #ifdef _WIN32
 #include "capture/capture-wpcap.h"
@@ -2008,9 +2007,9 @@ sync_pipe_input_cb(GIOChannel *pipe_io, capture_session *cap_session)
     ssize_t nread;
     char indicator;
     int32_t exec_errno = 0;
-    int  primary_len;
+    unsigned primary_len;
     char *primary_msg;
-    int  secondary_len;
+    unsigned secondary_len;
     char *secondary_msg;
     char *wait_msg, *combined_msg;
     uint32_t npackets = 0;

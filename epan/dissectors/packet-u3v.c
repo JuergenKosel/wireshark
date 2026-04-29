@@ -1607,8 +1607,7 @@ dissect_u3v_stream_leader(proto_tree *u3v_telegram_tree, tvbuff_t *tvb, packet_i
     offset += 2;
 
     /* block id */
-    block_id = tvb_get_letoh64(tvb, offset);
-    proto_tree_add_item(u3v_telegram_tree, hf_u3v_stream_block_id, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint64(u3v_telegram_tree, hf_u3v_stream_block_id, tvb, offset, 8, ENC_LITTLE_ENDIAN, &block_id);
     offset += 8;
 
     /* reserved field */
@@ -1616,8 +1615,7 @@ dissect_u3v_stream_leader(proto_tree *u3v_telegram_tree, tvbuff_t *tvb, packet_i
     offset += 2;
 
     /* payload type */
-    payload_type = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(u3v_telegram_tree, hf_u3v_stream_payload_type, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint(u3v_telegram_tree, hf_u3v_stream_payload_type, tvb, offset, 2, ENC_LITTLE_ENDIAN, &payload_type);
     offset += 2;
 
     /* Add payload type to information string */
@@ -1692,8 +1690,7 @@ dissect_u3v_stream_trailer(proto_tree *u3v_telegram_tree, tvbuff_t *tvb, packet_
     offset += 2;
 
     /* block id */
-    block_id = tvb_get_letoh64(tvb, offset);
-    proto_tree_add_item(u3v_telegram_tree, hf_u3v_stream_block_id, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint64(u3v_telegram_tree, hf_u3v_stream_block_id, tvb, offset, 8, ENC_LITTLE_ENDIAN, &block_id);
     offset += 8;
 
     /* status*/
@@ -2565,7 +2562,7 @@ static hf_register_info hf[] =
 
     { &hf_u3v_stream_pixel_format,
     { "Pixel Format", "u3v.stream.pixel_format",
-    FT_UINT32, BASE_HEX|BASE_EXT_STRING, VALS_EXT_PTR( &pixel_format_names_ext ), 0x0,
+    FT_UINT32, BASE_HEX|BASE_EXT_STRING, &pixel_format_names_ext, 0x0,
     "U3V Stream Pixel Format", HFILL
     } },
 

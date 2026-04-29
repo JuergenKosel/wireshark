@@ -11,9 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include <ui/qt/utils/qt_ui_utils.h>
 
 #include <epan/addr_resolv.h>
+#include <epan/guid-utils.h>
 #include <epan/range.h>
 #include <epan/to_str.h>
 #include <wsutil/value_string.h>
@@ -33,6 +38,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QUrl>
 #include <QScreen>
 
@@ -173,10 +179,32 @@ const QString time_t_to_qstring(time_t ti_time)
     return time_str;
 }
 
+QUuid e_guid_t_to_quuid(const e_guid_t &guid)
+{
+    return QUuid(guid.data1, guid.data2, guid.data3,
+        guid.data4[0], guid.data4[1], guid.data4[2], guid.data4[3],
+        guid.data4[4], guid.data4[5], guid.data4[6], guid.data4[7]);
+}
+
 QString html_escape(const QString plain_string) {
     return plain_string.toHtmlEscaped();
 }
 
+// This matches line terminators plus whitespace before or after.
+static const QRegularExpression join_lines_regexp("\\s*\\R\\s*");
+
+QString join_lines(const QString multiline_string) {
+    // Replace all nonoverlapping matches with a single space.
+    // Certain file formats (prefs, filter files, etc.) expect one entry
+    // per line and newlines create unexpected behavior.
+    // Removing line terminators outside quotes doesn't change the behavior
+    // of a filter, but it does to remove non-escaped line terminators inside
+    // string and character literals (which are arguably user error.)
+    // A more complicated algorithm could try to escape things inside
+    // quotes, which would work for normal string and character literals
+    // but not for raw string literals, which just break with newlines.
+    return QString(multiline_string).replace(join_lines_regexp, QStringLiteral(" "));
+}
 
 void smooth_font_size(QFont &font) {
 #if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
@@ -354,5 +382,51 @@ void storeLastDir(QString dir)
     /* XXX - printable? */
     if (dir.length() > 0)
         set_last_open_dir(qUtf8Printable(dir));
+}
+
+bool filePathsMatch(const QString &path1, const QString &path2)
+{
+    QFileInfo fi1(path1);
+    QFileInfo fi2(path2);
+
+    if (fi1.exists() && fi2.exists()) {
+        return fi1 == fi2;
+    }
+
+    QString abs1 = fi1.absoluteFilePath();
+    QString abs2 = fi2.absoluteFilePath();
+
+#if defined(Q_OS_WIN)
+    return abs1.compare(abs2, Qt::CaseInsensitive) == 0;
+#endif
+
+    Qt::CaseSensitivity cs = Qt::CaseSensitive;
+
+#ifdef _PC_CASE_SENSITIVE
+    // Determine case sensitivity from the actual filesystem.
+    // Try the paths themselves first, then their parent directories.
+    // Default to case-insensitive since platforms that define
+    // _PC_CASE_SENSITIVE (macOS, FreeBSD) are typically
+    // case-insensitive by default (APFS, HFS+).
+    QString probe;
+    if (fi1.exists())
+        probe = abs1;
+    else if (fi2.exists())
+        probe = abs2;
+    else if (QFileInfo(fi1.absolutePath()).exists())
+        probe = fi1.absolutePath();
+    else if (QFileInfo(fi2.absolutePath()).exists())
+        probe = fi2.absolutePath();
+
+    if (probe.isEmpty()) {
+        cs = Qt::CaseInsensitive;
+    } else {
+        auto ret = pathconf(probe.toUtf8().constData(), _PC_CASE_SENSITIVE);
+        if (ret != 1)
+            cs = Qt::CaseInsensitive;
+    }
+#endif
+
+    return abs1.compare(abs2, cs) == 0;
 }
 

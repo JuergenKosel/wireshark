@@ -512,7 +512,7 @@ main(int argc, char **argv)
 
     wmem_init_scopes();
     test_scope = wmem_allocator_new(WMEM_ALLOCATOR_STRICT);
-    oids_init();
+    oids_init("WIRESHARK");
     result = g_test_run();
     oids_cleanup();
     wmem_destroy_allocator(test_scope);

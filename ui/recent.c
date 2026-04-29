@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <wsutil/application_flavor.h>
+#include <app/application_flavor.h>
 #include <wsutil/filesystem.h>
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
@@ -89,6 +89,12 @@
 #define RECENT_GUI_TSD_MA_WINDOW_SIZE           "gui.tsd_ma_window_size"
 #define RECENT_GUI_TSD_THROUGHPUT_SHOW          "gui.tsd_throughput_show"
 #define RECENT_GUI_TSD_GOODPUT_SHOW             "gui.tsd_goodput_show"
+#define RECENT_KEY_SIDEBAR_LEARN_VISIBLE        "gui.welcome_page.sidebar.learn_visible"
+#define RECENT_KEY_SIDEBAR_TIPS_VISIBLE         "gui.welcome_page.sidebar.tips_visible"
+#define RECENT_KEY_SIDEBAR_TIPS_EVENTS          "gui.welcome_page.sidebar.tips_events"
+#define RECENT_KEY_SIDEBAR_TIPS_SPONSORSHIP     "gui.welcome_page.sidebar.tips_sponsorship"
+#define RECENT_KEY_SIDEBAR_TIPS_TIPS            "gui.welcome_page.sidebar.tips_tips"
+#define RECENT_KEY_SIDEBAR_TIPS_INTERVAL        "gui.welcome_page.sidebar.tips_interval"
 
 #define RECENT_GUI_GEOMETRY                   "gui.geom."
 
@@ -730,15 +736,18 @@ cfilter_recent_write_all_list(FILE *rf, const char *ifname, GList *cfilter_list)
 {
     unsigned   max_count = 0;
     GList     *li;
+    char      *sanitized;
 
     /* write all non empty capture filter strings to the recent file (until max count) */
     li = g_list_first(cfilter_list);
     while (li && (max_count++ <= cfilter_combo_max_recent) ) {
         if (li->data && strlen((const char *)li->data)) {
+            sanitized = prefs_sanitize_string((char *)li->data);
             if (ifname == NULL)
-                fprintf (rf, RECENT_KEY_CAPTURE_FILTER ": %s\n", (char *)li->data);
+                fprintf (rf, RECENT_KEY_CAPTURE_FILTER ": %s\n", sanitized);
             else
-                fprintf (rf, RECENT_KEY_CAPTURE_FILTER ".%s: %s\n", ifname, (char *)li->data);
+                fprintf (rf, RECENT_KEY_CAPTURE_FILTER ".%s: %s\n", ifname, sanitized);
+            g_free(sanitized);
         }
         li = li->next;
     }
@@ -768,7 +777,7 @@ cfilter_recent_write_all(FILE *rf)
 
 /** Reverse the order of all the capture filter lists after
  *  reading recent_common (we want the latest first).
- *  Note this is O(N), whereas appendng N items to a GList is O(N^2),
+ *  Note this is O(N), whereas appending N items to a GList is O(N^2),
  *  since it doesn't have a pointer to the end like a GQueue.
  */
 static void
@@ -858,7 +867,7 @@ write_recent(void)
 
     /* Create the directory that holds personal configuration files, if
        necessary.  */
-    if (create_persconffile_dir(&pf_dir_path) == -1) {
+    if (create_persconffile_dir(application_configuration_environment_prefix(), &pf_dir_path) == -1) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Can't create directory\n\"%s\"\nfor recent file: %s.", pf_dir_path,
                 g_strerror(errno));
@@ -866,7 +875,7 @@ write_recent(void)
         return false;
     }
 
-    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false);
+    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false, application_configuration_environment_prefix());
     if ((rf = ws_fopen(rf_path, "w")) == NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Can't open recent file\n\"%s\": %s.", rf_path,
@@ -966,6 +975,30 @@ write_recent(void)
     write_recent_enum(rf, "Find packet search type", RECENT_GUI_SEARCH_TYPE, search_type_values,
                       recent.gui_search_type);
 
+    write_recent_boolean(rf, "Welcome page sidebar Learn section visible",
+            RECENT_KEY_SIDEBAR_LEARN_VISIBLE,
+            recent.gui_welcome_page_sidebar_learn_visible);
+
+    write_recent_boolean(rf, "Welcome page sidebar Tips section visible",
+            RECENT_KEY_SIDEBAR_TIPS_VISIBLE,
+            recent.gui_welcome_page_sidebar_tips_visible);
+
+    write_recent_boolean(rf, "Welcome page sidebar Tips event slides",
+            RECENT_KEY_SIDEBAR_TIPS_EVENTS,
+            recent.gui_welcome_page_sidebar_tips_events);
+
+    write_recent_boolean(rf, "Welcome page sidebar Tips sponsorship slides",
+            RECENT_KEY_SIDEBAR_TIPS_SPONSORSHIP,
+            recent.gui_welcome_page_sidebar_tips_sponsorship);
+
+    write_recent_boolean(rf, "Welcome page sidebar Tips tip-of-the-day slides",
+            RECENT_KEY_SIDEBAR_TIPS_TIPS,
+            recent.gui_welcome_page_sidebar_tips_tips);
+
+    fprintf(rf, "\n# Welcome page sidebar Tips slide auto-advance interval in seconds.\n");
+    fprintf(rf, RECENT_KEY_SIDEBAR_TIPS_INTERVAL ": %u\n",
+            recent.gui_welcome_page_sidebar_tips_interval);
+
     window_geom_recent_write_all(rf);
 
     fprintf(rf, "\n# Custom colors.\n");
@@ -1003,7 +1036,7 @@ write_profile_recent(void)
 
     /* Create the directory that holds personal configuration files, if
        necessary.  */
-    if (create_persconffile_dir(&pf_dir_path) == -1) {
+    if (create_persconffile_dir(application_configuration_environment_prefix(), &pf_dir_path) == -1) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Can't create directory\n\"%s\"\nfor recent file: %s.", pf_dir_path,
                 g_strerror(errno));
@@ -1011,7 +1044,7 @@ write_profile_recent(void)
         return false;
     }
 
-    rf_path = get_persconffile_path(RECENT_FILE_NAME, true);
+    rf_path = get_persconffile_path(RECENT_FILE_NAME, true, application_configuration_environment_prefix());
     if ((rf = ws_fopen(rf_path, "w")) == NULL) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Can't open recent file\n\"%s\": %s.", rf_path,
@@ -1300,7 +1333,7 @@ read_set_recent_common_pair_static(char *key, const char *value,
         g_free(recent.gui_geometry_main);
         recent.gui_geometry_main = g_strdup(value);
     } else if (strcmp(key, RECENT_LAST_USED_PROFILE) == 0) {
-        if ((strcmp(value, DEFAULT_PROFILE) != 0) && profile_exists (value, false)) {
+        if ((strcmp(value, DEFAULT_PROFILE) != 0) && profile_exists(application_configuration_environment_prefix(), value, false)) {
             set_profile_name (value);
         }
     } else if (strcmp(key, RECENT_PROFILE_SWITCH_CHECK_COUNT) == 0) {
@@ -1337,6 +1370,23 @@ read_set_recent_common_pair_static(char *key, const char *value,
         recent.gui_search_type = (search_type_type)str_to_val(value, search_type_values, SEARCH_TYPE_DISPLAY_FILTER);
     } else if (strcmp(key, RECENT_GUI_CUSTOM_COLORS) == 0) {
         recent.custom_colors = prefs_get_string_list(value);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_LEARN_VISIBLE) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_learn_visible);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_VISIBLE) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_tips_visible);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_EVENTS) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_tips_events);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_SPONSORSHIP) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_tips_sponsorship);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_TIPS) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_tips_tips);
+    } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_INTERVAL) == 0) {
+        num = strtol(value, &p, 0);
+        if (p == value || *p != '\0')
+            return PREFS_SET_SYNTAX_ERR;
+        if (num < 1)
+            num = 1;
+        recent.gui_welcome_page_sidebar_tips_interval = (unsigned)num;
     }
 
     return PREFS_SET_OK;
@@ -1545,9 +1595,7 @@ read_set_recent_pair_dynamic(char *key, const char *value,
     if (!g_utf8_validate(value, -1, NULL)) {
         return PREFS_SET_SYNTAX_ERR;
     }
-    if (strcmp(key, RECENT_KEY_CAPTURE_FILE) == 0) {
-        add_menu_recent_capture_file(value, true);
-    } else if (strcmp(key, RECENT_KEY_DISPLAY_FILTER) == 0) {
+    if (strcmp(key, RECENT_KEY_DISPLAY_FILTER) == 0) {
         dfilter_combo_add_recent(value);
     } else if (strcmp(key, RECENT_KEY_CAPTURE_FILTER) == 0) {
         recent_add_cfilter(NULL, value);
@@ -1633,7 +1681,7 @@ recent_read_static(char **rf_path_return, int *rf_errno_return)
     recent.gui_fileopen_remembered_dir = NULL;
 
     /* Construct the pathname of the user's recent common file. */
-    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false);
+    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false, application_configuration_environment_prefix());
 
     /* Read the user's recent common file, if it exists. */
     *rf_path_return = NULL;
@@ -1693,6 +1741,14 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
     recent.gui_tsgd_throughput_show = true;
     recent.gui_tsgd_goodput_show = false;
 
+    /* defaults for the welcome page sidebar */
+    recent.gui_welcome_page_sidebar_learn_visible = true;
+    recent.gui_welcome_page_sidebar_tips_visible = true;
+    recent.gui_welcome_page_sidebar_tips_events = true;
+    recent.gui_welcome_page_sidebar_tips_sponsorship = true;
+    recent.gui_welcome_page_sidebar_tips_tips = true;
+    recent.gui_welcome_page_sidebar_tips_interval = 8;
+
     /* pane size of zero will autodetect */
     recent.gui_geometry_main_upper_pane   = 0;
     recent.gui_geometry_main_lower_pane   = 0;
@@ -1731,7 +1787,7 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
     }
 
     /* Construct the pathname of the user's profile recent file. */
-    rf_path = get_persconffile_path(RECENT_FILE_NAME, true);
+    rf_path = get_persconffile_path(RECENT_FILE_NAME, true, application_configuration_environment_prefix());
 
     /* Read the user's recent file, if it exists. */
     *rf_path_return = NULL;
@@ -1748,7 +1804,7 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
          *  know what's supposed to happen at this point.
          *  ToDo: Determine if the "recent common file" should be read at this point
          */
-        rf_common_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false);
+        rf_common_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false, application_configuration_environment_prefix());
         if (!file_exists(rf_common_path)) {
             /* Read older common settings from recent file */
             rf = ws_fopen(rf_path, "r");
@@ -1779,11 +1835,11 @@ recent_read_dynamic(char **rf_path_return, int *rf_errno_return)
 
 
     /* Construct the pathname of the user's recent common file. */
-    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false);
+    rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false, application_configuration_environment_prefix());
     if (!file_exists (rf_path)) {
         /* Recent common file does not exist, read from default recent */
         g_free (rf_path);
-        rf_path = get_persconffile_path(RECENT_FILE_NAME, false);
+        rf_path = get_persconffile_path(RECENT_FILE_NAME, false, application_configuration_environment_prefix());
     }
 
     /* Read the user's recent file, if it exists. */

@@ -31,10 +31,6 @@
 
 #include <wsutil/wsgcrypt.h>
 
-#define PNAME  "PKCS#12: Personal Information Exchange"
-#define PSNAME "PKCS12"
-#define PFNAME "pkcs12"
-
 #define PKCS12_PBE_ARCFOUR_SHA1_OID     "1.2.840.113549.1.12.1.1"
 #define PKCS12_PBE_3DES_SHA1_OID	"1.2.840.113549.1.12.1.3"
 #define PKCS12_PBE_RC2_40_SHA1_OID	"1.2.840.113549.1.12.1.6"
@@ -51,9 +47,11 @@ static int ett_decrypted_pbe;
 
 static expert_field ei_pkcs12_octet_string_expected;
 
+/* We might want to make this a preference */
+#define MAX_ITER_COUNT 10000000U
 
 static const char *object_identifier_id;
-static int iteration_count;
+static unsigned iteration_count;
 static tvbuff_t *salt;
 static const char *password;
 static bool try_null_password;
@@ -83,8 +81,8 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
   gcry_md_hd_t md;
   gcry_mpi_t num_b1 = NULL;
   size_t pwlen;
-  char hash[20], buf_b[64], buf_i[128], *p;
-  char *salt_p;
+  uint8_t hash[20], buf_b[64], buf_i[128], *p;
+  uint8_t *salt_p;
   int salt_size;
   size_t cur_keylen;
   size_t n;
@@ -93,7 +91,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
   cur_keylen = 0;
 
   salt_size = tvb_captured_length(salt_tvb);
-  salt_p = (char *)tvb_memdup(pinfo->pool, salt_tvb, 0, salt_size);
+  salt_p = (uint8_t *)tvb_memdup(pinfo->pool, salt_tvb, 0, salt_size);
 
   if (pw == NULL)
     pwlen = 0;
@@ -246,6 +244,32 @@ int PBE_decrypt_data(dissector_t dissector, const char *description, tvbuff_t *e
 		proto_item_append_text(item, " [Insufficient parameters]");
 		return false;
 	}
+
+        /* Put some kind of sanity check limit on the iteration_count to avoid
+         * taking forever repeatedly hashing. RFC 8018 says:
+         * "This document follows the recommendations made in FIPS
+         * Special Publication 800-132 [NISTSP132], which says
+         *
+         *    The iteration count shall be selected as large as possible, as
+         *    long as the time required to generate the key using the entered
+         *    password is acceptable for the users. [...] A minimum iteration
+         *    count of 1,000 is recommended.  For especially critical keys, or
+         *    for very powerful systems or systems where user-perceived
+         *    performance is not critical, an iteration count of 10,000,000 may
+         *    be appropriate."
+         * https://datatracker.ietf.org/doc/html/rfc8018#section-4.2
+         *
+         * (Note NIST announced a decision to revise SP 800-132 in May 2023:
+         * https://csrc.nist.gov/News/2023/decision-to-revise-nist-sp-800-132
+         * although as of Dec 2025 has not published a draft.)
+         *
+         * Presumably "user-perceived performance is not critical" does not
+         * apply to us, although there may be "especially critical keys."
+         */
+        if (iteration_count > MAX_ITER_COUNT) {
+		proto_item_append_text(item, " [Iteration count exceeds max (%u > %u)]", iteration_count, MAX_ITER_COUNT);
+		return false;
+        }
 
 	/* allocate buffers */
 	key = (char *)wmem_alloc(pinfo->pool, keylen);
@@ -440,7 +464,7 @@ void proto_register_pkcs12(void) {
   expert_module_t* expert_pkcs12;
 
   /* Register protocol */
-  proto_pkcs12 = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_pkcs12 = proto_register_protocol("PKCS#12: Personal Information Exchange", "PKCS12", "pkcs12");
 
   /* Register fields and subtrees */
   proto_register_field_array(proto_pkcs12, hf, array_length(hf));

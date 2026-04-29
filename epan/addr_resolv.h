@@ -59,6 +59,7 @@ typedef struct _e_addr_resolve {
   bool vlan_name;                         /**< Whether to resolve VLAN IDs to names */
   bool ss7pc_name;                        /**< Whether to resolve SS7 Point Codes to names */
   bool maxmind_geoip;                     /**< Whether to lookup geolocation information with mmdbresolve */
+  bool tac_name;                          /**< Whether to resolve TAC to names */
 } e_addr_resolve;
 
 #define ADDR_RESOLV_MACADDR(at) \
@@ -179,7 +180,7 @@ WS_DLL_PUBLIC char *tcp_port_to_display(wmem_allocator_t *allocator, unsigned po
  * @param port      DCCP port number to resolve.
  * @return          Allocated string containing the port name or numeric value.
  */
-extern char *dccp_port_to_display(wmem_allocator_t *allocator, unsigned port);
+WS_DLL_PUBLIC char *dccp_port_to_display(wmem_allocator_t *allocator, unsigned port);
 
 /**
  * @brief Resolve an SCTP port number to its display name.
@@ -304,7 +305,22 @@ WS_DLL_PUBLIC int port_with_resolution_to_str_buf(char *buf, unsigned long buf_s
 
 /* Setup name resolution preferences */
 struct pref_module;
+
+/**
+ * @brief Disable all forms of name resolution.
+ *
+ * Sets all relevant global resolution flags (`gbl_resolv_flags`) to `false`,
+ * effectively disabling hostname, service name, and other symbolic resolution
+ * features. This is typically used to improve performance or enforce numeric-only
+ * addressing in network captures.
+ *
+ * @param nameres Pointer to the preferences module for name resolution, used to register preferences.
+ */
 extern void addr_resolve_pref_init(struct pref_module *nameres);
+
+/**
+ * @brief Apply name resolution preferences.
+ */
 extern void addr_resolve_pref_apply(void);
 
 /**
@@ -420,7 +436,7 @@ WS_DLL_PUBLIC const char *get_ether_name(const uint8_t *addr);
  * @return Hostname if in the ss7pcs file or '\0' on the first call or the
  * unresolved Point Code in the subsequent calls.
  */
-const char *get_hostname_ss7pc(const uint8_t ni, const uint32_t pc);
+WS_DLL_PUBLIC const char *get_hostname_ss7pc(const uint8_t ni, const uint32_t pc);
 
 /**
  * @brief Initializes unresolved SS7 Point Code entries in the hashtable.
@@ -431,7 +447,7 @@ const char *get_hostname_ss7pc(const uint8_t ni, const uint32_t pc);
  * @param ni Network Indicator.
  * @param pc Point Code.
  */
-void fill_unresolved_ss7pc(const char * pc_addr, const uint8_t ni, const uint32_t pc);
+WS_DLL_PUBLIC void fill_unresolved_ss7pc(const char * pc_addr, const uint8_t ni, const uint32_t pc);
 
 /**
  * @brief Resolves an Ethernet address from a tvbuff.
@@ -444,7 +460,7 @@ void fill_unresolved_ss7pc(const char * pc_addr, const uint8_t ni, const uint32_
  * @param offset Offset of the Ethernet address.
  * @return Resolved name or formatted MAC string.
  */
-WS_DLL_PUBLIC const char *tvb_get_ether_name(tvbuff_t *tvb, int offset);
+WS_DLL_PUBLIC const char *tvb_get_ether_name(tvbuff_t *tvb, unsigned offset);
 
 /**
  * @brief Resolves an Ethernet address only if an exact match is known.
@@ -458,7 +474,7 @@ WS_DLL_PUBLIC const char *tvb_get_ether_name(tvbuff_t *tvb, int offset);
  * @param addr Pointer to the 6-byte Ethernet address.
  * @return Resolved name or NULL.
  */
-const char *get_ether_name_if_known(const uint8_t *addr);
+WS_DLL_PUBLIC const char *get_ether_name_if_known(const uint8_t *addr);
 
 /**
  * @brief Resolves a 3-octet OUI to a short vendor name.
@@ -507,7 +523,7 @@ WS_DLL_PUBLIC const char *get_manuf_name_if_known(const uint8_t *addr, size_t si
  * @param oid 24-bit OUI or CID.
  * @return Full vendor name or NULL.
  */
-extern const char *uint_get_manuf_name_if_known(const uint32_t oid);
+WS_DLL_PUBLIC const char *uint_get_manuf_name_if_known(const uint32_t oid);
 
 /**
  * @brief Resolves a 3-octet OUI from a tvbuff to a short vendor name.
@@ -524,7 +540,7 @@ extern const char *uint_get_manuf_name_if_known(const uint32_t oid);
  * @param offset Offset of the OUI.
  * @return Short vendor name or hex string.
  */
-WS_DLL_PUBLIC const char *tvb_get_manuf_name(tvbuff_t *tvb, int offset);
+WS_DLL_PUBLIC const char *tvb_get_manuf_name(tvbuff_t *tvb, unsigned offset);
 
 /**
  * @brief Resolves a 3-octet OUI from a tvbuff to a full vendor name.
@@ -539,7 +555,7 @@ WS_DLL_PUBLIC const char *tvb_get_manuf_name(tvbuff_t *tvb, int offset);
  * @param offset Offset of the OUI.
  * @return Full vendor name or NULL.
  */
-WS_DLL_PUBLIC const char *tvb_get_manuf_name_if_known(tvbuff_t *tvb, int offset);
+WS_DLL_PUBLIC const char *tvb_get_manuf_name_if_known(tvbuff_t *tvb, unsigned offset);
 
 /**
  * @brief Resolves an EUI-64 address to a logical name or vendor string.
@@ -570,7 +586,7 @@ extern const char *get_eui64_name(const uint8_t *addr);
  * @param addr EUI-64 address as uint64_t.
  * @return Allocated display string.
  */
-extern char *eui64_to_display(wmem_allocator_t *allocator, const uint64_t addr);
+WS_DLL_PUBLIC char *eui64_to_display(wmem_allocator_t *allocator, const uint64_t addr);
 
 /**
  * @brief Resolves an IPX network number to a name.
@@ -584,7 +600,7 @@ extern char *eui64_to_display(wmem_allocator_t *allocator, const uint64_t addr);
  * @param addr IPX network number.
  * @return Allocated name or hex string.
  */
-extern char *get_ipxnet_name(wmem_allocator_t *allocator, const uint32_t addr);
+WS_DLL_PUBLIC char *get_ipxnet_name(wmem_allocator_t *allocator, const uint32_t addr);
 
 /**
  * @brief Resolves a VLAN ID to a name.
@@ -598,7 +614,7 @@ extern char *get_ipxnet_name(wmem_allocator_t *allocator, const uint32_t addr);
  * @param id VLAN identifier.
  * @return Allocated name or ID string.
  */
-extern char *get_vlan_name(wmem_allocator_t *allocator, const uint16_t id);
+WS_DLL_PUBLIC char *get_vlan_name(wmem_allocator_t *allocator, const uint16_t id);
 
 /**
  * @brief Gets the status code for a resolved Ethernet entry.
@@ -740,7 +756,7 @@ WS_DLL_PUBLIC addrinfo_lists_t *get_addrinfo_list(void);
  * @param ip IPv4 address in host byte order.
  * @param eth Pointer to a 6-byte Ethernet address.
  */
-extern void add_ether_byip(const unsigned ip, const uint8_t *eth);
+WS_DLL_PUBLIC void add_ether_byip(const unsigned ip, const uint8_t *eth);
 
 /**
  * @brief Resolves a hostname or IPv4 string to a numeric IPv4 address.
@@ -893,7 +909,7 @@ void name_resolver_init(void);
  * Intended for internal use by the epan core only.
  */
 WS_DLL_LOCAL
-void host_name_lookup_reset(void);
+void host_name_lookup_reset(const char* app_env_var_prefix);
 
 /**
  * @brief Initializes the address resolution subsystem.
@@ -902,7 +918,7 @@ void host_name_lookup_reset(void);
  * Intended for internal use by the epan core only.
  */
 WS_DLL_LOCAL
-void addr_resolv_init(void);
+void addr_resolv_init(const char* app_env_var_prefix);
 
 /**
  * @brief Cleans up the address resolution subsystem.
@@ -948,7 +964,7 @@ bool str_to_ip6(const char *str, void *dst);
  * @return true if parsing succeeds, false otherwise.
  */
 WS_DLL_LOCAL
-bool str_to_eth(const char *str, char *eth_bytes);
+bool str_to_eth(const char *str, uint8_t (*eth_bytes)[6]);
 
 /**
  * @brief Computes a hash value for an IPv6 address using OAT hashing.
@@ -974,6 +990,24 @@ unsigned ipv6_oat_hash(const void *key);
  */
 WS_DLL_LOCAL
 gboolean ipv6_equal(const void *v1, const void *v2);
+
+/**
+ * @brief Resolve an TAC to its area name.
+ *
+ * Returns a string containing the host name associated with the given IPv4
+ * address, or a numeric string in the format `"%d.%d.%d.%d"` if no name is found.
+ * The returned string is managed internally and must not be freed by the caller.
+ * It will be released when address hashtables are cleared (e.g., due to preference
+ * changes or redissection).
+ *
+ * @note This function may increase persistent memory usage even when host name
+ *       resolution is disabled. It may be deprecated in favor of `get_hostname_wmem()`
+ *       for better memory management.
+ *
+ * @param addr IPv4 address in host byte order.
+ * @return     Constant string containing the resolved host name or numeric address.
+ */
+WS_DLL_PUBLIC const char *tac_name_lookup(const unsigned addr);
 
 #ifdef __cplusplus
 }

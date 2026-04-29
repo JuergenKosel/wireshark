@@ -13,16 +13,11 @@ jobs:
       WIRESHARK_VERSION_EXTRA: -GithubActionBuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Choco install
-        run: choco install -y --force --no-progress asciidoctorj xsltproc docbook-bundle nsis winflexbison3 cmake
-      - name: Install strawberryperl
-        uses: shogo82148/actions-setup-perl@v1
-        with:
-          perl-version: '5.38'
-          distribution: strawberry
+        run: choco install -y --force --no-progress xsltproc nsis
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -30,17 +25,20 @@ jobs:
           version: 6.8.3
           modules: 'qt5compat'
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
         with:
           vs-version: 17.13
       - name: Set MSVC command prompt
         uses: ilammy/msvc-dev-cmd@v1
       - name: get-submodule
         run: git submodule update --init
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
       - name: Mkdir
         run: mkdir build
       - name: Cmake
-        run: cmake -DCMAKE_SYSTEM_VERSION="10.0.20348.0" -A x64 ..
+        run: cmake -DCMAKE_SYSTEM_VERSION="10.0.20348.0" -G "Visual Studio 17 2022" -A x64 ..
         env:
           PLATFORM: x64
           WIRESHARK_BASE_DIR: C:/wireshark-libs
@@ -55,7 +53,7 @@ jobs:
         run: cmake --build . --config RelWithDebInfo --target test-programs
         working-directory: build
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.13
       - name: Install pytest
@@ -69,7 +67,7 @@ jobs:
           msbuild /m /p:Configuration=RelWithDebInfo wireshark_nsis.vcxproj
         working-directory: build
       - name: Upload Windows packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: package
           path: build/packaging/nsis/*exe

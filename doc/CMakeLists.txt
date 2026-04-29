@@ -111,9 +111,7 @@ endif()
 
 if(ASCIIDOCTOR_FOUND)
 	ASCIIDOCTOR2HTML("Wireshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
-	ASCIIDOCTOR2TXT("Wireshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
 	ASCIIDOCTOR2HTML("Stratoshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
-	ASCIIDOCTOR2TXT("Stratoshark_Release_Notes.adoc" CONVERT_UNDERSCORES)
 
 	add_custom_target(release_notes_html
 		DEPENDS
@@ -122,18 +120,9 @@ if(ASCIIDOCTOR_FOUND)
 	)
 	set_target_properties(release_notes_html PROPERTIES FOLDER "Documentation")
 
-	add_custom_target(release_notes_txt
-		DEPENDS
-			"${CMAKE_CURRENT_BINARY_DIR}/Wireshark Release Notes.txt"
-			"${CMAKE_CURRENT_BINARY_DIR}/Stratoshark Release Notes.txt"
-			release_notes_html
-	)
-	set_target_properties(release_notes_txt PROPERTIES FOLDER "Documentation")
-
 	add_custom_target(release_notes
 		DEPENDS
 			release_notes_html
-			release_notes_txt
 	)
 	set_target_properties(release_notes PROPERTIES FOLDER "Documentation")
 endif()
@@ -411,10 +400,13 @@ set(WSDG_GRAPHICS
 	wsdg_src/images/note.svg
 	wsdg_src/images/tip.svg
 	wsdg_src/images/warning.svg
+	wsdg_src/images/win-setup-env.png
+	wsdg_src/images/win-setup-selectenv.png
+	wsdg_src/images/win-setup-vs18shell.png
 	wsdg_src/images/ws-capture_internals.dia
 	wsdg_src/images/ws-capture_internals.png
 	wsdg_src/images/ws-capture-sync.dia
-	wsdg_src/images/ws-capture-sync.png
+	wsdg_src/images/ws-capture-sync.dia
 	wsdg_src/images/ws-capture-sync.png
 	wsdg_src/images/ws-function-blocks.dia
 	wsdg_src/images/ws-function-blocks.svg
@@ -450,6 +442,7 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_pref.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_proto_expert.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_proto_field.c
+	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_proto_helpers.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_tree.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_tvb.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_byte_array.c
@@ -481,6 +474,7 @@ ADD_CUSTOM_COMMAND(
 )
 
 set( WSDG_BUILT_DEPS wsluarm )
+add_custom_target(generate_wsdg_deps DEPENDS ${WSDG_BUILT_DEPS})
 
 set( ASCIIDOC_CONF_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/attributes.adoc
@@ -495,7 +489,7 @@ if(ASCIIDOCTOR_FOUND)
 	set_doc_target_properties(user_guide_docbook)
 	set_target_properties(user_guide_docbook PROPERTIES EXCLUDE_FROM_ALL True)
 
-	ASCIIDOCTOR2DOCBOOK(wsdg_src/developer-guide.adoc ${ASCIIDOC_CONF_FILES} ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
+	ASCIIDOCTOR2DOCBOOK(wsdg_src/developer-guide.adoc ${ASCIIDOC_CONF_FILES} ${WSDG_SOURCE} ${WSDG_BUILT_DEPS} generate_wsdg_deps)
 	add_custom_target(developer_guide_docbook DEPENDS generate_developer-guide.xml)
 	set_doc_target_properties(developer_guide_docbook)
 	set_target_properties(developer_guide_docbook PROPERTIES EXCLUDE_FROM_ALL True)
@@ -609,7 +603,7 @@ if(ASCIIDOCTOR_FOUND AND XSLTPROC_EXECUTABLE)
 endif()
 
 if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_PDF_EXECUTABLE)
-	ASCIIDOCTOR2PDF(${WSDG_TITLE} wsdg_src/developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
+	ASCIIDOCTOR2PDF(${WSDG_TITLE} wsdg_src/developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS} generate_wsdg_deps)
 
 	add_custom_target(developer_guide_pdf
 		DEPENDS
@@ -621,7 +615,7 @@ if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_PDF_EXECUTABLE)
 endif()
 
 if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_EPUB_EXECUTABLE)
-	ASCIIDOCTOR2EPUB(${WSDG_TITLE} wsdg_src/developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
+	ASCIIDOCTOR2EPUB(${WSDG_TITLE} wsdg_src/developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS} generate_wsdg_deps)
 
 	add_custom_target(developer_guide_epub
 		DEPENDS

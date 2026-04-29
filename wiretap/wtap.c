@@ -6,8 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
-
+#include "config.h"
 #define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
 
 #include "wtap.h"
@@ -27,6 +26,7 @@
 #include <wsutil/ws_assert.h>
 #include <wsutil/exported_pdu_tlvs.h>
 #include <wsutil/pint.h>
+#include <wsutil/please_report_bug.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
@@ -1514,6 +1514,9 @@ static const char * const wtap_errlist[] = {
 	NULL,
 
 	/* WTAP_ERR_CANT_SEEK_COMPRESSED */
+	/* This indicates a bug in the file format's module, because
+	 * the module should have set writing_must_seek to true in its
+	 * file_type_subtype_info */
 	NULL,
 
 	/* WTAP_ERR_DECOMPRESS */
@@ -1892,6 +1895,49 @@ wtap_read(wtap *wth, wtap_rec *rec, int *err, char **err_info, int64_t *offset)
 		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_NONE);
 	}
 
+	size_t cap_len;
+	switch (rec->rec_type) {
+
+	case REC_TYPE_PACKET:
+		cap_len = rec->rec_header.packet_header.caplen;
+		break;
+	case REC_TYPE_FT_SPECIFIC_EVENT:
+	case REC_TYPE_FT_SPECIFIC_REPORT:
+		cap_len = rec->rec_header.ft_specific_header.record_len;
+		break;
+	case REC_TYPE_SYSCALL:
+		cap_len = rec->rec_header.syscall_header.event_data_len;
+		break;
+	case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
+		cap_len = rec->rec_header.systemd_journal_export_header.record_len;
+		break;
+	case REC_TYPE_CUSTOM_BLOCK:
+		cap_len = rec->rec_header.custom_block_header.length;
+		break;
+	default:
+		cap_len = 0;
+	}
+
+	if (cap_len > ws_buffer_length(&rec->data)) {
+		/* XXX - fdata->cap_len *should* match ws_buffer_length(&rec->data),
+		 * if the record was set up correctly. Why not just use that? Some
+		 * wiretap modules, including some of the main distribution until
+		 * recently, assure Buffer space and write to it directly, but fail
+		 * to update the length afterwards. */
+		ws_critical("Length of record buffer (%zu) less than claimed captured length (%zu)!\n%s\n"
+			    "This may be from a third-party libwiretap plugin instead.\n"
+			    "In such case, please report it to the plugin developers.",
+			    ws_buffer_length(&rec->data), cap_len, please_report_bug());
+		/* XXX - If the caller copied the data manually but forgot to
+		 * call ws_buffer_increase_length, and there's room at the start,
+		 * i.e., ws_buffer_remove_start was called (why?), this messes up
+		 * dissection. (Too bad, you lose, the module needs to be fixed.)
+		 * Otherwise, this possibly allocates extra data but it's better
+		 * than a buffer overflow. Note this doesn't zero newly allocated
+		 * space. */
+		ws_buffer_assure_space((Buffer *)&rec->data, cap_len - ws_buffer_length(&rec->data));
+	}
+
 	return true;	/* success */
 }
 
@@ -1928,6 +1974,36 @@ wtap_read_bytes_or_eof(FILE_T fh, void *buf, unsigned int count, int *err,
 }
 
 /*
+ * Read a given number of bytes from a file into a Buffer, growing
+ * the buffer if necessary.
+ *
+ * If we succeed, return true.
+ *
+ * If we get an EOF, return false with *err set to 0, reporting this
+ * as an EOF.
+ *
+ * If we get fewer bytes than the specified number, return false with
+ * *err set to WTAP_ERR_SHORT_READ, reporting this as a short read
+ * error.
+ *
+ * If we get a read error, return false with *err and *err_info set
+ * appropriately.
+ */
+bool
+wtap_read_bytes_or_eof_buffer(FILE_T fh, Buffer *buf, unsigned length, int *err,
+    char **err_info)
+{
+	bool rv;
+	ws_buffer_assure_space(buf, length);
+	rv = wtap_read_bytes_or_eof(fh, ws_buffer_end_ptr(buf), length, err,
+	    err_info);
+	if (rv) {
+		ws_buffer_increase_length(buf, length);
+	}
+	return rv;
+}
+
+/*
  * Read a given number of bytes from a file into a buffer or, if
  * buf is NULL, just discard them.
  *
@@ -1935,7 +2011,10 @@ wtap_read_bytes_or_eof(FILE_T fh, void *buf, unsigned int count, int *err,
  *
  * If we get fewer bytes than the specified number, including getting
  * an EOF, return false with *err set to WTAP_ERR_SHORT_READ, reporting
- * this as a short read error.
+ * this as a short read error.  (The assumption is that each packet has
+ * a header followed by raw packet data, and that we've already read the
+ * header, so if we get an EOF trying to read the packet data, the file
+ * has been cut short, even if the read didn't read any data at all.)
  *
  * If we get a read error, return false with *err and *err_info set
  * appropriately.
@@ -1960,11 +2039,17 @@ wtap_read_bytes(FILE_T fh, void *buf, unsigned int count, int *err,
  * Read a given number of bytes from a file into a Buffer, growing the
  * buffer as necessary.
  *
- * This returns an error on a short read, even if the short read hit
- * the EOF immediately.  (The assumption is that each packet has a
- * header followed by raw packet data, and that we've already read the
+ * If we succeed, return true.
+ *
+ * If we get fewer bytes than the specified number, including getting
+ * an EOF, return false with *err set to WTAP_ERR_SHORT_READ, reporting
+ * this as a short read error.  (The assumption is that each packet has
+ * a header followed by raw packet data, and that we've already read the
  * header, so if we get an EOF trying to read the packet data, the file
  * has been cut short, even if the read didn't read any data at all.)
+ *
+ * If we get a read error, return false with *err and *err_info set
+ * appropriately.
  */
 bool
 wtap_read_bytes_buffer(FILE_T fh, Buffer *buf, unsigned length, int *err,
@@ -2143,6 +2228,7 @@ wtap_full_file_read_file(wtap *wth, FILE_T fh, wtap_rec *rec,
 			return false;
 		}
 		packet_size += nread;
+		ws_buffer_increase_length(&rec->data, nread);
 		if (packet_size != buffer_size) {
 			/* EOF */
 			break;
@@ -2253,7 +2339,7 @@ wtap_buffer_append_epdu_string(Buffer *buf, uint16_t epdu_tag, const char *val)
 	 */
 	if (string_len > UINT16_MAX)
 		string_len = UINT16_MAX;
-	wtap_buffer_append_epdu_tag(buf, epdu_tag, val, (uint16_t) string_len);
+	wtap_buffer_append_epdu_tag(buf, epdu_tag, (const uint8_t*)val, (uint16_t) string_len);
 }
 
 int
@@ -2274,15 +2360,16 @@ wtap_buffer_append_epdu_end(Buffer *buf)
  * Initialize the library.
  */
 void
-wtap_init(bool load_wiretap_plugins)
+wtap_init(bool load_wiretap_plugins, const char* app_env_var_prefix, const struct file_extension_info* file_extensions, unsigned num_extensions)
 {
 	init_open_routines();
 	wtap_opttypes_initialize();
 	wtap_init_encap_types();
-	wtap_init_file_type_subtypes();
+	wtap_init_file_type_subtypes(app_env_var_prefix);
+	wtap_init_file_type_extensions(file_extensions, num_extensions);
 	if (load_wiretap_plugins) {
 #ifdef HAVE_PLUGINS
-		libwiretap_plugins = plugins_init(WS_PLUGIN_WIRETAP);
+		libwiretap_plugins = plugins_init(WS_PLUGIN_WIRETAP, app_env_var_prefix);
 #endif
 		g_slist_foreach(wtap_plugins, call_plugin_register_wtap_module, NULL);
 	}

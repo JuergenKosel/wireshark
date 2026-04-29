@@ -1171,7 +1171,7 @@ add_awdl_dns_name(proto_tree *tree, int hfindex_regular, int hfindex_compressed,
                   tvbuff_t *tvb, int offset, int len, wmem_allocator_t *scope, const char **name) {
   int start_offset = offset;
   uint8_t component_len;
-  const unsigned char *component;
+  const char *component;
   wmem_strbuf_t *strbuf;
 
   strbuf = wmem_strbuf_new_sized(scope, MAX_DNAME_LEN);
@@ -1191,8 +1191,8 @@ add_awdl_dns_name(proto_tree *tree, int hfindex_regular, int hfindex_compressed,
       offset += 2;
     } else {
       /* regular label */
-      unsigned label_len;
-      proto_tree_add_item_ret_string_and_length(tree, hfindex_regular, tvb, offset, 1, ENC_ASCII, scope, &component, &label_len);
+      int label_len;
+      proto_tree_add_item_ret_string_and_length(tree, hfindex_regular, tvb, offset, 1, ENC_ASCII, scope, (const uint8_t**)&component, &label_len);
       offset += label_len;
     }
     if (component) {
@@ -1411,16 +1411,13 @@ dissect_awdl_action(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
   offset += 1;
   add_awdl_version(tvb, offset, fixed_tree);
   offset += 1;
-  subtype = tvb_get_uint8(tvb, offset);
-  proto_tree_add_item(fixed_tree, hf_awdl_subtype, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+  proto_tree_add_item_ret_uint8(fixed_tree, hf_awdl_subtype, tvb, offset, 1, ENC_LITTLE_ENDIAN, &subtype);
   offset += 1;
   proto_tree_add_item(fixed_tree, hf_awdl_rsvd, tvb, offset, 1, ENC_LITTLE_ENDIAN);
   offset += 1;
-  proto_tree_add_item(fixed_tree, hf_awdl_phytime, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-  phytime = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
+  proto_tree_add_item_ret_uint(fixed_tree, hf_awdl_phytime, tvb, offset, 4, ENC_LITTLE_ENDIAN, &phytime);
   offset += 4;
-  proto_tree_add_item(fixed_tree, hf_awdl_targettime, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-  targettime = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
+  proto_tree_add_item_ret_uint(fixed_tree, hf_awdl_targettime, tvb, offset, 4, ENC_LITTLE_ENDIAN, &targettime);
   offset += 4;
   item = proto_tree_add_uint(fixed_tree, hf_awdl_txdelay, tvb, 0, 0, phytime - targettime);
   proto_item_set_generated(item);

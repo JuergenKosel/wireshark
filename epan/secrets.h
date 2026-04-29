@@ -17,7 +17,7 @@
 
 #include <glib.h>
 #include "ws_symbol_export.h"
-#include "cfile.h"
+#include <wiretap/wtap.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,7 +85,7 @@ WS_DLL_PUBLIC void
 secrets_register_type(uint32_t secrets_type, secrets_block_callback_t cb);
 
 typedef unsigned (*secret_inject_count_func)(void);
-typedef bool (*secret_inject_export_func)(capture_file* cf);
+typedef bool (*secret_inject_export_func)(wtap* wth);
 typedef char* (*secret_export_func)(size_t* length);
 
 /**
@@ -121,17 +121,17 @@ secrets_get_count(const char* name);
  * protocol.
  *
  * @param name Registered protocol abbreviation
- * @param cf Capture file to export to
+ * @param wth wiretap structure to export to
  * @return Enumerated value for success or possible errors
  */
 WS_DLL_PUBLIC secrets_export_values
-secrets_export_dsb(const char* name, capture_file* cf);
+secrets_export_dsb(const char* name, wtap* wth);
 
 /**
  * Export the data for secrets as a character string from a single registered protocol.
  *
  * @param name Registered protocol abbreviation
- * @param secrets Returned secret data. Caller is responsibile for g_ allocated memory returned
+ * @param secrets Returned secret data. Caller is responsible for g_ allocated memory returned
  * @param secrets_len Returned length of secrets data
  * @param num_secrets Number of secrets in the data
  * @return Enumerated value for success or possible errors
@@ -173,7 +173,8 @@ WS_DLL_PUBLIC bool
 secrets_verify_key(const char *uri, const char *password, bool *need_password, char **error);
 
 /** Returns a new hash table, mapping cert_key_id_t -> gnutls_privkey_t. */
-GHashTable *privkey_hash_table_new(void);
+WS_DLL_PUBLIC GHashTable*
+privkey_hash_table_new(void);
 
 /**
  * Tries to decrypt the given buffer using a private key identified by key_id.
@@ -188,7 +189,7 @@ GHashTable *privkey_hash_table_new(void);
  * error code otherwise.
  */
 WS_DLL_PUBLIC int
-secrets_rsa_decrypt(const cert_key_id_t *key_id, const uint8_t *encr, int encr_len, uint8_t **out, int *out_len);
+secrets_rsa_decrypt(const cert_key_id_t *key_id, const uint8_t *encr, unsigned encr_len, uint8_t **out, unsigned *out_len);
 #endif  /* HAVE_LIBGNUTLS */
 
 #ifdef __cplusplus

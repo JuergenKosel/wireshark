@@ -12199,7 +12199,7 @@ void QCPItemAnchor::removeChildY(QCPItemPosition *pos)
   A QCPItemPosition may have a parent QCPItemAnchor, see \ref setParentAnchor. This way you can tie
   multiple items together. If the QCPItemPosition has a parent, its coordinates (\ref setCoords)
   are considered to be absolute pixels in the reference frame of the parent anchor, where (0, 0)
-  means directly ontop of the parent anchor. For example, You could attach the \a start position of
+  means directly on top of the parent anchor. For example, You could attach the \a start position of
   a QCPItemLine to the \a bottom anchor of a QCPItemText to make the starting point of the line
   always be centered under the text label, no matter where the text is moved to. For more advanced
   plots, it is possible to assign different parent anchors per X/Y coordinate of the position, see
@@ -21958,7 +21958,7 @@ void QCPGraph::getOptimizedScatterData(QVector<QCPGraphData> *scatterData, QCPGr
     {
       // determine value pixel span and add as many points in interval to maintain certain vertical data density (this is specific to scatter plot):
       //   [ However, make sure that the span is at least 1 pixel ]
-      double valuePixelSpan = qAbs(valueAxis->coordToPixel(minValue)-valueAxis->coordToPixel(maxValue));
+      double valuePixelSpan = qMax(1.0, qAbs(valueAxis->coordToPixel(minValue)-valueAxis->coordToPixel(maxValue)));
       double pointsToAdd = valuePixelSpan/4.0; // add approximately one data point for every 4 value pixels
       int dataModulo = qMax(1, qRound(intervalDataCount/pointsToAdd));
       QCPGraphDataContainer::const_iterator intervalIt = currentIntervalStart;

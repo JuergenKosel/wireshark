@@ -48,10 +48,6 @@
 void proto_register_dmp(void);
 void proto_reg_handoff_dmp(void);
 
-#define PNAME  "Direct Message Profile"
-#define PSNAME "DMP"
-#define PFNAME "dmp"
-
 /* Default UDP Port Number */
 #define DEFAULT_DMP_PORT_RANGE "5031"
 
@@ -458,10 +454,9 @@ static expert_field ei_message_sic_illegal;
 static expert_field ei_envelope_version_value;
 static expert_field ei_message_compr;
 static expert_field ei_ack_reason;
-static expert_field ei_addr_dir_rec_no_generated;
+static expert_field ei_addr_ext_rec_no_generated;
 static expert_field ei_checksum_bad;
 static expert_field ei_message_body_uncompress;
-static expert_field ei_addr_ext_rec_no_generated;
 static expert_field ei_envelope_msg_id;
 static expert_field ei_7bit_string_unused_bits;
 static expert_field ei_analysis_ack_missing;
@@ -1641,7 +1636,7 @@ static const char *dissect_7bit_string (tvbuff_t *tvb, wmem_allocator_t* allocat
     *byte_rest = rest;
   }
 
-  return decoded;
+  return (const char*)decoded;
 }
 
 static const char *dissect_thales_mts_id (tvbuff_t *tvb, wmem_allocator_t* allocator, int offset, int length, unsigned char *byte_rest)
@@ -2395,7 +2390,7 @@ static int dissect_dmp_direct_encoding (tvbuff_t *tvb, packet_info *pinfo,
                                    "Recipient Number: %d", rec_no);
   if (rec_no > 32767) {
     proto_item_append_text (en, " (maximum 32767)");
-    expert_add_info(pinfo, en, &ei_addr_dir_rec_no_generated);
+    expert_add_info(pinfo, en, &ei_addr_ext_rec_no_generated);
   }
   proto_item_set_generated (en);
 
@@ -4853,9 +4848,6 @@ void proto_register_dmp (void)
     { &ei_analysis_ack_dup_no,
       { "dmp.analysis.dup_ack_no.expert", PI_SEQUENCE, PI_NOTE,
         "Dup ACK #", EXPFILL } },
-    { &ei_addr_dir_rec_no_generated,
-      { "dmp.rec_no.expert", PI_MALFORMED, PI_WARN,
-        "Recipient number too big", EXPFILL } },
     { &ei_addr_ext_rec_no_generated,
       { "dmp.rec_no.expert", PI_MALFORMED, PI_WARN,
         "Recipient number too big", EXPFILL } },
@@ -4910,9 +4902,9 @@ void proto_register_dmp (void)
   module_t *dmp_module;
   expert_module_t* expert_dmp;
 
-  proto_dmp = proto_register_protocol (PNAME, PSNAME, PFNAME);
+  proto_dmp = proto_register_protocol ("Direct Message Profile", "DMP", "dmp");
 
-  dmp_handle = register_dissector(PFNAME, dissect_dmp, proto_dmp);
+  dmp_handle = register_dissector("dmp", dissect_dmp, proto_dmp);
 
   proto_register_field_array (proto_dmp, hf, array_length (hf));
   proto_register_subtree_array (ett, array_length (ett));

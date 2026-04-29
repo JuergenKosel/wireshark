@@ -243,7 +243,7 @@ ssl_proto_tree_add_segment_data(
         NULL,
         "%sTLS segment data (%u %s)",
         prefix != NULL ? prefix : "",
-        length == -1 ? tvb_reported_length_remaining(tvb, offset) : length,
+        length,
         plurality(length, "byte", "bytes"));
 }
 
@@ -260,7 +260,7 @@ static dissector_handle_t  tls_handle;
 static dissector_handle_t  tls13_handshake_handle;
 static StringInfo          ssl_compressed_data;
 static StringInfo          ssl_decrypted_data;
-static int                 ssl_decrypted_data_avail;
+static unsigned            ssl_decrypted_data_avail;
 static FILE               *ssl_keylog_file;
 static ssl_common_options_t ssl_options;
 
@@ -502,10 +502,10 @@ ssl_export_sessions(size_t* length)
 
 /** Add a DSB with the used TLS secrets to a capture file.
  *
- * @param cf The capture file
+ * @param wth Wiretap data
  */
 static bool
-tls_export_dsb(capture_file* cf)
+tls_export_dsb(wtap* wth)
 {
     wtap_block_t block;
     wtapng_dsb_mandatory_t* dsb;
@@ -521,9 +521,7 @@ tls_export_dsb(capture_file* cf)
     g_free(secrets);
 
     /* XXX - support replacing the DSB of the same type instead of adding? */
-    wtap_file_add_decryption_secrets(cf->provider.wth, block);
-    /* Mark the file as having unsaved changes */
-    cf->unsaved_changes = true;
+    wtap_file_add_decryption_secrets(wth, block);
 
     return true;
 }
@@ -598,7 +596,7 @@ ssl_reset_uat(void)
 static char *
 tls_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, unsigned *stream, unsigned *sub_stream _U_)
 {
-    conversation_t *conv = find_conversation_pinfo(pinfo, 0);
+    conversation_t *conv = find_conversation_pinfo_strat(pinfo, 0);
     if (!conv) {
         return NULL;
     }
@@ -876,12 +874,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     /* Get the conversation with the deinterlacing strategy,
      * assuming it does exist, as created by an underlying proto.
      */
-    conversation = find_conversation_strat(pinfo, conversation_pt_to_conversation_type(pinfo->ptype), 0, false);
-    if(conversation == NULL) {
-        conversation = conversation_new(pinfo->num, &pinfo->src,
-            &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
-            pinfo->srcport, pinfo->destport, 0);
-    }
+    conversation = find_or_create_conversation_strat(pinfo);
 
 
     ssl_session_save = ssl_session = ssl_get_session(conversation, tls_handle);
@@ -1598,7 +1591,7 @@ desegment_ssl(tvbuff_t *tvb, packet_info *pinfo, int offset,
     fragment_head *ipfd_head;
     bool           must_desegment;
     bool           called_dissector;
-    int            another_pdu_follows;
+    unsigned       another_pdu_follows;
     bool           another_segment_in_frame = false;
     int            deseg_offset;
     uint32_t       deseg_seq;
@@ -1671,7 +1664,7 @@ again:
     /* Else, find the most previous PDU starting before this sequence number */
     msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(flow->multisegment_pdus, seq-1);
     if (msp && msp->seq <= seq && msp->nxtpdu > seq) {
-        int len;
+        unsigned len;
 
         if (!PINFO_FD_VISITED(pinfo)) {
             msp->last_frame = pinfo->num;
@@ -1683,7 +1676,7 @@ again:
          */
         if (msp->flags & MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT) {
             /* The dissector asked for the entire segment */
-            len = MAX(0, tvb_reported_length_remaining(tvb, offset));
+            len = tvb_reported_length_remaining(tvb, offset);
         } else {
             len = MIN(nxtseq, msp->nxtpdu) - seq;
         }
@@ -2295,7 +2288,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
         /*
          * Yes - can we do reassembly?
          */
-        ssl_proto_tree_add_segment_data(tree, tvb, offset, -1, NULL);
+        ssl_proto_tree_add_segment_data(tree, tvb, offset, available_bytes, NULL);
         if (tls_desegment && pinfo->can_desegment) {
             /*
              * Yes.  Tell the TCP dissector where the data for this
@@ -2331,7 +2324,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
             /*
              * Yes - can we do reassembly?
              */
-            ssl_proto_tree_add_segment_data(tree, tvb, offset, -1, NULL);
+            ssl_proto_tree_add_segment_data(tree, tvb, offset, available_bytes, NULL);
             if (tls_desegment && pinfo->can_desegment) {
                 /*
                  * Yes.  Tell the TCP dissector where the data for this
@@ -3509,7 +3502,7 @@ dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         /*
          * Yes - can we do reassembly?
          */
-        ssl_proto_tree_add_segment_data(tree, tvb, offset, -1, NULL);
+        ssl_proto_tree_add_segment_data(tree, tvb, offset, available_bytes, NULL);
         if (tls_desegment && pinfo->can_desegment) {
             /*
              * Yes.  Tell the TCP dissector where the data for this
@@ -3551,7 +3544,7 @@ dissect_ssl2_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         /*
          * Yes - Can we do reassembly?
          */
-        ssl_proto_tree_add_segment_data(tree, tvb, offset, -1, NULL);
+        ssl_proto_tree_add_segment_data(tree, tvb, offset, available_bytes, NULL);
         if (tls_desegment && pinfo->can_desegment) {
             /*
              * Yes.  Tell the TCP dissector where the data for this
@@ -4517,7 +4510,7 @@ tls13_exporter_common(int algo, const StringInfo *secret, const char *label, uin
      */
     gcry_error_t    err;
     gcry_md_hd_t    hd;
-    const char     *hash_value;
+    const uint8_t  *hash_value;
     StringInfo      derived_secret = { NULL, 0 };
     // QUIC -09 currently uses draft 23, so no need to support older TLS drafts
     const char *label_prefix = "tls13 ";
@@ -5078,7 +5071,7 @@ proto_register_tls(void)
     static build_valid_func ssl_da_both_values[2] = {ssl_src_value, ssl_dst_value};
     static decode_as_value_t ssl_da_values[3] = {{ssl_src_prompt, 1, ssl_da_src_values}, {ssl_dst_prompt, 1, ssl_da_dst_values}, {ssl_both_prompt, 2, ssl_da_both_values}};
     static decode_as_t ssl_da = {"tls", "tls.port", 3, 2, ssl_da_values, "TCP", "port(s) as",
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
     expert_module_t* expert_ssl;
 
@@ -5256,6 +5249,11 @@ proto_reg_handoff_ssl(void)
     dissector_add_string("http.upgrade", "TLS/1.1", tls_handle);
     dissector_add_string("http.upgrade", "TLS/1.2", tls_handle);
     dissector_add_string("http.upgrade", "TLS/1.3", tls_handle);
+    /* Ivanti VPNs (unregistered with IANA) */
+    dissector_add_string("http.upgrade", "IF-T/TLS", tls_handle);
+
+    /* RFC 9934 */
+    dissector_add_string("rfc7468.preeb_label", "ECHCONFIG", create_dissector_handle(dissect_tls_echconfig, proto_tls));
 }
 
 void

@@ -86,6 +86,7 @@ for arg; do
             INSTALL_STRATOSHARK=1
             ;;
         --install-all)
+            INSTALL_REQUIRED=1
             INSTALL_OPTIONAL=1
             INSTALL_DOC_DEPS=1
             INSTALL_DMG_DEPS=1
@@ -145,6 +146,10 @@ DOC_DEPS_LIST=(
     docbook-xsl
 )
 
+DMG_DEPS_LIST=(
+    pipx
+)
+
 STRATOSHARK_LIST=(
     jsoncpp
     onetbb
@@ -167,6 +172,10 @@ if [ $INSTALL_DOC_DEPS -ne 0 ] ; then
     ACTUAL_LIST+=( "${DOC_DEPS_LIST[@]}" )
 fi
 
+if [ $INSTALL_DMG_DEPS -ne 0 ] ; then
+    ACTUAL_LIST+=( "${DMG_DEPS_LIST[@]}" )
+fi
+
 if [ $INSTALL_STRATOSHARK -ne 0 ] ; then
     ACTUAL_LIST+=( "${STRATOSHARK_LIST[@]}" )
 fi
@@ -178,8 +187,7 @@ fi
 install_formulae "${ACTUAL_LIST[@]}"
 
 if [ $INSTALL_DMG_DEPS -ne 0 ] ; then
-    printf "Sorry, you'll have to install dmgbuild yourself for the time being.\\n"
-    # pip3 install "dmgbuild[badge_icons]"
+    pipx install dmgbuild
 fi
 
 if [ $INSTALL_SPARKLE_DEPS -ne 0 ] ; then
@@ -192,8 +200,8 @@ if [ $INSTALL_TEST_DEPS -ne 0 ] ; then
 fi
 
 if [ $INSTALL_STRATOSHARK -ne 0 ] ; then
-    FALCO_LIBS_VERSION=0.18.1
-    FALCO_LIBS_SHA256=1812e8236c4cb51d3fe5dd066d71be99f25da7ed22d8feeeebeed09bdc26325f
+    FALCO_LIBS_VERSION=0.22.2
+    FALCO_LIBS_SHA256=53cfb7062cac80623dec7496394739aabdfee8a774942f94be0990d81e3b2fbc
     if [ "$FALCO_LIBS_VERSION" ] && [ ! -f "falco-libs-$FALCO_LIBS_VERSION-done" ] ; then
         echo "Downloading, building, and installing libsinsp and libscap:"
         [ -f "falco-libs-$FALCO_LIBS_VERSION.tar.gz" ] || curl -L -O --remote-header-name "https://github.com/falcosecurity/libs/archive/refs/tags/$FALCO_LIBS_VERSION.tar.gz"
@@ -202,7 +210,6 @@ if [ $INSTALL_STRATOSHARK -ne 0 ] ; then
         tar -xf "falco-libs-$FALCO_LIBS_VERSION.tar.gz"
         mv "libs-$FALCO_LIBS_VERSION" "falco-libs-$FALCO_LIBS_VERSION"
         cd "falco-libs-$FALCO_LIBS_VERSION"
-        patch -p1 < "../tools/macos-setup-patches/falco-uthash_h-install.patch"
         mkdir build_dir
         cd build_dir
         cmake -DFALCOSECURITY_LIBS_VERSION="$FALCO_LIBS_VERSION" \

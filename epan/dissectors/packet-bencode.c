@@ -42,10 +42,10 @@ static expert_field ei_bencode_dict_value;
 static expert_field ei_bencode_invalid;
 
 static int dissect_bencoding_str(tvbuff_t *tvb, packet_info *pinfo,
-                                 int offset, int length, proto_tree *tree, proto_item *ti, int treeadd)
+                                 unsigned offset, int length, proto_tree *tree, proto_item *ti, int treeadd)
 {
    uint8_t ch;
-   int stringlen = 0, nextstringlen;
+   unsigned stringlen = 0, nextstringlen, remaining_length;
    int used;
    int izero = 0;
 
@@ -55,14 +55,15 @@ static int dissect_bencoding_str(tvbuff_t *tvb, packet_info *pinfo,
    }
 
    used = 0;
+   remaining_length = length;
 
-   while (length >= 1) {
+   while (remaining_length >= 1) {
       ch = tvb_get_uint8(tvb, offset + used);
-      length--;
+      remaining_length--;
       used++;
 
       if ((ch == ':') && (used > 1)) {
-         if ((stringlen > length) || (stringlen < 0)) {
+         if ((stringlen > remaining_length) || (stringlen > (unsigned)INT_MAX)) {
             proto_tree_add_expert(tree, pinfo, &ei_bencode_str_length, tvb, offset, length);
             return -1;
          }
@@ -103,7 +104,7 @@ static int dissect_bencoding_str(tvbuff_t *tvb, packet_info *pinfo,
 }
 
 static int dissect_bencoding_int(tvbuff_t *tvb, packet_info *pinfo,
-                                 int offset, int length, proto_tree *tree, proto_item *ti, int treeadd)
+                                 unsigned offset, int length, proto_tree *tree, proto_item *ti, int treeadd)
 {
    int32_t ival  = 0;
    int    neg   = 0;
@@ -165,7 +166,7 @@ static int dissect_bencoding_int(tvbuff_t *tvb, packet_info *pinfo,
 
 // NOLINTNEXTLINE(misc-no-recursion)
 static int dissect_bencoding_rec(tvbuff_t *tvb, packet_info *pinfo,
-                                 int offset, int length, proto_tree *tree, int level, proto_item *treei, int treeadd)
+                                 unsigned offset, int length, proto_tree *tree, int level, proto_item *treei, int treeadd)
 {
    uint8_t op;
    int oplen = 0, op1len, op2len;
@@ -175,7 +176,7 @@ static int dissect_bencoding_rec(tvbuff_t *tvb, packet_info *pinfo,
    proto_tree *itree = NULL, *dtree = NULL;
 
    if (level > 10) {
-      proto_tree_add_expert(tree, pinfo, &ei_bencode_nest, tvb, offset, -1);
+      proto_tree_add_expert_remaining(tree, pinfo, &ei_bencode_nest, tvb, offset);
       return -1;
    }
    if (length < 1) {
@@ -203,7 +204,7 @@ static int dissect_bencoding_rec(tvbuff_t *tvb, packet_info *pinfo,
 
          op1len = dissect_bencoding_str(tvb, pinfo, offset + used, length, NULL, NULL, 0);
          if (op1len < 0) {
-            proto_tree_add_expert(dtree, pinfo, &ei_bencode_dict_key, tvb, offset + used, -1);
+            proto_tree_add_expert_remaining(dtree, pinfo, &ei_bencode_dict_key, tvb, offset + used);
             return op1len;
          }
 
@@ -215,7 +216,7 @@ static int dissect_bencoding_rec(tvbuff_t *tvb, packet_info *pinfo,
          }
 
          if (op2len < 0) {
-            proto_tree_add_expert(dtree, pinfo, &ei_bencode_dict_value, tvb, offset + used + op1len, -1);
+            proto_tree_add_expert_remaining(dtree, pinfo, &ei_bencode_dict_value, tvb, offset + used + op1len);
             return op2len;
          }
 
@@ -272,7 +273,7 @@ static int dissect_bencoding_rec(tvbuff_t *tvb, packet_info *pinfo,
          return dissect_bencoding_str(tvb, pinfo, offset, length, tree, treei, treeadd);
       }
 
-      proto_tree_add_expert(tree, pinfo, &ei_bencode_invalid, tvb, offset, -1);
+      proto_tree_add_expert_remaining(tree, pinfo, &ei_bencode_invalid, tvb, offset);
    }
 
    return -1;

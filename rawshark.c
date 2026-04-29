@@ -20,7 +20,7 @@
  * - Prints a status line, followed by fields from a specified list.
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdlib.h>
@@ -46,6 +46,7 @@
 #include <wsutil/array.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/file_util.h>
 #include <wsutil/socket.h>
 #include <wsutil/privileges.h>
@@ -429,6 +430,12 @@ main(int argc, char *argv[])
 #define OPTSTRING_INIT OPTSTRING_DISSECT_COMMON OPTSTRING_READ_CAPTURE_COMMON "F:hlm:o:psS:v"
 
     static const char    optstring[] = OPTSTRING_INIT;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
+    epan_app_data_t app_data;
+
+    /* Future proof by zeroing out all data */
+    memset(&app_data, 0, sizeof(app_data));
 
     /* Set the program name. */
     g_set_prgname("rawshark");
@@ -486,7 +493,7 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Rawshark", NULL, get_ws_vcs_version_info,
+    ws_init_version_info("Rawshark", NULL, application_get_vcs_version_info,
                          epan_gather_compile_info,
                          NULL);
 
@@ -506,13 +513,19 @@ main(int argc, char *argv[])
      * file-type-dependent blocks can register using the file
      * type/subtype value for the file type.
      */
-    wtap_init(false);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(false, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, true)) {
+    app_data.env_var_prefix = application_configuration_environment_prefix();
+    app_data.col_fmt = application_columns();
+    app_data.num_cols = application_num_columns();
+    app_data.register_func = register_all_protocols;
+    app_data.handoff_func = register_all_protocol_handoffs;
+    if (!epan_init(NULL, NULL, true, &app_data)) {
         ret = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
@@ -573,15 +586,38 @@ main(int argc, char *argv[])
                 break;
 #if !defined(_WIN32) && defined(RLIMIT_AS)
             case 'm':
-                if (!get_uint32(ws_optarg, "memory limit", (uint32_t*)(&limit.rlim_cur)) ||
-                    !get_uint32(ws_optarg, "memory limit", (uint32_t*)(&limit.rlim_max)) ||
-                    (setrlimit(RLIMIT_AS, &limit) != 0)) {
+            {
+                /* POSIX says that rlim_t shall be defined through typedef to
+                 * be an unsigned integer type. On many 32-bit platforms rlim_t
+                 * as defined by sys/resource.h is 64-bit anyway in order to
+                 * provide large file support. (Exactly how that is translated
+                 * to system calls varies.)
+                 */
+                if (sizeof(rlim_t) < 8) {
+                    uint32_t memory_limit;
+                    if (!get_nonzero_uint32(ws_optarg, "memory limit", &memory_limit)) {
+                        ret = WS_EXIT_INVALID_OPTION;
+                        goto clean_exit;
+                    }
+                    limit.rlim_cur = memory_limit;
+                    limit.rlim_max = memory_limit;
+                } else {
+                    uint64_t memory_limit;
+                    if (!get_nonzero_uint64(ws_optarg, "memory limit", &memory_limit)) {
+                        ret = WS_EXIT_INVALID_OPTION;
+                        goto clean_exit;
+                    }
+                    limit.rlim_cur = memory_limit;
+                    limit.rlim_max = memory_limit;
+                }
+                if ((setrlimit(RLIMIT_AS, &limit) != 0)) {
                     cmdarg_err("setrlimit(RLIMIT_AS) failed: %s",
                                g_strerror(errno));
                     ret = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 break;
+            }
 #endif
             case 'o':        /* Override preference from command line */
             {

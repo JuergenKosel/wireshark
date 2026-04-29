@@ -12,15 +12,12 @@ set(WIRETAP_PUBLIC_HEADERS
 	introspection.h
 	merge.h
 	pcap-encap.h
+	pcapng_module.h
 	secrets-types.h
 	wtap.h
 	wtap_module.h
 	wtap_modules.h
 	wtap_opttypes.h
-)
-
-add_definitions(
-	${LIBXML2_DEFINITIONS}
 )
 
 #
@@ -203,7 +200,7 @@ target_link_libraries(wiretap
 		wsutil
 		${GLIB2_LIBRARIES}
 	PRIVATE
-		${LIBXML2_LIBRARIES}
+		LibXml2::LibXml2
 		${ZLIB_LIBRARIES}
 		${ZLIBNG_LIBRARIES}
 		${ZSTD_LIBRARIES}
@@ -212,7 +209,6 @@ target_link_libraries(wiretap
 
 target_include_directories(wiretap SYSTEM
 	PRIVATE
-		${LIBXML2_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
 		${ZLIBNG_INCLUDE_DIRS}
 		${ZSTD_INCLUDE_DIRS}

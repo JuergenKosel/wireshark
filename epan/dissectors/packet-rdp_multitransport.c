@@ -1,4 +1,4 @@
-/* packet-rdpudp.c
+/* packet-rdp_multitransport.c
  * Routines for RDP multi transport packet dissection
  * Copyright 2021, David Fort
  *
@@ -18,10 +18,6 @@
 
 #include "packet-rdp.h"
 #include "packet-rdpudp.h"
-
-#define PNAME  "Remote Desktop Protocol Multi-transport"
-#define PSNAME "RDPMT"
-#define PFNAME "rdpmt"
 
 void proto_register_rdpmt(void);
 void proto_reg_handoff_rdpmt(void);
@@ -122,7 +118,7 @@ dissect_rdpmt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *
 		tvb_memcpy(tvb, cookie, offset, 16);
 		offset += 4;
 
-		rdp_transport_set_udp_conversation(&pinfo->dst, pinfo->destport, rdpudp_is_reliable_transport(pinfo), reqId, cookie, conv);
+		rdp_transport_set_udp_conversation(pinfo, rdpudp_is_reliable_transport(pinfo), reqId, cookie, conv);
 		break;
 	}
 	case RDPMT_TUNNEL_CREATE_RESP:
@@ -190,7 +186,7 @@ proto_register_rdpmt(void) {
 	};
 
 	/* Register protocol */
-	proto_rdpmt = proto_register_protocol(PNAME, PSNAME, PFNAME);
+	proto_rdpmt = proto_register_protocol("Remote Desktop Protocol Multi-transport", "RDPMT", "rdpmt");
 	/* Register fields and subtrees */
 	proto_register_field_array(proto_rdpmt, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));

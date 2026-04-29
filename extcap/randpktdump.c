@@ -22,6 +22,7 @@
 #include <wsutil/socket.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/wslog.h>
+#include <app/application_flavor.h>
 
 #include <cli_main.h>
 #include <wsutil/cmdarg_err.h>
@@ -172,7 +173,7 @@ int main(int argc, char *argv[])
 		g_free(err_msg);
 	}
 
-	help_url = data_file_url("randpktdump.html");
+	help_url = data_file_url("randpktdump.html", application_configuration_environment_prefix());
 	extcap_base_set_util_info(extcap_conf, argv[0], RANDPKTDUMP_VERSION_MAJOR, RANDPKTDUMP_VERSION_MINOR,
 		RANDPKTDUMP_VERSION_RELEASE, help_url);
 	g_free(help_url);
@@ -298,12 +299,16 @@ int main(int argc, char *argv[])
 
 	if (extcap_conf->capture) {
 
+		const struct file_extension_info* file_extensions;
+		unsigned num_extensions;
+
 		if (g_strcmp0(extcap_conf->interface, RANDPKT_EXTCAP_INTERFACE)) {
 			ws_warning("ERROR: invalid interface");
 			goto end;
 		}
 
-		wtap_init(false);
+		application_file_extensions(&file_extensions, &num_extensions);
+		wtap_init(false, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
 		if (file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
 			file_type_subtype = wtap_pcapng_file_type_subtype();

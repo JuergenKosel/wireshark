@@ -24,11 +24,14 @@
 #include <QAction>
 #include <QStackedWidget>
 #include <QToolBar>
+#include <QLineEdit>
 
 #include <ui/qt/data_source_tab.h>
 #include <ui/qt/packet_list.h>
 #include <ui/qt/packet_diagram.h>
 #include <ui/qt/proto_tree.h>
+#include <ui/qt/widgets/display_filter_combo.h>
+#include "main_application.h"
 #include <ui/qt/welcome_page.h>
 
 #include <wsutil/ws_assert.h>
@@ -41,6 +44,9 @@ void MainWindow::showWelcome()
 void MainWindow::showCapture()
 {
     main_stack_->setCurrentWidget(&master_split_);
+    if (packet_list_) {
+        packet_list_->setFocus();
+    }
 }
 
 QWidget* MainWindow::getLayoutWidget(layout_pane_content_e type) {
@@ -67,6 +73,37 @@ QWidget* MainWindow::getLayoutWidget(layout_pane_content_e type) {
 // - At startup
 // - When the preferences change
 // - When the profile changes
+void MainWindow::cyclePane(bool reverse)
+{
+    QList<QWidget *> panes;
+    if (df_combo_box_) panes << df_combo_box_;
+    if (packet_list_) panes << packet_list_;
+    if (proto_tree_) panes << proto_tree_;
+    if (data_source_tab_) panes << data_source_tab_;
+
+    if (panes.isEmpty()) return;
+
+    QWidget *current_focus = mainApp->focusWidget();
+    int current_index = -1;
+
+    for (int i = 0; i < panes.size(); ++i) {
+        if (panes[i] == current_focus || (current_focus && panes[i]->isAncestorOf(current_focus))) {
+            current_index = i;
+            break;
+        }
+    }
+
+    int next_index;
+    int count = static_cast<int>(panes.size());
+    if (reverse) {
+        next_index = (current_index - 1 + count) % count;
+    } else {
+        next_index = (current_index + 1) % count;
+    }
+
+    panes[next_index]->setFocus();
+}
+
 void MainWindow::layoutPanes()
 {
     QVector<unsigned> new_layout = QVector<unsigned>() << prefs.gui_layout_type
@@ -168,6 +205,24 @@ void MainWindow::layoutPanes()
     if (packet_diagram_) {
         packet_diagram_->setVisible(ms_children.contains(packet_diagram_) && recent.packet_diagram_show);
     }
+
+    // Splitter handles shouldn't take focus.
+    for (int i = 0; i < master_split_.count(); i++) {
+        if (master_split_.handle(i)) master_split_.handle(i)->setFocusPolicy(Qt::NoFocus);
+    }
+    for (int i = 0; i < extra_split_.count(); i++) {
+        if (extra_split_.handle(i)) extra_split_.handle(i)->setFocusPolicy(Qt::NoFocus);
+    }
+
+    if (df_combo_box_) {
+        QWidget *main_toolbar = findChild<QWidget *>("mainToolBar");
+        if (main_toolbar) {
+            setTabOrder(main_toolbar, df_combo_box_->lineEdit());
+        }
+        setTabOrder(df_combo_box_->lineEdit(), packet_list_);
+    }
+    setTabOrder(packet_list_, proto_tree_);
+    setTabOrder(proto_tree_, data_source_tab_);
 
     if (frozen) {
         packet_list_->thaw(true);

@@ -1294,7 +1294,7 @@ process_parsed_line(wtap *wth, const dct2000_file_externals_t *file_externals,
                     int *err, char **err_info)
 {
     int n;
-    int stub_offset = 0;
+    unsigned stub_offset = 0;
     size_t length;
     uint8_t *frame_buffer;
 
@@ -1346,7 +1346,7 @@ process_parsed_line(wtap *wth, const dct2000_file_externals_t *file_externals,
 
     /* Context name */
     length = g_strlcpy((char*)frame_buffer, context_name, MAX_CONTEXT_NAME+1);
-    stub_offset += (int)(length + 1);
+    stub_offset += (unsigned)MIN(length, MAX_CONTEXT_NAME) + 1;
 
     /* Context port number */
     frame_buffer[stub_offset] = context_port;
@@ -1354,25 +1354,26 @@ process_parsed_line(wtap *wth, const dct2000_file_externals_t *file_externals,
 
     /* Timestamp within file (terminated string) */
     length = g_strlcpy((char*)&frame_buffer[stub_offset], timestamp_string, MAX_TIMESTAMP_LEN+1);
-    stub_offset += (int)(length + 1);
+    stub_offset += (unsigned)MIN(length, MAX_TIMESTAMP_LEN) + 1;
 
     /* Protocol name (terminated string) */
     length = g_strlcpy((char*)&frame_buffer[stub_offset], protocol_name, MAX_PROTOCOL_NAME+1);
-    stub_offset += (int)(length + 1);
+    stub_offset += (unsigned)MIN(length, MAX_PROTOCOL_NAME) + 1;
 
     /* Protocol variant number (as terminated string) */
     length = g_strlcpy((char*)&frame_buffer[stub_offset], variant_name, MAX_VARIANT_DIGITS+1);
-    stub_offset += (int)(length + 1);
+    stub_offset += (unsigned)MIN(length, MAX_VARIANT_DIGITS) + 1;
 
     /* Outhdr (terminated string) */
     length = g_strlcpy((char*)&frame_buffer[stub_offset], outhdr_name, MAX_OUTHDR_NAME+1);
-    stub_offset += (int)(length + 1);
+    stub_offset += (unsigned)MIN(length, MAX_OUTHDR_NAME) + 1;
 
     /* Direction */
     frame_buffer[stub_offset++] = direction;
 
     /* Encap */
     frame_buffer[stub_offset++] = (uint8_t)encap;
+    ws_buffer_increase_length(&rec->data, stub_offset);
 
     if (!is_comment) {
         /***********************************************************/
@@ -1381,13 +1382,12 @@ process_parsed_line(wtap *wth, const dct2000_file_externals_t *file_externals,
             frame_buffer[stub_offset + n/2] =
                 hex_byte_from_chars(file_externals->linebuff+dollar_offset+n);
         }
+        ws_buffer_increase_length(&rec->data, data_chars/2);
     }
     else {
         /***********************************************************/
         /* Copy packet data into buffer, just copying ascii chars  */
-        for (n=0; n < data_chars; n++) {
-            frame_buffer[stub_offset + n] = file_externals->linebuff[dollar_offset+n];
-        }
+        ws_buffer_append(&rec->data, (uint8_t*)&file_externals->linebuff[dollar_offset], data_chars);
     }
 
     /*****************************************/

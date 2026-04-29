@@ -17,12 +17,17 @@
 
 #include <ui/qt/utils/field_information.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <QTabWidget>
+#include <QColor>
+#include <QString>
+#include <QVector>
 
 
 #include <ui/qt/widgets/base_data_source_view.h>
+
+class HexDataSourceView;
 
 class DataSourceTab : public QTabWidget
 {
@@ -50,16 +55,33 @@ signals:
     void detachData(void);
 
 private:
+    struct FrameByteAnnotation {
+        int frame;
+        int start;
+        int length;
+        QColor color;
+        QString comment;
+    };
+
     capture_file *cap_file_;
     bool is_fixed_packet_;  /* true if this byte view is related to a single
                                packet in the packet dialog and false if the
                                packet dissection context can change. */
     epan_dissect_t *edt_;   /* Packet dissection result for the currently selected packet. */
     bool disable_hover_;
+    QVector<FrameByteAnnotation> annotations_;
+    QColor last_annotation_color_;
+    bool annotations_session_notice_shown_;
 
     void setTabsVisible();
     BaseDataSourceView * findDataSourceViewForTvb(tvbuff_t * search, int * idx = 0);
     void addTab(const char *name = "", const struct data_source *source = nullptr);
+    void applyAnnotationsToViews();
+    int currentFrameNumber() const;
+    int findAnnotationIndexAt(int frame, int byte) const;
+    int findAnnotationIndexIntersecting(int frame, int start, int length) const;
+    HexDataSourceView *activeHexView() const;
+    void showAnnotationsSessionNotice();
 
 protected:
     void tabInserted(int);
@@ -68,6 +90,12 @@ protected:
 private slots:
     void byteViewTextHovered(int);
     void byteViewTextMarked(int);
+    void handleAddAnnotation();
+    void handleEditAnnotation();
+    void handleRemoveAnnotation();
+    void handleSetOffsetStart(int byte);
+    void handleSetOffsetEnd(int byte);
+    void handleClearOffsetMarkers();
 
     void connectToMainWindow();
 

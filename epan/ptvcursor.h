@@ -16,6 +16,10 @@
 #include <epan/packet.h>
 #include "ws_symbol_export.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SUBTREE_UNDEFINED_LENGTH -1
 
 typedef struct ptvcursor ptvcursor_t;
@@ -24,7 +28,7 @@ typedef struct ptvcursor ptvcursor_t;
  * proto_tree, tvbuff, and offset. */
 WS_DLL_PUBLIC
 ptvcursor_t*
-ptvcursor_new(wmem_allocator_t *scope, proto_tree* tree, tvbuff_t* tvb, int offset);
+ptvcursor_new(wmem_allocator_t *scope, proto_tree* tree, tvbuff_t* tvb, unsigned offset);
 
 /* Gets data from tvbuff, adds it to proto_tree, increments offset,
  * and returns proto_item* */
@@ -36,13 +40,13 @@ ptvcursor_add(ptvcursor_t* ptvc, int hf, int length, const unsigned encoding);
  * and returns proto_item* and uint value retrieved*/
 WS_DLL_PUBLIC
 proto_item*
-ptvcursor_add_ret_uint(ptvcursor_t* ptvc, int hf, int length, const unsigned encoding, uint32_t *retval);
+ptvcursor_add_ret_uint(ptvcursor_t* ptvc, int hf, unsigned length, const unsigned encoding, uint32_t *retval);
 
 /* Gets data from tvbuff, adds it to proto_tree, increments offset,
  * and returns proto_item* and int value retrieved */
 WS_DLL_PUBLIC
 proto_item*
-ptvcursor_add_ret_int(ptvcursor_t* ptvc, int hf, int length, const unsigned encoding, int32_t *retval);
+ptvcursor_add_ret_int(ptvcursor_t* ptvc, int hf, unsigned length, const unsigned encoding, int32_t *retval);
 
 /* Gets data from tvbuff, adds it to proto_tree, increments offset,
  * and returns proto_item* and string value retrieved */
@@ -54,7 +58,7 @@ ptvcursor_add_ret_string(ptvcursor_t* ptvc, int hf, int length, const unsigned e
  * and returns proto_item* and boolean value retrieved */
 WS_DLL_PUBLIC
 proto_item*
-ptvcursor_add_ret_boolean(ptvcursor_t* ptvc, int hf, int length, const unsigned encoding, bool *retval);
+ptvcursor_add_ret_boolean(ptvcursor_t* ptvc, int hf, unsigned length, const unsigned encoding, bool *retval);
 
 /* Gets data from tvbuff, adds it to proto_tree, *DOES NOT* increment
  * offset, and returns proto_item* */
@@ -66,7 +70,7 @@ ptvcursor_add_no_advance(ptvcursor_t* ptvc, int hf, int length, const unsigned e
  * adding anything to the proto_tree. */
 WS_DLL_PUBLIC
 void
-ptvcursor_advance(ptvcursor_t* ptvc, int length);
+ptvcursor_advance(ptvcursor_t* ptvc, unsigned length);
 
 /* Frees memory for ptvcursor_t, but nothing deeper than that. */
 WS_DLL_PUBLIC
@@ -80,7 +84,7 @@ ptvcursor_tvbuff(ptvcursor_t* ptvc);
 
 /* Returns current offset. */
 WS_DLL_PUBLIC
-int
+unsigned
 ptvcursor_current_offset(ptvcursor_t* ptvc);
 
 /* Returns the proto_tree* */
@@ -129,5 +133,9 @@ ptvcursor_add_text_with_subtree(ptvcursor_t* ptvc, int length,
 WS_DLL_PUBLIC
 proto_tree*
 ptvcursor_set_subtree(ptvcursor_t* ptvc, proto_item* it, int ett_subtree);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __PTVCURSOR_H__ */

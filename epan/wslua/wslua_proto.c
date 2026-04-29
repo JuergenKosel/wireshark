@@ -15,6 +15,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_WSLUA
 
 #include "wslua.h"
 #include <epan/exceptions.h>
@@ -30,19 +31,35 @@
 
 GPtrArray* lua_outstanding_FuncSavers;
 
-void clear_outstanding_FuncSavers(void) {
-    while (lua_outstanding_FuncSavers->len) {
-        struct _wslua_func_saver* fs = (struct _wslua_func_saver*)g_ptr_array_remove_index_fast(lua_outstanding_FuncSavers,0);
-        if (fs->state) {
-            lua_State* L = fs->state;
-            if (fs->get_len_ref != LUA_NOREF) {
-                luaL_unref(L, LUA_REGISTRYINDEX, fs->get_len_ref);
-            }
-            if (fs->dissect_ref != LUA_NOREF) {
-                luaL_unref(L, LUA_REGISTRYINDEX, fs->dissect_ref);
-            }
+void wslua_func_saver_free(void *data) {
+    struct _wslua_func_saver* fs = (struct _wslua_func_saver*)data;
+    if (fs->state) {
+        lua_State* L = fs->state;
+        ws_debug("L %p get_len_ref %i dissect_ref %i", L, fs->get_len_ref, fs->dissect_ref);
+        if (fs->get_len_ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, fs->get_len_ref);
         }
-        g_free(fs);
+        if (fs->dissect_ref != LUA_NOREF) {
+            luaL_unref(L, LUA_REGISTRYINDEX, fs->dissect_ref);
+        }
+    }
+    g_free(fs);
+}
+
+void clear_outstanding_FuncSavers(lua_State *L) {
+    if (L == NULL) {
+        g_ptr_array_set_size(lua_outstanding_FuncSavers, 0);
+        return;
+    }
+
+    unsigned i = 0;
+    while (i < lua_outstanding_FuncSavers->len) {
+        struct _wslua_func_saver* fs = (struct _wslua_func_saver*)g_ptr_array_index(lua_outstanding_FuncSavers,i);
+        if (fs->state == L) {
+            g_ptr_array_remove_index_fast(lua_outstanding_FuncSavers, i);
+        } else {
+            ++i;
+        }
     }
 }
 
@@ -143,9 +160,18 @@ WSLUA_METAMETHOD Proto__call(lua_State* L) { /* Creates a <<lua_class_Proto,`Pro
 }
 
 static int Proto__tostring(lua_State* L) {
+    /* Returns a short label of the form
+       `Proto: <loname> description="<desc>"` (e.g.
+       `Proto: myproto description="My Protocol"`). `loname` is the
+       short/filter name used in `DissectorTable` and display
+       filters; `desc` is the human-readable description string passed
+       to `Proto.new`. The previous form only showed one field, which was
+       ambiguous when multiple Proto objects shared similar names. */
     Proto proto = checkProto(L,1);
 
-    lua_pushfstring(L, "Proto: %s", proto->name);
+    lua_pushfstring(L, "Proto: %s description=\"%s\"",
+                    proto->loname ? proto->loname : "?",
+                    proto->desc   ? proto->desc   : "");
 
     return 1;
 }
@@ -454,7 +480,26 @@ static int Proto_set_fields(lua_State* L) {
     /*
      * XXX - This is a "setter", but it really appends any ProtoFields to
      * the Lua Table without removing any existing ones.
+     *
+     * Using luaL_ref, instead of just the next index in the table, only has
+     * an advantage if some (but not all) entries are removed from the table,
+     * as it manages that for us (but we'd still have to save the references.)
+     * If the table is only replaced wholesale, using the direct indices is
+     * somewhat faster. More importantly, the length operator # behaves
+     * unexpectedly when using luaL_ref, and differently depending on where
+     * the version stores the head of the linked list of deleted entries -
+     * index 0 in Lua < 5.4, 3 in Lua 5.4, and 1 in Lua 5.5. Using 0 makes
+     * the length operator basically work (so long as whenever something is
+     * removed, something gets added later to fill the hole) for # operator,
+     * which expects 1-indexing. The other two don't work, and in different
+     * ways (5.4 gives diferent results if there are at least 2 entries,
+     * 5.5 if the table is nonempty.)
+     *
+     * Until such point as we support removing subsets of fields, we don't
+     * need to use luaL_ref.
      */
+
+    lua_Integer len;
 
     if (proto->hfa) {
         /* This Proto's ProtoFields were already registered in Proto_commit.
@@ -491,33 +536,12 @@ static int Proto_set_fields(lua_State* L) {
                         return luaL_error(L,"%s is already registered; fields can be registered only once", f->abbrev);
                     }
                 }
-                /* luaL_ref returns a reference. lua_next will return not
-                 * just occupied entries in the table, but also references
-                 * used to store unused/deleted entries in the hash table
-                 * so that they can be reused without reallocation. Those
-                 * will have a lua_Number as their value. The values form
-                 * a linked list of available indicies, starting with the
-                 * head at index 3 (LUA_RIDX_LAST + 1) in Lua 5.4 and index
-                 * 0 in earlier versions. (Since arrays are 1-indexed, this
-                 * is mostly invisible in Lua 5.3 and earlier so long as
-                 * nothing has been deleted.)
-                 *
-                 * Perhaps the assumption is that no one wants to use a
-                 * hash table to store numbers anyway? This also means
-                 * that for any table with 2 or more real entries, the
-                 * length operator # *includes* the freelist and cannot
-                 * be trusted.
-                 *
-                 * If we wanted to only check entries we knew were valid,
-                 * we could save this reference.
-                 *
-                 * This also means that our checks below on registration
-                 * and deregistration that the table entries are ProtoFields
-                 * are less useful, because we do now expect some numbers
-                 * in the table. Hopefully the check on insert here obviates
-                 * needing to check there.
-                 */
+#if 0
                 /* int ref = */ luaL_ref(L,FIELDS_TABLE);
+#else
+                len = lua_rawlen(L, FIELDS_TABLE);
+                lua_rawseti(L,FIELDS_TABLE,len + 1); // + 1 so # operator works
+#endif
             } else if (! lua_isnil(L,5) ) {
                 return luaL_error(L,"only ProtoFields should be in the table");
             }
@@ -534,7 +558,12 @@ static int Proto_set_fields(lua_State* L) {
             }
         }
         lua_pushvalue(L, NEW_FIELD);
+#if 0
         luaL_ref(L,FIELDS_TABLE);
+#else
+        len = lua_rawlen(L, FIELDS_TABLE);
+        lua_rawseti(L,FIELDS_TABLE,len + 1);
+#endif
 
     } else {
         return luaL_error(L,"either a ProtoField or an array of protofields");
@@ -585,8 +614,11 @@ static int Proto_set_experts(lua_State* L) {
 
     /*
      * XXX - This is a "setter", but it really appends any ProtoExperts to
-     * the Lua Table without removing any existing ones.
+     * the Lua Table without removing any existing ones. See the discussion
+     * in Proto_set_fields.
      */
+
+    lua_Integer len;
 
     if (proto->eia) {
         /* This Proto's ProtoExperts were already registered in Proto_commit.
@@ -615,7 +647,12 @@ static int Proto_set_experts(lua_State* L) {
                         return luaL_error(L,"%s is already registered; expert fields can be registered only once", e->abbrev);
                     }
                 }
+#if 0
                 luaL_ref(L,EI_TABLE);
+#else
+                len = lua_rawlen(L, EI_TABLE);
+                lua_rawseti(L,EI_TABLE,len + 1);
+#endif
             } else if (! lua_isnil(L,5) ) {
                 return luaL_error(L,"only ProtoExperts should be in the table");
             }
@@ -629,7 +666,12 @@ static int Proto_set_experts(lua_State* L) {
             }
         }
         lua_pushvalue(L, NEW_FIELD);
+#if 0
         luaL_ref(L,EI_TABLE);
+#else
+        len = lua_rawlen(L, EI_TABLE);
+        lua_rawseti(L,EI_TABLE,len + 1);
+#endif
 
     } else {
         return luaL_error(L,"either a ProtoExpert or an array of ProtoExperts");
@@ -691,7 +733,7 @@ int Proto_register(lua_State* L) {
     if (lua_outstanding_FuncSavers != NULL) {
         g_ptr_array_unref(lua_outstanding_FuncSavers);
     }
-    lua_outstanding_FuncSavers = g_ptr_array_new();
+    lua_outstanding_FuncSavers = g_ptr_array_new_with_free_func(wslua_func_saver_free);
 
     lua_newtable(L);
     protocols_table_ref = luaL_ref(L, LUA_REGISTRYINDEX);

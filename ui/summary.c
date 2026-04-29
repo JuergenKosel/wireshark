@@ -16,7 +16,7 @@
 #include <epan/packet.h>
 #include <wsutil/file_util.h>
 #include <gcrypt.h>
-#include "cfile.h"
+#include <epan/cfile.h>
 #include "ui/summary.h"
 
 // Strongest to weakest

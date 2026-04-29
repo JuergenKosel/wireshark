@@ -611,12 +611,10 @@ dissect_zdp_req_security_decommission_local_tlv (tvbuff_t *tvb, packet_info *pin
     uint8_t type;
     uint8_t length;
 
-    type = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_local_type_req_security_decommission, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_local_type_req_security_decommission, tvb, offset, 1, ENC_NA, &type);
     offset += 1;
 
-    length = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA, &length);
     offset += 1;
 
     length += 1;
@@ -934,12 +932,10 @@ dissect_zdp_rsp_security_challenge_local_tlv (tvbuff_t *tvb, packet_info *pinfo 
     uint8_t type;
     uint8_t length;
 
-    type = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_local_type_rsp_challenge, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_local_type_rsp_challenge, tvb, offset, 1, ENC_NA, &type);
     offset += 1;
 
-    length = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA, &length);
     offset += 1;
 
     length += 1;
@@ -959,7 +955,7 @@ dissect_zdp_rsp_security_challenge_local_tlv (tvbuff_t *tvb, packet_info *pinfo 
            offset += 4;
 
            /* TODO: should this really be shown as big endian? */
-           proto_tree_add_item(tree, hf_zbee_tlv_mic64, tvb, offset, 8, ENC_NA);
+           proto_tree_add_item(tree, hf_zbee_tlv_mic64, tvb, offset, 8, ENC_BIG_ENDIAN);
            offset += 8;
            break;
        }
@@ -988,12 +984,10 @@ dissect_zdp_rsp_security_set_configuration_local_tlv(tvbuff_t *tvb, packet_info 
   uint8_t type;
   uint8_t length;
 
-  type = tvb_get_uint8(tvb, offset);
-  proto_tree_add_item(tree, hf_zbee_tlv_local_type_rsp_set_configuration, tvb, offset, 1, ENC_NA);
+  proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_local_type_rsp_set_configuration, tvb, offset, 1, ENC_NA, &type);
   offset += 1;
 
-  length = tvb_get_uint8(tvb, offset);
-  proto_tree_add_item(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA);
+  proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA, &length);
   offset += 1;
 
   length += 1;
@@ -1003,8 +997,7 @@ dissect_zdp_rsp_security_set_configuration_local_tlv(tvbuff_t *tvb, packet_info 
          uint8_t     count;
          uint8_t     i;
 
-         count = tvb_get_uint8(tvb, offset);
-         proto_tree_add_item(tree, hf_zbee_tlv_local_status_count, tvb, offset, 1, ENC_NA);
+         proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_local_status_count, tvb, offset, 1, ENC_NA, &count);
          offset += 1;
 
          for (i = 0; i < count; i++)
@@ -1250,7 +1243,7 @@ dissect_zbee_tlv_chanmask(proto_tree *tree, tvbuff_t *tvb, unsigned offset, int 
     mask = tvb_get_letohl(tvb, offset);
 
     page = (uint8_t)((mask >> 27) & 0x07);
-    mask &= 0x07FFFFFFUL;
+    mask &= UINT32_C(0x07FFFFFF);
 
     proto_tree_add_uint(tree, hf_page, tvb, offset, 4, page);
     ti = proto_tree_add_uint_format(tree, hf_channel, tvb, offset, 4, mask, "Channels: ");
@@ -1291,11 +1284,8 @@ dissect_zbee_tlv_chanmask(proto_tree *tree, tvbuff_t *tvb, unsigned offset, int 
         /* If the next channel is selected too,
          * skip past it and display a range of values instead.
          */
-        if ((2 << i) & mask)
-        {
-            while ((i<32) && ((2 << i) & mask)) i++;
-            proto_item_append_text(ti, "-%d", i);
-        }
+        while ((i<31) && ((2U << i) & mask)) i++;
+        proto_item_append_text(ti, "-%d", i);
     }
 
     offset += sizeof(uint32_t);
@@ -1718,7 +1708,13 @@ dissect_zbee_tlv_tunneling_npdu_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
         ieee802154_packet packet;
         memset(&packet, 0, sizeof(packet));
+        /* XXX - Every packet having a pointer to a global table seems odd. */
+        packet.short_table = ieee802154_map.short_table;
+        /* XXX - Ideally src_pan, etc. should be set with information from
+         * ZBD commissioning messages. */
 
+        col_append_str(pinfo->cinfo, COL_PROTOCOL, "/");
+        col_set_fence(pinfo->cinfo, COL_PROTOCOL);
         call_dissector_with_data(zbee_nwk_handle,
                                  tvb_new_subset_length(tvb, offset + 2, npdu_len),
                                  pinfo,
@@ -1900,7 +1896,6 @@ dissect_zbd_msg_tunneling_local_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto
     {
         case ZBEE_TLV_TYPE_TUNNELING_NPDU_MESSAGE:
         {
-            col_set_fence(pinfo->cinfo, COL_PROTOCOL);
             offset = dissect_zbee_tlv_tunneling_npdu_msg(tvb, pinfo, tree, offset, length);
             break;
         }
@@ -2670,12 +2665,11 @@ dissect_global_tlv (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, uns
     uint8_t length;
     unsigned   tmp_offset;
 
-    type = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_global_type, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_global_type, tvb, offset, 1, ENC_NA, &type);
     offset += 1;
 
     length = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_tlv_length, tvb, offset, 1, ENC_NA, &length);
     offset += 1;
 
     length += 1;

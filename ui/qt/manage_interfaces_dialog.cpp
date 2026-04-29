@@ -24,7 +24,7 @@
 #include "capture/capture-pcap-util.h"
 #include "ui/recent.h"
 #include "wsutil/filesystem.h"
-#include "wsutil/application_flavor.h"
+#include "app/application_flavor.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -141,7 +141,7 @@ void ManageInterfacesDialog::populateExistingRemotes()
     const char* cfile = REMOTE_HOSTS_FILE;
 
     /* Try personal config file first */
-    QString fileName = gchar_free_to_qstring(get_persconffile_path(cfile, true));
+    QString fileName = gchar_free_to_qstring(get_persconffile_path(cfile, true, application_configuration_environment_prefix()));
 
     if (fileName.isEmpty() || !QFileInfo::exists(fileName)) {
         return;
@@ -568,7 +568,7 @@ void ManageInterfacesDialog::remoteAccepted()
 
     const char* cfile = REMOTE_HOSTS_FILE;
     /* Try personal config file first */
-    QString fileName = gchar_free_to_qstring(get_persconffile_path(cfile, true));
+    QString fileName = gchar_free_to_qstring(get_persconffile_path(cfile, true, application_configuration_environment_prefix()));
 
     if (fileName.isEmpty()) {
         return;

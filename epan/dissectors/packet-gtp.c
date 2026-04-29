@@ -2686,6 +2686,7 @@ get_gtp_session_frame(address ip, uint32_t teid, uint32_t convid, uint32_t *fram
                     }
 
                     /* very unlikely, but keep it safe */
+                    wmem_destroy_list(frame_map_keys);
                     return 0;
                 }
             }
@@ -5099,8 +5100,7 @@ decode_gtp_nsapi(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree
     ext_tree = proto_tree_add_subtree(tree, tvb, offset, 2, ett_gtp_ies[GTP_EXT_NSAPI], &te,
                             val_to_str_ext_const(GTP_EXT_NSAPI, &gtp_val_ext, "Unknown message"));
 
-    nsapi = tvb_get_uint8(tvb, offset + 1) & 0x0F;
-    proto_tree_add_item(ext_tree, hf_gtp_nsapi, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(ext_tree, hf_gtp_nsapi, tvb, offset + 1, 1, ENC_BIG_ENDIAN, &nsapi);
     proto_item_append_text(te, ": %u",nsapi);
 
     return 2;
@@ -6242,7 +6242,7 @@ static const char *
 dissect_radius_qos_umts(proto_tree * tree, tvbuff_t * tvb, packet_info* pinfo)
 {
     decode_qos_umts(tvb, 0, pinfo, tree, "UMTS GTP QoS Profile", 3);
-    return tvb_get_string_enc(pinfo->pool, tvb, 0, tvb_reported_length(tvb), ENC_UTF_8|ENC_NA);
+    return (const char*)tvb_get_string_enc(pinfo->pool, tvb, 0, tvb_reported_length(tvb), ENC_UTF_8|ENC_NA);
 }
 
 static void
@@ -9555,7 +9555,7 @@ static int
 decode_gtp_ext_node_id(tvbuff_t * tvb, int offset, packet_info * pinfo _U_, proto_tree * tree, session_args_t * args _U_)
 {
     uint16_t    length;
-    uint32_t    item_len;
+    int         item_len;
     proto_tree *ext_tree;
 
     length = tvb_get_ntohs(tvb, offset + 1);
@@ -9809,8 +9809,7 @@ decode_gtp_data_req(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree 
                     val_to_str_ext_const(GTP_EXT_DATA_REQ, &gtp_val_ext, "Unknown message"));
     offset++;
 
-    length = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_uint(ext_tree, hf_gtp_length, tvb, offset, 2, length);
+    proto_tree_add_item_ret_uint16(ext_tree, hf_gtp_length, tvb, offset, 2, ENC_BIG_ENDIAN, &length);
     offset+=2;
 
     if (length == 0) {
@@ -9818,13 +9817,11 @@ decode_gtp_data_req(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree 
     }
 
     /* Octet 4 Number of Data Records */
-    no = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(ext_tree, hf_gtp_number_of_data_records, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(ext_tree, hf_gtp_number_of_data_records, tvb, offset, 1, ENC_BIG_ENDIAN, &no);
     offset++;
 
     /* Octet 5 Data Record Format */
-    format   = tvb_get_uint8(tvb, offset);
-    fmt_item = proto_tree_add_item(ext_tree, hf_gtp_data_record_format, tvb, offset, 1, ENC_BIG_ENDIAN);
+    fmt_item = proto_tree_add_item_ret_uint8(ext_tree, hf_gtp_data_record_format, tvb, offset, 1, ENC_BIG_ENDIAN, &format);
     offset++;
     /* The value range is 1-255 in decimal. The value '0' should not be used.
      * Only the values 1-10 and 51-255 can be used for standards purposes.
@@ -10019,8 +10016,7 @@ decode_gtp_priv_ext(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree 
                 "%s : ", val_to_str_ext_const(GTP_EXT_PRIV_EXT, &gtp_val_ext, "Unknown message"));
 
     offset++;
-    length = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_item(ext_tree_priv_ext, hf_gtp_ext_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(ext_tree_priv_ext, hf_gtp_ext_length, tvb, offset, 2, ENC_BIG_ENDIAN, &length);
     offset += 2;
     if (length >= 2) {
         ext_id = tvb_get_ntohs(tvb, offset);
@@ -10788,16 +10784,16 @@ dissect_gtp_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree)
                GTP_E_MASK, GTP_S_MASK, or GTP_PN_MASK are set. */
             if (gtp_hdr->flags & (GTP_E_MASK|GTP_S_MASK|GTP_PN_MASK)) {
                 /* Those fields are only *interpreted* if the
-                   particular flag for the field is set. */
+                   particular flag for the field is set.
+                   However, they (S, PN) are still displayed because they are present,
+                   instead of leaving a gap. */
                 if (gtp_hdr->flags & GTP_S_MASK) {
                     has_SN = true;
-                    proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_seq_number, tvb, offset, 2, ENC_BIG_ENDIAN, &seq_no);
                 }
+                proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_seq_number, tvb, offset, 2, ENC_BIG_ENDIAN, &seq_no);
                 offset += 2;
 
-                if (gtp_hdr->flags & GTP_PN_MASK) {
-                    proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_npdu_number, tvb, offset, 1, ENC_NA, &pdu_no);
-                }
+                proto_tree_add_item_ret_uint(gtp_tree, hf_gtp_npdu_number, tvb, offset, 1, ENC_NA, &pdu_no);
                 offset++;
 
                 if (gtp_hdr->flags & GTP_E_MASK) {
@@ -13203,7 +13199,7 @@ proto_register_gtp(void)
         { &ei_gtp_hdr_length_bad, { "gtp.length.invalid", PI_MALFORMED, PI_ERROR, "Bad length value", EXPFILL }},
         { &ei_gtp_ext_length_mal, { "gtp.ext_length.invalid", PI_MALFORMED, PI_ERROR, "Malformed length", EXPFILL }},
         { &ei_gtp_ext_hdr_pdcpsn, { "gtp.ext_hdr.pdcp_sn.non_zero", PI_PROTOCOL, PI_NOTE, "3GPP TS 29.281 v9.0.0: When used between two eNBs at the X2 interface in E-UTRAN, bit 8 of octet 2 is spare. The meaning of the spare bits shall be set to zero.", EXPFILL }},
-        { &ei_gtp_ext_length_warn, { "gtp.ext_length.invalid", PI_PROTOCOL, PI_WARN, "Length warning", EXPFILL }},
+        { &ei_gtp_ext_length_warn, { "gtp.ext_length.invalid_warn", PI_PROTOCOL, PI_WARN, "Length warning", EXPFILL }},
         { &ei_gtp_undecoded, { "gtp.undecoded", PI_UNDECODED, PI_WARN, "Data not decoded yet", EXPFILL }},
         { &ei_gtp_message_not_found, { "gtp.message_not_found", PI_PROTOCOL, PI_WARN, "Message not found", EXPFILL }},
         { &ei_gtp_field_not_present, { "gtp.field_not_present", PI_PROTOCOL, PI_WARN, "Field not present", EXPFILL }},

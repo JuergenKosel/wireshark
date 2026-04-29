@@ -42,6 +42,7 @@
 #include <epan/packet.h>
 #include <epan/proto_data.h>
 #include <epan/prefs.h>
+#include <epan/exceptions.h>
 
 #include "packet-tcp.h"
 
@@ -312,8 +313,8 @@ typedef struct {
 
 typedef struct {
     tvbuff_t *tvb;
-    int offset;
-    int bytes_read;
+    unsigned offset;
+    unsigned bytes_read;
 } tvb_sane_reader;
 
 
@@ -337,15 +338,15 @@ tvb_read_sane_word(tvb_sane_reader *r, uint32_t *dest) {
 
 static int
 tvb_read_sane_string(tvb_sane_reader *r, wmem_allocator_t *alloc, char **dest) {
-    int str_len;
-    WORD_OR_RETURN(r, &str_len);
+    unsigned str_len;
+    WORD_OR_RETURN(r, (uint32_t*)&str_len);
 
     if (tvb_captured_length_remaining(r->tvb, r->offset) < str_len) {
         return 0;
     }
 
     if (dest) {
-        *dest = tvb_get_string_enc(alloc, r->tvb, r->offset, str_len, ENC_ASCII | ENC_NA);
+        *dest = (char*)tvb_get_string_enc(alloc, r->tvb, r->offset, str_len, ENC_ASCII | ENC_NA);
     }
 
     r->offset += str_len;
@@ -356,8 +357,8 @@ tvb_read_sane_string(tvb_sane_reader *r, wmem_allocator_t *alloc, char **dest) {
 #define STRING_OR_RETURN(r) \
     do { if (tvb_read_sane_string((r), NULL, NULL) == 0) { return 0; } } while(0)
 
-static int
-tvb_skip_bytes(tvb_sane_reader *r, int len) {
+static unsigned
+tvb_skip_bytes(tvb_sane_reader *r, unsigned len) {
     if (tvb_captured_length_remaining(r->tvb, r->offset) < len) {
         return 0;
     }
@@ -414,7 +415,7 @@ dissect_sane_word(tvb_sane_reader *r, proto_tree *tree, int hfindex, int *word) 
                         ENC_BIG_ENDIAN);
     // safe to ignore the return value here, we're guaranteed to have enough bytes to
     // read a word.
-    (void)tvb_read_sane_word(r, word);
+    (void)tvb_read_sane_word(r, (uint32_t*)word);
     return item;
 }
 
@@ -473,9 +474,13 @@ dissect_control_option_value(tvb_sane_reader *r, packet_info *pinfo, proto_tree 
     int array_length = 0;
     proto_item *length_item = dissect_sane_word(r, value_tree, hf_sane_option_length, &array_length);
 
-    if (value_type == SANE_TYPE_STRING) {
+    switch (value_type) {
+    case SANE_TYPE_STRING:
         dissect_sane_string(r, pinfo, value_tree, hf_sane_option_string_value, "Option value: '%s'");
-    } else {
+        break;
+    case SANE_TYPE_FIXED:
+    case SANE_TYPE_INT:
+    case SANE_TYPE_BOOL:
         proto_item_append_text(length_item, " (vector of length %d)", array_length / SANE_WORD_LENGTH);
         dissect_sane_word(r, value_tree, hf_sane_array_length, &array_length);
 
@@ -491,6 +496,17 @@ dissect_control_option_value(tvb_sane_reader *r, packet_info *pinfo, proto_tree 
             } else if (value_type == SANE_TYPE_BOOL) {
                 dissect_sane_word(r, value_tree, hf_sane_option_boolean_value, NULL);
             }
+        }
+        break;
+    case SANE_TYPE_BUTTON: /* Length supposed to be ignored, should be zero. */
+        /* Since there is no value, presumably it doesn't include the
+         * extra word for the array length? Need an example. */
+    default: /* These violate the spec, and should have an expert info */
+        if (tvb_skip_bytes(r, array_length) == 0) {
+            /* Bogus length, didn't advance the offset. */
+            /* We shouldn't get here because get_sane_pdu_len would have
+             * returned 0. */
+            THROW(ReportedBoundsError);
         }
     }
 }
@@ -520,7 +536,7 @@ static int
 dissect_sane_request(tvb_sane_reader *r, packet_info *pinfo, proto_tree *tree) {
     unsigned opcode = SANE_NET_UNKNOWN;
     char* str_opcode;
-    dissect_sane_word(r, tree, hf_sane_opcode, &opcode);
+    dissect_sane_word(r, tree, hf_sane_opcode, (int*)&opcode);
     str_opcode = val_to_str(pinfo->pool, opcode, opcode_vals, "Unknown opcode (%u)");
     proto_item_append_text(tree, ": %s request", str_opcode);
     col_append_fstr(pinfo->cinfo, COL_INFO, "%s request", str_opcode);

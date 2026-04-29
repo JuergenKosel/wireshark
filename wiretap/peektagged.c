@@ -29,6 +29,7 @@
 #include <wsutil/array.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/pint.h>
+#include <wsutil/str_util.h>
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
@@ -63,18 +64,26 @@ void register_peektagged(void);
  * "sess" - capture session information.  The contents are XML, giving
  * various information about the capture session.
  *
+ * "cpid" - capture ID.  The contents are XML, giving a capture ID UUID
+ * and Index. The same UUID appears in the "sess" section, so it's not
+ * clear what this adds. In at least one file this is *before* the "sess"
+ * section, and in other files after it.
+ *
  * "pkts" - captured packets.  The contents are binary records, one for
  * each packet, with the record being a list of tagged values followed
  * by the raw packet data.
  */
 typedef struct peektagged_section_header {
-        int8_t  section_id[4];          /* string identifying the section */
-        uint32_t section_len;            /* little-endian section length */
-        uint32_t section_const;          /* little-endian 0x00000200 */
+        char     section_id[4];         /* string identifying the section */
+        uint32_t section_len;           /* little-endian section length */
+        uint32_t section_const;         /* little-endian 0x00000200 */
 } peektagged_section_header_t;
 
 /* Size of the "header" sections */
-#define MAX_SECTION_SIZE    4096
+/* XXX - What is the maximum practical size here? If this increases much
+ * more, we'll have to allocate on the heap instead of stack.
+ */
+#define MAX_SECTION_SIZE    16384
 #define SECTION_CONST_VALUE 0x00000200
 /*
  * Network subtype values.
@@ -185,7 +194,7 @@ peektagged_get_file_version(xmlDocPtr doc)
             if (str_version == NULL)
                 return 0;
 
-            if (!ws_strtou32(str_version, NULL, &value)) {
+            if (!ws_strtou32((const char*)str_version, NULL, &value)) {
                 xmlFree(str_version);
                 return 0;
             }
@@ -216,7 +225,7 @@ peektagged_get_media_info(xmlDocPtr doc, uint32_t *mediaType, uint32_t* mediaSub
         if (cur->type == XML_ELEMENT_NODE && xmlStrcmp(cur->name, (const xmlChar*)"MediaType") == 0) {
             xmlChar* str_type = xmlNodeGetContent(cur);
             if (str_type != NULL) {
-                if (ws_strtou32(str_type, NULL, mediaType))
+                if (ws_strtou32((const char*)str_type, NULL, mediaType))
                     found_media_type = true;
 
                 xmlFree(str_type);
@@ -226,15 +235,40 @@ peektagged_get_media_info(xmlDocPtr doc, uint32_t *mediaType, uint32_t* mediaSub
             xmlChar* str_type = xmlNodeGetContent(cur);
 
             if (str_type != NULL) {
-                if (ws_strtou32(str_type, NULL, mediaSubType))
+                if (ws_strtou32((const char*)str_type, NULL, mediaSubType))
                     found_media_subtype = true;
 
                 xmlFree(str_type);
             }
         }
+        /* XXX - There is some other information we could parse out of here
+         * that might be useful. */
     }
 
     return (found_media_type && found_media_subtype);
+}
+
+static bool
+peektagged_skip_section(wtap* wth, peektagged_section_header_t* ap_hdr, int* err, char** err_info)
+{
+    uint32_t length;
+
+    /*
+     * Skip over a section.
+     */
+    length = GUINT32_TO_LE(ap_hdr->section_len);
+    if ((length >= MAX_SECTION_SIZE) || (GUINT32_TO_LE(ap_hdr->section_const) != SECTION_CONST_VALUE))
+        return false;
+
+    /* This assumes that MAX_SECTION_SIZE < INT_MAX, which it currently is */
+    if (!wtap_read_bytes(wth->fh, NULL, (int)length, err, err_info)) {
+        return false;
+    }
+
+    if (!wtap_read_bytes(wth->fh, ap_hdr, (int)sizeof(*ap_hdr), err, err_info))
+        return false;
+
+    return true;
 }
 
 /*
@@ -795,7 +829,7 @@ wtap_open_return_val peektagged_open(wtap* wth, int* err, char** err_info)
     sectionData[length] = 0;
 
     /* Now section data can be parsed into a proper structure */
-    doc = xmlParseMemory(sectionData, (int)length);
+    doc = xmlParseMemory((const char*)sectionData, (int)length);
     if (doc == NULL)
         return WTAP_OPEN_NOT_MINE;
 
@@ -829,9 +863,22 @@ wtap_open_return_val peektagged_open(wtap* wth, int* err, char** err_info)
     if (!wtap_read_bytes(wth->fh, &ap_hdr, (int)sizeof(ap_hdr), err, err_info))
         return WTAP_OPEN_ERROR;
 
+    /*
+     * If we see an "cpid" section, which appears to be optional, skip over it.
+     */
+    if (memcmp(ap_hdr.section_id, "cpid", sizeof(ap_hdr.section_id)) == 0) {
+        if (!peektagged_skip_section(wth, &ap_hdr, err, err_info)) {
+            if (*err && *err != WTAP_ERR_SHORT_READ)
+                return WTAP_OPEN_ERROR;
+            return WTAP_OPEN_NOT_MINE;
+        }
+    }
+
     if (memcmp(ap_hdr.section_id, "sess", sizeof(ap_hdr.section_id)) != 0) {
         *err = WTAP_ERR_UNSUPPORTED;
-        *err_info = ws_strdup_printf("peektagged: Unknown section ID 0x%08x", pntohu32(ap_hdr.section_id));
+        char *section_name = format_text_wsp(NULL, (char *)ap_hdr.section_id, sizeof(ap_hdr.section_id));
+        *err_info = ws_strdup_printf("peektagged: Unknown section ID 0x%08x (\"%s\")", pntohu32(ap_hdr.section_id), section_name);
+        wmem_free(NULL, section_name);
         return WTAP_OPEN_ERROR;
     }
 
@@ -847,7 +894,7 @@ wtap_open_return_val peektagged_open(wtap* wth, int* err, char** err_info)
     sectionData[length] = 0;
 
     /* Now section data can be parsed into a proper structure */
-    doc = xmlParseMemory(sectionData, (int)length);
+    doc = xmlParseMemory((const char*)sectionData, (int)length);
     if (doc == NULL) {
         *err = WTAP_ERR_BAD_FILE;
         *err_info = g_strdup("peektagged: session section XML couldn't be parsed");
@@ -877,9 +924,22 @@ wtap_open_return_val peektagged_open(wtap* wth, int* err, char** err_info)
     if (!wtap_read_bytes(wth->fh, &ap_hdr, (int)sizeof(ap_hdr), err, err_info))
         return WTAP_OPEN_ERROR;
 
+    /*
+     * If we see an "cpid" section, which appears to be optional, skip over it.
+     */
+    if (memcmp(ap_hdr.section_id, "cpid", sizeof(ap_hdr.section_id)) == 0) {
+        if (!peektagged_skip_section(wth, &ap_hdr, err, err_info)) {
+            if (*err && *err != WTAP_ERR_SHORT_READ)
+                return WTAP_OPEN_ERROR;
+            return WTAP_OPEN_NOT_MINE;
+        }
+    }
+
     if (memcmp(ap_hdr.section_id, "pkts", sizeof(ap_hdr.section_id)) != 0) {
         *err = WTAP_ERR_UNSUPPORTED;
-        *err_info = ws_strdup_printf("peektagged: Unknown section ID 0x%08x", pntohu32(ap_hdr.section_id));
+        char *section_name = format_text_wsp(NULL, (char *)ap_hdr.section_id, sizeof(ap_hdr.section_id));
+        *err_info = ws_strdup_printf("peektagged: Unknown section ID 0x%08x (\"%s\")", pntohu32(ap_hdr.section_id), section_name);
+        wmem_free(NULL, section_name);
         return WTAP_OPEN_ERROR;
     }
 

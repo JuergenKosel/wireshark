@@ -10,8 +10,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
-
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdlib.h>
@@ -51,7 +50,8 @@
 #include <wsutil/ws_assert.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/report_message.h>
-#include <wsutil/application_flavor.h>
+#include <app/application_flavor.h>
+#include <wsutil/path_config.h>
 #include <cli_main.h>
 #include <wsutil/version_info.h>
 #include <wiretap/wtap_opttypes.h>
@@ -68,9 +68,8 @@
 #include <epan/decode_as.h>
 #include <epan/print.h>
 #include <epan/addr_resolv.h>
-#include <epan/enterprises.h>
+#include <epan/iana-info.h>
 #include <epan/manuf.h>
-#include <epan/services.h>
 #include <epan/secrets.h>
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_ui_utils.h"
@@ -86,6 +85,7 @@
 #include "ui/dissect_opts.h"
 #include "ui/failure_message.h"
 #include "ui/capture_opts.h"
+#include "ui/profile.h"
 #if defined(HAVE_LIBSMI)
 #include "epan/oids.h"
 #endif
@@ -251,12 +251,20 @@ static void reset_epan_mem(capture_file *cf, epan_dissect_t *edt, bool tree, boo
 typedef enum {
     PROCESS_FILE_SUCCEEDED,
     PROCESS_FILE_NO_FILE_PROCESSED,
-    PROCESS_FILE_ERROR,
+    PROCESS_FILE_READ_ERROR,
+    PROCESS_FILE_WRITE_ERROR,
+    PROCESS_FILE_PRINT_ERROR,
+    PROCESS_FILE_OUT_OF_MEMORY,
     PROCESS_FILE_INTERRUPTED
 } process_file_status_t;
 static process_file_status_t process_cap_file(capture_file *, char *, int, bool, int, int64_t, int, ws_compression_type);
 
-static bool process_packet_single_pass(capture_file *cf,
+typedef enum {
+    PROCESS_PACKET_PASSED,
+    PROCESS_PACKET_DIDNT_PASS,
+    PROCESS_PACKET_PRINT_ERROR
+} process_packet_status_t;
+static process_packet_status_t process_packet_single_pass(capture_file *cf,
         epan_dissect_t *edt, int64_t offset, wtap_rec *rec, unsigned tap_flags);
 static void show_print_file_io_error(void);
 static bool write_preamble(capture_file *cf);
@@ -301,7 +309,7 @@ print_elapsed_json(const char *cf_name, const char *dfilter)
 
     json_dumper_begin_object(&dumper);
     json_dumper_set_member_name(&dumper, "version");
-    json_dumper_value_string(&dumper, get_ws_vcs_version_info_short());
+    json_dumper_value_string(&dumper, application_get_vcs_version_info_short());
     if (cf_name) {
         json_dumper_set_member_name(&dumper, "path");
         json_dumper_value_string(&dumper, cf_name);
@@ -631,7 +639,7 @@ glossary_option_help(void)
     fprintf(output, "  -G elastic-mapping       dump ElasticSearch mapping file\n");
     fprintf(output, "  -G enterprises           dump IANA Private Enterprise Number (PEN) table\n");
     fprintf(output, "  -G fieldcount            dump count of header fields and exit\n");
-    fprintf(output, "  -G fields,[prefix]       dump fields glossary and exit\n");
+    fprintf(output, "  -G fields[,[<prefix>]]   dump fields glossary and exit\n");
     fprintf(output, "  -G ftypes                dump field type basic and descriptive names\n");
     fprintf(output, "  -G heuristic-decodes     dump heuristic dissector tables\n");
     fprintf(output, "  -G manuf                 dump ethernet manufacturer tables\n");
@@ -639,6 +647,7 @@ glossary_option_help(void)
     fprintf(output, "  -G protocols             dump protocols in registration database and exit\n");
     fprintf(output, "  -G services              dump transport service (port) names\n");
     fprintf(output, "  -G values                dump value, range, true/false strings and exit\n");
+    fprintf(output, "  -G profiles[,filter]     dump profiles and exit\n");
     fprintf(output, "\n");
     fprintf(output, "Preference reports:\n");
     fprintf(output, "  -G currentprefs          dump current preferences and exit\n");
@@ -673,6 +682,55 @@ hexdump_option_help(FILE *output)
     fprintf(output, "\n");
     fprintf(output, "    $ tshark ... --hexdump frames --hexdump delimit ...\n");
     fprintf(output, "\n");
+}
+
+static bool
+profiles_dump(const char* filter)
+{
+    FILE* output;
+    output = stdout;
+
+    GList* fl1 = profile_get_list();
+
+    if ((filter == NULL) || (strcmp(filter, "all") == 0)) {
+
+        while (fl1) {
+            profile_def* profile = (profile_def*)fl1->data;
+            const char* str_type = profile->is_global ? "global" : "personal";
+            if (strcmp(profile->name, DEFAULT_PROFILE) == 0)
+                str_type = "default";
+
+            fprintf(output, "%s\t%s\n", profile->name, str_type);
+
+            fl1 = g_list_next(fl1);
+        }
+
+    } else if (strcmp(filter, "global") == 0) {
+
+        while (fl1) {
+            profile_def* profile = (profile_def*)fl1->data;
+            if (profile->is_global)
+                fprintf(output, "%s\t%s\n", profile->name, filter);
+
+            fl1 = g_list_next(fl1);
+        }
+
+    } else if (strcmp(filter, "personal") == 0) {
+
+        while (fl1) {
+            profile_def* profile = (profile_def*)fl1->data;
+            if (!profile->is_global && (strcmp(profile->name, DEFAULT_PROFILE) != 0))
+                fprintf(output, "%s\t%s\n", profile->name, filter);
+
+            fl1 = g_list_next(fl1);
+        }
+
+    } else {
+        cmdarg_err("Invalid profile filter \"%s\". Valid filters are \"global\", \"personal\", and \"all\".", filter);
+        return false;
+    }
+
+    return true;
 }
 
 static void
@@ -778,6 +836,7 @@ about_folders(void)
     char                 *path;
     int                   i;
     char                **resultArray;
+    const char           *env_prefix = application_configuration_environment_prefix();
 
     /* "file open" */
 
@@ -796,18 +855,18 @@ about_folders(void)
     printf("%-21s\t%s\n", "Temp:", constpath);
 
     /* pers conf */
-    path = get_persconffile_path("", false);
+    path = get_persconffile_path("", false, env_prefix);
     printf("%-21s\t%s\n", "Personal configuration:", path);
     g_free(path);
 
     /* global conf */
-    constpath = get_datafile_dir();
+    constpath = get_datafile_dir(env_prefix);
     if (constpath != NULL) {
         printf("%-21s\t%s\n", "Global configuration:", constpath);
     }
 
     /* system */
-    constpath = get_systemfile_dir();
+    constpath = get_systemfile_dir(env_prefix);
     printf("%-21s\t%s\n", "System:", constpath);
 
     /* program */
@@ -816,22 +875,22 @@ about_folders(void)
 
 #ifdef HAVE_PLUGINS
     /* pers plugins */
-    printf("%-21s\t%s\n", "Personal Plugins:", get_plugins_pers_dir_with_version());
+    printf("%-21s\t%s\n", "Personal Plugins:", get_plugins_pers_dir_with_version(env_prefix));
 
     /* global plugins */
-    printf("%-21s\t%s\n", "Global Plugins:", get_plugins_dir_with_version());
+    printf("%-21s\t%s\n", "Global Plugins:", get_plugins_dir_with_version(env_prefix));
 #endif
 
 #ifdef HAVE_LUA
     /* pers lua plugins */
-    printf("%-21s\t%s\n", "Personal Lua Plugins:", get_plugins_pers_dir());
+    printf("%-21s\t%s\n", "Personal Lua Plugins:", get_plugins_pers_dir(env_prefix));
 
     /* global lua plugins */
-    printf("%-21s\t%s\n", "Global Lua Plugins:", get_plugins_dir());
+    printf("%-21s\t%s\n", "Global Lua Plugins:", get_plugins_dir(env_prefix));
 #endif
 
     /* Personal Extcap */
-    constpath = get_extcap_pers_dir();
+    constpath = get_extcap_pers_dir(env_prefix);
 
     resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
     for(i = 0; resultArray[i]; i++)
@@ -840,7 +899,7 @@ about_folders(void)
     g_strfreev(resultArray);
 
     /* Global Extcap */
-    constpath = get_extcap_dir();
+    constpath = get_extcap_dir(env_prefix, application_extcap_dir());
 
     resultArray = g_strsplit(constpath, G_SEARCHPATH_SEPARATOR_S, 10);
     for(i = 0; resultArray[i]; i++)
@@ -861,7 +920,7 @@ about_folders(void)
 
 #ifdef HAVE_LIBSMI
     /* SMI MIBs/PIBs */
-    path = oid_get_default_mib_path();
+    path = oid_get_default_mib_path(application_configuration_environment_prefix());
 
     resultArray = g_strsplit(path, G_SEARCHPATH_SEPARATOR_S, 20);
 
@@ -897,13 +956,13 @@ dump_glossary(const char* glossary, const char* elastic_mapping_filter)
     if (strcmp(glossary, "column-formats") == 0)
         column_dump_column_formats();
     else if (strcmp(glossary, "currentprefs") == 0) {
-        write_prefs(NULL);
+        write_prefs(application_configuration_environment_prefix(), NULL);
     }
     else if (strcmp(glossary, "decodes") == 0) {
         dissector_dump_decodes();
     } else if (strcmp(glossary, "defaultprefs") == 0) {
-        prefs_reset();
-        write_prefs(NULL);
+        prefs_reset(application_configuration_environment_prefix(), application_columns(), application_num_columns());
+        write_prefs(application_configuration_environment_prefix(), NULL);
     } else if (strcmp(glossary, "dissector-tables") == 0)
         dissector_dump_dissector_tables();
     else if (strcmp(glossary, "dissectors") == 0)
@@ -943,13 +1002,20 @@ dump_glossary(const char* glossary, const char* elastic_mapping_filter)
         global_services_dump(stdout);
     else if (strcmp(glossary, "plugins") == 0) {
 #ifdef HAVE_PLUGINS
-        codecs_init();
+        codecs_init(application_configuration_environment_prefix());
         plugins_dump_all();
 #endif
 #ifdef HAVE_LUA
         wslua_plugins_dump_all();
 #endif
         extcap_dump_all();
+    }
+    else if (strcmp(glossary, "profiles") == 0) {
+        profiles_dump(NULL);
+    }
+    else if (strncmp(glossary, "profiles,", strlen("profiles,")) == 0) {
+        if (!profiles_dump(glossary + strlen("profiles,")))
+            exit_status = WS_EXIT_INVALID_OPTION;
     }
     else if (strcmp(glossary, "protocols") == 0) {
         proto_registrar_dump_protocols();
@@ -1090,6 +1156,8 @@ main(int argc, char *argv[])
     char                 *volatile cf_name = NULL;
     char                 *rfilter = NULL;
     char                 *volatile dfilter = NULL;
+    char                 *volatile profile_name = NULL;
+    bool                 use_global_profile = false;
     dfilter_t            *rfcode = NULL;
     dfilter_t            *dfcode = NULL;
     e_prefs              *prefs_p;
@@ -1101,6 +1169,9 @@ main(int argc, char *argv[])
     const char*           glossary = NULL;
     const char*           elastic_mapping_filter = NULL;
     ws_compression_type   volatile compression_type = WS_FILE_UNKNOWN_COMPRESSION;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
+    epan_app_data_t app_data;
 
     /*
      * The leading + ensures that getopt_long() does not permute the argv[]
@@ -1124,6 +1195,9 @@ main(int argc, char *argv[])
 #define OPTSTRING "+2" OPTSTRING_CAPTURE_COMMON OPTSTRING_DISSECT_COMMON OPTSTRING_READ_CAPTURE_COMMON "M:C:e:E:F:gG:hH:j:J:lo:O:PqQS:T:U:vVw:W:xX:z:"
 
     static const char    optstring[] = OPTSTRING;
+
+    /* Future proof by zeroing out all data */
+    memset(&app_data, 0, sizeof(app_data));
 
     /* Set the program name. */
     g_set_prgname("tshark");
@@ -1189,8 +1263,11 @@ main(int argc, char *argv[])
 #endif /* _WIN32 */
 
     /* Initialize the version information. */
-    ws_init_version_info("TShark", application_flavor_name_proper(), get_ws_vcs_version_info,
+    ws_init_version_info("TShark", application_flavor_name_proper(), application_get_vcs_version_info,
             gather_tshark_compile_info, gather_tshark_runtime_info);
+
+    /* Initialize the profile list */
+    profile_init(application_configuration_environment_prefix());
 
     /* Fail sometimes. Useful for testing fuzz scripts. */
     /* if (g_random_int_range(0, 100) < 5) abort(); */
@@ -1218,20 +1295,6 @@ main(int argc, char *argv[])
      */
     ws_opterr = 0;
 
-    /*  We should check at first if we should use a global profile before
-        parsing the profile name
-        XXX - We could check this in the next ws_getopt_long, and save the
-        profile name and only apply it after finishing the loop.  */
-    while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
-        switch (opt) {
-            case LONGOPT_GLOBAL_PROFILE:
-                    set_persconffile_dir(get_datafile_dir());
-                    break;
-            default:
-                break;
-        }
-    }
-
     /*
      * Reset the options parser, set ws_optreset to 1 and set ws_optind to 1.
      * We still don't want to print error messages, though.
@@ -1242,36 +1305,10 @@ main(int argc, char *argv[])
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
             case 'C':        /* Configuration Profile */
-                if (profile_exists (ws_optarg, false)) {
-                    set_profile_name (ws_optarg);
-                } else if (profile_exists (ws_optarg, true)) {
-                    char  *pf_dir_path, *pf_dir_path2, *pf_filename;
-                    /* Copy from global profile */
-                    if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
-                        cmdarg_err("Can't create directory\n\"%s\":\n%s.",
-                            pf_dir_path, g_strerror(errno));
-
-                        g_free(pf_dir_path);
-                        exit_status = WS_EXIT_INVALID_FILE;
-                        goto clean_exit;
-                    }
-                    if (copy_persconffile_profile(ws_optarg, ws_optarg, true, &pf_filename,
-                            &pf_dir_path, &pf_dir_path2) == -1) {
-                        cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
-                            pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
-
-                        g_free(pf_filename);
-                        g_free(pf_dir_path);
-                        g_free(pf_dir_path2);
-                        exit_status = WS_EXIT_INVALID_FILE;
-                        goto clean_exit;
-                    }
-                    set_profile_name (ws_optarg);
-                } else {
-                    cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
-                    exit_status = WS_EXIT_INVALID_OPTION;
-                    goto clean_exit;
-                }
+                profile_name = g_strdup(ws_optarg);
+                break;
+            case LONGOPT_GLOBAL_PROFILE:
+                use_global_profile = true;
                 break;
             case 'G':
                 if (glossary != NULL) {
@@ -1329,6 +1366,21 @@ main(int argc, char *argv[])
         }
     }
 
+    if (profile_name != NULL)
+    {
+        if (profile_exists(application_configuration_environment_prefix(), profile_name, use_global_profile)) {
+            set_profile_name(profile_name);
+        }
+        else {
+            cmdarg_err("%sConfiguration Profile \"%s\" does not exist", use_global_profile ? "Global " : "", profile_name);
+            exit_status = WS_EXIT_INVALID_OPTION;
+            goto clean_exit;
+        }
+
+        if (use_global_profile)
+            set_persconffile_dir(get_datafile_dir(application_configuration_environment_prefix()));
+    }
+
 #ifndef HAVE_LUA
     if (ex_opt_count("lua_script") > 0) {
         cmdarg_err("This version of TShark was not built with support for Lua scripting.");
@@ -1356,21 +1408,23 @@ main(int argc, char *argv[])
      * dissection-time handlers for file-type-dependent blocks can
      * register using the file type/subtype value for the file type.
      */
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, true)) {
+    app_data.env_var_prefix = application_configuration_environment_prefix();
+    app_data.col_fmt = application_columns();
+    app_data.num_cols = application_num_columns();
+    app_data.register_func = register_all_protocols;
+    app_data.handoff_func = register_all_protocol_handoffs;
+    app_data.tap_reg_listeners = tap_reg_listener;
+    if (!epan_init(NULL, NULL, true, &app_data)) {
         exit_status = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
-
-    /* Register all tap listeners; we do this before we parse the arguments,
-       as the "-z" argument can specify a registered tap. */
-
-    register_all_tap_listeners(tap_reg_listener);
 
     /* Register extcap preferences only when needed. */
     if (has_extcap_options || is_capturing) {
@@ -1383,7 +1437,7 @@ main(int argc, char *argv[])
          * set the extcap preferences from the preferences file and "-o"
          * options on the command line.
          */
-        extcap_register_preferences();
+        extcap_register_preferences(NULL, NULL);
     }
 
     conversation_table_set_gui_info(init_iousers);
@@ -1431,7 +1485,7 @@ main(int argc, char *argv[])
                     cmdarg_err("-M does not support two-pass analysis.");
                     arg_error=true;
                 }
-                if (!get_positive_int(ws_optarg, "epan reset count", &epan_auto_reset_count))
+                if (!get_uint32(ws_optarg, "epan reset count", &epan_auto_reset_count))
                     arg_error = true;
 
                 epan_auto_reset = true;
@@ -1456,7 +1510,7 @@ main(int argc, char *argv[])
             case LONGOPT_UPDATE_INTERVAL:      /* sync pipe update interval */
                 /* These are options only for packet capture. */
 #ifdef HAVE_LIBPCAP
-                exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
+                exit_status = capture_opts_add_opt(application_configuration_environment_prefix(), &global_capture_opts, opt, ws_optarg);
                 if (exit_status != 0) {
                     goto clean_exit;
                 }
@@ -1467,7 +1521,7 @@ main(int argc, char *argv[])
                 break;
             case 'c':        /* Stop after x packets */
 #ifdef HAVE_LIBPCAP
-                exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
+                exit_status = capture_opts_add_opt(application_configuration_environment_prefix(), &global_capture_opts, opt, ws_optarg);
                 if (exit_status != 0) {
                     goto clean_exit;
                 }
@@ -1481,13 +1535,14 @@ main(int argc, char *argv[])
             case 'w':        /* Write to file x */
                 output_file_name = g_strdup(ws_optarg);
 #ifdef HAVE_LIBPCAP
-                exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
+                exit_status = capture_opts_add_opt(application_configuration_environment_prefix(), &global_capture_opts, opt, ws_optarg);
                 if (exit_status != 0) {
                     goto clean_exit;
                 }
 #endif
                 break;
             case 'C':
+            case LONGOPT_GLOBAL_PROFILE:
                 /* already processed; just ignore it now */
                 break;
             case 'D':        /* Print a list of capture devices and exit */
@@ -1627,7 +1682,7 @@ main(int argc, char *argv[])
                 /* Set the update-interval to 0 so that dumpcap reports packets
                  * as soon as available instead of buffering them.
                  */
-                exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
+                exit_status = capture_opts_add_opt(application_configuration_environment_prefix(), &global_capture_opts, opt, ws_optarg);
                 if (exit_status != 0) {
                     goto clean_exit;
                 }
@@ -1932,9 +1987,6 @@ main(int argc, char *argv[])
             case LONGOPT_PRINT_TIMERS:
                 opt_print_timers = true;
                 break;
-            case LONGOPT_GLOBAL_PROFILE:
-                /* already processed; just ignore it now */
-                break;
             case LONGOPT_COMPRESS:        /* compress type */
                 compression_type = ws_name_to_compression_type(ws_optarg);
                 if (compression_type == WS_FILE_UNKNOWN_COMPRESSION) {
@@ -2012,8 +2064,8 @@ main(int argc, char *argv[])
         goto clean_exit;
     }
 
-    if (dissect_color) {
-        if (!color_filters_init(&err_msg, NULL)) {
+    if (dissect_color || prefs.gui_packet_list_multi_color_details) {
+        if (!color_filters_init(&err_msg, NULL, application_configuration_environment_prefix())) {
             fprintf(stderr, "%s\n", err_msg);
             g_free(err_msg);
         }
@@ -2115,7 +2167,7 @@ main(int argc, char *argv[])
      */
     if (compression_type != WS_FILE_UNCOMPRESSED && is_capturing) {
 #ifdef HAVE_LIBPCAP
-        exit_status = capture_opts_add_opt(&global_capture_opts, LONGOPT_COMPRESS_TYPE, ws_compression_type_name(compression_type));
+        exit_status = capture_opts_add_opt(application_configuration_environment_prefix(), &global_capture_opts, LONGOPT_COMPRESS_TYPE, ws_compression_type_name(compression_type));
         if (exit_status != 0) {
             goto clean_exit;
         }
@@ -2477,7 +2529,7 @@ main(int argc, char *argv[])
             warn_about_capture_filter(rfilter);
 #endif
 
-            exit_status = WS_EXIT_INVALID_INTERFACE;
+            exit_status = WS_EXIT_INVALID_FILTER;
             goto clean_exit;
         }
     }
@@ -2637,7 +2689,7 @@ main(int argc, char *argv[])
                     "\n"
                     "More information and workarounds can be found at\n"
                     WS_WIKI_URL("KnownBugs/OutOfMemory") "\n");
-            status = PROCESS_FILE_ERROR;
+            status = PROCESS_FILE_OUT_OF_MEMORY;
         }
         ENDTRY;
 
@@ -2651,20 +2703,41 @@ main(int argc, char *argv[])
             case PROCESS_FILE_NO_FILE_PROCESSED:
                 /* We never got to try to read the file, so there are no tap
                    results to dump.  Exit with an error status. */
-                exit_status = 2;
+                exit_status = WS_EXIT_OPEN_ERROR;
                 break;
 
-            case PROCESS_FILE_ERROR:
+            case PROCESS_FILE_READ_ERROR:
                 /* We still dump out the results of taps, etc., as we might have
                    read some packets; however, we exit with an error status. */
                 draw_taps = true;
-                exit_status = 2;
+                exit_status = WS_EXIT_READ_ERROR;
+                break;
+
+            case PROCESS_FILE_WRITE_ERROR:
+                /* We still dump out the results of taps, etc., as we might have
+                   read some packets; however, we exit with an error status. */
+                draw_taps = true;
+                exit_status = WS_EXIT_WRITE_ERROR;
+                break;
+
+            case PROCESS_FILE_PRINT_ERROR:
+                /* We still dump out the results of taps, etc., as we might have
+                   read some packets; however, we exit with an error status. */
+                draw_taps = true;
+                exit_status = WS_EXIT_PRINT_ERROR;
+                break;
+
+            case PROCESS_FILE_OUT_OF_MEMORY:
+                /* We still dump out the results of taps, etc., as we might have
+                   read some packets; however, we exit with an error status. */
+                draw_taps = true;
+                exit_status = WS_EXIT_OUT_OF_MEMORY;
                 break;
 
             case PROCESS_FILE_INTERRUPTED:
                 /* The user interrupted the read process; Don't dump out the
-                   result of taps, etc., and exit with an error status. */
-                exit_status = 2;
+                   result of taps, etc., and exit. */
+                exit_status = EXIT_SUCCESS;
                 break;
         }
 
@@ -2903,7 +2976,7 @@ main(int argc, char *argv[])
 
     if (opt_print_timers) {
         if (cf_name == NULL) {
-            /* We're doind a live capture. That isn't currently supported
+            /* We're doing a live capture. That isn't currently supported
              * with timers. */
             ws_message("Ignoring option --print-timers because we are doing a live capture");
         }
@@ -2938,6 +3011,7 @@ clean_exit:
     free_progdirs();
     dfilter_free(dfcode);
     g_free(dfilter);
+    g_free(profile_name);
     return exit_status;
 }
 
@@ -3247,17 +3321,40 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
             ret = wtap_read(cf->provider.wth, &rec, &err, &err_info, &data_offset);
             reset_epan_mem(cf, edt, create_proto_tree, print_packet_info && print_details);
             if (ret == false) {
-                /* read from file failed, tell the capture child to stop */
+                /* Read from file failed; tell the capture child to stop.
+                   XXX - report this error? */
                 sync_pipe_stop(cap_session);
                 wtap_close(cf->provider.wth);
                 cf->provider.wth = NULL;
             } else {
-                ret = process_packet_single_pass(cf, edt, data_offset, &rec,
-                        tap_flags);
-            }
-            if (ret != false) {
-                /* packet successfully read and gone through the "Read Filter" */
-                packet_count++;
+                /*
+                 * The packet was successfully read; process it.
+                 */
+                switch (process_packet_single_pass(cf, edt, data_offset, &rec,
+                                                   tap_flags)) {
+
+                case PROCESS_PACKET_PASSED:
+                    /* Either there's no read filtering or this packet
+                       passed the filter, and, if we were supposed to
+                       print dissection information, we did so successfully. */
+                    packet_count++;
+                    break;
+
+                case PROCESS_PACKET_DIDNT_PASS:
+                    /* There is read filtering and this packet didn't pass
+                       the filter. */
+                    break;
+
+                case PROCESS_PACKET_PRINT_ERROR:
+                    /* Either here's no read filtering or this packet passed
+                       the read filter, and we tried to print dissection
+                       information, but that failed.  We've already reported
+                       the error, unless it was EPIPE, in which case we just
+                       silently quit; tell the capture child to stop. */
+                    sync_pipe_stop(cap_session);
+                    wtap_close(cf->provider.wth);
+                    cf->provider.wth = NULL;
+                }
             }
             wtap_rec_reset(&rec);
         }
@@ -3578,6 +3675,7 @@ typedef enum {
     PASS_SUCCEEDED,
     PASS_READ_ERROR,
     PASS_WRITE_ERROR,
+    PASS_PRINT_ERROR,
     PASS_INTERRUPTED
 } pass_status_t;
 
@@ -3666,7 +3764,7 @@ process_cap_file_first_pass(capture_file *cf, int max_packet_count,
     return status;
 }
 
-static bool
+static process_packet_status_t
 process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         frame_data *fdata, wtap_rec *rec, unsigned tap_flags _U_)
 {
@@ -3722,7 +3820,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
             cf->provider.ref = &ref_frame;
         }
 
-        if (dissect_color) {
+        if (dissect_color || prefs.gui_packet_list_multi_color_details) {
             color_filters_prime_edt(edt);
             fdata->need_colorize = 1;
         }
@@ -3748,17 +3846,20 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         if (print_packet_info) {
             /* We're printing packet information; print the information for
                this packet. */
-            print_packet(cf, edt);
+            if (!print_packet(cf, edt)) {
+                show_print_file_io_error();
+                return PROCESS_PACKET_PRINT_ERROR;
+            }
 
             /* If we're doing "line-buffering", flush the standard output
                after every packet.  See the comment above, for the "-l"
                option, for an explanation of why we do that. */
-            if (line_buffered)
-                fflush(stdout);
-
-            if (ferror(stdout)) {
-                show_print_file_io_error();
-                return false;
+            if (line_buffered) {
+                if (fflush(stdout) == EOF) {
+                    /* Report a write error; see above */
+                    show_print_file_io_error();
+                    return PROCESS_PACKET_PRINT_ERROR;
+                }
             }
         }
         cf->provider.prev_dis = fdata;
@@ -3769,7 +3870,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         epan_dissect_reset(edt);
         rec->block = block;
     }
-    return passed || fdata->dependent_of_displayed;
+    return (passed || fdata->dependent_of_displayed) ? PROCESS_PACKET_PASSED : PROCESS_PACKET_DIDNT_PASS;
 }
 
 static bool
@@ -3802,7 +3903,8 @@ process_cap_file_second_pass(capture_file *cf, wtap_dumper *pdh,
         int max_write_packet_count)
 {
     wtap_rec        rec;
-    int             framenum = 0;
+    int             framenum;
+    bool            got_printing_error;
     int             write_framenum = 0;
     frame_data     *fdata;
     bool            filtering_tap_listeners;
@@ -3865,7 +3967,9 @@ process_cap_file_second_pass(capture_file *cf, wtap_dumper *pdh,
      */
     set_resolution_synchrony(true);
 
-    for (framenum = 1; framenum <= (int)cf->count; framenum++) {
+    for (framenum = 1, got_printing_error = false;
+         framenum <= (int)cf->count && !got_printing_error;
+         framenum++) {
         if (read_interrupted) {
             status = PASS_INTERRUPTED;
             break;
@@ -3878,10 +3982,15 @@ process_cap_file_second_pass(capture_file *cf, wtap_dumper *pdh,
             break;
         }
         ws_debug("tshark: invoking process_packet_second_pass() for frame #%d", framenum);
-        if (process_packet_second_pass(cf, edt, fdata, &rec, tap_flags)) {
+        switch (process_packet_second_pass(cf, edt, fdata, &rec, tap_flags)) {
+
+        case PROCESS_PACKET_PASSED:
             /* Either there's no read filtering or this packet passed the
                filter, so, if we're writing to a capture file, write
                this packet out. */
+            /* XXX - With certain file types, time stamps are only available
+             * from a sequential wtap_read but not wtap_seek_read, in which
+             * case we could copy them from fdata when saving. */
             write_framenum++;
             if (pdh != NULL) {
                 ws_debug("tshark: writing packet #%d to outfile packet #%d", framenum, write_framenum);
@@ -3899,6 +4008,21 @@ process_cap_file_second_pass(capture_file *cf, wtap_dumper *pdh,
                     break;
                 }
             }
+            break;
+
+        case PROCESS_PACKET_DIDNT_PASS:
+            /* There is read filtering and this packet didn't pass the filter. */
+            break;
+
+        case PROCESS_PACKET_PRINT_ERROR:
+            /* Either here's no read filtering or this packet passed
+               the read filter, and we tried to print dissection
+               information, but that failed.  We've already reported
+               the error, unless it was EPIPE, in which case we just
+               silently quit; stop processing packets. */
+            got_printing_error = true;
+            status = PASS_PRINT_ERROR;
+            break;
         }
         wtap_rec_reset(&rec);
     }
@@ -3923,6 +4047,7 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
     bool            filtering_tap_listeners;
     unsigned        tap_flags;
     int             framenum = 0;
+    bool            got_printing_error;
     int             write_framenum = 0;
     epan_dissect_t *edt = NULL;
     int64_t         data_offset;
@@ -3982,7 +4107,9 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
     set_resolution_synchrony(true);
 
     *err = 0;
-    while (wtap_read(cf->provider.wth, &rec, err, err_info, &data_offset)) {
+    got_printing_error = false;
+    while (wtap_read(cf->provider.wth, &rec, err, err_info, &data_offset) &&
+           !got_printing_error) {
         if (read_interrupted) {
             status = PASS_INTERRUPTED;
             break;
@@ -4002,7 +4129,9 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
 
         reset_epan_mem(cf, edt, create_proto_tree, visible);
 
-        if (process_packet_single_pass(cf, edt, data_offset, &rec, tap_flags)) {
+        switch (process_packet_single_pass(cf, edt, data_offset, &rec,
+                                           tap_flags)) {
+        case PROCESS_PACKET_PASSED:
             /* Either there's no read filtering or this packet passed the
                filter, so, if we're writing to a capture file, write
                this packet out. */
@@ -4018,22 +4147,41 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
                     break;
                 }
             }
+            break;
+
+        case PROCESS_PACKET_DIDNT_PASS:
+            /* There is read filtering and this packet didn't pass the filter. */
+            break;
+
+        case PROCESS_PACKET_PRINT_ERROR:
+            /* Either here's no read filtering or this packet passed
+               the read filter, and we tried to print dissection
+               information, but that failed.  We've already reported
+               the error, unless it was EPIPE, in which case we just
+               silently quit; tell the capture child to stop. */
+            got_printing_error = true;
+            break;
         }
         /* Stop reading if we hit a stop condition */
         if (max_packet_count > 0 && framenum >= max_packet_count) {
             ws_debug("tshark: max_packet_count (%d) reached", max_packet_count);
-            *err = 0; /* This is not an error */
+            *err = 0; /* This is not a read error */
             break;
         }
         if (max_write_packet_count > 0 && write_framenum >= max_write_packet_count) {
             ws_debug("tshark: max_write_packet_count (%d) reached", max_write_packet_count);
-            *err = 0; /* This is not an error */
+            *err = 0; /* This is not a read error */
             break;
         }
         if (max_byte_count != 0 && data_offset >= max_byte_count) {
             ws_debug("tshark: max_byte_count (%" PRId64 "/%" PRId64 ") reached",
                     data_offset, max_byte_count);
-            *err = 0; /* This is not an error */
+            *err = 0; /* This is not a read error */
+            break;
+        }
+        /* Stop reading if we got an error processing the packet. */
+        if (got_printing_error) {
+            *err = 0; /* This is not a read error */
             break;
         }
         wtap_rec_reset(&rec);
@@ -4049,6 +4197,13 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
             if (!process_new_idbs(cf->provider.wth, pdh, err, err_info)) {
                 *err_framenum = framenum;
                 status = PASS_WRITE_ERROR;
+            }
+
+            /*
+             * Did we get a printing error?
+             */
+            if (got_printing_error) {
+                status = PASS_PRINT_ERROR;
             }
         }
     }
@@ -4078,6 +4233,9 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
     char        *shb_user_appl;
     pass_status_t first_pass_status, second_pass_status;
     int64_t elapsed_start;
+
+    /* Guaranteed by cf_open succeeding. */
+    ws_assert(cf->provider.wth);
 
     if (save_file != NULL) {
         /* Set up to write to the capture file. */
@@ -4246,10 +4404,14 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
             case PASS_READ_ERROR:
                 /* Read error. */
                 report_cfile_read_failure(cf->filename, err_pass1, err_info_pass1);
-                status = PROCESS_FILE_ERROR;
+                status = PROCESS_FILE_READ_ERROR;
                 break;
 
             case PASS_WRITE_ERROR:
+                /* Won't happen on the first pass. */
+                break;
+
+            case PASS_PRINT_ERROR:
                 /* Won't happen on the first pass. */
                 break;
 
@@ -4270,7 +4432,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
             case PASS_READ_ERROR:
                 /* Read error. */
                 report_cfile_read_failure(cf->filename, err, err_info);
-                status = PROCESS_FILE_ERROR;
+                status = PROCESS_FILE_READ_ERROR;
                 break;
 
             case PASS_WRITE_ERROR:
@@ -4279,7 +4441,12 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
                    the input file if there was a read filter. */
                 report_cfile_write_failure(cf->filename, save_file, err, err_info,
                         err_framenum, out_file_type);
-                status = PROCESS_FILE_ERROR;
+                status = PROCESS_FILE_WRITE_ERROR;
+                break;
+
+            case PASS_PRINT_ERROR:
+                /* The print error has already been reported. */
+                status = PROCESS_FILE_PRINT_ERROR;
                 break;
 
             case PASS_INTERRUPTED:
@@ -4319,20 +4486,20 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
             /* Now close the capture file. */
             if (!wtap_dump_close(pdh, NULL, &err, &err_info)) {
                 report_cfile_close_failure(save_file, err, err_info);
-                status = PROCESS_FILE_ERROR;
+                status = PROCESS_FILE_WRITE_ERROR;
             }
         } else {
             /* We got a write error; it was reported, so just close the dump file
                without bothering to check for further errors. */
             wtap_dump_close(pdh, NULL, &err, &err_info);
             g_free(err_info);
-            status = PROCESS_FILE_ERROR;
+            status = PROCESS_FILE_WRITE_ERROR;
         }
     } else {
         if (print_packet_info) {
             if (!write_finale()) {
                 show_print_file_io_error();
-                status = PROCESS_FILE_ERROR;
+                status = PROCESS_FILE_PRINT_ERROR;
             }
         }
     }
@@ -4346,7 +4513,7 @@ out:
     return status;
 }
 
-static bool
+static process_packet_status_t
 process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset,
         wtap_rec *rec, unsigned tap_flags _U_)
 {
@@ -4407,7 +4574,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
             cf->provider.ref = &ref_frame;
         }
 
-        if (dissect_color) {
+        if (dissect_color || prefs.gui_packet_list_multi_color_details) {
             color_filters_prime_edt(edt);
             fdata.need_colorize = 1;
         }
@@ -4435,17 +4602,20 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
             /* We're printing packet information; print the information for
                this packet. */
             ws_assert(edt);
-            print_packet(cf, edt);
+            if (!print_packet(cf, edt)) {
+                show_print_file_io_error();
+                return PROCESS_PACKET_PRINT_ERROR;
+            }
 
             /* If we're doing "line-buffering", flush the standard output
                after every packet.  See the comment above, for the "-l"
                option, for an explanation of why we do that. */
-            if (line_buffered)
-                fflush(stdout);
-
-            if (ferror(stdout)) {
-                show_print_file_io_error();
-                return false;
+            if (line_buffered) {
+                if (fflush(stdout) == EOF) {
+                    /* Report a write error; see above */
+                    show_print_file_io_error();
+                    return PROCESS_PACKET_PRINT_ERROR;
+                }
             }
         }
 
@@ -4462,7 +4632,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
         frame_data_destroy(&fdata);
         rec->block = block;
     }
-    return passed;
+    return passed ? PROCESS_PACKET_PASSED : PROCESS_PACKET_DIDNT_PASS;
 }
 
 static bool
@@ -4471,11 +4641,11 @@ write_preamble(capture_file *cf)
     switch (output_action) {
 
         case WRITE_TEXT:
-            return print_preamble(print_stream, cf->filename, get_ws_vcs_version_info());
+            return print_preamble(print_stream, cf->filename, application_get_vcs_version_info());
 
         case WRITE_XML:
             if (print_details)
-                write_pdml_preamble(stdout, cf->filename);
+                write_pdml_preamble(stdout, cf->filename, get_doc_dir(application_configuration_environment_prefix()));
             else
                 write_psml_preamble(&cf->cinfo, stdout);
             return !ferror(stdout);
@@ -4554,7 +4724,7 @@ static bool
 print_columns(capture_file *cf, const epan_dissect_t *edt)
 {
     char   *line_bufp;
-    int     i;
+    unsigned i;
     size_t  buf_offset;
     size_t  column_len;
     size_t  col_len;
@@ -4943,7 +5113,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     wtap  *wth;
     char *err_info;
 
-    wth = wtap_open_offline(fname, type, err, &err_info, perform_two_pass_analysis);
+    wth = wtap_open_offline(fname, type, err, &err_info, perform_two_pass_analysis, application_configuration_environment_prefix());
     if (wth == NULL)
         goto fail;
 

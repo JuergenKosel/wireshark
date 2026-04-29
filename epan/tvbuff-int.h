@@ -21,8 +21,8 @@ struct tvb_ops {
 	const uint8_t *(*tvb_get_ptr)(struct tvbuff *tvb, unsigned abs_offset, unsigned abs_length);
 	void *(*tvb_memcpy)(struct tvbuff *tvb, void *target, unsigned offset, unsigned length);
 
-	int (*tvb_find_uint8)(tvbuff_t *tvb, unsigned abs_offset, unsigned limit, uint8_t needle);
-	int (*tvb_ws_mempbrk_pattern_uint8)(tvbuff_t *tvb, unsigned abs_offset, unsigned limit, const ws_mempbrk_pattern* pattern, unsigned char *found_needle);
+	bool (*tvb_find_uint8)(tvbuff_t *tvb, unsigned abs_offset, unsigned limit, uint8_t needle, unsigned *found_offset);
+	bool (*tvb_ws_mempbrk_pattern_uint8)(tvbuff_t *tvb, unsigned abs_offset, unsigned limit, const ws_mempbrk_pattern* pattern, unsigned *found_offset, unsigned char *found_needle);
 
 	tvbuff_t *(*tvb_clone)(tvbuff_t *tvb, unsigned abs_offset, unsigned abs_length);
 };
@@ -31,6 +31,7 @@ struct tvb_ops {
  * Tvbuff flags.
  */
 #define TVBUFF_FRAGMENT		0x00000001	/* this is a fragment */
+#define TVBUFF_RAW_OFFSET	0x00000002	/* raw_offset has been set */
 
 struct tvbuff {
 	/* Doubly linked list pointers */
@@ -38,8 +39,8 @@ struct tvbuff {
 
 	/* Record-keeping */
 	const struct tvb_ops   *ops;
-	bool		initialized;
-	unsigned			flags;
+	bool			initialized;
+	unsigned		flags;
 	struct tvbuff		*ds_tvb;  /**< data source top-level tvbuff */
 
 	/** Pointer to the data for this tvbuff.
@@ -58,13 +59,13 @@ struct tvbuff {
 	 * by the capture process.
 	 *
 	 * This must never be > reported_length or contained_length. */
-	unsigned			length;
+	unsigned		length;
 
 	/** Amount of data that was reported as being in
 	 * the packet or other data that this represents.
 	 * As indicated above, it may be greater than the
 	 * amount of data that's available. */
-	unsigned			reported_length;
+	unsigned		reported_length;
 
 	/** If this was extracted from a parent tvbuff,
 	 * this is the amount of extracted data that
@@ -80,10 +81,11 @@ struct tvbuff {
 	 * this is the same as reported_length.
 	 *
 	 * This must never be > reported_length. */
-	unsigned			contained_length;
+	unsigned		contained_length;
 
-	/* Offset from beginning of first "real" tvbuff. */
-	int			raw_offset;
+	/* Offset from beginning of first "real" tvbuff.
+         * This is calculated lazily. (XXX - Does it need to be?) */
+	unsigned		raw_offset;
 };
 
 tvbuff_t *tvb_new(const struct tvb_ops *ops);
@@ -93,6 +95,9 @@ tvbuff_t *tvb_new_proxy(tvbuff_t *backing);
 void tvb_add_to_chain(tvbuff_t *parent, tvbuff_t *child);
 
 unsigned tvb_offset_from_real_beginning_counter(const tvbuff_t *tvb, const unsigned counter);
+
+void tvb_validate_offset_length(const tvbuff_t *tvb, const unsigned offset, const unsigned length);
+void tvb_validate_offset_and_remaining(const tvbuff_t *tvb, const unsigned offset, unsigned *rem_len);
 
 void tvb_check_offset_length(const tvbuff_t *tvb, const int offset, int const length_val, unsigned *offset_ptr, unsigned *length_ptr);
 #endif

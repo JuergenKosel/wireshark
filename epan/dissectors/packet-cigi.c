@@ -7047,12 +7047,10 @@ cigi3_3_add_short_symbol_control(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
     proto_tree_add_item(tree, hf_cigi3_3_short_symbol_control_inherit_color, tvb, offset, 1, cigi_byte_order);
     offset += 2;
 
-    select1 = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_cigi3_3_short_symbol_control_attribute_select1, tvb, offset, 1, cigi_byte_order);
+    proto_tree_add_item_ret_uint8(tree, hf_cigi3_3_short_symbol_control_attribute_select1, tvb, offset, 1, cigi_byte_order, &select1);
     offset += 1;
 
-    select2 = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_cigi3_3_short_symbol_control_attribute_select2, tvb, offset, 1, cigi_byte_order);
+    proto_tree_add_item_ret_uint8(tree, hf_cigi3_3_short_symbol_control_attribute_select2, tvb, offset, 1, cigi_byte_order, &select2);
     offset++;
 
     if (select1 == 9) {
@@ -15711,7 +15709,7 @@ proto_reg_handoff_cigi(void)
     if( !inited ) {
         dissector_add_for_decode_as_with_preference("udp.port", cigi_handle);
         dissector_add_for_decode_as_with_preference("tcp.port", cigi_handle);
-        heur_dissector_add("udp", dissect_cigi_heur, "CIGI over UDP", "cigi_udp", proto_cigi, HEURISTIC_ENABLE);
+        heur_dissector_add("udp", dissect_cigi_heur, "CIGI over UDP", "cigi_udp", proto_cigi, HEURISTIC_DISABLE);
 
         // CIGI 3 packet ID types (some with fields added in 3.2 or 3.3).
         dissector_add_uint("cigi3.packet_id", CIGI3_PACKET_ID_IG_CONTROL,

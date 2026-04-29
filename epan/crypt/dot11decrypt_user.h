@@ -50,7 +50,7 @@
 #define	DOT11DECRYPT_WPA_PASSPHRASE_MAX_LEN	63	/* null-terminated string, the actual length of the storage is 64	*/
 #define	DOT11DECRYPT_WPA_SSID_MIN_LEN			0
 #define	DOT11DECRYPT_WPA_SSID_MAX_LEN			32
-#define	DOT11DECRYPT_WPA_PMK_MAX_LEN				48
+#define	DOT11DECRYPT_WPA_PMK_MAX_LEN				64
 #define	DOT11DECRYPT_WPA_PWD_PSK_LEN				32
 #define	DOT11DECRYPT_TK_MAX_LEN					32
 #define DOT11DECRYPT_MSK_MIN_LEN				64
@@ -74,6 +74,9 @@
 typedef struct {
     GByteArray *key;
     GByteArray *ssid;
+    bool        tk_mld;
+    uint8_t     ap_mld_mac[6];
+    uint8_t     sta_mld_mac[6];
     unsigned    bits;
     unsigned    type;
 } decryption_key_t;
@@ -143,7 +146,6 @@ typedef struct _DOT11DECRYPT_KEY_ITEM {
 			uint8_t PtkLen;
 			uint8_t Akm;
 			uint8_t Cipher;
-			uint16_t DhGroup;
 		} Wpa;
 
 	} KeyData;
@@ -151,6 +153,9 @@ typedef struct _DOT11DECRYPT_KEY_ITEM {
 	struct DOT11DECRYPT_KEY_ITEMDATA_TK {
 		uint8_t Tk[DOT11DECRYPT_TK_MAX_LEN];
 		uint8_t Len;
+		bool mld;
+		uint8_t ap_mld_mac[6];
+		uint8_t sta_mld_mac[6];
 	} Tk;
 
 	struct DOT11DECRYPT_KEY_ITEMDATA_MSK {

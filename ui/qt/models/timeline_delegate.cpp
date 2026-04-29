@@ -22,7 +22,7 @@
 // PercentBarDelegate uses a stronger blend value, but its bars are also
 // more of a prominent feature. Make the blend weaker here so that we don't
 // obscure our text.
-static const double bar_blend_ = 0.08;
+static const double bar_blend_ = 0.16;
 
 TimelineDelegate::TimelineDelegate(QWidget *parent) :
     QStyledItemDelegate(parent)
@@ -55,7 +55,8 @@ DIAG_ON(array-bounds=)
         if (tree) {
             QAbstractProxyModel * proxy = qobject_cast<QAbstractProxyModel *>(tree->model());
             if (proxy && proxy->sourceModel()) {
-                QModelIndex indexStart = proxy->mapFromSource(proxy->sourceModel()->index(0, span_px.colStart));
+                QModelIndex sourceIndex = proxy->mapToSource(index);
+                QModelIndex indexStart = proxy->mapFromSource(sourceIndex.siblingAtColumn(span_px.colStart));
                 int colStart = -1;
                 int start_px = 0;
                 if (indexStart.isValid()) {
@@ -64,7 +65,7 @@ DIAG_ON(array-bounds=)
                 }
                 int colDuration = -1;
                 int column_px = start_px;
-                QModelIndex indexDuration = proxy->mapFromSource(proxy->sourceModel()->index(0, span_px.colDuration));
+                QModelIndex indexDuration = proxy->mapFromSource(sourceIndex.siblingAtColumn(span_px.colDuration));
                 if (indexDuration.isValid()) {
                     colDuration = indexDuration.column();
                     column_px += tree->columnWidth(colDuration);
@@ -104,14 +105,16 @@ DIAG_ON(array-bounds=)
     QPalette::ColorGroup cg = option_vi.state & QStyle::State_Enabled
                               ? QPalette::Normal : QPalette::Disabled;
     QColor text_color = option_vi.palette.color(cg, QPalette::Text);
-    QColor bar_color = ColorUtils::alphaBlend(option_vi.palette.windowText(),
-                                              option_vi.palette.window(), bar_blend_);
+    QColor bar_color = option_vi.features.testFlag(QStyleOptionViewItem::Alternate) ?
+                       option_vi.palette.color(cg, QPalette::AlternateBase) :
+                       option_vi.palette.color(cg, QPalette::Base);
+    bar_color = ColorUtils::alphaBlend(text_color, bar_color, bar_blend_);
 
     if (cg == QPalette::Normal && !(option_vi.state & QStyle::State_Active))
         cg = QPalette::Inactive;
     if (option_vi.state & QStyle::State_Selected) {
         text_color = option_vi.palette.color(cg, QPalette::HighlightedText);
-        bar_color = ColorUtils::alphaBlend(option_vi.palette.color(cg, QPalette::Window),
+        bar_color = ColorUtils::alphaBlend(text_color,
                                            option_vi.palette.color(cg, QPalette::Highlight),
                                            bar_blend_);
     }

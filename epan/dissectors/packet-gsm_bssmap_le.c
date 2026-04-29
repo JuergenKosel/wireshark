@@ -292,8 +292,7 @@ de_bmaple_apdu(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t off
 	 * equivalent octet in the APDU element of 3GPP TS 49.031 BSSAP-LE.
 	 */
 
-	apdu_protocol_id = tvb_get_uint8(tvb,curr_offset);
-	proto_tree_add_item(tree, hf_gsm_bssmap_le_apdu_protocol_id, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item_ret_uint8(tree, hf_gsm_bssmap_le_apdu_protocol_id, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &apdu_protocol_id);
 
 	switch(apdu_protocol_id){
 	case 1:

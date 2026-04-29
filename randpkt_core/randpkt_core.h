@@ -32,6 +32,12 @@ typedef struct {
 } randpkt_example;
 
 /* Return the number of active examples */
+
+/**
+ * @brief Return the count of active examples.
+ *
+ * @return The number of active examples.
+ */
 unsigned randpkt_example_count(void);
 
 /* Return the list of the active examples */
@@ -40,16 +46,40 @@ void randpkt_example_list(char*** abbrev_list, char*** longname_list);
 /* Parse command-line option "type" and return enum type */
 int randpkt_parse_type(char *string);
 
-/* Find pkt_example record and return pointer to it */
+/**
+ * @brief Find pkt_example record and return pointer to it.
+ *
+ * @param type The type of the example to find.
+ * @return randpkt_example* A pointer to the found pkt_example record, or NULL if not found.
+ */
 randpkt_example* randpkt_find_example(int type);
 
 /* Init a new example */
 int randpkt_example_init(randpkt_example* example, char* produce_filename, int produce_max_bytes, int file_type_subtype);
 
 /* Loop the packet generation */
+
+/**
+ * @brief Loops to produce a specified number of random packets with a given delay.
+ *
+ * This function generates and sends a series of random packets, each delayed by a specified amount of time.
+ *
+ * @param example Pointer to the randpkt_example structure containing configuration and state information.
+ * @param produce_count The number of packets to generate and send.
+ * @param packet_delay_ms The delay in milliseconds between sending each packet.
+ */
 void randpkt_loop(randpkt_example* example, uint64_t produce_count, uint64_t packet_delay_ms);
 
 /* Close the current example */
+
+/**
+ * @brief Closes a random packet example.
+ *
+ * This function closes the specified random packet example, ensuring all resources are properly released.
+ *
+ * @param example Pointer to the randpkt_example structure to be closed.
+ * @return true if the close operation was successful, false otherwise.
+ */
 bool randpkt_example_close(randpkt_example* example);
 
 #endif

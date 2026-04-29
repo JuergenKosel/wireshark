@@ -58,6 +58,7 @@
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/inet_addr.h>
+#include <wsutil/plugins.h>
 #include <wsutil/report_message.h>
 #include <wsutil/strtoi.h>
 
@@ -266,6 +267,25 @@ is_source_address_field(enum ftenum ftype, const char *abbrev) {
     };
     for (size_t idx = 0; idx < array_length(addr_suffixes); idx++) {
         if (g_str_has_suffix(abbrev, addr_suffixes[idx])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Returns true if the field is a text username.
+static bool
+is_plugin_user_name_field(const char *abbrev) {
+    const char *user_name_fields[] = {
+        "ct.user",
+        // "ct.request.username",  // Does this make more sense than ct.user?
+        "ka.user.name",
+        "gcp.user",
+        "okta.target.user.name",
+        "github.user",
+    };
+    for (size_t idx = 0; idx < array_length(user_name_fields); idx++) {
+        if (strcmp(abbrev, user_name_fields[idx]) == 0) {
             return true;
         }
     }
@@ -1032,7 +1052,7 @@ fd_tap_listener(void *tapdata, packet_info *pinfo,
     follow_record->packet_num = pinfo->fd->num;
     follow_record->abs_ts = pinfo->fd->abs_ts;
     follow_record->data = g_byte_array_append(g_byte_array_new(),
-                                              tap_info->data,
+                                              (const uint8_t*)tap_info->data,
                                               tap_info->datalen);
 
     follow_info->bytes_written[is_server] += follow_record->data->len;
@@ -1149,8 +1169,8 @@ dissect_falco_json_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     // https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry
     const char *gcpaudit_keys[] = { "\"insertId\":", "\"logName\":", NULL };
 
-    const uint8_t *tvb_data = tvb_get_ptr(tvb, 0, -1);
     int tvb_len = tvb_captured_length(tvb);
+    const uint8_t *tvb_data = tvb_get_ptr(tvb, 0, tvb_len);
 
     if (has_keys(tvb_data, tvb_len, k8saudit_keys)) {
         source_id = K8SAUDIT_PLUGIN_ID;
@@ -1451,6 +1471,10 @@ dissect_sinsp_enriched(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void
                 proto_item_set_hidden(ti);
             }
 
+            if (strcmp(hfinfo->abbrev, "user.name") == 0) {
+                pinfo->user_name = wmem_strdup(pinfo->pool, res_str);
+            }
+
             if (hfinfo->id == field_hf_id_proc_name) {
                 proc_name = res_str;
             } else if (hfinfo->id == field_hf_id_fd_name) {
@@ -1479,7 +1503,7 @@ dissect_sinsp_enriched(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void
                         bytes_offset = event_param_data->data_bytes_offset;
                         bytes_length = event_param_data->data_bytes_length;
                     }
-                    proto_tree_add_bytes_with_length(parent_tree, bi->hf_ids[hf_idx], tvb, bytes_offset, bytes_length, sinsp_fields[sf_idx].res.str, sinsp_fields[sf_idx].res_len);
+                    proto_tree_add_bytes_with_length(parent_tree, bi->hf_ids[hf_idx], tvb, bytes_offset, bytes_length, (uint8_t*)sinsp_fields[sf_idx].res.str, sinsp_fields[sf_idx].res_len);
                 } else {
                     // XXX Need to differentiate between src and dest. Falco libs supply client vs server and local vs remote.
                     const mmdb_lookup_t *lookup = NULL;
@@ -1488,14 +1512,14 @@ dissect_sinsp_enriched(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void
                         ws_in4_addr v4_addr;
                         memcpy(&v4_addr, sinsp_fields[sf_idx].res.bytes, 4);
                         proto_tree_add_ipv4(parent_tree, bi->hf_v4_ids[addr_fld_idx], tvb, 0, 0, v4_addr);
-                        set_address(&pinfo->net_src, AT_IPv4, sizeof(ws_in4_addr), &v4_addr);
+                        alloc_address_wmem(pinfo->pool, &pinfo->net_src, AT_IPv4, sizeof(ws_in4_addr), &v4_addr);
                         copy_address_shallow(&pinfo->src, &pinfo->net_src);
                         lookup = maxmind_db_lookup_ipv4(&v4_addr);
                     } else if (sinsp_fields[sf_idx].res_len == 16) {
                         ws_in6_addr v6_addr;
                         memcpy(&v6_addr, sinsp_fields[sf_idx].res.bytes, 16);
                         proto_tree_add_ipv6(parent_tree, bi->hf_v6_ids[addr_fld_idx], tvb, 0, 0, &v6_addr);
-                        set_address(&pinfo->net_src, AT_IPv6, sizeof(ws_in6_addr), &v6_addr);
+                        alloc_address_wmem(pinfo->pool, &pinfo->net_src, AT_IPv6, sizeof(ws_in6_addr), &v6_addr);
                         copy_address_shallow(&pinfo->src, &pinfo->net_src);
                         lookup = maxmind_db_lookup_ipv6(&v6_addr);
                     } else {
@@ -1605,7 +1629,7 @@ dissect_sinsp_plugin(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* 
     proto_tree* fb_tree = proto_item_add_subtree(ti, ett_sinsp_span);
     // proto_tree *fb_tree = tree;
 
-    uint8_t* payload = (uint8_t*)tvb_get_ptr(tvb, 0, payload_len);
+    const uint8_t* payload = tvb_get_ptr(tvb, 0, payload_len);
 
     plugin_field_extract_t *sinsp_fields = (plugin_field_extract_t*) wmem_alloc(pinfo->pool, sizeof(plugin_field_extract_t) * bi->visible_fields);
     for (uint32_t fld_idx = 0; fld_idx < bi->visible_fields; fld_idx++) {
@@ -1712,6 +1736,8 @@ dissect_sinsp_plugin(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* 
                     cur_conv_els[1].type = CE_ADDRESS;
                     copy_address(&cur_conv_els[1].addr_val, &pinfo->net_src);
                 }
+            } else if (is_plugin_user_name_field(hfinfo->abbrev)) {
+                pinfo->user_name = wmem_strdup(pinfo->pool, sfe->res.str);
             } else {
                 if (cur_conv_filter) {
                     wmem_strbuf_append_printf(cur_conv_filter->strbuf, "\"%s\"", sfe->res.str);
@@ -1876,8 +1902,8 @@ proto_register_falcoplugin(void)
     char *filename;
     // XXX Falco plugins should probably be installed in a path that reflects
     // the Falco version or its plugin API version.
-    char *spdname = g_build_filename(get_plugins_dir(), "falco", NULL);
-    char *ppdname = g_build_filename(get_plugins_pers_dir(), "falco", NULL);
+    char *spdname = g_build_filename(get_plugins_dir(epan_get_environment_prefix()), "falco", NULL);
+    char *ppdname = g_build_filename(get_plugins_pers_dir(epan_get_environment_prefix()), "falco", NULL);
 
     /*
      * We scan the plugins directory twice. The first time we count how many
@@ -1910,6 +1936,9 @@ proto_register_falcoplugin(void)
 
     if ((dir = ws_dir_open(spdname, 0, NULL)) != NULL) {
         while ((file = ws_dir_read_name(dir)) != NULL) {
+            if (!is_plugin_filename(file)) {
+                continue;
+            }
             filename = g_build_filename(spdname, ws_dir_get_name(file), NULL);
             import_plugin(filename);
             g_free(filename);
@@ -1919,6 +1948,9 @@ proto_register_falcoplugin(void)
 
     if (!files_identical(ppdname, spdname) && (dir = ws_dir_open(ppdname, 0, NULL)) != NULL) {
         while ((file = ws_dir_read_name(dir)) != NULL) {
+            if (!is_plugin_filename(file)) {
+                continue;
+            }
             filename = g_build_filename(ppdname, ws_dir_get_name(file), NULL);
             import_plugin(filename);
             g_free(filename);

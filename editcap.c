@@ -15,7 +15,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdio.h>
@@ -50,6 +50,7 @@
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/file_util.h>
 #include <wsutil/file_compressed.h>
 #include <wsutil/plugins.h>
@@ -98,8 +99,8 @@ typedef struct _fd_hash_t {
 #define MAX_DUP_DEPTH     1000000   /* the maximum window (and actual size of fd_hash[]) for de-duplication */
 
 static fd_hash_t fd_hash[MAX_DUP_DEPTH];
-static int       dup_window    = DEFAULT_DUP_DEPTH;
-static int       cur_dup_entry;
+static unsigned  dup_window    = DEFAULT_DUP_DEPTH;
+static unsigned  cur_dup_entry;
 
 static uint32_t  ignored_bytes;  /* Used with -I */
 
@@ -595,15 +596,24 @@ struct sll2_header {
 #define VLAN_SIZE 4
 static void
 sll_remove_vlan_info(uint8_t* fd, uint32_t* len) {
-    if (pntohu16(fd + offsetof(struct sll_header, sll_protocol)) == ETHERTYPE_VLAN) {
-        int rest_len;
-        /* point to start of vlan */
-        fd = fd + offsetof(struct sll_header, sll_protocol);
+    unsigned rest_len;
+    if (ckd_sub(&rest_len, *len, offsetof(struct sll_header, sll_protocol))) {
+        /* This shouldn't happen. */
+        return;
+    }
+    /* point to protocol header */
+    fd = fd + offsetof(struct sll_header, sll_protocol);
+    if (pntohu16(fd) == ETHERTYPE_VLAN) {
         /* bytes to read after vlan info */
-        rest_len = *len - (offsetof(struct sll_header, sll_protocol) + VLAN_SIZE);
-        /* remove vlan info from packet */
-        memmove(fd, fd + VLAN_SIZE, rest_len);
-        *len -= 4;
+        if (rest_len <= VLAN_SIZE) {
+            /* There's no data past the VLAN tag, if the whole tag is present. */
+            *len -= rest_len;
+        } else {
+            /* remove vlan info from packet */
+            rest_len -= VLAN_SIZE;
+            memmove(fd, fd + VLAN_SIZE, rest_len);
+            *len -= 4;
+        }
     }
 }
 
@@ -670,7 +680,6 @@ static bool
 is_duplicate(wtap_rec *rec) {
     uint8_t* fd = ws_buffer_start_ptr(&rec->data);
     uint32_t len = rec->rec_header.packet_header.caplen;
-    int i;
     const struct ieee80211_radiotap_header* tap_header;
 
     /*Hint to ignore some bytes at the start of the frame for the digest calculation(-I option) */
@@ -703,7 +712,7 @@ is_duplicate(wtap_rec *rec) {
     fd_hash[cur_dup_entry].len = len;
 
     /* Look for duplicates */
-    for (i = 0; i < dup_window; i++) {
+    for (unsigned i = 0; i < dup_window; i++) {
         if (i == cur_dup_entry)
             continue;
 
@@ -773,7 +782,7 @@ is_duplicate_rel_time(wtap_rec *rec, const nstime_t *current) {
         if (i < 0)
             i = dup_window - 1;
 
-        if (i == cur_dup_entry) {
+        if (i == (int)cur_dup_entry) {
             /*
              * We've decremented back to where we started.
              * Check no more!
@@ -1162,8 +1171,8 @@ validate_secrets_file(const char *filename, uint32_t secrets_type, const char *d
 static int
 framenum_compare(const void *a, const void *b, void *user_data _U_)
 {
-    uint64_t *frame_a = (uint64_t*)a;
-    uint64_t *frame_b = (uint64_t*)b;
+    const uint64_t *frame_a = (const uint64_t*)a;
+    const uint64_t *frame_b = (const uint64_t*)b;
     if (*frame_a < *frame_b)
         return -1;
 
@@ -1457,6 +1466,8 @@ main(int argc, char *argv[])
     unsigned int                 seed = 0;
     bool                         edit_option_specified = false;
     ws_compression_type compression_type   = WS_FILE_UNKNOWN_COMPRESSION;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
 
     /* Set the program name. */
     g_set_prgname("editcap");
@@ -1493,11 +1504,13 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Editcap", NULL, get_ws_vcs_version_info, NULL, NULL);
+    ws_init_version_info("Editcap", NULL, application_get_vcs_version_info, NULL, NULL);
 
     init_report_failure_message("editcap");
 
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
+
 
     /* Process the options */
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
@@ -2034,7 +2047,7 @@ main(int argc, char *argv[])
         goto clean_exit;
     }
 
-    wth = wtap_open_offline(argv[ws_optind], WTAP_TYPE_AUTO, &read_err, &read_err_info, false);
+    wth = wtap_open_offline(argv[ws_optind], WTAP_TYPE_AUTO, &read_err, &read_err_info, false, application_configuration_environment_prefix());
 
     if (!wth) {
         report_cfile_open_failure(argv[ws_optind], read_err, read_err_info);
@@ -2159,7 +2172,7 @@ main(int argc, char *argv[])
             dsb = (wtapng_dsb_mandatory_t *)wtap_block_get_mandatory_data(block);
             dsb->secrets_type = secrets_type_id;
             dsb->secrets_len = (unsigned)data_len;
-            dsb->secrets_data = data;
+            dsb->secrets_data = (uint8_t*)data;
             if (params.dsbs_initial == NULL) {
                 params.dsbs_initial = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
             }
@@ -2200,10 +2213,10 @@ main(int argc, char *argv[])
         max_packet_number = UINT64_MAX;
 
     if (dup_detect || dup_detect_by_time) {
-        for (i = 0; i < dup_window; i++) {
-            memset(&fd_hash[i].digest, 0, 16);
-            fd_hash[i].len = 0;
-            nstime_set_unset(&fd_hash[i].frame_time);
+        for (unsigned u = 0; u < dup_window; u++) {
+            memset(&fd_hash[u].digest, 0, 16);
+            fd_hash[u].len = 0;
+            nstime_set_unset(&fd_hash[u].frame_time);
         }
     }
 
@@ -2494,6 +2507,7 @@ main(int argc, char *argv[])
                 }
 
                 /* remove vlan info */
+                /* XXX - Should this adjust reported length if adjlen is set? */
                 if (rem_vlan) {
                     remove_vlan_info(&read_rec);
                 }
@@ -2587,8 +2601,7 @@ main(int argc, char *argv[])
                         }
                     }
 
-                    /* The comment is not modified by dumper, cast away. */
-                    wtap_block_add_string_option(read_rec.block, OPT_COMMENT, (char *)comment, strlen((char *)comment));
+                    wtap_block_add_string_option(read_rec.block, OPT_COMMENT, comment, strlen(comment));
                     read_rec.block_was_modified = true;
                 } else {
                     read_rec.block_was_modified = false;
@@ -2645,7 +2658,6 @@ main(int argc, char *argv[])
         count++;
         wtap_rec_reset(&read_rec);
     }
-    wtap_rec_cleanup(&read_rec);
 
     if (verbose)
         fprintf(stderr, "Total selected: %" PRIu64 "\n", written_count);
@@ -2738,7 +2750,7 @@ clean_exit:
     wtap_dump_params_cleanup(&params);
     if (wth != NULL)
         wtap_close(wth);
-    wtap_rec_reset(&read_rec);
+    wtap_rec_cleanup(&read_rec);
     wtap_cleanup();
     free_progdirs();
     if (capture_comments != NULL) {

@@ -14,7 +14,6 @@
 #include <epan/capture_dissectors.h>
 #include <epan/exceptions.h>
 #include <epan/addr_resolv.h>
-#include <epan/ipproto.h>
 #include <epan/expert.h>
 #include <epan/ip_opts.h>
 #include <epan/follow.h>
@@ -30,6 +29,7 @@
 #include <epan/proto_data.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
+#include <epan/iana-info.h>
 
 #include <wsutil/array.h>
 #include <wsutil/utf8_entities.h>
@@ -39,6 +39,7 @@
 #include <wsutil/ws_assert.h>
 
 #include "packet-tcp.h"
+
 
 void proto_register_tcp(void);
 void proto_reg_handoff_tcp(void);
@@ -133,6 +134,36 @@ static const value_string mp_tcprst_reasons[] = {
         { 0x4, "Too much outstanding data" },
         { 0x5, "Unacceptable performance" },
         { 0x6, "Middlebox interference" },
+        { 0, NULL },
+};
+
+/*
+ * RST Diagnostic Payload:
+ * https://datatracker.ietf.org/doc/html/draft-boucadair-tcpm-rst-diagnostic-payload-17
+ */
+#define TCP_RST_DIAGNOSTIC_MAGIC 0x33AA
+#define TCP_RST_DIAGNOSTIC_LEN   8  /* magic(2) + reason_code(2) + pen(4) */
+
+/* IANA "TCP Failure Causes" registry */
+static const value_string tcp_failure_cause_vals[] = {
+        { 0,  "Reserved" },
+        { 1,  "Illegal Option" },
+        { 2,  "Desynchronized state" },
+        { 3,  "New data is received after CLOSE is called" },
+        { 4,  "ABORT Process" },
+        { 5,  "Unexpected ACK received by non-synchronized state connection" },
+        { 6,  "Unexpected SYN in the window" },
+        { 7,  "Unexpected security compartment" },
+        { 8,  "Malformed Message" },
+        { 9,  "Not Authorized" },
+        { 10, "Resource Exceeded" },
+        { 11, "Network Failure" },
+        { 12, "Reset received from the peer" },
+        { 13, "Destination Unreachable" },
+        { 14, "Connection Timeout" },
+        { 15, "Too much outstanding data" },
+        { 16, "Unacceptable performance" },
+        { 17, "Middlebox interference" },
         { 0, NULL },
 };
 
@@ -390,6 +421,10 @@ static int hf_tcp_proc_dst_cmd;
 static int hf_tcp_segment_data;
 static int hf_tcp_payload;
 static int hf_tcp_reset_cause;
+static int hf_tcp_rst_diagnostic_magic;
+static int hf_tcp_rst_diagnostic_reason_code;
+static int hf_tcp_rst_diagnostic_vendor_reason_code;
+static int hf_tcp_rst_diagnostic_pen;
 static int hf_tcp_fin_retransmission;
 static int hf_tcp_option_rvbd_probe_reserved;
 static int hf_tcp_option_scps_binding_data;
@@ -441,6 +476,7 @@ static int ett_tcp_unknown_opt;
 static int ett_tcp_option_other;
 static int ett_tcp_syncookie;
 static int ett_tcp_syncookie_option;
+static int ett_tcp_rst_diagnostic;
 static int ett_mptcp_analysis;
 static int ett_mptcp_analysis_subflows;
 
@@ -1090,7 +1126,7 @@ tcp_flags_to_str_first_letter(wmem_allocator_t *scope, const struct tcpheader *t
     wmem_strbuf_t *buf = wmem_strbuf_new(scope, "");
     unsigned i;
     const unsigned flags_count = 12;
-    static const char first_letters[] = "RRRACEUAPRSF";
+    static const char first_letters[] = "RRRAWEUAPRSF";
     static const char digits[] = "01234567";
 
     /* upper three bytes are marked as reserved ('R'). */
@@ -2840,7 +2876,7 @@ finished_fwd:
                 }
 
                 /* Only look at what happens above the current ACK value,
-                 * as what happened before is definetely ACKed here and can be
+                 * as what happened before is definitely ACKed here and can be
                  * safely ignored. */
                 if(GE_SEQ(ual->seq,ack)) {
 
@@ -4658,7 +4694,7 @@ desegment_tcp(tvbuff_t *tvb, packet_info *pinfo, int offset,
     bool must_desegment;
     bool called_dissector;
     bool has_gap;
-    int another_pdu_follows;
+    unsigned another_pdu_follows;
     int deseg_offset;
     uint32_t deseg_seq;
     int nbytes;
@@ -5023,8 +5059,12 @@ again:
 
             if (!has_gap) {
                 /* Update the maximum expected seqno if no SYN packet was seen
-                 * before, or if the new segment succeeds previous segments. */
-                tcpd->fwd->maxnextseq = nxtseq;
+                 * before, or if the new segment succeeds previous segments.
+                 * Ignore if nxtseq is lower than the current maxnextseq,
+                 * which might happen if we are dealing with an OOO or retransmission.*/
+                if (LT_SEQ(tcpd->fwd->maxnextseq, nxtseq) || tcpd->fwd->maxnextseq == 0) {
+                    tcpd->fwd->maxnextseq = nxtseq;
+                }
 
                 /* If there is no gap, look for any OOO packets that are now
                  * contiguous. */
@@ -5368,7 +5408,7 @@ again:
                         tcpd->fwd->flags |= TCP_FLOW_REASSEMBLE_UNTIL_FIN;
                         /* This is not the first segment, and we thought the
                          * reassembly would be done now, but now know we must
-                         * desgement until FIN. (E.g., HTTP Response with headers
+                         * desegment until FIN. (E.g., HTTP Response with headers
                          * split across segments, and no Content-Length or
                          * Transfer-Encoding (RFC 7230, Section 3.3.3, case 7.)
                          * For the same reasons as below when we encounter
@@ -5729,8 +5769,8 @@ tcp_dissect_pdus(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 proto_item_set_generated(item);
 #if 0
         } else {
-                item = proto_tree_add_expert_format((proto_tree *)p_get_proto_data(pinfo->pool, pinfo, proto_tcp, curr_layer_num),
-                                        tvb, offset, -1,
+                item = proto_tree_add_expert_format_remaining((proto_tree *)p_get_proto_data(pinfo->pool, pinfo, proto_tcp, curr_layer_num),
+                                        tvb, offset,
                     "PDU Size: %u cut short at %u",plen,captured_length_remaining);
                 proto_item_set_generated(item);
         }
@@ -5939,8 +5979,7 @@ dissect_tcpopt_tarr_data(tvbuff_t *tvb, int data_offset, unsigned data_len,
         col_append_str(pinfo->cinfo, COL_INFO, " TARR");
         break;
     case 1:
-        rate = (tvb_get_uint8(tvb, data_offset) & TCPOPT_TARR_RATE_MASK) >> TCPOPT_TARR_RATE_SHIFT;
-        proto_tree_add_item(tree, hf_tcp_option_tarr_rate, tvb, data_offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint8(tree, hf_tcp_option_tarr_rate, tvb, data_offset, 1, ENC_BIG_ENDIAN, &rate);
         proto_tree_add_item(tree, hf_tcp_option_tarr_reserved, tvb, data_offset, 1, ENC_BIG_ENDIAN);
         tcp_info_append_uint(pinfo, "TARR", rate);
         proto_item_append_text(item, " %u", rate);
@@ -6034,11 +6073,9 @@ dissect_tcpopt_acc_ecn(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     offset = 0;
     item = proto_tree_add_item(tree, proto_tcp_option_acc_ecn, tvb, offset, -1, ENC_NA);
     acc_ecn_tree = proto_item_add_subtree(item, ett_tcp_option_acc_ecn);
-    kind = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(acc_ecn_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(acc_ecn_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN, &kind);
     offset += 1;
-    length = tvb_get_uint8(tvb, offset);
-    length_item = proto_tree_add_item(acc_ecn_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
+    length_item = proto_tree_add_item_ret_uint8(acc_ecn_tree, hf_tcp_option_len, tvb, offset, 1, ENC_BIG_ENDIAN, &length);
     offset += 1;
     if (length != 2 && length != 5 && length != 8 && length != 11) {
         expert_add_info_format(pinfo, length_item, &ei_tcp_opt_len_invalid,
@@ -6060,8 +6097,7 @@ dissect_tcpopt_exp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 
     item = proto_tree_add_item(tree, proto_tcp_option_exp, tvb, offset, -1, ENC_NA);
     exp_tree = proto_item_add_subtree(item, ett_tcp_option_exp);
-    proto_tree_add_item(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN);
-    kind = tvb_get_uint8(tvb, offset);
+    proto_tree_add_item_ret_uint8(exp_tree, hf_tcp_option_kind, tvb, offset, 1, ENC_BIG_ENDIAN, &kind);
     length_item = proto_tree_add_item(exp_tree, hf_tcp_option_len, tvb, offset + 1, 1, ENC_BIG_ENDIAN);
     if (tcp_exp_options_rfc6994) {
         if (optlen >= TCPOLEN_EXP_MIN) {
@@ -6285,7 +6321,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
                 tcpd->fwd->tcp_analyze_seq_info->num_sack_ranges = 0;
             }
 
-            /* keep a copy of the previous bloks, if any */
+            /* keep a copy of the previous blocks, if any */
             for(uint8_t i = 0; i< saved_sack_ranges; i++) {
                 saved_left_edge[i] = tcpd->fwd->tcp_analyze_seq_info->sack_left_edge[i];
                 saved_right_edge[i] = tcpd->fwd->tcp_analyze_seq_info->sack_right_edge[i];
@@ -6456,7 +6492,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 
     /* Classify accordingly by adding the DUP flag,
      * only if it's not already flagged in any way (such as Keep-Alive ACK w/ SACK).
-     * It's marked as a DUP of itself and with occurence = 1
+     * It's marked as a DUP of itself and with occurrence = 1
      */
     if(has_new_sack && tcp_analyze_seq && tcpd
        && tcpd->ta
@@ -7752,9 +7788,8 @@ dissect_tcpopt_rvbd_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
         proto_tree_add_item(field_tree, hf_tcp_option_rvbd_probe_type2, tvb,
                             offset + PROBE_VERSION_TYPE_OFFSET, 1, ENC_BIG_ENDIAN);
 
-        proto_tree_add_uint_format_value(
-            field_tree, hf_tcp_option_rvbd_probe_version2, tvb,
-            offset + PROBE_VERSION_TYPE_OFFSET, 1, ver, "%u", ver);
+        proto_tree_add_uint(field_tree, hf_tcp_option_rvbd_probe_version2, tvb,
+            offset + PROBE_VERSION_TYPE_OFFSET, 1, ver);
         /* Use version1 for filtering purposes because version2 packet
            value is 0, but filtering is usually done for value 2 */
         ver_pi = proto_tree_add_uint(field_tree, hf_tcp_option_rvbd_probe_version1, tvb,
@@ -8459,6 +8494,86 @@ static void tcp_tap_cleanup(void *data)
     tap_queue_packet(tcp_tap, cleanup->pinfo, cleanup->tcph);
 }
 
+/*
+ * RFC1122 says:
+ *
+ *  4.2.2.12  RST Segment: RFC-793 Section 3.4
+ *
+ *    A TCP SHOULD allow a received RST segment to include data.
+ *
+ *    DISCUSSION
+ *         It has been suggested that a RST segment could contain
+ *         ASCII text that encoded and explained the cause of the
+ *         RST.  No standard has yet been established for such
+ *         data.
+ *
+ * If the payload matches the structured diagnostic format, parse it;
+ * otherwise display the data as text.
+ */
+static void
+dissect_tcp_rst_payload(tvbuff_t *tvb, proto_tree *tree, int offset, int length)
+{
+    if (length < 2) {
+        proto_tree_add_item(tree, hf_tcp_reset_cause, tvb, offset, length, ENC_ASCII);
+        return;
+    }
+
+    uint16_t magic = tvb_get_ntohs(tvb, offset);
+
+    /* structured diagnostic payload (Section 4.1) */
+    if (magic == TCP_RST_DIAGNOSTIC_MAGIC &&
+        length == TCP_RST_DIAGNOSTIC_LEN) {
+        uint16_t reason_code;
+        uint32_t pen_value;
+        int diag_offset = offset;
+        proto_tree *rst_diag_tree;
+        proto_item *rst_diag_ti;
+
+        rst_diag_tree = proto_tree_add_subtree(tree, tvb, offset,
+            length, ett_tcp_rst_diagnostic, &rst_diag_ti,
+            "RST Diagnostic Payload");
+
+        proto_tree_add_item(rst_diag_tree, hf_tcp_rst_diagnostic_magic,
+            tvb, diag_offset, 2, ENC_BIG_ENDIAN);
+        diag_offset += 2;
+
+        reason_code = tvb_get_ntohs(tvb, diag_offset);
+        pen_value = tvb_get_ntohl(tvb, diag_offset + 2);
+
+        if (pen_value != 0) {
+            proto_tree_add_item(rst_diag_tree, hf_tcp_rst_diagnostic_vendor_reason_code,
+                tvb, diag_offset, 2, ENC_BIG_ENDIAN);
+            diag_offset += 2;
+
+            proto_tree_add_uint_format_value(rst_diag_tree, hf_tcp_rst_diagnostic_pen,
+                tvb, diag_offset, 4, pen_value,
+                "%s (%u)", enterprises_lookup(pen_value, "Unknown"), pen_value);
+
+            proto_item_append_text(rst_diag_ti,
+                ": Vendor-Specific reason %u (PEN: %s [%u])",
+                reason_code,
+                enterprises_lookup(pen_value, "Unknown"),
+                pen_value);
+        } else {
+            const char *cause_str;
+
+            proto_tree_add_item(rst_diag_tree, hf_tcp_rst_diagnostic_reason_code,
+                tvb, diag_offset, 2, ENC_BIG_ENDIAN);
+            diag_offset += 2;
+
+            proto_tree_add_uint_format_value(rst_diag_tree, hf_tcp_rst_diagnostic_pen,
+                tvb, diag_offset, 4, pen_value,
+                "IANA (%u)", pen_value);
+
+            cause_str = try_val_to_str(reason_code, tcp_failure_cause_vals);
+            proto_item_append_text(rst_diag_ti, ": %s (%u)",
+                cause_str ? cause_str : "Unknown", reason_code);
+        }
+    } else {
+        proto_tree_add_item(tree, hf_tcp_reset_cause, tvb, offset, length, ENC_ASCII);
+    }
+}
+
 static int
 dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
@@ -9085,8 +9200,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         // This should be consistent with ip.hdr_len.
         proto_tree_add_uint_bits_format_value(tcp_tree, hf_tcp_hdr_len, tvb, (offset + 12) << 3, 4, tcph->th_hlen,
             ENC_BIG_ENDIAN, "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen>>2);
-        tf = proto_tree_add_uint_format(tcp_tree, hf_tcp_flags, tvb, offset + 12, 2,
-                                        tcph->th_flags, "Flags: 0x%03x (%s)", tcph->th_flags, flags_str);
+        tf = proto_tree_add_uint_format_value(tcp_tree, hf_tcp_flags, tvb, offset + 12, 2,
+                                        tcph->th_flags, "0x%03x (%s)", tcph->th_flags, flags_str);
         field_tree = proto_item_add_subtree(tf, ett_tcp_flags);
         proto_tree_add_boolean(field_tree, hf_tcp_flags_res, tvb, offset + 12, 1, tcph->th_flags);
         if (tcph->th_use_ace) {
@@ -9245,7 +9360,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
             default:
                 /* Scaling from signalled value */
-                scaled_pi = proto_tree_add_int_format_value(tcp_tree, hf_tcp_window_size_scalefactor, tvb, offset + 14, 2, 1<<tcpd->fwd->win_scale, "%d", 1<<tcpd->fwd->win_scale);
+                scaled_pi = proto_tree_add_int(tcp_tree, hf_tcp_window_size_scalefactor, tvb, offset + 14, 2, 1<<tcpd->fwd->win_scale);
                 proto_item_set_generated(scaled_pi);
             }
         }
@@ -9705,22 +9820,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
      */
     if (captured_length_remaining != 0) {
         if (tcph->th_flags & TH_RST) {
-            /*
-             * RFC1122 says:
-             *
-             *  4.2.2.12  RST Segment: RFC-793 Section 3.4
-             *
-             *    A TCP SHOULD allow a received RST segment to include data.
-             *
-             *    DISCUSSION
-             *         It has been suggested that a RST segment could contain
-             *         ASCII text that encoded and explained the cause of the
-             *         RST.  No standard has yet been established for such
-             *         data.
-             *
-             * so for segments with RST we just display the data as text.
-             */
-            proto_tree_add_item(tcp_tree, hf_tcp_reset_cause, tvb, offset, captured_length_remaining, ENC_ASCII);
+            dissect_tcp_rst_payload(tvb, tcp_tree, offset, captured_length_remaining);
         } else {
         /* When we have a frame with TCP SYN bit set and segmented TCP payload we need
          * to increment seq and nxtseq to detect the overlapping byte(s). This is to fix Bug 9882.
@@ -10593,6 +10693,22 @@ proto_register_tcp(void)
           { "Reset cause", "tcp.reset_cause", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
 
+        { &hf_tcp_rst_diagnostic_magic,
+          { "Magic Number", "tcp.rst_diagnostic.magic", FT_UINT16, BASE_HEX, NULL, 0x0,
+            "RST diagnostic payload magic number (0x33AA)", HFILL }},
+
+        { &hf_tcp_rst_diagnostic_reason_code,
+          { "Reason Code", "tcp.rst_diagnostic.reason_code", FT_UINT16, BASE_DEC, VALS(tcp_failure_cause_vals), 0x0,
+            "IANA TCP Failure Cause code", HFILL }},
+
+        { &hf_tcp_rst_diagnostic_vendor_reason_code,
+          { "Vendor-Specific Reason Code", "tcp.rst_diagnostic.vendor_reason_code", FT_UINT16, BASE_DEC, NULL, 0x0,
+            "Vendor-specific reason code (scoped to the PEN)", HFILL }},
+
+        { &hf_tcp_rst_diagnostic_pen,
+          { "Private Enterprise Number", "tcp.rst_diagnostic.pen", FT_UINT32, BASE_DEC, NULL, 0x0,
+            "IANA Private Enterprise Number identifying the vendor", HFILL }},
+
         { &hf_tcp_syncookie_time,
           { "SYN Cookie Time", "tcp.syncookie.time", FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }},
@@ -10673,7 +10789,8 @@ proto_register_tcp(void)
         &ett_tcp_opt_scpscor,
         &ett_tcp_option_other,
         &ett_tcp_syncookie,
-        &ett_tcp_syncookie_option
+        &ett_tcp_syncookie_option,
+        &ett_tcp_rst_diagnostic
     };
 
     static int *mptcp_ett[] = {
@@ -10841,7 +10958,7 @@ proto_register_tcp(void)
     static build_valid_func tcp_da_both_values[2] = {tcp_src_value, tcp_dst_value};
     static decode_as_value_t tcp_da_values[3] = {{tcp_src_prompt, 1, tcp_da_src_values}, {tcp_dst_prompt, 1, tcp_da_dst_values}, {tcp_both_prompt, 2, tcp_da_both_values}};
     static decode_as_t tcp_da = {"tcp", "tcp.port", 3, 2, tcp_da_values, "TCP", "port(s) as",
-                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                                 decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
     module_t *tcp_module;
     module_t *mptcp_module;

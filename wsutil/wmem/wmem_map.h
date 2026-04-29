@@ -71,8 +71,7 @@ typedef struct _wmem_map_t wmem_map_t;
 WS_DLL_PUBLIC
 wmem_map_t *
 wmem_map_new(wmem_allocator_t *allocator,
-        GHashFunc hash_func, GEqualFunc eql_func)
-G_GNUC_MALLOC;
+        GHashFunc hash_func, GEqualFunc eql_func);
 
 /**
  * @brief Creates a map with two allocator scopes.
@@ -94,8 +93,7 @@ G_GNUC_MALLOC;
 WS_DLL_PUBLIC
 wmem_map_t *
 wmem_map_new_autoreset(wmem_allocator_t *metadata_scope, wmem_allocator_t *data_scope,
-        GHashFunc hash_func, GEqualFunc eql_func)
-G_GNUC_MALLOC;
+        GHashFunc hash_func, GEqualFunc eql_func);
 
 /**
  * @brief Inserts a value into the map.
@@ -324,7 +322,7 @@ wmem_str_hash(const void *key);
  * Prefer this over `g_int64_hash` when the input data may come from untrusted sources,
  * such as external files, network traffic, or user input.
  *
- * @param key Pointer to a 64-bit integer (`gint64`) to hash.
+ * @param key Pointer to a 64-bit integer (`int64_t`) to hash.
  * @return A 32-bit unsigned integer hash value.
  */
 WS_DLL_PUBLIC

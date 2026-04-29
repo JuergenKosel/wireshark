@@ -24,6 +24,7 @@
 #include <wsutil/cmdarg_err.h>
 #include <ui/failure_message.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/privileges.h>
 #include <wsutil/clopts_common.h>
 #include <wsutil/ws_getopt.h>
@@ -149,6 +150,9 @@ fuzz_init(int argc, char **argv)
 		LONGOPT_WSLOG
 		{0, 0, 0, 0 }
 	};
+	const struct file_extension_info* file_extensions;
+	unsigned num_extensions;
+	epan_app_data_t app_data;
 
 	const char *fuzz_target =
 #if defined(FUZZ_DISSECTOR_TARGET)
@@ -167,6 +171,9 @@ fuzz_init(int argc, char **argv)
 
 #if !defined(FUZZ_DISSECTOR_TABLE) && !defined(FUZZ_DISSECTOR_TARGET)
 	const char *fuzz_table = getenv("FUZZSHARK_TABLE");
+
+	/* Future proof by zeroing out all data */
+	memset(&app_data, 0, sizeof(app_data));
 
 	/*
 	 * Set the pogram name.
@@ -253,7 +260,7 @@ fuzz_init(int argc, char **argv)
 	}
 
 	/* Initialize the version information. */
-	ws_init_version_info("OSS Fuzzshark", NULL, get_ws_vcs_version_info,
+	ws_init_version_info("OSS Fuzzshark", NULL, application_get_vcs_version_info,
 	    epan_gather_compile_info, epan_gather_runtime_info);
 
 	init_report_failure_message("fuzzshark");
@@ -267,13 +274,19 @@ fuzz_init(int argc, char **argv)
 	 * dissection-time handlers for file-type-dependent blocks can
 	 * register using the file type/subtype value for the file type.
 	 */
-	wtap_init(true);
+	application_file_extensions(&file_extensions, &num_extensions);
+	wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
 	/* Register all dissectors; we must do this before checking for the
 	   "-G" flag, as the "-G" flag dumps information registered by the
 	   dissectors, and we must do it before we read the preferences, in
 	   case any dissectors register preferences. */
-	if (!epan_init(NULL, NULL, false))
+	app_data.env_var_prefix = application_configuration_environment_prefix();
+	app_data.col_fmt = application_columns();
+	app_data.num_cols = application_num_columns();
+	app_data.register_func = register_all_protocols;
+	app_data.handoff_func = register_all_protocol_handoffs;
+	if (!epan_init(NULL, NULL, false, &app_data))
 	{
 		ret = EPAN_INIT_FAIL;
 		goto clean_exit;
@@ -282,7 +295,7 @@ fuzz_init(int argc, char **argv)
 	/* Load libwireshark settings from the current profile. */
 	prefs_p = epan_load_settings();
 
-	if (!color_filters_init(&err_msg, NULL))
+	if (!color_filters_init(&err_msg, NULL, application_configuration_environment_prefix()))
 	{
 		fprintf(stderr, "%s\n", err_msg);
 		g_free(err_msg);

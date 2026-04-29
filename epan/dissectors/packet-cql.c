@@ -763,6 +763,68 @@ static int parse_option(proto_tree* metadata_subtree, packet_info *pinfo, tvbuff
 	return offset;
 }
 
+/*
+ * Advance *offset_metadata past a complete type descriptor in the metadata
+ * stream, without reading any row data.  This mirrors the structure of
+ * parse_option() but only moves the metadata cursor.  It is needed whenever
+ * the column/element value is absent (NULL, "not set", or empty collection)
+ * so that subsequent columns stay in sync with the metadata.
+ */
+// NOLINTNEXTLINE(misc-no-recursion)
+static void skip_metadata_type(tvbuff_t* tvb, int* offset_metadata)
+{
+	uint32_t data_type;
+	uint32_t string_length;
+	uint32_t count;
+	uint32_t i;
+
+	data_type = tvb_get_ntohs(tvb, *offset_metadata);
+	*offset_metadata += 2;
+
+	switch (data_type) {
+		case CQL_RESULT_ROW_TYPE_LIST:
+		case CQL_RESULT_ROW_TYPE_SET:
+			skip_metadata_type(tvb, offset_metadata);  /* element type */
+			break;
+		case CQL_RESULT_ROW_TYPE_MAP:
+			skip_metadata_type(tvb, offset_metadata);  /* key type */
+			skip_metadata_type(tvb, offset_metadata);  /* value type */
+			break;
+		case CQL_RESULT_ROW_TYPE_UDT:
+			/* keyspace name */
+			string_length = tvb_get_ntohs(tvb, *offset_metadata);
+			*offset_metadata += 2 + string_length;
+			/* UDT name */
+			string_length = tvb_get_ntohs(tvb, *offset_metadata);
+			*offset_metadata += 2 + string_length;
+			/* fields */
+			count = tvb_get_ntohs(tvb, *offset_metadata);
+			*offset_metadata += 2;
+			for (i = 0; i < count; i++) {
+				/* field name */
+				string_length = tvb_get_ntohs(tvb, *offset_metadata);
+				*offset_metadata += 2 + string_length;
+				/* field type (recursive) */
+				skip_metadata_type(tvb, offset_metadata);
+			}
+			break;
+		case CQL_RESULT_ROW_TYPE_TUPLE:
+			count = tvb_get_ntohs(tvb, *offset_metadata);
+			*offset_metadata += 2;
+			for (i = 0; i < count; i++) {
+				skip_metadata_type(tvb, offset_metadata);
+			}
+			break;
+		case CQL_RESULT_ROW_TYPE_CUSTOM:
+			string_length = tvb_get_ntohs(tvb, *offset_metadata);
+			*offset_metadata += 2 + string_length;
+			break;
+		default:
+			/* Simple types: the 2-byte type ID is all the metadata there is. */
+			break;
+	}
+}
+
 static void add_varint_item(proto_tree *tree, tvbuff_t *tvb, const int offset, const int length)
 {
 	switch (length)
@@ -841,12 +903,37 @@ static int parse_value(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t
 	proto_item_set_hidden(item);
 	*offset_metadata += 2;
 
-	if (bytes_length == -1) { // value is NULL, but need to skip metadata offsets
+	if (bytes_length == -1 || bytes_length == -2) {
+		/*
+		 * -1 means NULL, -2 means "not set" (CQL protocol v4+).
+		 * No data bytes follow, but we must advance the metadata
+		 * offset past any sub-type descriptors so that subsequent
+		 * columns stay in sync.
+		 *
+		 * The 2-byte type ID was already consumed above
+		 * (offset_metadata += 2).  Back up and let
+		 * skip_metadata_type() walk the complete type descriptor
+		 * (type ID + any sub-types) in one call.
+		 */
 		proto_tree_add_item(columns_subtree, hf_cql_null_value, tvb, offset, 0, ENC_NA);
-		if (data_type == CQL_RESULT_ROW_TYPE_MAP) {
-			*offset_metadata += 4; /* skip the type fields of *both* key and value in the map in the metadata */
-		} else if (data_type == CQL_RESULT_ROW_TYPE_SET) {
-			*offset_metadata += 2; /* skip the type field of the elements in the set in the metadata */
+		{
+			int meta_rewind = *offset_metadata - 2;
+			skip_metadata_type(tvb, &meta_rewind);
+			*offset_metadata = meta_rewind;
+		}
+		return offset;
+	}
+
+	if (bytes_length < -2) {
+		/*
+		 * Invalid length value -- flag it and skip the metadata to
+		 * keep subsequent columns in sync.
+		 */
+		expert_add_info(pinfo, item, &ei_cql_unexpected_negative_value);
+		{
+			int meta_rewind = *offset_metadata - 2;
+			skip_metadata_type(tvb, &meta_rewind);
+			*offset_metadata = meta_rewind;
 		}
 		return offset;
 	}
@@ -953,10 +1040,14 @@ static int parse_value(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t
 				return tvb_reported_length(tvb);
 			}
 			offset += 4;
-			offset_metadata_backup = *offset_metadata;
-			for (j = 0; j < list_size; j++) {
-				*offset_metadata = offset_metadata_backup;
-				offset = parse_value(columns_subtree, pinfo, tvb, offset_metadata, offset);
+			if (list_size == 0) {
+				skip_metadata_type(tvb, offset_metadata); /* skip element type */
+			} else {
+				offset_metadata_backup = *offset_metadata;
+				for (j = 0; j < list_size; j++) {
+					*offset_metadata = offset_metadata_backup;
+					offset = parse_value(columns_subtree, pinfo, tvb, offset_metadata, offset);
+				}
 			}
 			break;
 		case CQL_RESULT_ROW_TYPE_MAP:
@@ -969,7 +1060,8 @@ static int parse_value(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t
 				decrement_dissection_depth(pinfo);
 				return tvb_reported_length(tvb);
 			} else if (map_size == 0) {
-				*offset_metadata += 4; /* skip the type fields of *both* key and value in the map in the metadata */
+				skip_metadata_type(tvb, offset_metadata); /* skip key type */
+				skip_metadata_type(tvb, offset_metadata); /* skip value type */
 			} else {
 				offset_metadata_backup = *offset_metadata;
 				for (j = 0; j < map_size; j++) {
@@ -988,7 +1080,7 @@ static int parse_value(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t
 				decrement_dissection_depth(pinfo);
 				return tvb_reported_length(tvb);
 			} else if (set_size == 0) {
-				*offset_metadata += 2; /* skip the type field of the elements in the set in the metadata */
+				skip_metadata_type(tvb, offset_metadata); /* skip element type */
 			} else {
 				offset_metadata_backup = *offset_metadata;
 				for (j = 0; j < set_size; j++) {
@@ -1122,7 +1214,7 @@ static int parse_result_schema_change(proto_tree* subtree, packet_info *pinfo, t
 			int offset)
 {
 	uint32_t short_bytes_length = 0;
-	const uint8_t* string_event_type_target = NULL;
+	const char* string_event_type_target = NULL;
 
 	proto_tree_add_item_ret_uint(subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 	offset += 2;
@@ -1130,7 +1222,7 @@ static int parse_result_schema_change(proto_tree* subtree, packet_info *pinfo, t
 	offset += short_bytes_length;
 	proto_tree_add_item_ret_uint(subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 	offset += 2;
-	proto_tree_add_item_ret_string(subtree, hf_cql_event_schema_change_type_target, tvb, offset, short_bytes_length, ENC_UTF_8, pinfo->pool, &string_event_type_target);
+	proto_tree_add_item_ret_string(subtree, hf_cql_event_schema_change_type_target, tvb, offset, short_bytes_length, ENC_UTF_8, pinfo->pool, (const uint8_t**)&string_event_type_target);
 	offset += short_bytes_length;
 	/* all targets have the keyspace as the first parameter*/
 	proto_tree_add_item_ret_uint(subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
@@ -1155,7 +1247,7 @@ static int parse_result_schema_change(proto_tree* subtree, packet_info *pinfo, t
 static int parse_row(proto_tree* columns_subtree, packet_info *pinfo, tvbuff_t* tvb,
 			int offset_metadata, int offset, const int result_rows_columns_count, const uint32_t flags)
 {
-	int string_length;
+	uint32_t string_length;
 	int shadow_offset;
 	proto_item *item;
 	int j;
@@ -1276,7 +1368,7 @@ dissect_cql5_comp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* dat
 	} else {
 #ifdef HAVE_LZ4
 		if (uncomp_length <= MAX_UNCOMPRESSED_SIZE && length > 0) {
-			if (tvb_captured_length_remaining(tvb, payload_offset) >= (int)length) {
+			if (tvb_captured_length_remaining(tvb, payload_offset) >= length) {
 				unsigned char *decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, uncomp_length);
 				int ret = LZ4_decompress_safe(
 					(const char*)tvb_get_ptr(tvb, payload_offset, length),
@@ -1382,10 +1474,10 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 	int32_t stream = 0;
 	uint32_t batch_size = 0;
 	uint32_t batch_query_type = 0;
-	uint32_t result_kind = 0;
+	int32_t result_kind = 0;
 	uint32_t result_rows_flags = 0;
 	int32_t result_rows_columns_count = 0;
-	int32_t result_prepared_flags = 0;
+	uint32_t result_prepared_flags = 0;
 	int32_t result_prepared_pk_count = 0;
 	int64_t j = 0;
 	int64_t k = 0;
@@ -1430,7 +1522,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 		NULL
 	};
 
-	const uint8_t* string_event_type = NULL;
+	const char* string_event_type = NULL;
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "CQL");
 	col_clear(pinfo->cinfo, COL_INFO);
@@ -1535,16 +1627,22 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 			/* Set ret == 0 to make it fail in case decompression is skipped
 			 * due to orig_size being too big
 			 */
+			// XXX - Add a tvb_lz4 API (with max size) and use it. (#16134)
 			uint32_t ret = 0, orig_size = tvb_get_ntohl(raw_tvb, offset);
 			unsigned char *decompressed_buffer = NULL;
 			offset += 4;
 
 			/* if the decompressed size is reasonably small try to decompress data */
 			if (orig_size <= MAX_UNCOMPRESSED_SIZE) {
+
+				int compr_size = tvb_captured_length_remaining(raw_tvb, offset);
+				// The LZ4 API expects const char*
+				const void* compr_ptr = tvb_get_ptr(raw_tvb, offset, compr_size);
+
 				decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, orig_size);
-				ret = LZ4_decompress_safe(tvb_get_ptr(raw_tvb, offset, -1),
-							  decompressed_buffer,
-							  tvb_captured_length_remaining(raw_tvb, offset),
+				ret = LZ4_decompress_safe(compr_ptr,
+							  (char*)decompressed_buffer,
+							  compr_size,
 							  orig_size);
 			}
 			/* Decompression attempt failed: rewind offset */
@@ -1567,19 +1665,21 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 			size_t orig_size = 0;
 			snappy_status ret;
 
+			// XXX - Add a maximum size parameter to the tvb_snappy API and use it.
+			int compr_size = tvb_captured_length_remaining(raw_tvb, offset);
+			// The snappy API expects const char*
+			const void* compr_ptr = tvb_get_ptr(raw_tvb, offset, compr_size);
+
 			/* get the raw data length */
-			ret = snappy_uncompressed_length(tvb_get_ptr(raw_tvb, offset, -1),
-							 tvb_captured_length_remaining(raw_tvb, offset),
-							 &orig_size);
+			ret = snappy_uncompressed_length(compr_ptr, (size_t)compr_size, &orig_size);
 			/* if we get the length and it's reasonably short to allocate a buffer for it
 			 * proceed to try decompressing the data
 			 */
 			if (ret == SNAPPY_OK && orig_size <= MAX_UNCOMPRESSED_SIZE) {
 				decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, orig_size);
 
-				ret = snappy_uncompress(tvb_get_ptr(raw_tvb, offset, -1),
-							tvb_captured_length_remaining(raw_tvb, offset),
-							decompressed_buffer,
+				ret = snappy_uncompress(compr_ptr, (size_t)compr_size,
+							(char*)decompressed_buffer,
 							&orig_size);
 			} else {
 				/* else mark the input as invalid in order to skip the rest of the
@@ -2038,7 +2138,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 				offset += 2;
 
-				proto_tree_add_item_ret_string(cql_subtree, hf_cql_event_type, tvb, offset, short_bytes_length, ENC_UTF_8, pinfo->pool, &string_event_type);
+				proto_tree_add_item_ret_string(cql_subtree, hf_cql_event_type, tvb, offset, short_bytes_length, ENC_UTF_8, pinfo->pool, (const uint8_t**)&string_event_type);
 				offset += short_bytes_length;
 				proto_item_append_text(cql_subtree, " (type: %s)", string_event_type);
 

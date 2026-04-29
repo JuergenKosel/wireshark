@@ -64,13 +64,12 @@ private:
     ProfileModel *model_;
     ProfileSortModel *sort_model_;
 
-    void updateWidgets();
-    void resetTreeView();
+    void finishImport(QFileInfo fi, int skipped, const QStringList& importedProfiles);
 
-    void finishImport(QFileInfo fi, int count, int skipped, QStringList import);
+    //Helper function remove filter before adding/copying profiles
+    void clearFilter();
 
 private slots:
-    void currentItemChanged(const QModelIndex & c = QModelIndex(), const QModelIndex & p = QModelIndex());
 #if defined(HAVE_MINIZIP) || defined(HAVE_MINIZIPNG)
     void exportProfiles(bool exportAllPersonalProfiles = false);
     void importFromZip();
@@ -81,7 +80,6 @@ private slots:
     void deleteToolButtonClicked();
     void copyToolButtonClicked();
     void buttonBoxAccepted();
-    void buttonBoxRejected();
     void buttonBoxHelpRequested();
     void dataChanged(const QModelIndex &);
 

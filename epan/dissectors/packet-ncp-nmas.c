@@ -163,17 +163,6 @@ static const value_string nmas_errors_enum[] = {
     { 0,          NULL }
 };
 
-#if 0
-static int
-align_4(tvbuff_t *tvb, int aoffset)
-{
-    if (tvb_length_remaining(tvb, aoffset) > 4 ) {
-        return (aoffset%4);
-    }
-    return 0;
-}
-#endif
-
 static int
 nmas_string(packet_info *pinfo, tvbuff_t* tvb, int hfinfo, proto_tree *nmas_tree, int offset, bool little)
 {
@@ -286,8 +275,7 @@ dissect_nmas_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ncp_tree, nc
         foffset += 4;
         foffset += 12;
         msg_length -= 16;
-        proto_tree_add_item(atree, hf_subverb, tvb, foffset, 4, ENC_LITTLE_ENDIAN);
-        subverb = tvb_get_letohl(tvb, foffset);
+        proto_tree_add_item_ret_uint(atree, hf_subverb, tvb, foffset, 4, ENC_LITTLE_ENDIAN, &subverb);
         if (request_value) {
             request_value->req_nds_flags=subverb; /* Store the NMAS fragment verb */
         }

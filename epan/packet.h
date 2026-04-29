@@ -12,7 +12,6 @@
 #define __PACKET_H__
 
 #include <wsutil/array.h>
-#include <wiretap/wtap_opttypes.h>
 #include "proto.h"
 #include "range.h"
 #include "tvbuff.h"
@@ -26,6 +25,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct wtap_block;
+typedef struct wtap_block* wtap_block_t;
 
 
 /** @defgroup packet General Packet Dissection
@@ -803,7 +804,7 @@ WS_DLL_PUBLIC void register_cleanup_routine(void (*func)(void));
 WS_DLL_PUBLIC void register_shutdown_routine(void (*func)(void));
 
 /* Initialize all data structures used for dissection. */
-void init_dissection(void);
+void init_dissection(const char* app_env_var_prefix);
 
 /* Free data structures allocated for dissection. */
 void cleanup_dissection(void);
@@ -820,7 +821,7 @@ WS_DLL_PUBLIC void postseq_cleanup_all_protocols(void);
 /* Allow dissectors to register a "final_registration" routine
  * that is run like the proto_register_XXX() routine, but the end
  * end of the epan_init() function; that is, *after* all other
- * subsystems, liked dfilters, have finished initializing. This is
+ * subsystems (such as dfilters) have finished initializing. This is
  * useful for dissector registration routines which need to compile
  * display filters. dfilters can't initialize itself until all protocols
  * have registered themselves. */
@@ -871,6 +872,11 @@ WS_DLL_PUBLIC void set_data_source_media_type(struct data_source *src, data_sour
 WS_DLL_PUBLIC void remove_last_data_source(packet_info *pinfo);
 
 /*
+ * Return the data source name.
+ */
+WS_DLL_PUBLIC const char *get_data_source_name(const struct data_source *src);
+
+/*
  * Return the data source description.
  */
 WS_DLL_PUBLIC char *get_data_source_description(const struct data_source *src);
@@ -910,9 +916,17 @@ extern void free_data_sources(packet_info *pinfo);
 
 /* Mark another frame as depended upon by the current frame.
  *
- * This information is used to ensure that the depended-upon frame is saved
- * if the user does a File->Save-As of only the Displayed packets and the
- * current frame passed the display filter.
+ * This information is used to ensure that when the current frame is exported
+ * or saved that the depended upon frames necessary for correct dissection are
+ * also exported (along with the frames that those depend upon, in infinite
+ * descent.) The fragment handling functions in reassemble.c mark any frame
+ * used to reassemble the current frame as depended upon; dissectors can also
+ * mark frames themselves.
+ *
+ * In Wireshark, the "Include depended upon packets" checkbox in the Export
+ * Specified Packets dialog (enabled by default) controls whether depended
+ * upon frames of selected frames are also exported. TShark also saves
+ * any depended upon frames when saving filtered packets to a file.
  */
 WS_DLL_PUBLIC void mark_frame_as_depended_upon(frame_data *fd, uint32_t frame_num);
 
@@ -1043,11 +1057,27 @@ prime_epan_dissect_with_postdissector_wanted_hfids(epan_dissect_t *edt);
 
 WS_DLL_PUBLIC void increment_dissection_depth(packet_info *pinfo);
 
+/** Increment the dissection depth by a value.
+ * This should be used to limit recursion outside the tree depth checks in
+ * call_dissector and dissector_try_heuristic.
+ * @param pinfo Packet Info.
+ * @param n The value by which to increment the depth
+ */
+
+WS_DLL_PUBLIC void increment_dissection_depth_by_n(packet_info *pinfo, unsigned n);
+
 /** Decrement the dissection depth.
  * @param pinfo Packet Info.
  */
 
 WS_DLL_PUBLIC void decrement_dissection_depth(packet_info *pinfo);
+
+/** Decrement the dissection depth by a value.
+ * @param pinfo Packet Info.
+ * @param n The value by which to decrement the depth
+ */
+
+WS_DLL_PUBLIC void decrement_dissection_depth_by_n(packet_info *pinfo, unsigned n);
 
 /** @} */
 

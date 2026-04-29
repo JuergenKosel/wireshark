@@ -19,8 +19,8 @@
 #include <epan/expert.h>
 #include <epan/tfs.h>
 #include <wsutil/array.h>
-#include "packet-scsi.h"
-#include "packet-scsi-osd.h"
+#include <epan/dissectors/packet-scsi.h>
+#include <epan/dissectors/packet-scsi-osd.h>
 
 void proto_register_scsi_osd(void);
 
@@ -164,7 +164,7 @@ static expert_field ei_osd2_query_values_equal;
 #define PAGE_NUMBER_ROOT            0x90000000
 
 
-/* There will be one such structure create for each conversation ontop of which
+/* There will be one such structure created for each conversation on top of which
  * there is an OSD session
  */
 typedef struct _scsi_osd_conv_info_t {
@@ -411,12 +411,11 @@ dissect_osd_attribute_list_entry(packet_info *pinfo, tvbuff_t *tvb,
 
     /* attributes page */
     page = tvb_get_ntohl(tvb, offset);
-    proto_tree_add_item(tree, hf_scsi_osd_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_scsi_osd_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN, &page);
     offset += 4;
 
     /* attribute number */
-    number = tvb_get_ntohl(tvb, offset);
-    proto_tree_add_item(tree, hf_scsi_osd_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_scsi_osd_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN, &number);
     offset += 4;
 
     if (osd2) {
@@ -486,12 +485,10 @@ dissect_osd_attributes_list(packet_info *pinfo, tvbuff_t *tvb, int offset,
     /* OSD-1: length (16 bit)
        OSD-2: length (32 bit) */
     if (osd2) {
-        length = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_item(tree, hf_scsi_osd2_attributes_list_length, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(tree, hf_scsi_osd2_attributes_list_length, tvb, offset, 4, ENC_BIG_ENDIAN, &length);
         offset += 4;
     } else {
-        length = tvb_get_ntohs(tvb, offset);
-        proto_tree_add_item(tree, hf_scsi_osd_attributes_list_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(tree, hf_scsi_osd_attributes_list_length, tvb, offset, 2, ENC_BIG_ENDIAN, &length);
         offset += 2;
     }
 
@@ -534,13 +531,11 @@ dissect_osd_attributes_list(packet_info *pinfo, tvbuff_t *tvb, int offset,
         switch (type) {
         case 0x01: /* retrieving attributes 7.1.3.2 */
             /* attributes page */
-            page = tvb_get_ntohl(tvb, offset);
-            proto_tree_add_item(tt, hf_scsi_osd_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN);
+            proto_tree_add_item_ret_uint(tt, hf_scsi_osd_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN, &page);
             offset += 4;
 
             /* attribute number */
-            number = tvb_get_ntohl(tvb, offset);
-            item = proto_tree_add_item(tt, hf_scsi_osd_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN);
+            item = proto_tree_add_item_ret_uint(tt, hf_scsi_osd_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN, &number);
             offset += 4;
 
             proto_item_append_text(ti, " 0x%08x (%s)", page,  val_to_str_ext_const(page, &attributes_page_vals_ext, "Unknown"));
@@ -870,13 +865,11 @@ static void dissect_osd2_query_list_descriptor(packet_info *pinfo, tvbuff_t *tvb
         offset += 2;
 
         /* query attributes page */
-        page = tvb_get_ntohl(tvb, offset);
-        proto_tree_add_item(tree, hf_scsi_osd2_query_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_uint(tree, hf_scsi_osd2_query_attributes_page, tvb, offset, 4, ENC_BIG_ENDIAN, &page);
         offset += 4;
 
         /* query attributes number */
-        number = tvb_get_ntohl(tvb, offset);
-        item = proto_tree_add_item(tree, hf_scsi_osd2_query_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN);
+        item = proto_tree_add_item_ret_uint(tree, hf_scsi_osd2_query_attribute_number, tvb, offset, 4, ENC_BIG_ENDIAN, &number);
         offset += 4;
 
         apn = osd_lookup_attribute(page, number);

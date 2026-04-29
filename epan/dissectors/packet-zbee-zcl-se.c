@@ -2601,8 +2601,7 @@ dissect_zcl_price_publish_price_matrix(tvbuff_t *tvb, proto_tree *tree, unsigned
     *offset += 1;
 
     /* Sub-Payload Control */
-    sub_payload_control = tvb_get_uint8(tvb, *offset) && 0x01; /* First bit determines Tier/Block ID field type */
-    proto_tree_add_item(tree, hf_zbee_zcl_price_price_matrix_sub_payload_control, tvb, *offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_price_price_matrix_sub_payload_control, tvb, *offset, 1, ENC_NA, &sub_payload_control);
     *offset += 1;
 
     while (tvb_reported_length_remaining(tvb, *offset) > 0) {
@@ -2667,8 +2666,7 @@ dissect_zcl_price_publish_block_thresholds(tvbuff_t *tvb, proto_tree *tree, unsi
     *offset += 1;
 
     /* Sub-Payload Control */
-    sub_payload_control = tvb_get_uint8(tvb, *offset) && 0x01; /* First bit determines Tier/Number of Block Thresholds field type */
-    proto_tree_add_item(tree, hf_zbee_zcl_price_block_thresholds_sub_payload_control, tvb, *offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_price_block_thresholds_sub_payload_control, tvb, *offset, 1, ENC_NA, &sub_payload_control);
     *offset += 1;
 
     while (tvb_reported_length_remaining(tvb, *offset) > 0) {
@@ -2768,11 +2766,10 @@ dissect_zcl_price_publish_tier_labels(tvbuff_t *tvb, proto_tree *tree, unsigned 
     *offset += 1;
 
     /* Number of Labels */
-    number_of_labels = tvb_get_uint8(tvb, *offset);
-    proto_tree_add_item(tree, hf_zbee_zcl_price_tier_labels_number_of_labels, tvb, *offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_price_tier_labels_number_of_labels, tvb, *offset, 1, ENC_NA, &number_of_labels);
     *offset += 1;
 
-    for (int i = 0; tvb_reported_length_remaining(tvb, *offset) >= 0 && i < number_of_labels; i++) {
+    for (int i = 0; i < number_of_labels; i++) {
         /* Tier ID */
         proto_tree_add_item(tree, hf_zbee_zcl_price_tier_labels_tier_id, tvb, *offset, 1, ENC_NA);
         *offset += 1;
@@ -3373,7 +3370,7 @@ proto_register_zbee_zcl_price(void)
 
         { &hf_zbee_zcl_price_price_matrix_sub_payload_control,
             { "Sub Payload Control", "zbee_zcl_se.price.price_matrix.sub_payload_control", FT_UINT8, BASE_DEC, NULL,
-            0x00, NULL, HFILL } },
+            0x01, NULL, HFILL } },
 
         /* start Tier/Block ID fields */
         { &hf_zbee_zcl_price_price_matrix_tier_block_id,
@@ -3399,7 +3396,7 @@ proto_register_zbee_zcl_price(void)
 
         { &hf_zbee_zcl_price_block_thresholds_sub_payload_control,
             { "Sub Payload Control", "zbee_zcl_se.price.block_thresholds.sub_payload_control", FT_UINT8, BASE_DEC, NULL,
-            0x00, NULL, HFILL } },
+            0x01, NULL, HFILL } },
 
         /* start Tier/Number of Block Thresholds fields */
         { &hf_zbee_zcl_price_block_thresholds_tier_number_of_block_thresholds,
@@ -8034,7 +8031,7 @@ dissect_zbee_zcl_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 static void
 dissect_zcl_msg_display(tvbuff_t *tvb, proto_tree *tree, unsigned *offset)
 {
-    unsigned   msg_len;
+    int msg_len;
 
     static int * const message_ctrl_flags[] = {
         &hf_zbee_zcl_msg_ctrl_tx,
@@ -8088,15 +8085,14 @@ dissect_zcl_msg_display(tvbuff_t *tvb, proto_tree *tree, unsigned *offset)
 static void
 dissect_zcl_msg_cancel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, unsigned *offset)
 {
-    int8_t msg_ctrl;
+    uint8_t msg_ctrl;
 
     /* Message ID */
     proto_tree_add_item(tree, hf_zbee_zcl_msg_message_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Message Control */
-    msg_ctrl = tvb_get_uint8(tvb, *offset);
-    proto_tree_add_item(tree, hf_zbee_zcl_msg_ctrl, tvb, *offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_msg_ctrl, tvb, *offset, 1, ENC_NA, &msg_ctrl);
     *offset += 1;
 
     if (msg_ctrl != 0x00) {
@@ -8147,7 +8143,7 @@ dissect_zcl_msg_get_cancel(tvbuff_t *tvb, proto_tree *tree, unsigned *offset)
 static void
 dissect_zcl_msg_confirm(tvbuff_t *tvb, proto_tree *tree, unsigned *offset)
 {
-    unsigned   msg_len;
+    int msg_len;
 
     /* Message ID */
     proto_tree_add_item(tree, hf_zbee_zcl_msg_message_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
@@ -11447,8 +11443,7 @@ dissect_zcl_calendar_publish_day_profile(tvbuff_t *tvb, proto_tree *tree, unsign
     *offset += 1;
 
     /* Calendar Type */
-    calendar_type = tvb_get_uint8(tvb, *offset);
-    proto_tree_add_item(tree, hf_zbee_zcl_calendar_type, tvb, *offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_calendar_type, tvb, *offset, 1, ENC_NA, &calendar_type);
     *offset += 1;
 
     for (int i = 0; tvb_reported_length_remaining(tvb, *offset) >= 3 && i < schedule_entries_count; i++) {
@@ -13252,7 +13247,7 @@ dissect_zcl_device_management_request_new_password_response(proto_tree *tree, tv
 
     /* Duration in minutes */
     /* TODO: if really big endian, should use ENC_BIG_ENDIAN.. */
-    proto_tree_add_item(tree, hf_zbee_zcl_device_management_request_new_password_duration_in_minutes, tvb, *offset, 2, ENC_NA);
+    proto_tree_add_item(tree, hf_zbee_zcl_device_management_request_new_password_duration_in_minutes, tvb, *offset, 2, ENC_BIG_ENDIAN);
     *offset += 2;
 
     /* Password Type */
@@ -13329,9 +13324,8 @@ dissect_zcl_device_management_set_event_configuration(proto_tree *tree, tvbuff_t
     /* Event Configuration Payload */
     switch (config_control) {
         case ZBEE_ZCL_DEVICE_MANAGEMENT_CONFIGURATION_CONTROL_APPLY_BY_LIST:
-            number_of_events = tvb_get_uint8(tvb, *offset);
             /* Number of Events */
-            proto_tree_add_item(tree, hf_zbee_zcl_device_management_set_event_configuration_event_configuration_number_of_events, tvb, *offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(tree, hf_zbee_zcl_device_management_set_event_configuration_event_configuration_number_of_events, tvb, *offset, 1, ENC_NA, &number_of_events);
             *offset += 1;
 
             /* Event IDs */
@@ -14985,7 +14979,7 @@ dissect_zcl_ke_suite2_certificate(tvbuff_t *tvb, proto_tree *tree, unsigned *off
     proto_tree_add_item(tree, hf_zbee_zcl_ke_cert_type, tvb, *offset, 1, ENC_NA);
     *offset += 1;
 
-    proto_tree_add_item(tree, hf_zbee_zcl_ke_cert_serialno, tvb, *offset, 8, ENC_NA);
+    proto_tree_add_item(tree, hf_zbee_zcl_ke_cert_serialno, tvb, *offset, 8, ENC_BIG_ENDIAN);
     *offset += 8;
 
     proto_tree_add_item(tree, hf_zbee_zcl_ke_cert_curve, tvb, *offset, 1, ENC_NA);
@@ -15042,9 +15036,7 @@ dissect_zcl_ke_initiate(tvbuff_t *tvb, proto_tree *tree, unsigned *offset)
     proto_tree        *subtree;
     uint16_t           suite;
 
-    suite = tvb_get_letohs(tvb, *offset);
-
-    proto_tree_add_item(tree, hf_zbee_zcl_ke_suite, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_zbee_zcl_ke_suite, tvb, *offset, 2, ENC_LITTLE_ENDIAN, &suite);
     *offset += 2;
 
     proto_tree_add_item(tree, hf_zbee_zcl_ke_ephemeral_time, tvb, *offset, 1, ENC_NA);

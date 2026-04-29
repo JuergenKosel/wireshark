@@ -273,8 +273,9 @@ echo "Required OpenSUSE package update-desktop-files is unavailable. Not require
 
 # rubygem-asciidoctor.noarch: Centos, Fedora
 # (Added to RHEL/Centos 8: https://bugzilla.redhat.com/show_bug.cgi?id=1820896 )
-# ruby2.5-rubygem-asciidoctor: openSUSE 15.2
-add_package RPMDEPS_LIST rubygem-asciidoctor.noarch || add_package RPMDEPS_LIST ruby2.5-rubygem-asciidoctor ||
+# ruby2.5-rubygem-asciidoctor: openSUSE 15.2+ (Ruby version is too old)
+# ruby3.4-rubygem-asciidoctor: openSUSE 16.0
+add_package RPMDEPS_LIST rubygem-asciidoctor.noarch || add_package RPMDEPS_LIST ruby3.4-rubygem-asciidoctor ||
 echo "RPM dependency asciidoctor is unavailable" >&2
 
 # libcap: CentOS 7, Fedora 28, Fedora 29
@@ -346,8 +347,10 @@ echo "Optional package sbc-devel is unavailable"
 add_package ADDITIONAL_LIST libsmi-devel ||
 echo "Optional package libsmi-devel is unavailable"
 
-add_package ADDITIONAL_LIST opencore-amr-devel ||
-echo "Optional package opencore-amr-devel is unavailable" >&2
+# opencore-amr-devel: RHEL/CentOS, Fedora
+# libopencore-amr-devel: OpenSUSE
+add_package ADDITIONAL_LIST opencore-amr-devel || add_package ADDITIONAL_LIST libopencore-amr-devel ||
+echo "Optional package opencore-amr-devel|libopencore-amr-devel is unavailable" >&2
 
 add_package ADDITIONAL_LIST softhsm ||
 echo "Optional package softhsm is unavailable" >&2

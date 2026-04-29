@@ -21,6 +21,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/wslog.h>
+#include <app/application_flavor.h>
 
 #include <cli_main.h>
 #include <wsutil/cmdarg_err.h>
@@ -322,7 +323,7 @@ int main(int argc, char* argv[])
         g_free(err_msg);
     }
 
-    help_url = data_file_url("etwdump.html");
+    help_url = data_file_url("etwdump.html", application_configuration_environment_prefix());
     extcap_base_set_util_info(extcap_conf, argv[0], ETWDUMP_VERSION_MAJOR, ETWDUMP_VERSION_MINOR,
         ETWDUMP_VERSION_RELEASE, help_url);
     g_free(help_url);
@@ -422,6 +423,9 @@ int main(int argc, char* argv[])
 
     if (extcap_conf->capture) {
 
+        const struct file_extension_info* file_extensions;
+        unsigned num_extensions;
+
         if (g_strcmp0(extcap_conf->interface, ETW_EXTCAP_INTERFACE)) {
             ws_warning("ERROR: invalid interface");
             goto end;
@@ -433,7 +437,8 @@ int main(int argc, char* argv[])
             goto end;
         }
 
-        wtap_init(false);
+        application_file_extensions(&file_extensions, &num_extensions);
+        wtap_init(false, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
         switch(etw_dump(etlfile, extcap_conf->fifo, params, &ret, &err_msg))
         {

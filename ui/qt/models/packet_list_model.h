@@ -24,7 +24,7 @@
 
 #include "packet_list_record.h"
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 class QElapsedTimer;
 
@@ -42,17 +42,18 @@ public:
     ~PacketListModel();
     void setCaptureFile(capture_file *cf);
     QModelIndex index(int row, int column,
-                      const QModelIndex & = QModelIndex()) const;
-    QModelIndex parent(const QModelIndex &) const;
+                      const QModelIndex & = QModelIndex()) const override;
+    QModelIndex parent(const QModelIndex &) const override;
     int packetNumberToRow(int packet_num) const;
     unsigned recreateVisibleRows();
     inline void needRecreateVisibleRows() { need_recreate_visible_rows_ = !physical_rows_.isEmpty(); }
     void clear();
 
-    int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    int columnCount(const QModelIndex & = QModelIndex()) const;
-    QVariant data(const QModelIndex &d_index, int role) const;
-    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex & = QModelIndex()) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QVariant data(const QModelIndex &d_index, int role) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
     int appendPacket(frame_data *fdata);
     frame_data *getRowFdata(QModelIndex idx) const;
@@ -86,7 +87,7 @@ signals:
     void bgColorizationProgress(int first, int last);
 
 public slots:
-    void sort(int column, Qt::SortOrder order = Qt::AscendingOrder);
+    void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
     void stopSorting();
     void flushVisibleRows();
     void dissectIdle(bool reset = false);

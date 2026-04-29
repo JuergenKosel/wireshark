@@ -34,6 +34,11 @@ struct register_follow {
 
 static wmem_tree_t *registered_followers;
 
+void follow_init(void)
+{
+    registered_followers = wmem_tree_new(wmem_epan_scope());
+}
+
 void register_follow_stream(const int proto_id, const char* tap_listener,
                             follow_conv_filter_func conv_filter, follow_index_filter_func index_filter, follow_address_filter_func address_filter,
                             follow_port_to_display_func port_to_display, tap_packet_cb tap_handler,
@@ -58,9 +63,6 @@ void register_follow_stream(const int proto_id, const char* tap_listener,
   follower->tap_handler    = tap_handler;
   follower->stream_count   = stream_count;
   follower->sub_stream_id  = sub_stream_id;
-
-  if (registered_followers == NULL)
-    registered_followers = wmem_tree_new(wmem_epan_scope());
 
   wmem_tree_insert_string(registered_followers, proto_get_protocol_short_name(find_protocol_by_id(proto_id)), follower, 0);
 }
@@ -216,10 +218,11 @@ follow_tvb_tap_listener(void *tapdata, packet_info *pinfo,
 
     follow_record = g_new(follow_record_t,1);
 
-    follow_record->data = g_byte_array_sized_new(tvb_captured_length(next_tvb));
+    unsigned length = tvb_captured_length(next_tvb);
+    follow_record->data = g_byte_array_sized_new(length);
     follow_record->data = g_byte_array_append(follow_record->data,
-                                              tvb_get_ptr(next_tvb, 0, -1),
-                                              tvb_captured_length(next_tvb));
+                                              tvb_get_ptr(next_tvb, 0, length),
+                                              length);
     follow_record->packet_num = pinfo->fd->num;
     follow_record->abs_ts = pinfo->fd->abs_ts;
 

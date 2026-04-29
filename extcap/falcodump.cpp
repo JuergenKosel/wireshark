@@ -26,20 +26,20 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "falcodump"
 
 #include <libsinsp/sinsp.h>
 #include <libsinsp/plugin_manager.h>
 
 #include <libscap/scap_engines.h>
 
-#define WS_LOG_DOMAIN "falcodump"
-
 #include <extcap/extcap-base.h>
 
-#include <wsutil/application_flavor.h>
+#include <app/application_flavor.h>     //Stratoshark only
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/json_dumper.h>
+#include <wsutil/plugins.h>
 #include <wsutil/privileges.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/wsjson.h>
@@ -283,7 +283,6 @@ static void print_cloudtrail_aws_region_config(int arg_num, const char *display,
     }
 }
 
-
 // Load our plugins. This should match the behavior of the Falco Events dissector.
 static void load_plugins(sinsp &inspector) {
     WS_DIR *dir;
@@ -291,14 +290,17 @@ static void load_plugins(sinsp &inspector) {
     char *plugin_paths[] = {
         // XXX Falco plugins should probably be installed in a path that reflects
         // the Falco version or its plugin API version.
-        g_build_filename(get_plugins_dir(), "falco", NULL),
-        g_build_filename(get_plugins_pers_dir(), "falco", NULL)
+        g_build_filename(get_plugins_dir(application_configuration_environment_prefix()), "falco", NULL),
+        g_build_filename(get_plugins_pers_dir(application_configuration_environment_prefix()), "falco", NULL)
     };
 
     for (size_t idx = 0; idx < 2; idx++) {
         char *plugin_path = plugin_paths[idx];
         if ((dir = ws_dir_open(plugin_path, 0, NULL)) != NULL) {
             while ((file = ws_dir_read_name(dir)) != NULL) {
+                if (!is_plugin_filename(file)) {
+                    continue;
+                }
                 char *libname = g_build_filename(plugin_path, ws_dir_get_name(file), NULL);
                 try {
                     auto plugin = inspector.register_plugin(libname);
@@ -830,7 +832,6 @@ int main(int argc, char **argv)
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    set_application_flavor(APPLICATION_FLAVOR_STRATOSHARK);
     configuration_init_error = configuration_init(argv[0], "stratoshark");
     if (configuration_init_error != NULL) {
         ws_warning("Can't get pathname of directory containing the extcap program: %s.",
@@ -858,7 +859,7 @@ int main(int argc, char **argv)
         goto end;
     }
 
-    help_url = data_file_url("falcodump.html");
+    help_url = data_file_url("falcodump.html", application_configuration_environment_prefix());
     extcap_base_set_util_info(extcap_conf, argv[0], FALCODUMP_VERSION_MAJOR, FALCODUMP_VERSION_MINOR,
             FALCODUMP_VERSION_RELEASE, help_url);
     g_free(help_url);

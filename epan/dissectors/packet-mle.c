@@ -4,7 +4,7 @@
  * Colin O'Flynn <coflynn@newae.com>
  *
  * The entire security section of this is lifted from the IEEE 802.15.4
- * dissectory, as this is done the same way. Should eventually make the
+ * dissector, as this is done the same way. Should eventually make the
  * two use some common functions or something. But that section is:
  * By Owen Kirby <osk@exegin.com>
  * Copyright 2007 Exegin Technologies Limited
@@ -124,7 +124,7 @@ static int hf_mle_tlv_hold_time;
 static int hf_mle_tlv_channel_page; /* v1.1-draft-2 */
 static int hf_mle_tlv_channel; /* v1.1-draft-2 */
 static int hf_mle_tlv_csl_accuracy; /* v1.2-draft-5 */
-static int hf_mle_tlv_csl_synchronied_timeout; /* v1.2-draft-5 */
+static int hf_mle_tlv_csl_synchronized_timeout; /* v1.2-draft-5 */
 static int hf_mle_tlv_csl_clock_accuracy; /* v1.2-draft-5 */
 static int hf_mle_tlv_csl_uncertainty;
 static int hf_mle_tlv_pan_id; /* v1.1-draft-2 */
@@ -153,7 +153,6 @@ static int hf_mle_tlv_link_status_sub_tlv;
 static int hf_mle_tlv_link_query_options;
 static int hf_mle_tlv_link_enh_ack_flags;
 static int hf_mle_tlv_link_requested_type_id_flags;
-static int hf_mle_tlv_csl_sychronized_timeout;
 static int hf_mle_tlv_link_forward_series;
 static int hf_mle_tlv_link_concatenation_link_metric_typeid_flags;
 static int hf_mle_tlv_link_timeout;
@@ -550,7 +549,7 @@ dissect_mle_decrypt(tvbuff_t * tvb,
 
     /* Decrypt the ciphertext, and place the plaintext in a new tvb. */
     if (IEEE802154_IS_ENCRYPTED(packet->security_level) && captured_len) {
-        char *text;
+        uint8_t *text;
 
         /*
          * Make a copy of the ciphertext in heap memory.
@@ -558,7 +557,7 @@ dissect_mle_decrypt(tvbuff_t * tvb,
          * We will decrypt the message in-place and then use the buffer as the
          * real data for the new tvb.
          */
-        text = (char *)tvb_memdup(pinfo->pool, tvb, offset, captured_len);
+        text = (uint8_t *)tvb_memdup(pinfo->pool, tvb, offset, captured_len);
 
         /* Perform CTR-mode transformation. Try both the likely key and the alternate key */
         if (!ccm_ctr_encrypt(decrypt_info->key, tmp, decrypt_info->rx_mic, text, captured_len)) {
@@ -583,7 +582,7 @@ dissect_mle_decrypt(tvbuff_t * tvb,
         }
 
         /* Create a tvbuff for the plaintext. This might result in a zero-length tvbuff. */
-        ptext_tvb = tvb_new_subset_length_caplen(tvb, offset, captured_len, reported_len);
+        ptext_tvb = tvb_new_subset_length(tvb, offset, reported_len);
         *decrypt_info->status = DECRYPT_PACKET_SUCCEEDED;
     }
 
@@ -723,8 +722,7 @@ dissect_mle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 
     /* Parse the security suite field. */
     /* Security Suite Field */
-    security_suite = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(mle_tree, hf_mle_security_suite, tvb, offset, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(mle_tree, hf_mle_security_suite, tvb, offset, 1, ENC_NA, &security_suite);
     offset++;
 
     aux_header_offset = offset;
@@ -767,10 +765,7 @@ dissect_mle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     /* Get the unencrypted data if decryption failed.  */
     if (!payload_tvb) {
         /* Deal with possible truncation and the FCS field at the end. */
-        int reported_len = tvb_reported_length_remaining(tvb, offset);
-        int captured_len = tvb_captured_length_remaining(tvb, offset);
-        if (reported_len < captured_len) captured_len = reported_len;
-        payload_tvb = tvb_new_subset_length_caplen(tvb, offset, captured_len, reported_len);
+        payload_tvb = tvb_new_subset_remaining(tvb, offset);
     }
 
     /* Display the reason for failure, and abort if the error was fatal. */
@@ -840,8 +835,7 @@ dissect_mle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
         tlv_tree = proto_item_add_subtree(ti, ett_mle_tlv);
 
         /* Type */
-        proto_tree_add_item(tlv_tree, hf_mle_tlv_type, payload_tvb, offset, 1, ENC_NA);
-        tlv_type = tvb_get_uint8(payload_tvb, offset);
+        proto_tree_add_item_ret_uint8(tlv_tree, hf_mle_tlv_type, payload_tvb, offset, 1, ENC_NA, &tlv_type);
         offset++;
 
         /* Add value name to value root label */
@@ -1416,11 +1410,17 @@ dissect_mle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                       expert_add_info(pinfo, proto_root, &ei_mle_tlv_length_failed);
                       proto_tree_add_item(tlv_tree, hf_mle_tlv_unknown, payload_tvb, offset, tlv_len, ENC_NA);
                   } else {
+                      uint8_t page;
+                      uint16_t channel;
+
                       /* Channel page */
-                      proto_tree_add_item(tlv_tree, hf_mle_tlv_channel_page, payload_tvb, offset, 1, ENC_BIG_ENDIAN);
+                      proto_tree_add_item_ret_uint8(tlv_tree, hf_mle_tlv_channel_page, payload_tvb, offset, 1, ENC_BIG_ENDIAN, &page);
                       /* Channel */
-                      proto_tree_add_item(tlv_tree, hf_mle_tlv_channel, payload_tvb, offset+1, 2, ENC_BIG_ENDIAN);
+                      proto_tree_add_item_ret_uint16(tlv_tree, hf_mle_tlv_channel, payload_tvb, offset+1, 2, ENC_BIG_ENDIAN, &channel);
+
+                      proto_item_append_text(ti, " = %u/%u", page, channel);
                   }
+                  proto_item_append_text(ti, ")");
                   offset += tlv_len;
               }
               break;
@@ -1433,7 +1433,7 @@ dissect_mle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
                 } else {
                     /*  CSL synchronized timeout */
                     uint32_t to_data = 0;
-                    proto_tree_add_item_ret_uint(tlv_tree, hf_mle_tlv_csl_synchronied_timeout, payload_tvb, offset, 4, ENC_BIG_ENDIAN, &to_data);
+                    proto_tree_add_item_ret_uint(tlv_tree, hf_mle_tlv_csl_synchronized_timeout, payload_tvb, offset, 4, ENC_BIG_ENDIAN, &to_data);
                     proto_item_append_text(ti, " = %u", to_data);
                 }
                 proto_item_append_text(ti, ")");
@@ -2297,7 +2297,7 @@ proto_register_mle(void)
           HFILL
       }
     },
-    { &hf_mle_tlv_csl_sychronized_timeout,
+    { &hf_mle_tlv_csl_synchronized_timeout,
         { "CSL Synchronized Timeout",
           "mle.tlv.link_csl_synchronized_timeout",
           FT_UINT32, BASE_HEX, NULL, 0x0,

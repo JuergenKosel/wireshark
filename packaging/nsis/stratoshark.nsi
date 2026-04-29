@@ -447,6 +447,7 @@ WriteUninstaller "$INSTDIR\${UNINSTALLER_NAME}"
 File "${STAGING_DIR}\libwiretap.dll"
 File "${STAGING_DIR}\libwireshark.dll"
 File "${STAGING_DIR}\libwsutil.dll"
+File "${STAGING_DIR}\libuiqt_plugin.dll"
 
 !include stratoshark-manifest.nsh
 
@@ -882,6 +883,16 @@ Call Associate
 ; AdditionalTasks page
 ${Endif}
 
+; Create a dummy configuraton directory for libgcrypt
+; XXX Is there a way to confidently and cleanly remove this?
+CreateDirectory $COMMONPROGRAMDATA\GNU\etc\gcrypt
+; This *should* match the gpg4win installer behavior.
+ExecShellWait "" "$SYSDIR\icacls.exe" '"$COMMONPROGRAMDATA\GNU\etc\gcrypt" /inheritance:r' SW_HIDE
+; BUILTIN\Administrators
+ExecShellWait "" "$SYSDIR\icacls.exe" '"$COMMONPROGRAMDATA\GNU\etc\gcrypt" /grant *S-1-5-32-544:(GA)' SW_HIDE
+; BUILTIN\Users
+ExecShellWait "" "$SYSDIR\icacls.exe" '"$COMMONPROGRAMDATA\GNU\etc\gcrypt" /grant *S-1-5-32-545:(R,RA,REA,RC,GE)' SW_HIDE
+
 SectionEnd ; "Required"
 
 !ifdef QT_DIR
@@ -920,34 +931,22 @@ Section "-Plugins & Extensions"
 
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\falco-events.dll"
+File "${STAGING_DIR}\plugins\stratoshark\${MAJOR_VERSION}.${MINOR_VERSION}\epan\falco-events.dll"
 SetOutPath '$INSTDIR\plugins\falco'
-File "${STAGING_DIR}\plugins\falco\cloudtrail.dll"
-File "${STAGING_DIR}\plugins\falco\gcpaudit.dll"
-File "${STAGING_DIR}\plugins\falco\k8saudit.dll"
+File "${STAGING_DIR}\plugins\stratoshark\falco\cloudtrail.dll"
+File "${STAGING_DIR}\plugins\stratoshark\falco\gcpaudit.dll"
+File "${STAGING_DIR}\plugins\stratoshark\falco\k8saudit.dll"
 !include "custom_plugins.txt"
 
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\stats_tree.dll"
+File "${STAGING_DIR}\plugins\wireshark\${MAJOR_VERSION}.${MINOR_VERSION}\epan\stats_tree.dll"
 
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\mate.dll"
+File "${STAGING_DIR}\plugins\wireshark\${MAJOR_VERSION}.${MINOR_VERSION}\epan\mate.dll"
 
-;-------------------------------------------
-; This should be a function or macro
-SetOutPath '$INSTDIR\profiles\CloudTrail'
-File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\colorfilters"
-File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\dfilter_buttons"
-File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\preferences"
-File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\profile_settings"
-; File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\CloudTrail\preferences"
-; SetOutPath '$INSTDIR\profiles\Classic'
-; File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\Classic\colorfilters"
-; SetOutPath '$INSTDIR\profiles\No Reassembly'
-; File "${TOP_SRC_DIR}\resources\share\stratoshark\profiles\No Reassembly\preferences"
-
+!include stratoshark-profile-manifest.nsh
 
 !ifdef SMI_DIR
 ;-------------------------------------------
@@ -960,12 +959,6 @@ File "${SMI_DIR}\share\pibs\*"
 File "${SMI_DIR}\share\yang\*.yang"
 !include "custom_mibs.txt"
 !endif
-
-SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\transum.dll"
-
-SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
-File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\stats_tree.dll"
 
 SectionEnd ; "Plugins / Extensions"
 

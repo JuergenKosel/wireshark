@@ -34,12 +34,8 @@ typedef struct {
 typedef struct {
   uint16_t discovered_key_mic_len; /* Discovered from the first EAPOL frame */
   bool last_akm_suite_set;    /* Have we set this? */
-  bool mld_set;
   uint32_t last_akm_suite;
   uint16_t owe_group;
-  uint16_t sae_group;
-  uint8_t ap_mld[6];
-  uint8_t sta_mld[6];
 } ieee80211_conversation_data_t;
 
 typedef struct {
@@ -346,10 +342,11 @@ typedef struct anqp_info_dissector_data {
 #define WFA_SUBTYPE_WIFI_60G                   23
 #define WFA_SUBTYPE_NAN_ACTION                 24
 #define WFA_SUBTYPE_DPP                        26
-#define WFA_SUBTYPE_IEEE1905_MULTI_AP          27 /* ox1B */
+#define WFA_SUBTYPE_IEEE1905_MULTI_AP          27 /* 0x1B */
 #define WFA_SUBTYPE_OWE_TRANSITION_MODE        28
 #define WFA_SUBTYPE_TRANSITION_DISABLE_KDE     32
 #define WFA_SUBTYPE_QOS_MGMT                   34 /* 0x22 */
+#define WFA_SUBTYPE_WFA_CAPA                   35 /* 0x23 */
 #define WFA_SUBTYPE_RSN_OVERRIDE               41 /* 0x29 */
 #define WFA_SUBTYPE_RSN_OVERRIDE_2             42 /* 0x2A */
 #define WFA_SUBTYPE_RSNX_OVERRIDE              43 /* 0x2B */
@@ -358,6 +355,7 @@ typedef struct anqp_info_dissector_data {
 
 /* WFA Public Action Types */
 #define WFA_SUBTYPE_ACTION_QOS_MGMT          0x1A
+#define WFA_SUBTYPE_ACTION_CAPABILITIES      0x1B
 
 /* WFA vendor specific ANQP subtypes */
 #define WFA_ANQP_SUBTYPE_HS20                  17

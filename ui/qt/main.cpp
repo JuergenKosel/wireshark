@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <locale.h>
@@ -30,14 +30,13 @@
 #include <wsutil/privileges.h>
 #include <wsutil/socket.h>
 #include <wsutil/wslog.h>
-#include <wsutil/application_flavor.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
 #include <wsutil/please_report_bug.h>
 #include <wsutil/unicode-utils.h>
 #include <wsutil/version_info.h>
-#include <wsutil/application_flavor.h>
+#include <app/application_flavor.h>
 
 #include <epan/addr_resolv.h>
 #include <epan/ex-opt.h>
@@ -70,15 +69,16 @@
 #include "ui/persfilepath_opt.h"
 #include "ui/recent.h"
 #include "ui/simple_dialog.h"
+#include "ui/init.h"
 #include "ui/util.h"
 #include "ui/dissect_opts.h"
 #include "ui/commandline.h"
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
 #include "ui/preference_utils.h"
-#include "ui/software_update.h"
 #include "ui/taps.h"
 #include "ui/profile.h"
+#include "ui/plugins/include/uiqt_plugin.h"
 
 #include "ui/qt/conversation_dialog.h"
 #include "ui/qt/utils/color_utils.h"
@@ -92,6 +92,8 @@
 #include "ui/qt/simple_statistics_dialog.h"
 #include <ui/qt/widgets/splash_overlay.h>
 #include "ui/qt/wireshark_application.h"
+#include "ui/qt/utils/workspace_state.h"
+#include "ui/qt/utils/software_update.h"
 
 #include "capture/capture-pcap-util.h"
 
@@ -238,10 +240,10 @@ gather_wireshark_qt_compiled_info(feature_list l)
 #endif
 #endif /* !Q_OS_WIN && !Q_OS_MAC */
 
-    const char *update_info = software_update_info();
-    if (update_info) {
+    QString update_info = SoftwareUpdate::info();
+    if (!update_info.isEmpty()) {
         with_feature(l, "automatic updates");
-        with_feature(l, "%s", update_info);
+        with_feature(l, "%s", update_info.toStdString().c_str());
     } else {
         without_feature(l, "automatic updates");
     }
@@ -459,6 +461,42 @@ capture_opts_get_interface_list(int *err, char **err_str)
     }
     return capture_interface_list(global_capture_opts.app_name, err, err_str, main_window_update);
 }
+
+static void
+commandline_capture_interface_options(FILE* const output)
+{
+    fprintf(output, "Capture interface:\n");
+    fprintf(output, "  -i <interface>, --interface <interface>\n");
+    fprintf(output, "                           name or idx of interface (def: first non-loopback)\n");
+    fprintf(output, "  -f <capture filter>      packet filter in libpcap filter syntax\n");
+    fprintf(output, "  -s <snaplen>, --snapshot-length <snaplen>\n");
+    fprintf(output, "                           packet snapshot length (def: appropriate maximum)\n");
+    fprintf(output, "  -p, --no-promiscuous-mode\n");
+    fprintf(output, "                           don't capture in promiscuous mode\n");
+    fprintf(output, "  -I, --monitor-mode       capture in monitor mode, if available\n");
+    fprintf(output, "  -B <buffer size>, --buffer-size <buffer size>\n");
+    fprintf(output, "                           size of kernel buffer in MiB (def: %dMiB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
+}
+
+static void
+commandline_list_interface_options(FILE* const output)
+{
+    fprintf(output, "  -D, --list-interfaces    print list of interfaces and exit\n");
+}
+
+static void
+commandline_capture_output_options(FILE* const output)
+{
+    fprintf(output, "Capture output:\n");
+    fprintf(output, "  -b <ringbuffer opt.> ..., --ring-buffer <ringbuffer opt.>\n");
+    fprintf(output, "                           duration:NUM - switch to next file after NUM secs\n");
+    fprintf(output, "                           filesize:NUM - switch to next file after NUM KB\n");
+    fprintf(output, "                              files:NUM - ringbuffer: replace after NUM files\n");
+    fprintf(output, "                            packets:NUM - switch to next file after NUM packets\n");
+    fprintf(output, "                           interval:NUM - switch to next file when the time is\n");
+    fprintf(output, "                                          an exact multiple of NUM secs\n");
+
+}
 #endif
 
 /* And now our feature presentation... [ fade to music ] */
@@ -486,8 +524,15 @@ int main(int argc, char *qt_argv[])
 #ifdef HAVE_LIBPCAP
     int                  caps_queries = 0;
 #endif
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
+    epan_app_data_t app_data;
+
     /* Start time in microseconds */
     uint64_t start_time = g_get_monotonic_time();
+
+    /* Future proof by zeroing out all data */
+    memset(&app_data, 0, sizeof(app_data));
 
     /* Set the program name. */
     g_set_prgname("wireshark");
@@ -610,13 +655,13 @@ int main(int argc, char *qt_argv[])
 #endif /* _WIN32 */
 
     /* Get the compile-time version information string */
-    ws_init_version_info("Wireshark", application_flavor_name_proper(), get_ws_vcs_version_info, gather_wireshark_qt_compiled_info,
+    ws_init_version_info("Wireshark", application_flavor_name_proper(), application_get_vcs_version_info, gather_wireshark_qt_compiled_info,
                          gather_wireshark_runtime_info);
 
     init_report_alert_box("Wireshark");
 
     /* Create the user profiles directory */
-    if (create_profiles_dir(&rf_path) == -1) {
+    if (create_profiles_dir(application_configuration_environment_prefix(), &rf_path) == -1) {
         simple_dialog(ESD_TYPE_WARN, ESD_BTN_OK,
                       "Could not create profiles directory\n\"%s\": %s.",
                       rf_path, g_strerror(errno));
@@ -624,6 +669,7 @@ int main(int argc, char *qt_argv[])
     }
 
     profile_store_persconffiles(true);
+    ui_init(application_configuration_environment_prefix());
     recent_init();
 
     /* Read the profile independent recent file.  We have to do this here so we can */
@@ -635,10 +681,36 @@ int main(int argc, char *qt_argv[])
         g_free(rf_path);
     }
 
-    ret_val = commandline_early_options(argc, argv);
+    /* Load the common workspace state (e.g., window positions) */
+    WorkspaceState::instance()->loadCommonState();
+
+    commandline_usage_app_data_t commandline_app_data = {
+        "events",
+        "Wireshark Debug Console",
+        "Interactively dump and analyze network traffic."
+#ifdef HAVE_LIBPCAP
+        ,
+        commandline_capture_interface_options,
+        commandline_list_interface_options,
+        commandline_capture_output_options
+#endif
+    };
+    ret_val = commandline_early_options(argc, argv, &commandline_app_data);
     if (ret_val != EXIT_SUCCESS) {
+        //
+        // Either we got an error parsing the command-line options
+        // or we got an option specifying that we should print
+        // information and then quit, and have, in fact, printed
+        // that information successfully.
+        //
         if (ret_val == WS_EXIT_NOW) {
-            return 0;
+            //
+            // One of the options indicated we should just print
+            // something and exit, e.g --help, and we have already
+            // successfully printed it, so we don't have anything
+            // more to do, and should just exit successfully.
+            //
+            return EXIT_SUCCESS;
         }
 
         return ret_val;
@@ -680,10 +752,6 @@ int main(int argc, char *qt_argv[])
     // 1000ms allows a more "hunt/peck" typing speed. 2000ms tested - too long.
     QApplication::setKeyboardInputInterval(1000);
 
-    /* initialize the funnel mini-api */
-    // xxx qtshark
-    //initialize_funnel_ops();
-
     Dot11DecryptInitContext(&dot11decrypt_ctx);
 
     QString cf_name;
@@ -712,8 +780,8 @@ int main(int argc, char *qt_argv[])
     wsApp->applyCustomColorsFromRecent();
 
     // Initialize our language
-    read_language_prefs();
-    wsApp->loadLanguage(language);
+    read_language_prefs(application_configuration_environment_prefix());
+    wsApp->loadLanguage(get_language_used());
 
     /* ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_DEBUG, "Translator %s", language); */
 
@@ -757,7 +825,8 @@ int main(int argc, char *qt_argv[])
      * dissection-time handlers for file-type-dependent blocks can
      * register using the file type/subtype value for the file type.
      */
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     splash_update(RA_DISSECTORS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
@@ -767,7 +836,13 @@ int main(int argc, char *qt_argv[])
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(splash_update, NULL, true)) {
+    app_data.env_var_prefix = application_configuration_environment_prefix();
+    app_data.col_fmt = application_columns();
+    app_data.num_cols = application_num_columns();
+    app_data.register_func = register_all_protocols;
+    app_data.handoff_func = register_all_protocol_handoffs;
+    app_data.tap_reg_listeners = tap_reg_listener;
+    if (!epan_init(splash_update, NULL, true, &app_data)) {
         SimpleDialog::displayQueuedMessages(main_w);
         ret_val = WS_EXIT_INIT_FAILED;
         goto clean_exit;
@@ -779,7 +854,10 @@ int main(int argc, char *qt_argv[])
 #endif
 
     /* Register all audio codecs. */
-    codecs_init();
+    codecs_init(application_configuration_environment_prefix());
+
+    /* Register any UI plugins */
+    uiqt_plugin_init(application_configuration_environment_prefix());
 
     // Read the dynamic part of the recent file. This determines whether or
     // not the recent list appears in the main window so the earlier we can
@@ -790,22 +868,20 @@ int main(int argc, char *qt_argv[])
                       rf_path, g_strerror(rf_open_errno));
         g_free(rf_path);
     }
-    wsApp->refreshRecentCaptures();
 
     splash_update(RA_LISTENERS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Register all tap listeners, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
-    /* Register all tap listeners; we do this before we parse the arguments,
-       as the "-z" argument can specify a registered tap. */
-
-    register_all_tap_listeners(tap_reg_listener);
 
     conversation_table_set_gui_info(init_conversation_table);
     endpoint_table_set_gui_info(init_endpoint_table);
     srt_table_iterate_tables(register_service_response_tables, NULL);
     rtd_table_iterate_tables(register_response_time_delay_tables, NULL);
     stat_tap_iterate_tables(register_simple_stat_tables, NULL);
+
+    /* initialize the funnel mini-api */
+    main_w->setFunnelMenus();
 
     if (ex_opt_count("read_format") > 0) {
         char *name = ex_opt_get_next("read_format");
@@ -835,7 +911,7 @@ int main(int argc, char *qt_argv[])
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling extcap_register_preferences, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     splash_update(RA_EXTCAP, NULL, NULL);
-    extcap_register_preferences();
+    extcap_register_preferences(splash_update, NULL);
 
     /* Apply the extcap command line options now that the extcap preferences
      * are loaded.
@@ -865,7 +941,7 @@ int main(int argc, char *qt_argv[])
      * to do it if we don't need to.
      */
 
-    commandline_other_options(&global_capture_opts, argc, argv, true);
+    commandline_other_options(&global_capture_opts, argc, argv, &commandline_app_data, true);
 
     /* Convert some command-line parameters to QStrings */
     cf_name = QString(commandline_get_cf_name());
@@ -971,7 +1047,6 @@ int main(int argc, char *qt_argv[])
 #endif
     splash_update(RA_PREFERENCES_APPLY, NULL, NULL);
     prefs_apply_all();
-    ColorUtils::setScheme(prefs.gui_color_scheme);
     wsApp->emitAppSignal(WiresharkApplication::ColorsChanged);
     wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
 
@@ -1004,12 +1079,10 @@ int main(int argc, char *qt_argv[])
     wsApp->emitAppSignal(WiresharkApplication::ColumnsChanged); // We read "recent" widths above.
     wsApp->emitAppSignal(WiresharkApplication::RecentPreferencesRead); // Must be emitted after PreferencesChanged.
 
-    wsApp->setMonospaceFont(prefs.gui_font_name);
-
     /* For update of WindowTitle (When use gui.window_title preference) */
     main_w->setMainWindowTitle();
 
-    if (!color_filters_init(&err_msg, color_filter_add_cb)) {
+    if (!color_filters_init(&err_msg, color_filter_add_cb, application_configuration_environment_prefix())) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
         g_free(err_msg);
     }
@@ -1022,7 +1095,7 @@ int main(int argc, char *qt_argv[])
      * rather than showing the user the welcome page, so we don't call
      * processEvents() here.
      */
-    wsApp->allSystemsGo(application_flavor_name_proper(), VERSION);
+    wsApp->allSystemsGo();
     ws_info("Wireshark is up and ready to go, elapsed time %.3fs", (float) (g_get_monotonic_time() - start_time) / 1000000);
     SimpleDialog::displayQueuedMessages(main_w);
 
@@ -1115,9 +1188,9 @@ int main(int argc, char *qt_argv[])
     profile_register_persconffile("plots");
     profile_register_persconffile("import_hexdump.json");
     profile_register_persconffile("remote_hosts.json");
+    profile_register_persconffile("lua_debugger.json");
 
     profile_store_persconffiles(false);
-    init_profile_list();
 
     // If the wsApp->exec() event loop exits cleanly, we call
     // WiresharkApplication::cleanup().
@@ -1131,6 +1204,7 @@ int main(int argc, char *qt_argv[])
     delete main_w;
 
     recent_cleanup();
+    ui_cleanup();
     epan_cleanup();
 
     extcap_cleanup();
@@ -1152,6 +1226,7 @@ clean_exit:
 #endif
     col_cleanup(&CaptureFile::globalCapFile()->cinfo);
     codecs_cleanup();
+    uiqt_plugin_cleanup();
     wtap_cleanup();
     free_progdirs();
     commandline_options_free();

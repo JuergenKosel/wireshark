@@ -59,6 +59,7 @@
 #include "conversation_filter.h"
 #include "conversation_table.h"
 #include "reassemble.h"
+#include "rtd_table.h"
 #include "srt_table.h"
 #include "stats_tree.h"
 #include "secrets.h"
@@ -113,6 +114,7 @@ static GSList *epan_plugin_register_all_procotols;
 static GSList *epan_plugin_register_all_handoffs;
 
 static wmem_allocator_t *pinfo_pool_cache;
+static char* epan_env_prefix_cache;
 
 /* Global variables holding the content of the corresponding environment variable
  * to save fetching it repeatedly.
@@ -155,6 +157,12 @@ epan_get_version_number(int *major, int *minor, int *micro)
 		*minor = VERSION_MINOR;
 	if (micro)
 		*micro = VERSION_MICRO;
+}
+
+const char*
+epan_get_environment_prefix(void)
+{
+	return epan_env_prefix_cache;
 }
 
 #if defined(_WIN32) && GCRYPT_VERSION_NUMBER < 0x010b00
@@ -255,9 +263,10 @@ static void epan_plugin_register_all_tap_listeners(void *data, void *user_data _
 }
 
 bool
-epan_init(register_cb cb, void *client_data, bool load_plugins)
+epan_init(register_cb cb, void *client_data, bool load_plugins, epan_app_data_t* app_data)
 {
 	volatile bool status = true;
+	epan_env_prefix_cache = g_strdup(app_data->env_var_prefix);
 
 	/* Get the value of some environment variables and set corresponding globals for performance reasons*/
 	/* If the WIRESHARK_ABORT_ON_DISSECTOR_BUG environment variable is set,
@@ -287,7 +296,7 @@ epan_init(register_cb cb, void *client_data, bool load_plugins)
 	guids_init();
 
 	/* initialize name resolution (addr_resolv.c) */
-	addr_resolv_init();
+	addr_resolv_init(epan_env_prefix_cache);
 
 	except_init();
 
@@ -295,7 +304,7 @@ epan_init(register_cb cb, void *client_data, bool load_plugins)
 
 	if (load_plugins) {
 #ifdef HAVE_PLUGINS
-		libwireshark_plugins = plugins_init(WS_PLUGIN_EPAN);
+		libwireshark_plugins = plugins_init(WS_PLUGIN_EPAN, epan_env_prefix_cache);
 #endif
 	}
 
@@ -336,7 +345,7 @@ epan_init(register_cb cb, void *client_data, bool load_plugins)
 		export_pdu_init();
 		tap_init();
 		proto_pre_init();
-		prefs_init();
+		prefs_init(app_data->col_fmt, app_data->num_cols);
 		expert_init();
 		packet_init();
 		secrets_init();
@@ -345,20 +354,29 @@ epan_init(register_cb cb, void *client_data, bool load_plugins)
 		capture_dissector_init();
 		reassembly_tables_init();
 		conversation_filters_init();
+		conversation_table_init();
+		export_object_init();
+		follow_init();
+		rtd_table_init();
+		srt_table_init();
+		stats_tree_init();
+		stat_tap_init();
 		g_slist_foreach(epan_plugins, epan_plugin_init, NULL);
-		proto_init(epan_plugin_register_all_procotols, epan_plugin_register_all_handoffs, cb, client_data);
+		proto_init(epan_plugin_register_all_procotols, epan_plugin_register_all_handoffs,
+			(app_data != NULL) ? app_data->register_func : NULL, (app_data != NULL) ? app_data->handoff_func : NULL, cb, client_data);
 		g_slist_foreach(epan_plugins, epan_plugin_register_all_tap_listeners, NULL);
 		packet_cache_proto_handles();
-		dfilter_init();
+		dfilter_init(epan_env_prefix_cache);
 		wscbor_init();
 		final_registration_all_protocols();
 		print_cache_field_handles();
 		expert_packet_init();
 #ifdef HAVE_LUA
-		wslua_init(cb, client_data);
+		wslua_init(cb, client_data, epan_env_prefix_cache);
 #endif
 		g_slist_foreach(epan_plugins, epan_plugin_post_init, NULL);
-		uat_load_all();
+		register_all_tap_listeners(app_data->tap_reg_listeners);
+		uat_load_all(epan_env_prefix_cache);
 	}
 	CATCH(DissectorError) {
 		/*
@@ -391,15 +409,15 @@ epan_load_settings(void)
 	e_prefs *prefs_p;
 
 	/* load the decode as entries of the current profile */
-	load_decode_as_entries();
+	load_decode_as_entries(epan_env_prefix_cache);
 
-	prefs_p = read_prefs();
+	prefs_p = read_prefs(epan_env_prefix_cache);
 
 	/*
 	 * Read the files that enable and disable protocols and heuristic
 	 * dissectors.
 	 */
-	read_enabled_and_disabled_lists();
+	read_enabled_and_disabled_lists(epan_env_prefix_cache);
 
 	return prefs_p;
 }
@@ -477,6 +495,8 @@ epan_cleanup(void)
 	libwireshark_plugins = NULL;
 #endif
 	value_string_externals_cleanup();
+	g_free(epan_env_prefix_cache);
+	epan_env_prefix_cache = NULL;
 }
 
 struct epan_session {
@@ -494,7 +514,7 @@ epan_new(struct packet_provider_data *prov,
 	session->funcs = *funcs;
 
 	/* XXX, it should take session as param */
-	init_dissection();
+	init_dissection(epan_env_prefix_cache);
 
 	return session;
 }

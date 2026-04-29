@@ -12,7 +12,7 @@
 
 #include <config.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <epan/column.h>
 #include <epan/packet.h>
@@ -41,6 +41,13 @@ public:
     bool colorized() { return colorized_ && (color_ver_ == rows_color_ver_); }
     unsigned int conversation() { return conv_index_; }
 
+    /** Get list of all matching color filters */
+    const GSList* matchingColorFilters() const { return color_filters_; }
+    /** Check if packet has multiple color matches */
+    bool hasMultipleColors() const { return color_filter_count_ > 1; }
+    /** Get count of matching color filters */
+    int colorFilterCount() const { return color_filter_count_; }
+
     int columnTextSize(const char *str);
 
     void invalidateColorized() { colorized_ = false; }
@@ -57,6 +64,7 @@ public:
     inline int lineCountChanged() { return line_count_changed_; }
     inline void setRow(int row) { row_ = row; }
     inline int row() const { return row_; }
+    inline uint32_t expertSeverity() const { return expert_severity_; }
 
 private:
     /** The column text for some columns */
@@ -77,6 +85,11 @@ private:
 
     bool read_failed_;
     int row_;
+    uint32_t expert_severity_;
+
+    /** All matching color filters (only if multi-color enabled) */
+    GSList *color_filters_;
+    int color_filter_count_;
 
     void dissect(capture_file *cap_file, bool dissect_columns, bool dissect_color = false);
     void cacheColumnStrings(column_info *cinfo);

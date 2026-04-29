@@ -12,7 +12,7 @@
 #include <config.h>
 
 #include "capture_event.h"
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <QObject>
 #include <QVector>

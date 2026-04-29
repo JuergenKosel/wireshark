@@ -2258,16 +2258,10 @@ elem_cm_info_type_2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_
 
     NO_MORE_DATA_CHECK(len);
 
-    proto_tree_add_item(tree, hf_ansi_a_cm2_scm_band_class_count, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    band_class_count = tvb_get_uint8(tvb, curr_offset);
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_cm2_scm_band_class_count, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &band_class_count);
     curr_offset++;
 
-    proto_tree_add_item(tree, hf_ansi_a_cm2_scm_band_class_entry_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    band_class_entry_len = tvb_get_uint8(tvb, curr_offset);
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_cm2_scm_band_class_entry_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &band_class_entry_len);
     curr_offset++;
 
     NO_MORE_DATA_CHECK(len);
@@ -2448,11 +2442,8 @@ elem_mid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t offset, u
 
         curr_offset++;
 
-        value = tvb_get_ntohl(tvb, curr_offset);
-
-        proto_tree_add_uint(tree, hf_ansi_a_esn,
-            tvb, curr_offset, 4,
-            value);
+        proto_tree_add_item_ret_uint(tree, hf_ansi_a_esn,
+            tvb, curr_offset, 4, ENC_BIG_ENDIAN, &value);
 
         proto_item_append_text(data_p->elem_item, " - %sESN (0x%04x)",
             data_p->meid_configured ? "p" : "",
@@ -3013,18 +3004,12 @@ elem_downlink_re_aux(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32
 
     curr_offset = offset;
 
-    proto_tree_add_item(tree, hf_ansi_a_downlink_re_num_cells, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    num_cells = tvb_get_uint8(tvb, curr_offset);
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_downlink_re_num_cells, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &num_cells);
     curr_offset += 1;
 
     NO_MORE_DATA_CHECK(len);
 
-    proto_tree_add_item(tree, hf_ansi_a_cell_id_disc, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    disc = tvb_get_uint8(tvb, curr_offset);
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_cell_id_disc, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &disc);
     curr_offset += 1;
 
     NO_MORE_DATA_CHECK(len);
@@ -3574,7 +3559,7 @@ elem_clg_party_ascii_num(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ui
     proto_tree_add_string_format(tree, hf_ansi_a_clg_party_ascii_num, tvb, curr_offset, len - (curr_offset - offset),
         (char *) poctets,
         "Digits: %s",
-        (char *) format_text(pinfo->pool, poctets, len - (curr_offset - offset)));
+        (char *) format_text(pinfo->pool, (char*)poctets, len - (curr_offset - offset)));
 
     proto_item_append_text(data_p->elem_item, " - (%s)", poctets);
 
@@ -4312,9 +4297,7 @@ elem_tag(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, uint32_t offse
 
     curr_offset = offset;
 
-    proto_tree_add_item(tree, hf_ansi_a_tag_value, tvb, curr_offset, 4, ENC_BIG_ENDIAN);
-
-    value = tvb_get_ntohl(tvb, curr_offset);
+    proto_tree_add_item_ret_uint(tree, hf_ansi_a_tag_value, tvb, curr_offset, 4, ENC_BIG_ENDIAN, &value);
 
     proto_item_append_text(data_p->elem_item, " - (%u)", value);
 
@@ -4408,21 +4391,15 @@ elem_sw_ver(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t offset
 
     curr_offset = offset;
 
-    proto_tree_add_item(tree, hf_ansi_a_sw_ver_major, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    major = tvb_get_uint8(tvb, curr_offset);
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_sw_ver_major, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &major);
 
     curr_offset++;
 
-    proto_tree_add_item(tree, hf_ansi_a_sw_ver_minor, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    minor = tvb_get_uint8(tvb, curr_offset);
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_sw_ver_minor, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &minor);
 
     curr_offset++;
 
-    proto_tree_add_item(tree, hf_ansi_a_sw_ver_point, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    point = tvb_get_uint8(tvb, curr_offset);
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_sw_ver_point, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &point);
 
     proto_item_append_text(data_p->elem_item, " - (IOS %u.%u.%u)", major, minor, point);
 
@@ -4957,10 +4934,7 @@ elem_is2000_nn_scr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t
     curr_offset = offset;
 
     proto_tree_add_item(tree, hf_ansi_a_reserved_bits_8_f8, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_is2000_nn_scr_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    fill_bits = tvb_get_uint8(tvb, curr_offset) & 0x07;
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_is2000_nn_scr_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &fill_bits);
     curr_offset++;
 
     NO_MORE_DATA_CHECK(len);
@@ -5049,10 +5023,7 @@ elem_is2000_mob_cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_
 
     proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_fch_info_geo_loc_type, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_fch_info_geo_loc_incl, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_fch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    fill_bits = tvb_get_uint8(tvb, curr_offset) & 0x07;
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_is2000_mob_cap_fch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &fill_bits);
     curr_offset++;
 
     if (oct_len > 0)
@@ -5080,10 +5051,7 @@ elem_is2000_mob_cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_
     curr_offset++;
 
     proto_tree_add_item(tree, hf_ansi_a_reserved_bits_8_f8, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_dcch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    fill_bits = tvb_get_uint8(tvb, curr_offset) & 0x07;
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_is2000_mob_cap_dcch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &fill_bits);
     curr_offset++;
 
     if (oct_len > 0)
@@ -5112,10 +5080,7 @@ elem_is2000_mob_cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_
     curr_offset++;
 
     proto_tree_add_item(tree, hf_ansi_a_reserved_bits_8_f8, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_for_pdch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    fill_bits = tvb_get_uint8(tvb, curr_offset) & 0x07;
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_is2000_mob_cap_for_pdch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &fill_bits);
     curr_offset++;
 
     if (oct_len > 0)
@@ -5144,10 +5109,7 @@ elem_is2000_mob_cap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_
     curr_offset++;
 
     proto_tree_add_item(tree, hf_ansi_a_reserved_bits_8_f8, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_is2000_mob_cap_rev_pdch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    fill_bits = tvb_get_uint8(tvb, curr_offset) & 0x07;
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_is2000_mob_cap_rev_pdch_info_num_fill_bits, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &fill_bits);
     curr_offset++;
 
     if (oct_len > 0)
@@ -5620,7 +5582,7 @@ elem_rev_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint3
                 proto_tree_add_string_format(subtree, hf_ansi_a_cld_party_ascii_num, tvb, curr_offset, oct_len,
                     (char *) poctets,
                     "Digits: %s",
-                    (char *) format_text(pinfo->pool, poctets, oct_len));
+                    (char *) format_text(pinfo->pool, (char*)poctets, oct_len));
 
                 curr_offset += oct_len;
                 break;
@@ -5883,10 +5845,7 @@ elem_cdma_sowd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t off
 
     curr_offset = offset;
 
-    proto_tree_add_item(tree, hf_ansi_a_cell_id_disc, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    disc = tvb_get_uint8(tvb, curr_offset);
-
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_cell_id_disc, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &disc);
     curr_offset += 1;
 
     curr_offset +=
@@ -6087,7 +6046,7 @@ elem_cld_party_ascii_num(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ui
     proto_tree_add_string_format(tree, hf_ansi_a_cld_party_ascii_num, tvb, curr_offset, len - (curr_offset - offset),
         (char *) poctets,
         "Digits: %s",
-        (char *) format_text(pinfo->pool, poctets, len - (curr_offset - offset)));
+        (char *) format_text(pinfo->pool, (char*)poctets, len - (curr_offset - offset)));
 
     proto_item_append_text(data_p->elem_item, " - (%s)", poctets);
 
@@ -6437,9 +6396,9 @@ elem_cct_group(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint32_t off
 
     oct = tvb_get_uint8(tvb, curr_offset);
 
-    proto_tree_add_uint_format(tree, hf_ansi_a_cct_group_count, tvb, curr_offset, 1,
+    proto_tree_add_uint_format_value(tree, hf_ansi_a_cct_group_count, tvb, curr_offset, 1,
         oct,
-        "Count: %u circuit%s",
+        "%u circuit%s",
         oct,
         plurality(oct, "", "s"));
 
@@ -6685,15 +6644,13 @@ elem_a2p_bearer_format(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint
     curr_offset = offset;
 
     proto_tree_add_item(tree, hf_ansi_a_a2p_bearer_form_num_formats, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_ansi_a_a2p_bearer_form_ip_addr_type, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-    ip_addr_type = tvb_get_uint8(tvb, curr_offset) & 0x03;
+    proto_tree_add_item_ret_uint8(tree, hf_ansi_a_a2p_bearer_form_ip_addr_type, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &ip_addr_type);
 
     curr_offset++;
 
     num_bearers = 0;
 
-    while ((len - (curr_offset - offset)) > 0)
+    while (len > (curr_offset - offset))
     {
         orig_offset = curr_offset;
 
@@ -10439,9 +10396,9 @@ dissect_dtap_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool fr
         }
 
         oct_1_item =
-            proto_tree_add_uint_format(dtap_tree, hf_ansi_a_protocol_disc, tvb, 0, 1,
+            proto_tree_add_uint_format_value(dtap_tree, hf_ansi_a_protocol_disc, tvb, 0, 1,
                 (oct_1 & 0x0f),
-                "Protocol Discriminator: %s",
+                "%s",
                 str);
 
         oct_1_tree = proto_item_add_subtree(oct_1_item, ett_dtap_oct_1);
@@ -10503,22 +10460,25 @@ dissect_dtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 static int
 dissect_sip_dtap_bsmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    int         linelen, offset, next_offset, begin;
+    unsigned    linelen, next_offset;
+    unsigned    offset, begin;
+    int         dec_idx;
+
     uint8_t     *msg_type;
     tvbuff_t    *ansi_a_tvb;
     bool        is_dtap = true;
 
     offset = 0;
 
-    if ((linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, true)) > 0)
+    if ((tvb_find_line_end_remaining(tvb, offset, &linelen, &next_offset)))
     {
         if (linelen >= 2)
         {
             ansi_a_tvb = tvb_new_composite();
             msg_type = (uint8_t *) wmem_alloc(pinfo->pool, 1);
-            msg_type[0] = (uint8_t) strtoul(tvb_get_string_enc(pinfo->pool, tvb, offset, 2, ENC_ASCII|ENC_NA), NULL, 16);
+            tvb_get_string_uint8(tvb, offset, 2, ENC_STR_HEX, &msg_type[0], NULL);
 
-            if ((begin = tvb_find_uint8(tvb, offset, linelen, '"')) > 0)
+            if ((tvb_find_uint8_length(tvb, offset, linelen, '"', &begin)) && begin > 0)
             {
                 if (tvb_get_uint8(tvb, begin + 1) == '1')
                 {
@@ -10527,7 +10487,7 @@ dissect_sip_dtap_bsmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             }
             else
             {
-                if (my_try_val_to_str_idx((uint32_t) msg_type[0], ansi_a_dtap_strings, &linelen) == NULL)
+                if (my_try_val_to_str_idx((uint32_t) msg_type[0], ansi_a_dtap_strings, &dec_idx) == NULL)
                 {
                     is_dtap = false;
                 }
@@ -10537,12 +10497,12 @@ dissect_sip_dtap_bsmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
             offset = next_offset;
 
-            while ((linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, true)) > 0)
+            while ((tvb_find_line_end_remaining(tvb, offset, &linelen, &next_offset)))
             {
-                if ((begin = tvb_find_uint8(tvb, offset, linelen, '=')) > 0)
+                if ((tvb_find_uint8_length(tvb, offset, linelen, '=', &begin)) && begin > 0)
                 {
                     begin++;
-                    tvb_composite_append(ansi_a_tvb, base64_to_tvb(tvb, tvb_get_string_enc(pinfo->pool, tvb, begin, offset + linelen - begin, ENC_ASCII|ENC_NA)));
+                    tvb_composite_append(ansi_a_tvb, base64_to_tvb(tvb, (char*)tvb_get_string_enc(pinfo->pool, tvb, begin, offset + linelen - begin, ENC_ASCII|ENC_NA)));
                 }
 
                 offset = next_offset;
@@ -10630,7 +10590,7 @@ ansi_a_dtap_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *e
     const ansi_a_tap_rec_t      *data_p = (const ansi_a_tap_rec_t *)data;
     stat_tap_table_item_type* dtap_data;
     stat_tap_table* table;
-    unsigned idx;
+    int idx;
 
     if (data_p->pdu_type == BSSAP_PDU_TYPE_DTAP)
     {
@@ -10639,9 +10599,9 @@ ansi_a_dtap_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *e
 
         table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 0);
 
-        dtap_data = stat_tap_get_field_data(table, idx, COUNT_COLUMN);
+        dtap_data = stat_tap_get_field_data(table, (unsigned)idx, COUNT_COLUMN);
         dtap_data->value.uint_value++;
-        stat_tap_set_field_data(table, idx, COUNT_COLUMN, dtap_data);
+        stat_tap_set_field_data(table, (unsigned)idx, COUNT_COLUMN, dtap_data);
 
         return TAP_PACKET_REDRAW;
     }
@@ -10670,15 +10630,10 @@ static stat_tap_table_item bsmap_stat_fields[] = {{TABLE_ITEM_UINT, TAP_ALIGN_RI
 static void ansi_a_bsmap_stat_init(stat_tap_table_ui* new_stat)
 {
     const char *table_name = "ANSI A-I/F BSMAP Statistics";
-    int num_fields = array_length(bsmap_stat_fields);
+    unsigned num_fields = array_length(bsmap_stat_fields);
     stat_tap_table *table;
-    int i = 0;
+    unsigned i = 0;
     stat_tap_table_item_type items[array_length(bsmap_stat_fields)];
-
-    items[IEI_COLUMN].type = TABLE_ITEM_UINT;
-    items[MESSAGE_NAME_COLUMN].type = TABLE_ITEM_STRING;
-    items[COUNT_COLUMN].type = TABLE_ITEM_UINT;
-    items[COUNT_COLUMN].value.uint_value = 0;
 
     table = stat_tap_find_table(new_stat, table_name);
     if (table) {
@@ -10687,6 +10642,12 @@ static void ansi_a_bsmap_stat_init(stat_tap_table_ui* new_stat)
         }
         return;
     }
+
+    memset(items, 0, sizeof(items));
+    items[IEI_COLUMN].type = TABLE_ITEM_UINT;
+    items[MESSAGE_NAME_COLUMN].type = TABLE_ITEM_STRING;
+    items[COUNT_COLUMN].type = TABLE_ITEM_UINT;
+    items[COUNT_COLUMN].value.uint_value = 0;
 
     table = stat_tap_init_table(table_name, num_fields, 0, NULL);
     stat_tap_add_table(new_stat, table);
@@ -10709,7 +10670,7 @@ ansi_a_bsmap_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *
     const ansi_a_tap_rec_t      *data_p = (const ansi_a_tap_rec_t *)data;
     stat_tap_table_item_type* dtap_data;
     stat_tap_table* table;
-    unsigned idx;
+    int idx;
 
     if (data_p->pdu_type == BSSAP_PDU_TYPE_BSMAP)
     {
@@ -10718,9 +10679,9 @@ ansi_a_bsmap_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *
 
         table = g_array_index(stat_data->stat_tap_data->tables, stat_tap_table*, 0);
 
-        dtap_data = stat_tap_get_field_data(table, idx, COUNT_COLUMN);
+        dtap_data = stat_tap_get_field_data(table, (unsigned)idx, COUNT_COLUMN);
         dtap_data->value.uint_value++;
-        stat_tap_set_field_data(table, idx, COUNT_COLUMN, dtap_data);
+        stat_tap_set_field_data(table, (unsigned)idx, COUNT_COLUMN, dtap_data);
 
         return TAP_PACKET_REDRAW;
     }

@@ -467,7 +467,7 @@ tvbparse_wanted_t* tvbparse_set_oneof(const int id,
 
 static int cond_hash(tvbparse_t* tt, const int offset, const tvbparse_wanted_t* wanted, tvbparse_elem_t** tok) {
     int key_len;
-    char* key = NULL;
+    uint8_t* key = NULL;
     tvbparse_elem_t* key_elem = NULL;
     tvbparse_wanted_t* value_wanted = NULL;
     int value_len;
@@ -892,14 +892,12 @@ tvbparse_t* tvbparse_init(wmem_allocator_t *scope,
 }
 
 bool tvbparse_reset(tvbparse_t* tt,
-                        const int offset,
-                        int len) {
+                        const unsigned offset,
+                        unsigned len) {
 
 #ifdef TVBPARSE_DEBUG
     if (TVBPARSE_DEBUG & TVBPARSE_DEBUG_TT) ws_warning("tvbparse_init: offset=%i len=%i",offset,len);
 #endif
-
-    len = (len == -1) ? (int) tvb_captured_length(tt->tvb) : len;
 
     if( tvb_captured_length_remaining(tt->tvb, offset) >= len) {
         tt->offset = offset;

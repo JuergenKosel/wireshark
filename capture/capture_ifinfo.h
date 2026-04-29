@@ -32,7 +32,9 @@ typedef enum {
 	IF_DIALUP	= 6,
 	IF_USB		= 7,
 	IF_EXTCAP	= 8,
-	IF_VIRTUAL	= 9
+	IF_VIRTUAL	= 9,
+        IF_LOOPBACK	= 10,
+        IF_TUNNEL	= 11,
 } interface_type;
 
 /*
@@ -59,8 +61,8 @@ typedef struct {
 	char	*friendly_name; /* from OS, e.g. "Local Area Connection", or
 				   NULL if not available */
 	char	*vendor_description;
-				/* vendor description from pcap_findalldevs(),
-				   e.g. "Realtek PCIe GBE Family Controller",
+				/* vendor description from pcap_findalldevs()
+				   on Windows, e.g. "Realtek PCIe GBE Family Controller",
 				   or NULL if not available */
 	GSList  *addrs;         /* containing address values of if_addr_t */
 	interface_type type;    /* type of interface */
@@ -96,10 +98,17 @@ typedef struct {
 extern GList *deserialize_interface_list(char *data, int *err, char **err_str);
 
 /**
- * Return the list of interfaces.
+ * @brief Get the list of capture interfaces.
  *
- * Local interfaces are fetched by running dumpcap.
- * The remote and extcap interfaces are appended to the list after that.
+ * This function retrieves the list of available capture interfaces, including local,
+ * remote, and extcap interfaces. It uses dumpcap to fetch local interfaces and appends
+ * remote and extcap interfaces to the list.
+ *
+ * @param app_name The name of the application requesting the interface list.
+ * @param err Pointer to an integer that will receive an error code if an error occurs.
+ * @param err_str Pointer to a string that will receive an error message if an error occurs.
+ * @param update_cb Callback function to update the UI during the process.
+ * @return A GList containing if_info_t structs if successful, or NULL on failure.
  */
 extern GList *capture_interface_list(const char* app_name, int *err, char **err_str, void (*update_cb)(void));
 
@@ -107,31 +116,45 @@ extern GList *capture_interface_list(const char* app_name, int *err, char **err_
 #define	CANT_GET_INTERFACE_LIST	1	/* error getting list */
 #define	DONT_HAVE_PCAP		2	/* couldn't load WinPcap/Npcap */
 
+/**
+ * @brief Free an interface list.
+ *
+ * @param if_list The interface list to free.
+ */
 void free_interface_list(GList *if_list);
 
 /**
- * Deep copy an interface list
+ * @brief Deep copy an interface list
+ * @param if_list The interface list to copy.
+ * @return A new GList containing copies of the interface information.
  */
 GList * interface_list_copy(GList *if_list);
 
 /**
- * Get an if_info_t for a particular interface.
- * (May require privilege, so should only be used by dumpcap.)
+ * @brief Get an if_info_t for a particular interface.
+ * @param name The name of the interface to retrieve information for.
+ * @return An allocated if_info_t structure containing information about the interface, or NULL if the interface is not found or an error occurs.
+ * @note May require privilege, so should only be used by dumpcap.
  */
 extern if_info_t *if_info_get(const char *name);
 
 /**
- * Free an if_info_t.
+ * @brief Free an if_info_t.
+ * @param if_info The if_info_t structure to free.
  */
 void if_info_free(if_info_t *if_info);
 
 /**
- * Deep copy an if_info_t.
+ * @brief Deep copy an if_info_t.
+ * @param if_info The if_info_t structure to copy.
+ * @return A new if_info_t structure containing a copy of the original information.
  */
 if_info_t *if_info_copy(const if_info_t *if_info);
 
 /**
- * Deep copy an if_addr_t.
+ * @brief Deep copy an if_addr_t.
+ * @param if_addr The if_addr_t structure to copy.
+ * @return A new if_addr_t structure containing a copy of the original information.
  */
 if_addr_t *if_addr_copy(const if_addr_t *if_addr);
 
@@ -176,6 +199,11 @@ capture_get_if_list_capabilities(const char* app_name, GList *if_cap_queries,
                             char **err_primary_msg, char **err_secondary_msg,
                             void (*update_cb)(void));
 
+/**
+ * @brief Frees the memory allocated for interface capabilities.
+ *
+ * @param caps Pointer to the if_capabilities_t structure to be freed.
+ */
 void free_if_capabilities(if_capabilities_t *caps);
 
 #ifdef HAVE_PCAP_REMOTE

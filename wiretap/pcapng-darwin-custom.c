@@ -200,7 +200,7 @@ pcapng_write_darwin_legacy_uint16_option(wtap_dumper *wdh, unsigned option_id, w
     if (!wtap_dump_file_write(wdh, &option_val, 2, err))
         return false;
 
-    return true;
+    return pcapng_write_padding(wdh, 2, err);
 }
 
 static bool
@@ -263,8 +263,12 @@ pcapng_compute_epb_legacy_darwin_size(unsigned option_id, wtap_optval_t *optval)
             break;
         /* String options */
         case OPT_PKT_DARWIN_DROP_FUNC:
-            return WS_PADDING_TO_4(strlen(optval->stringval));
+        {
+            /* 65535 is too large to be written */
+            uint32_t size = (uint32_t)strlen(optval->stringval);
+            return size <= 65535 ? size : 0;
             break;
+        }
         default:
             break;
     }
@@ -406,9 +410,14 @@ pcapng_read_darwin_legacy_block(wtap* wth, FILE_T fh, uint32_t block_size _U_,
 
     /* Process options. Note: encountering an unknown option should not discard the block. */
     opt_cont_buf_len = block_content_size - MIN_DPIB_SIZE; /* fixed part */
-    pcapng_process_options(fh, wblock, section_info, opt_cont_buf_len,
+    if (!pcapng_process_options(fh, wblock, section_info, opt_cont_buf_len,
                                 pcapng_process_apple_legacy_block_option,
-                                OPT_SECTION_BYTE_ORDER, err, err_info);
+                                OPT_SECTION_BYTE_ORDER, err, err_info)) {
+
+        *err = 0;
+        g_free(*err_info);
+        *err_info = NULL;
+    }
 
     return true;
 }

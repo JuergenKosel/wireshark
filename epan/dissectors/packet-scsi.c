@@ -3822,7 +3822,7 @@ dissect_scsi_log_page(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
             if (log_parameter && log_parameter->dissector) {
                 tvbuff_t *param_tvb;
 
-                param_tvb = tvb_new_subset_length_caplen(tvb, offset, MIN(tvb_reported_length_remaining(tvb, offset),paramlen), paramlen);
+                param_tvb = tvb_new_subset_length(tvb, offset, paramlen);
                 log_parameter->dissector(param_tvb, pinfo, log_tree);
             } else {
                 /* We did not have a dissector for this page/parameter so
@@ -4624,7 +4624,7 @@ dissect_spc_modeselect6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         payload_len -= 1;
 
         if (tvb_reported_length_remaining(tvb, offset)>0) {
-            blockdesc_tvb = tvb_new_subset_length_caplen(tvb, offset, MIN(tvb_reported_length_remaining(tvb, offset),desclen), desclen);
+            blockdesc_tvb = tvb_new_subset_length(tvb, offset, desclen);
             dissect_scsi_blockdescs(blockdesc_tvb, pinfo, tree, cdata, false);
         }
         offset += desclen;
@@ -4718,7 +4718,7 @@ dissect_spc_modeselect10(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         payload_len -= 2;
 
         if (tvb_reported_length_remaining(tvb, offset)>0) {
-            blockdesc_tvb = tvb_new_subset_length_caplen(tvb, offset, MIN(tvb_reported_length_remaining(tvb, offset),desclen), desclen);
+            blockdesc_tvb = tvb_new_subset_length(tvb, offset, desclen);
             dissect_scsi_blockdescs(blockdesc_tvb, pinfo, tree, cdata, longlba);
         }
         offset += desclen;
@@ -4848,7 +4848,7 @@ dissect_spc_modesense6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 
         if (tvb_reported_length_remaining(tvb, offset)>0) {
-            blockdesc_tvb = tvb_new_subset_length_caplen(tvb, offset, MIN(tvb_reported_length_remaining(tvb, offset),desclen), desclen);
+            blockdesc_tvb = tvb_new_subset_length(tvb, offset, desclen);
             dissect_scsi_blockdescs(blockdesc_tvb, pinfo, tree, cdata, false);
         }
         offset += desclen;
@@ -4938,7 +4938,7 @@ dissect_spc_modesense10(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         tot_len -= 2;
 
         if (tvb_reported_length_remaining(tvb, offset)>0) {
-            blockdesc_tvb = tvb_new_subset_length_caplen(tvb, offset, MIN(tvb_reported_length_remaining(tvb, offset),desclen), desclen);
+            blockdesc_tvb = tvb_new_subset_length(tvb, offset, desclen);
             dissect_scsi_blockdescs(blockdesc_tvb, pinfo, tree, cdata, longlba);
         }
         offset += desclen;
@@ -6365,14 +6365,14 @@ dissect_scsi_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* If this PDU already contains all the expected data we don't have to do
      * reassembly.
      */
-    if ( (!relative_offset) && ((uint32_t)tvb_reported_length_remaining(tvb, offset) == expected_length) ) {
+    if ( (!relative_offset) && (tvb_reported_length_remaining(tvb, offset) == expected_length) ) {
         goto dissect_the_payload;
     }
 
 
     /* Start reassembly */
 
-    if (tvb_reported_length_remaining(tvb, offset) < 0) {
+    if (tvb_reported_length_remaining(tvb, offset) == 0) {
         goto end_of_payload;
     }
     if ((tvb_reported_length_remaining(tvb,offset) + relative_offset) != expected_length) {

@@ -24,6 +24,7 @@
 #include <wsutil/interface.h>
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/privileges.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_padding_to.h>
@@ -106,7 +107,7 @@ static int sdj_dump_entries(sd_journal *jnl, ws_cwstream* fp)
 			ws_warning("Error fetching cursor: %s", g_strerror(jr));
 			goto end;
 		}
-		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__CURSOR=%s\n", cursor);
+		data_end += snprintf((char*)(entry_buff+data_end), MAX_EXPORT_ENTRY_LENGTH-data_end, "__CURSOR=%s\n", cursor);
 		free(cursor);
 
 		jr = sd_journal_get_realtime_usec(jnl, &pkt_rt_ts);
@@ -114,7 +115,7 @@ static int sdj_dump_entries(sd_journal *jnl, ws_cwstream* fp)
 			ws_warning("Error fetching realtime timestamp: %s", g_strerror(jr));
 			goto end;
 		}
-		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__REALTIME_TIMESTAMP=%" PRIu64 "\n", pkt_rt_ts);
+		data_end += snprintf((char*)(entry_buff+data_end), MAX_EXPORT_ENTRY_LENGTH-data_end, "__REALTIME_TIMESTAMP=%" PRIu64 "\n", pkt_rt_ts);
 
 		jr = sd_journal_get_monotonic_usec(jnl, &mono_ts, &boot_id);
 		if (jr < 0) {
@@ -122,7 +123,7 @@ static int sdj_dump_entries(sd_journal *jnl, ws_cwstream* fp)
 			goto end;
 		}
 		sd_id128_to_string(boot_id, boot_id_str + strlen(FLD_BOOT_ID));
-		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__MONOTONIC_TIMESTAMP=%" PRIu64 "\n%s\n", mono_ts, boot_id_str);
+		data_end += snprintf((char*)(entry_buff+data_end), MAX_EXPORT_ENTRY_LENGTH-data_end, "__MONOTONIC_TIMESTAMP=%" PRIu64 "\n%s\n", mono_ts, boot_id_str);
 		ws_debug("Entry header is %u bytes", data_end);
 
 		SD_JOURNAL_FOREACH_DATA(jnl, fld_data, fld_len) {
@@ -368,7 +369,7 @@ int main(int argc, char **argv)
 		g_free(configuration_init_error);
 	}
 
-	help_url = data_file_url("sdjournal.html");
+	help_url = data_file_url("sdjournal.html", application_configuration_environment_prefix());
 	extcap_base_set_util_info(extcap_conf, argv[0], SDJOURNAL_VERSION_MAJOR, SDJOURNAL_VERSION_MINOR,
 			SDJOURNAL_VERSION_RELEASE, help_url);
 	g_free(help_url);

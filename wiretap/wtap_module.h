@@ -71,6 +71,7 @@ struct wtap {
     GArray                      *dpibs;                 /**< An array of DPIBs (of type wtap_block_t), or NULL if not supported. */
     unsigned                    next_dpib_id;           /**< Next DPIB id  */
     char                        *pathname;              /**< File pathname; might just be "-" */
+    const char                  *app_env_var_prefix;    /**< Application specific environment variable prefix, used to determine certain behavior */
 
     void                        *priv;                  /**< Stores per-file state and is free'd automatically by wtap_close() */
     void                        *wslua_data;            /**< Stores wslua state info and is not free'd */
@@ -220,6 +221,10 @@ WS_DLL_PUBLIC bool wtap_dump_file_write(wtap_dumper *wdh, const void *buf,
  * @param whence Seek origin (e.g., SEEK_SET).
  * @param err Optional error code output.
  * @return New file position on success, -1 on failure.
+ *
+ * @note If a module uses this function, it should set writing_must_seek
+ * to true in its file_type_subtype_info. Seeking is not supported when
+ * writing compressed files.
  */
 WS_DLL_PUBLIC int64_t wtap_dump_file_seek(wtap_dumper *wdh, int64_t offset,
                                           int whence, int *err);
@@ -230,6 +235,11 @@ WS_DLL_PUBLIC int64_t wtap_dump_file_seek(wtap_dumper *wdh, int64_t offset,
  * @param wdh Wiretap dumper handle.
  * @param err Optional error code output.
  * @return Current file position on success, -1 on failure.
+ *
+ * @note If a module uses this function, it should set writing_must_seek
+ * to true in its file_type_subtype_info. If a module never seeks but
+ * needs to know the number of bytes written, use the bytes_dumped
+ * member of wtap_dumper in order to preserve support for compression.
  */
 WS_DLL_PUBLIC int64_t wtap_dump_file_tell(wtap_dumper *wdh, int *err);
 
@@ -254,6 +264,25 @@ wtap_read_bytes_or_eof(FILE_T fh, void *buf, unsigned int count, int *err,
     char **err_info);
 
 /**
+ * @brief Read a specified number of bytes into a Buffer, growing it as needed.
+ *
+ * - On EOF: returns false, *err = 0.
+ * - On short read: returns false, *err = WTAP_ERR_SHORT_READ.
+ * - On error: returns false, *err and *err_info set appropriately.
+ *
+ * @param fh File handle to read from.
+ * @param buf Destination buffer, or NULL to discard bytes.
+ * @param count Number of bytes to read.
+ * @param err Output error code (0 for EOF, WTAP_ERR_SHORT_READ for short read, or other on failure).
+ * @param err_info Optional error info string on failure.
+ * @return true on success; false on EOF, short read, or error.
+ */
+WS_DLL_PUBLIC
+bool
+wtap_read_bytes_or_eof_buffer(FILE_T fh, Buffer *buf, unsigned int count,
+    int *err, char **err_info);
+
+/**
  * @brief Read a specified number of bytes from a file or discard them.
  *
  * - If buf is NULL, bytes are discarded.
@@ -275,11 +304,9 @@ wtap_read_bytes(FILE_T fh, void *buf, unsigned int count, int *err,
 /**
  * @brief Read a specified number of bytes into a Buffer, growing it as needed.
  *
- * This returns an error on a short read, even if the short read hit
- * the EOF immediately.  (The assumption is that each packet has a
- * header followed by raw packet data, and that we've already read the
- * header, so if we get an EOF trying to read the packet data, the file
- * has been cut short, even if the read didn't read any data at all.)
+ * - If buf is NULL, bytes are discarded.
+ * - On short read or EOF: returns false, *err = WTAP_ERR_SHORT_READ.
+ * - On read error: returns false, *err and *err_info set appropriately.
  *
  * @param fh File handle to read from.
  * @param buf Buffer to receive data.

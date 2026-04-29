@@ -14,7 +14,7 @@
 
 #include <epan/epan.h>
 #include <epan/packet.h>
-#include <cfile.h>
+#include <epan/cfile.h>
 #include <epan/dissectors/packet-rlc-lte.h>
 #include <epan/dissectors/packet-rlc-3gpp-common.h>
 

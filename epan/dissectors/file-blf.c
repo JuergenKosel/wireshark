@@ -480,8 +480,10 @@ static const value_string blf_eth_phystate_eventstate_vals[] = {
     { 2,     "SleepSent"},
     { 3,     "SleepAbort"},
     { 4,     "SleepAckReceived"},
+    { 5,     "SleepForwarded"},
     { 8,     "WakeUpReceived"},
     { 9,     "WakeUpSent"},
+    { 10,    "WakeUpForwarded"},
     { 17,    "PowerOff"},
     { 18,    "PowerOn"},
     { 25,    "Activated"},
@@ -646,7 +648,7 @@ dissect_blf_lobj(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int of
     proto_item_set_end(ti_lobj_hdr, tvb, offset);
 
     /* check if the whole object is present or if it was truncated */
-    if (tvb_captured_length_remaining(tvb, offset_orig) < (int)obj_length) {
+    if (tvb_captured_length_remaining(tvb, offset_orig) < obj_length) {
         proto_item_set_end(ti_root, tvb, offset_orig + tvb_captured_length_remaining(tvb, offset_orig));
         proto_item_append_text(ti_root, " TRUNCATED");
         return tvb_captured_length_remaining(tvb, offset_orig);

@@ -10,8 +10,8 @@
  */
 #include "config.h"
 #include <epan/packet.h>
-#include <epan/ipproto.h>
 #include <epan/unit_strings.h>
+#include <epan/iana-info.h>
 #include "packet-e212.h"
 #include "packet-tls.h"
 
@@ -141,6 +141,7 @@ dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
     proto_tree_add_item(li5g_tree, hf_li5g_cid, tvb, 32, 8, ENC_NA);
 
     /* Get the Conditional Attribute */
+    GRegex *regex_imsi = NULL;
     while(headerLen - offset > 0){
         attrType = tvb_get_ntohs(tvb, offset);
         attrLen = tvb_get_ntohs(tvb, offset+2);
@@ -152,12 +153,11 @@ dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
             proto_tree_add_item(attr_tree, hf_li5g_attrType, tvb, offset, 2, ENC_BIG_ENDIAN);
             proto_tree_add_item(attr_tree, hf_li5g_attrLen, tvb, offset+2, 2, ENC_BIG_ENDIAN);
             if (attrType == 17 || attrType == 18) {
-                const uint8_t* supi_str;
-                proto_tree_add_item_ret_string(attr_tree, hf_attr, tvb, offset+4, attrLen, ENC_UTF_8 | ENC_NA, pinfo->pool, &supi_str);
+                const char* supi_str;
+                proto_tree_add_item_ret_string(attr_tree, hf_attr, tvb, offset+4, attrLen, ENC_UTF_8 | ENC_NA, pinfo->pool, (const uint8_t**)&supi_str);
 
                 /* 3GPP Supi look up */
                 GMatchInfo *match_info_imsi;
-                static GRegex *regex_imsi = NULL;
                 char *matched_imsi = NULL;
 
                 /*
@@ -180,15 +180,17 @@ dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                     if (matched_imsi && (strcmp(matched_imsi, "") != 0)) {
                         add_assoc_imsi_item(tvb, attr_tree, matched_imsi);
                     }
+                    g_free(matched_imsi);
                 }
-                g_regex_unref(regex_imsi);
-
+                g_match_info_free(match_info_imsi);
             } else {
                 proto_tree_add_item(attr_tree, hf_attr, tvb, offset+4, attrLen, ENC_BIG_ENDIAN);
             }
         }
-
         offset = offset + 4 + attrLen;
+    }
+    if (regex_imsi != NULL) {
+        g_regex_unref(regex_imsi);
     }
 
     proto_tree_add_item(li5g_tree, hf_li5g_pld, tvb, headerLen, payloadLen, ENC_NA);

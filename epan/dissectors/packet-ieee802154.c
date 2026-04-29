@@ -124,11 +124,6 @@ void proto_reg_handoff_ieee802154(void);
 /* ethertype for 802.15.4 tag - encapsulating an Ethernet packet */
 static unsigned int ieee802154_ethertype = 0x809A;
 
-/* FCS Types used by user configuration */
-#define IEEE802154_CC24XX_METADATA 0 /* Not an FCS, but TI CC24xx metadata */
-#define IEEE802154_FCS_16_BIT      1 /* ITU-T CRC16 */
-#define IEEE802154_FCS_32_BIT      2 /* ITU-T CRC32 */
-
 static int ieee802154_fcs_type = IEEE802154_FCS_16_BIT;
 
 /* 802.15.4 TAP Fields */
@@ -422,7 +417,7 @@ static tvbuff_t *dissect_ieee802154_decrypt(tvbuff_t *, unsigned, packet_info *,
 
 static unsigned ieee802154_set_mac_key(ieee802154_packet *packet, unsigned char *key, unsigned char *alt_key, ieee802154_key_t *uat_key);
 static unsigned ieee802154_set_trel_key(ieee802154_packet* packet, unsigned char* key, unsigned char* alt_key, ieee802154_key_t* uat_key);
-static void tsch_ccm_init_nonce(uint64_t addr, uint64_t asn, char* generic_nonce);
+static void tsch_ccm_init_nonce(uint64_t addr, uint64_t asn, uint8_t* generic_nonce);
 
 /* Initialize Protocol and Registered fields */
 static int proto_ieee802154_nonask_phy;
@@ -2095,7 +2090,7 @@ dissect_ieee802154_nonask_phy(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     }
 
     offset += 4+2*1;
-    mac = tvb_new_subset_length_caplen(tvb,offset,-1, phr & IEEE802154_PHY_LENGTH_MASK);
+    mac = tvb_new_subset_length(tvb,offset, phr & IEEE802154_PHY_LENGTH_MASK);
 
     /* These always have the FCS at the end. */
 
@@ -2125,18 +2120,22 @@ ieee802154_fcs_type_len(unsigned i)
  * @param tvb pointer to buffer containing raw packet.
  * @param pinfo pointer to packet information fields.
  * @param tree pointer to data tree wireshark uses to display packet.
+ * @param data optional int pointer to fcs type to override user config.
  */
 static int
-dissect_ieee802154(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+dissect_ieee802154(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
     tvbuff_t *new_tvb = dissect_zboss_specific(tvb, pinfo, tree);
     unsigned options = 0;
     unsigned fcs_len;
+    int fcs_type;
+
+    fcs_type = data ? *(int *)data : ieee802154_fcs_type;
 
     /* Set the default FCS length based on the FCS type in the configuration */
-    fcs_len = ieee802154_fcs_type_len(ieee802154_fcs_type);
+    fcs_len = ieee802154_fcs_type_len(fcs_type);
 
-    if (ieee802154_fcs_type == IEEE802154_CC24XX_METADATA) {
+    if (fcs_type == IEEE802154_CC24XX_METADATA) {
         options = DISSECT_IEEE802154_OPTION_CC24xx;
     }
 
@@ -2439,7 +2438,7 @@ dissect_ieee802154_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
     }
 
     unsigned mhr_len = ieee802154_dissect_header(no_fcs_tvb, pinfo, tree, 0, &ieee802154_tree, &packet);
-    if (!mhr_len || tvb_reported_length_remaining(no_fcs_tvb, mhr_len) < 0 ) {
+    if (!mhr_len) {
         return;
     }
 
@@ -2530,10 +2529,8 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
     ieee_hints->packet = packet;
 
     /* Create the protocol tree. */
-    if (tree) {
-        proto_root = proto_tree_add_protocol_format(tree, proto_ieee802154, tvb, 0, tvb_captured_length(tvb), "IEEE 802.15.4");
-        ieee802154_tree = proto_item_add_subtree(proto_root, ett_ieee802154);
-    }
+    proto_root = proto_tree_add_protocol_format(tree, proto_ieee802154, tvb, 0, tvb_captured_length(tvb), "IEEE 802.15.4");
+    ieee802154_tree = proto_item_add_subtree(proto_root, ett_ieee802154);
     /* Add the protocol name. */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IEEE 802.15.4");
 
@@ -2555,12 +2552,10 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
         }
     } else { /* IEEE 802.15.4 Sequence Number Suppression */
         packet->seqno = tvb_get_uint8(tvb, offset);
-        if (tree) {
-            proto_tree_add_uint(ieee802154_tree, hf_ieee802154_seqno, tvb, offset, 1, packet->seqno);
-            /* For Ack packets display this in the root. */
-            if (packet->frame_type == IEEE802154_FCF_ACK) {
-                proto_item_append_text(proto_root, ", Sequence Number: %u", packet->seqno);
-            }
+        proto_tree_add_uint(ieee802154_tree, hf_ieee802154_seqno, tvb, offset, 1, packet->seqno);
+        /* For Ack packets display this in the root. */
+        if (packet->frame_type == IEEE802154_FCF_ACK) {
+            proto_item_append_text(proto_root, ", Sequence Number: %u", packet->seqno);
         }
         offset += 1;
     }
@@ -2803,9 +2798,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
     /* Destination PAN Id */
     if (packet->dst_pan_present) {
         packet->dst_pan = tvb_get_letohs(tvb, offset);
-        if (ieee802154_tree) {
-            proto_tree_add_uint(ieee802154_tree, hf_ieee802154_dst_panID, tvb, offset, 2, packet->dst_pan);
-        }
+        proto_tree_add_uint(ieee802154_tree, hf_ieee802154_dst_panID, tvb, offset, 2, packet->dst_pan);
         offset += 2;
     }
 
@@ -2815,9 +2808,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
         packet->dst16 = tvb_get_letohs(tvb, offset);
 
         /* Provide address hints to higher layers that need it. */
-        if (ieee_hints) {
-            ieee_hints->dst16 = packet->dst16;
-        }
+        ieee_hints->dst16 = packet->dst16;
 
         set_address_tvb(&pinfo->dl_dst, ieee802_15_4_short_address_type, 2, tvb, offset);
         copy_address_shallow(&pinfo->dst, &pinfo->dl_dst);
@@ -2845,12 +2836,10 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
          */
         set_address(&pinfo->dl_dst, AT_EUI64, 8, p_addr);
         copy_address_shallow(&pinfo->dst, &pinfo->dl_dst);
-        if (tree) {
-            proto_tree_add_item(ieee802154_tree, hf_ieee802154_dst64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-            ti = proto_tree_add_item(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-            proto_item_set_generated(ti);
-            proto_item_set_hidden(ti);
-        }
+        proto_tree_add_item(ieee802154_tree, hf_ieee802154_dst64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+        ti = proto_tree_add_item(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+        proto_item_set_generated(ti);
+        proto_item_set_hidden(ti);
 
         offset += 8;
     }
@@ -2869,9 +2858,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
             packet->src_pan = IEEE802154_BCAST_PAN;
         }
     }
-    if (ieee_hints) {
-        ieee_hints->src_pan = packet->src_pan;
-    }
+    ieee_hints->src_pan = packet->src_pan;
 
     /* Source Address */
     if (packet->src_addr_mode == IEEE802154_FCF_ADDR_SHORT) {
@@ -2895,31 +2882,29 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
         copy_address_shallow(&pinfo->src, &pinfo->dl_src);
 
         /* Add the addressing info to the tree. */
-        if (tree) {
-            proto_tree_add_uint(ieee802154_tree, hf_ieee802154_src16, tvb, offset, 2, packet->src16);
-            ti = proto_tree_add_uint(ieee802154_tree, hf_ieee802154_addr16, tvb, offset, 2, packet->src16);
+        proto_tree_add_uint(ieee802154_tree, hf_ieee802154_src16, tvb, offset, 2, packet->src16);
+        ti = proto_tree_add_uint(ieee802154_tree, hf_ieee802154_addr16, tvb, offset, 2, packet->src16);
+        proto_item_set_generated(ti);
+        proto_item_set_hidden(ti);
+
+        if (ieee_hints && ieee_hints->map_rec) {
+            /* Display inferred source address info */
+            ti = proto_tree_add_eui64(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 0,
+                    ieee_hints->map_rec->addr64);
+            proto_item_set_generated(ti);
+            ti = proto_tree_add_eui64(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 0, ieee_hints->map_rec->addr64);
             proto_item_set_generated(ti);
             proto_item_set_hidden(ti);
 
-            if (ieee_hints && ieee_hints->map_rec) {
-                /* Display inferred source address info */
-                ti = proto_tree_add_eui64(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 0,
-                        ieee_hints->map_rec->addr64);
-                proto_item_set_generated(ti);
-                ti = proto_tree_add_eui64(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 0, ieee_hints->map_rec->addr64);
-                proto_item_set_generated(ti);
-                proto_item_set_hidden(ti);
-
-                if ( ieee_hints->map_rec->start_fnum ) {
-                    ti = proto_tree_add_uint(ieee802154_tree, hf_ieee802154_src64_origin, tvb, 0, 0,
-                        ieee_hints->map_rec->start_fnum);
-                }
-                else {
-                    ti = proto_tree_add_uint_format_value(ieee802154_tree, hf_ieee802154_src64_origin, tvb, 0, 0,
-                        ieee_hints->map_rec->start_fnum, "Pre-configured");
-                }
-                proto_item_set_generated(ti);
+            if ( ieee_hints->map_rec->start_fnum ) {
+                ti = proto_tree_add_uint(ieee802154_tree, hf_ieee802154_src64_origin, tvb, 0, 0,
+                    ieee_hints->map_rec->start_fnum);
             }
+            else {
+                ti = proto_tree_add_uint_format_value(ieee802154_tree, hf_ieee802154_src64_origin, tvb, 0, 0,
+                    ieee_hints->map_rec->start_fnum, "Pre-configured");
+            }
+            proto_item_set_generated(ti);
         }
 
         offset += 2;
@@ -2940,12 +2925,10 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
          */
         set_address(&pinfo->dl_src, AT_EUI64, 8, p_addr);
         copy_address_shallow(&pinfo->src, &pinfo->dl_src);
-        if (tree) {
-            proto_tree_add_item(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-            ti = proto_tree_add_item(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-            proto_item_set_generated(ti);
-            proto_item_set_hidden(ti);
-        }
+        proto_tree_add_item(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+        ti = proto_tree_add_item(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+        proto_item_set_generated(ti);
+        proto_item_set_hidden(ti);
 
         offset += 8;
     }
@@ -2998,9 +2981,7 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
              * part of the payload, is encrypted, and follows the payload IEs. Thus we only parse the command id
              * here for 2006 and earlier frames. */
             packet->command_id = tvb_get_uint8(tvb, offset);
-            if (tree) {
-                proto_tree_add_uint(ieee802154_tree, hf_ieee802154_cmd_id, tvb, offset, 1, packet->command_id);
-            }
+            proto_tree_add_uint(ieee802154_tree, hf_ieee802154_cmd_id, tvb, offset, 1, packet->command_id);
             offset++;
 
             /* Display the command identifier in the info column. */
@@ -4675,8 +4656,7 @@ dissect_mpx_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ies_tree, void
         case IEEE802159_MPX_FULL_FRAME_NO_MUXID:
             break;  // nothing to do
         case IEEE802159_MPX_NON_LAST_FRAGMENT:
-            fragment_number = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(tree, hf_ieee802159_mpx_fragment_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint8(tree, hf_ieee802159_mpx_fragment_number, tvb, offset, 1, ENC_LITTLE_ENDIAN, &fragment_number);
             offset += 1;
             if (fragment_number == 0) {
                 proto_tree_add_item(tree, hf_ieee802159_mpx_total_frame_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -5307,8 +5287,8 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
     int                 captured_len;
     int                 reported_len;
     ieee802154_hints_t *ieee_hints;
-    char               *generic_nonce_ptr = NULL;
-    char                generic_nonce[13];
+    uint8_t            *generic_nonce_ptr = NULL;
+    uint8_t             generic_nonce[13];
 
     ieee_hints = (ieee802154_hints_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_ieee802154, 0);
 
@@ -5430,7 +5410,7 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
         }
 
         /* Create a tvbuff for the plaintext. This might result in a zero-length tvbuff. */
-        ptext_tvb = tvb_new_subset_length_caplen(tvb, offset, captured_len, reported_len);
+        ptext_tvb = tvb_new_subset_length(tvb, offset, reported_len);
         *decrypt_info->status = DECRYPT_PACKET_SUCCEEDED;
     }
 
@@ -5468,7 +5448,7 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
          * decryption phase.
          */
         memset(dec_mic, 0, sizeof(dec_mic));
-        if (!ccm_cbc_mac(decrypt_info->key, tmp, (const char *)tvb_memdup(pinfo->pool, tvb, 0, l_a), l_a, tvb_get_ptr(ptext_tvb, 0, l_m), l_m, dec_mic)) {
+        if (!ccm_cbc_mac(decrypt_info->key, tmp, tvb_memdup(pinfo->pool, tvb, 0, l_a), l_a, tvb_get_ptr(ptext_tvb, 0, l_m), l_m, dec_mic)) {
             *decrypt_info->status = DECRYPT_PACKET_MIC_CHECK_FAILED;
         }
         /* Compare the received MIC with the one we generated. */
@@ -5494,7 +5474,7 @@ dissect_ieee802154_decrypt(tvbuff_t *tvb,
  * @param generic_nonce 13-byte nonce to be set by non 802.15.4 calls. If set addr, frame_counter and level are ignored.
  */
 void
-ccm_init_block(char *block, bool adata, int M, uint64_t addr, uint32_t frame_counter, uint8_t level, int ctr_val, const char *generic_nonce)
+ccm_init_block(uint8_t *block, bool adata, int M, uint64_t addr, uint32_t frame_counter, uint8_t level, int ctr_val, const uint8_t *generic_nonce)
 {
     int                 i = 0;
 
@@ -5536,7 +5516,7 @@ ccm_init_block(char *block, bool adata, int M, uint64_t addr, uint32_t frame_cou
  * @param generic_nonce 13-byte nonce to returned by this function.
  */
 static void
-tsch_ccm_init_nonce(uint64_t addr, uint64_t asn, char* generic_nonce)
+tsch_ccm_init_nonce(uint64_t addr, uint64_t asn, uint8_t* generic_nonce)
 {
     int i = 0;
 
@@ -5567,7 +5547,7 @@ tsch_ccm_init_nonce(uint64_t addr, uint64_t asn, char* generic_nonce)
  * @return true on SUCCESS, false on error.
  */
 bool
-ccm_ctr_encrypt(const char *key, const char *iv, char *mic, char *data, int length)
+ccm_ctr_encrypt(const uint8_t *key, const uint8_t *iv, uint8_t *mic, uint8_t *data, int length)
 {
     gcry_cipher_hd_t    cipher_hd;
 
@@ -5614,7 +5594,7 @@ ccm_ctr_encrypt(const char *key, const char *iv, char *mic, char *data, int leng
  * @return  true on SUCCESS, false on error.
  */
 bool
-ccm_cbc_mac(const char *key, const char *iv, const char *a, int a_len, const char *m, int m_len, char *mic)
+ccm_cbc_mac(const uint8_t *key, const uint8_t *iv, const uint8_t *a, int a_len, const uint8_t *m, int m_len, uint8_t *mic)
 {
     gcry_cipher_hd_t cipher_hd;
     unsigned         i = 0;
@@ -5779,7 +5759,10 @@ static bool trel_key_derivation_func(/*ieee802154_packet* packet*/ unsigned char
     GByteArray* bytes;
     bytes = g_byte_array_new();
     bool res = hex_str_to_bytes(uat_key->pref_key, bytes, false);
-    if (!res) return false;
+    if (!res) {
+        g_byte_array_unref(bytes);
+        return false;
+    }
 
     uint8_t saltstring[] = { 'T', 'h', 'r', 'e', 'a', 'd', 'S', 'e', 'q', 'u', 'e', 'n', 'c', 'e', 'M', 'a', 's', 't', 'e', 'r', 'K', 'e', 'y' };
     uint8_t info_str[] = { 'T', 'h', 'r', 'e', 'a', 'd', 'O', 'v', 'e','r', 'I', 'n', 'f', 'r', 'a', 'K', 'e', 'y' };
@@ -5791,6 +5774,7 @@ static bool trel_key_derivation_func(/*ieee802154_packet* packet*/ unsigned char
     salt[3] = (Key_sequence >> 0) & 0xff;
 
     memcpy(ikm, bytes->data, 16);
+    g_byte_array_unref(bytes);
     memcpy(salt + sizeof(uint32_t), saltstring, sizeof(saltstring));
 
     err = hkdf_extract(GCRY_MD_SHA256, salt, sizeof(salt), ikm, sizeof(ikm), prk);
@@ -7298,7 +7282,7 @@ void proto_register_ieee802154(void)
                 "Invalid Addressing", EXPFILL }},
         { &ei_ieee802154_invalid_panid_compression, { "wpan.invalid_panid_compression", PI_MALFORMED, PI_ERROR,
                 "Invalid Setting for PAN ID Compression", EXPFILL }},
-        { &ei_ieee802154_invalid_panid_compression2, { "wpan.invalid_panid_compression", PI_MALFORMED, PI_ERROR,
+        { &ei_ieee802154_invalid_panid_compression2, { "wpan.invalid_panid_compression2", PI_MALFORMED, PI_ERROR,
                 "Invalid Pan ID Compression and addressing combination for Frame Version 2", EXPFILL }},
         { &ei_ieee802154_dst, { "wpan.dst_invalid", PI_MALFORMED, PI_ERROR,
                 "Invalid Destination Address Mode", EXPFILL }},
@@ -7397,7 +7381,7 @@ void proto_register_ieee802154(void)
     static decode_as_t          ieee802154_da = {
         IEEE802154_PROTOABBREV_WPAN, IEEE802154_PROTOABBREV_WPAN_PANID,
         1, 0, &ieee802154_da_values, NULL, NULL,
-        decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL
+        decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL
     };
 
     /* Register the init routine. */

@@ -165,7 +165,6 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 	uint32_t size = 0;
 	const uint8_t *str = NULL;
 	tvbuff_t *payload_tvb = NULL;
-	tvbuff_t *xml_tvb = NULL;
 
 	record_item = proto_tree_add_item(tree, hf_nmf_record, tvb, offset, -1, ENC_NA);
 	proto_item_append_text(record_item, ", start_offset=0x%x, ", (unsigned)offset);
@@ -234,6 +233,7 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 				       size, plurality(size, "", "s"));
 		proto_tree_add_format_text(record_tree, payload_tvb, 0, size);
 #if 0
+		tvbuff_t *xml_tvb = NULL;
 		if (0) {
 			/* TODO:
 			 *
@@ -249,11 +249,11 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 				xml_tvb = NULL;
 			}
 		}
-#endif
 		if (xml_tvb != NULL) {
 			call_dissector_with_data(xml_handle, xml_tvb, pinfo,
 					         record_tree, NULL);
 		}
+#endif
 		break;
 	case NMF_END_RECORD:
 		/* TODO */
@@ -294,14 +294,15 @@ dissect_nmf_record(tvbuff_t *tvb, packet_info *pinfo,
 }
 
 static unsigned
-nmf_get_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *_info)
+nmf_get_pdu_len(packet_info *pinfo, tvbuff_t *parent_tvb, int parent_offset, void *_info)
 {
 	nmf_conv_info_t *nmf_info = (nmf_conv_info_t *)_info;
 	enum nmf_record_type record_type;
-	int start_offset = offset;
+	tvbuff_t *tvb = tvb_new_subset_remaining(parent_tvb, parent_offset);
+	unsigned offset = 0;
 
 	if (pinfo->fd->num > nmf_info->fnum_negotiated) {
-		unsigned remaining = tvb_captured_length_remaining(tvb, offset);
+		unsigned remaining = tvb_captured_length(tvb);
 		unsigned len = 0;
 		unsigned needed = 0;
 
@@ -316,7 +317,7 @@ nmf_get_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *_info)
 	}
 
 	if (pinfo->fd->num > nmf_info->fnum_upgraded) {
-		unsigned remaining = tvb_captured_length_remaining(tvb, offset);
+		unsigned remaining = tvb_captured_length(tvb);
 		unsigned len = 0;
 		unsigned needed = 0;
 
@@ -359,14 +360,15 @@ nmf_get_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *_info)
 			 * Just take the rest of this segment.
 			 * The expert info will be handled in the main dissection
 			 * routine. */
-			return tvb_reported_length_remaining(tvb, start_offset);
+			return tvb_reported_length(tvb);
 		}
-		if (size > UINT32_MAX) {
-			/* Invalid length */
-			return tvb_reported_length_remaining(tvb, start_offset);
+		offset += len;
+		if (/*size > UINT32_MAX || */ ckd_add(&offset, offset, size)) {
+			/* Invalid length or overflow. A size > UINT32_MAX
+			 * will always overflow so we don't need to check
+			 * unless we want to distinguish the two cases. */
+			return tvb_reported_length(tvb);
 		}
-		offset += (int)len;
-		offset += (int)size;
 		break;
         }
 	case NMF_VERSION_RECORD:
@@ -400,7 +402,7 @@ nmf_get_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *_info)
 		break;
 	}
 
-	return offset - start_offset;
+	return offset;
 }
 
 static int

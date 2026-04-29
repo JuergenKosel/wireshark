@@ -1471,8 +1471,7 @@ static int oap_1_tree_add_cmdcontrol(packet_info *pinfo, proto_tree *tree, tvbuf
         uint8_t ackcnt;
         uint8_t i;
 
-        ackcnt = tvb_get_uint8(tvb, offset);
-        proto_tree_add_item(opinfo_tree, hf_oap_1_cmdcontrol_ackcnt, tvb, offset, 1, ENC_NA);
+        proto_tree_add_item_ret_uint8(opinfo_tree, hf_oap_1_cmdcontrol_ackcnt, tvb, offset, 1, ENC_NA, &ackcnt);
         offset += 1;
 
         for (i = 0; i < ackcnt; i++)
@@ -2539,8 +2538,7 @@ static int dissect_2008_16_security_3_1(tvbuff_t *tvb, packet_info *pinfo, proto
     }
 
     /* Stage */
-    stage = tvb_get_uint8(tvb, offset);
-    ti = proto_tree_add_item(tree, hf_security_3_1_stage, tvb, offset, 1, ENC_NA);
+    ti = proto_tree_add_item_ret_uint8(tree, hf_security_3_1_stage, tvb, offset, 1, ENC_NA, &stage);
     offset += 1;
 
     if (stage != 0)
@@ -6471,7 +6469,7 @@ static int dissect_dnp_1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
             /* If there isn't a length specified then use the packet size. */
             if (dnp_length_length == 0)
-                length = tvb_reported_length(tvb) - offset;
+                length = tvb_reported_length_remaining(tvb, offset);
 
             encapsulated_length = length;
 
@@ -6549,7 +6547,7 @@ static int dissect_dnp_1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 
         /* We have a packet. */
         {
-            tvbuff_t *next_tvb = tvb_new_subset_length_caplen(tvb, offset, encapsulated_length, tvb_reported_length(tvb) - offset);
+            tvbuff_t *next_tvb = tvb_new_subset_length(tvb, offset, encapsulated_length);
             offset += dof_dissect_dpp_common(next_tvb, pinfo, proto_item_get_parent(tree), data);
         }
     }
@@ -7423,8 +7421,7 @@ static int dissect_ccm_dsp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
     ti = proto_tree_add_item(tree, hf_ccm_dsp_option, tvb, offset, len, ENC_NA);
     ccm_tree = proto_item_add_subtree(ti, ett_ccm_dsp_option);
 
-    strength_count = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(ccm_tree, hf_ccm_dsp_strength_count, tvb, offset++, 1, ENC_NA);
+    proto_tree_add_item_ret_uint8(ccm_tree, hf_ccm_dsp_strength_count, tvb, offset++, 1, ENC_NA, &strength_count);
 
     for (i = 0; i < strength_count; i++)
         proto_tree_add_item(ccm_tree, hf_ccm_dsp_strength, tvb, offset++, 1, ENC_NA);
@@ -7830,9 +7827,9 @@ static int dissect_ccm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         */
 
         {
-            int e_len = tvb_captured_length(tvb) - offset;
-            const uint8_t *epp_buf = tvb_get_ptr(tvb, 0, -1);
             unsigned a_len = offset;
+            const uint8_t *epp_buf = tvb_get_ptr(tvb, 0, offset);
+            unsigned e_len = tvb_captured_length_remaining(tvb, offset);
             uint8_t *buf = (uint8_t *)tvb_memdup(pinfo->pool, tvb, offset, e_len);
             tvbuff_t *app;
 
@@ -8039,9 +8036,9 @@ static int dissect_ccm_validate(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
     */
 
     {
-        int e_len = tvb_captured_length(tvb) - offset;
-        const uint8_t *epp_buf = tvb_get_ptr(tvb, 0, -1);
-        unsigned a_len = offset - 0;
+        unsigned a_len = offset;
+        const uint8_t *epp_buf = tvb_get_ptr(tvb, 0, offset);
+        unsigned e_len = tvb_captured_length_remaining(tvb, offset);
         uint16_t e_off;
         uint8_t *buf = (uint8_t *)g_malloc(e_len);
 
@@ -8118,7 +8115,7 @@ static int dissect_oap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     uint8_t flags = 0;
     uint16_t item_id = 0;
     uint16_t app;
-    unsigned app_len;
+    int app_len;
 
     oap_1_packet_data *oap_packet = NULL;
 
@@ -8150,7 +8147,7 @@ static int dissect_oap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     ti = proto_tree_add_uint(oap_tree, hf_2008_1_app_version, tvb, 0, app_len, app);
     validate_c2(pinfo, ti, app, app_len);
 
-    if (app_len == tvb_captured_length(tvb))
+    if ((unsigned)app_len == tvb_captured_length(tvb))
     {
         col_append_str(pinfo->cinfo, COL_INFO, "OAP [nop]");
         expert_add_info(pinfo, oap_tree, &ei_implicit_no_op);
@@ -8804,8 +8801,7 @@ static int dissect_sgmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
         /* Epoch - 2 bytes */
         {
-            epoch = tvb_get_ntohs(tvb, offset);
-            proto_tree_add_item(sgmp_tree, hf_sgmp_epoch, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item_ret_uint16(sgmp_tree, hf_sgmp_epoch, tvb, offset, 2, ENC_BIG_ENDIAN, &epoch);
             offset += 2;
         }
 
@@ -11307,7 +11303,7 @@ static void dof_register_dpp_2(void)
 
     static ei_register_info ei[] =
     {
-        { &ei_dpp2_dof_10_flags_zero, { "dof.dpp.v2.flags_zero", PI_UNDECODED, PI_ERROR, "DPS-10: Reserved flag bits must be zero.", EXPFILL } },
+        { &ei_dpp2_dof_10_flags_zero, { "dof.dpp.v2.flags_zero", PI_UNDECODED, PI_ERROR, "DPPv2: Reserved flag bits must be zero.", EXPFILL } },
         { &ei_dpp_default_flags, { "dof.dpp.v2.flags_included", PI_COMMENTS_GROUP, PI_NOTE, "Default flag value is included explicitly.", EXPFILL } },
         { &ei_dpp_explicit_sender_sid_included, { "dof.dpp.v2.sender_sid_included", PI_PROTOCOL, PI_NOTE, "Explicit SID could be optimized, same as sender.", EXPFILL } },
         { &ei_dpp_explicit_receiver_sid_included, { "dof.dpp.v2.receiver_sid_included", PI_PROTOCOL, PI_NOTE, "Explicit SID could be optimized, same as receiver.", EXPFILL } },

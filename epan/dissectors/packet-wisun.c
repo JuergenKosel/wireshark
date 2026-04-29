@@ -883,9 +883,11 @@ dissect_wisun_eaie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, unsi
 static int
 dissect_wisun_luttie(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, unsigned offset)
 {
+    const char *str = col_get_text(pinfo->cinfo, COL_INFO);
     uint8_t frame_type = tvb_get_uint8(tvb, offset);
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "Wi-SUN");
-    col_set_str(pinfo->cinfo, COL_INFO, val_to_str_const(frame_type, wisun_frame_type_vals, "Unknown LFN Wi-SUN Frame"));
+    if (str && strncmp(str, "EDFE", 4))
+        col_set_str(pinfo->cinfo, COL_INFO, val_to_str_const(frame_type, wisun_frame_type_vals, "Unknown LFN Wi-SUN Frame"));
     proto_tree_add_item(tree, hf_wisun_uttie_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(tree, hf_wisun_luttie_usn, tvb, offset+1, 2, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(tree, hf_wisun_luttie_uio, tvb, offset+3, 3, ENC_LITTLE_ENDIAN);
@@ -1171,7 +1173,7 @@ dissect_wisun_schedule_common(tvbuff_t *tvb, packet_info *pinfo, unsigned offset
             &hf_wisun_usie_explicit_reserved,
             NULL
     };
-    int count;
+    uint8_t     count;
     proto_item *ti;
 
     uint8_t control = tvb_get_uint8(tvb, offset);
@@ -1218,8 +1220,7 @@ dissect_wisun_schedule_common(tvbuff_t *tvb, packet_info *pinfo, unsigned offset
             break;
 
         case WISUN_CHANNEL_FUNCTION_VENDOR:
-            count = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(tree, hf_wisun_usie_hop_count, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint8(tree, hf_wisun_usie_hop_count, tvb, offset, 1, ENC_LITTLE_ENDIAN, &count);
             offset++;
             while (count--) {
                 proto_tree_add_item(tree, hf_wisun_usie_hop_list, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -1234,8 +1235,7 @@ dissect_wisun_schedule_common(tvbuff_t *tvb, packet_info *pinfo, unsigned offset
 
     switch ((control & WISUN_CHANNEL_EXCLUDE) >> 6) {
         case WISUN_CHANNEL_EXCLUDE_RANGE:
-            count = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(tree, hf_wisun_usie_number_ranges, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint8(tree, hf_wisun_usie_number_ranges, tvb, offset, 1, ENC_LITTLE_ENDIAN, &count);
             offset++;
             while (count) {
                 proto_tree_add_item(tree, hf_wisun_usie_exclude_range_start, tvb, offset, 2, ENC_LITTLE_ENDIAN);

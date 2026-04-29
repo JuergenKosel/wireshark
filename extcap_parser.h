@@ -166,39 +166,124 @@ extern "C" {
 #endif
 
 /* Parse a string into a complex type */
+
+/**
+ * @brief Parse a complex value from a string.
+ *
+ * @param complex_type The type of the complex value.
+ * @param data The string representation of the complex value.
+ * @return extcap_complex* A pointer to the newly created complex value, or NULL on failure.
+ */
 extcap_complex *extcap_parse_complex(extcap_arg_type complex_type,
         const char *data);
 
+/**
+ * @brief Free a complex value.
+ *
+ * @param comp Pointer to the extcap_complex structure to be freed.
+ */
 /* Free a complex */
 void extcap_free_complex(extcap_complex *comp);
 
 /* Print a complex value out for debug */
+
+/**
+ * @brief Prints a complex type using its string representation.
+ *
+ * @param comp Pointer to the extcap_complex structure to be printed.
+ */
 void extcap_printf_complex(extcap_complex *comp);
 
-/*
- * Return a string representation of a complex type
- * Caller is responsible for calling g_free on the returned string
+/**
+ * @brief Get a string representation of a complex type.
+ * @return a string representation of a complex type
+ * @note Caller is responsible for calling g_free on the returned string
  */
 char *extcap_get_complex_as_string(extcap_complex *comp);
 
+/**
+ * @brief Retrieves an integer value from an extcap complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return The integer value, or 0 if the input is invalid.
+ */
 int extcap_complex_get_int(extcap_complex *comp);
+
+/**
+ * @brief Retrieves an unsigned integer value from an extcap complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return The unsigned integer value, or 0 if the input is invalid.
+ */
 unsigned extcap_complex_get_uint(extcap_complex *comp);
+
+/**
+ * @brief Retrieves a long value from an extcap complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return The long value, or 0 if the input is invalid.
+ */
 int64_t extcap_complex_get_long(extcap_complex *comp);
+
+/**
+ * @brief Retrieves the double value from an extcap_complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return The double value, or 0 if the input is invalid.
+ */
 double extcap_complex_get_double(extcap_complex *comp);
+
+/**
+ * @brief Retrieves the boolean value from an extcap complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return true if the value is valid andmatches a boolean regex, false otherwise.
+ */
 bool extcap_complex_get_bool(extcap_complex *comp);
+
+/**
+ * @brief Get the string value from an extcap complex structure.
+ *
+ * @param comp Pointer to the extcap_complex structure.
+ * @return char* The string value, or NULL if the input is NULL.
+ */
 char *extcap_complex_get_string(extcap_complex *comp);
 
 /* compares the default value of an element with a given parameter */
+
+/**
+ * @brief Compares an argument's default complex value with a test complex value.
+ *
+ * @param element The extcap_arg structure containing the default complex value.
+ * @param test The extcap_complex structure to compare against the default.
+ * @return true if the default complex value matches the test value, false otherwise.
+ */
 bool extcap_compare_is_default(extcap_arg *element, extcap_complex *test);
 
-
-/* Free a single argument */
+/**
+ * @brief Free a single argument.
+ *
+ * This function releases all resources associated with an extcap_arg structure, including
+ * freeing memory for its various fields and nested structures.
+ *
+ * @param a Pointer to the extcap_arg structure to be freed.
+ */
 void extcap_free_arg(extcap_arg *a);
 
-/* Free entire toolbar control structure */
+/**
+ * @brief Free entire toolbar control structure.
+ *
+ * @param control Pointer to the toolbar control structure to be freed.
+ */
 void extcap_free_toolbar_control(iface_toolbar_control *control);
 
-/* Free an entire arg list */
+/**
+ * @brief Free an entire arg list.
+ *
+ * This function frees a GList containing extcap_arg structures, calling extcap_free_arg on each element.
+ *
+ * @param a The GList to be freed.
+ */
 void extcap_free_arg_list(GList *a);
 
 
@@ -207,13 +292,34 @@ void extcap_free_arg_list(GList *a);
 /* Parse all sentences for args and values */
 GList * extcap_parse_args(char *output);
 
-/* Parse all sentences for values */
+/**
+ * @brief Parse all sentences for values.
+ *
+ * @param output The output string containing sentences to parse.
+ * @return GList* A list of parsed extcap_value structures.
+ */
 GList * extcap_parse_values(char *output);
 
-/* Parse all sentences for interfaces */
+/**
+ * @brief Parse all sentences for interfaces
+ *
+ * This function parses the interfaces section of extcap output and returns a list of interface objects.
+ *
+ * @param output The extcap output string to parse.
+ * @param control_items Pointer to a GList containing control items for parsing.
+ * @return A GList of parsed extcap_interface objects, or NULL if parsing fails.
+ */
 GList * extcap_parse_interfaces(char *output, GList **control_items);
 
-/* Parse all sentences for DLTs */
+/**
+ * @brief Parse all sentences for DLT (Data Link Type) information.
+ *
+ * This function tokenizes the input output into sentences and then parses each sentence to extract DLT information.
+ * It returns a GList containing parsed extcap_dlt structures.
+ *
+ * @param output The input string containing DLT information.
+ * @return A GList of extcap_dlt structures representing the parsed DLTs, or NULL if parsing fails.
+ */
 GList * extcap_parse_dlts(char *output);
 
 #ifdef __cplusplus

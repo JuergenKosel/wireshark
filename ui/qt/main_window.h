@@ -25,6 +25,7 @@
 #include <QMainWindow>
 #include <QSplitter>
 
+class QAction;
 class QMenu;
 class QSplitter;
 class QStackedWidget;
@@ -75,6 +76,7 @@ public slots:
     void layoutPanes();
     void applyRecentPaneGeometry();
     void updateForUnsavedChanges();
+    void cyclePane(bool reverse = false);
 
 protected:
     enum CopySelected {
@@ -89,9 +91,19 @@ protected:
         CopyListAsHTML,
     };
 
+    enum FileCloseContext {
+        Default,
+        Quit,
+        Restart,
+        Reload,
+        Update,
+        Export
+    };
+
     void showWelcome();
     void showCapture();
     void setTitlebarForCaptureInProgress();
+    void setIconForCaptureInProgress(bool capture_in_progress);
     virtual void setMenusForCaptureFile(bool force_disable = false) = 0;
 
     CaptureFile capture_file_;
@@ -114,6 +126,36 @@ protected:
     ProfileSwitcher *profile_switcher_;
     bool use_capturing_title_;
     QMap<QString, QTextCodec *> text_codec_map_;
+
+    // Recent captures menu support - set by subclasses
+    QMenu *recent_captures_menu_;
+    QAction *no_recent_files_action_;
+#if defined(Q_OS_MAC)
+    QMenu *dock_menu_;
+#endif
+
+    /**
+     * Populate the recent captures menu.
+     * Calls openRecentCaptureFile() for each menu item action.
+     */
+    void populateRecentCapturesMenu();
+
+    /**
+     * @brief Handle retranslation of UI elements in MainWindow.
+     *
+     * This function is called when the application language changes and usually
+     * handles elements like menu items and labels that need to be updated to reflect
+     * the new language.
+     */
+    void retranslateUiElements();
+
+    /**
+     * Open a capture file from the recent files menu.
+     * @param filename Path to the file to open.
+     */
+    virtual void openRecentCaptureFile(const QString &filename) = 0;
+
+    virtual bool tryClosingCaptureFile(QString before_what, FileCloseContext context = Default) = 0;
 
 protected slots:
     void addDisplayFilterTranslationActions(QMenu *copy_menu);

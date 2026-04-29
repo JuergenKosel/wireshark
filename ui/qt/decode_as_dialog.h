@@ -12,7 +12,7 @@
 
 #include <config.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include <ui/qt/models/decode_as_model.h>
 #include <ui/qt/models/decode_as_delegate.h>
 

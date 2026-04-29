@@ -14,7 +14,9 @@
 #include "plot_dialog.h"
 #include <ui_plot_dialog.h>
 
-#include <wsutil/application_flavor.h>
+#include <epan/uat-int.h>
+
+#include <app/application_flavor.h>
 #include <wsutil/report_message.h>
 #include <ui/preference_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
@@ -55,40 +57,6 @@ static const int stat_update_interval_ = 200;   // ms
 #define MAX_PLOT_NUM    20
 
 extern "C" {
-    UAT_BOOL_CB_DEF(plot, enabled, plot_settings_t)
-    UAT_DEC_CB_DEF(plot, group, plot_settings_t)
-    UAT_CSTRING_CB_DEF(plot, name, plot_settings_t)
-    UAT_DISPLAY_FILTER_CB_DEF(plot, dfilter, plot_settings_t)
-    UAT_COLOR_CB_DEF(plot, color, plot_settings_t)
-    UAT_VS_DEF(plot, style, plot_settings_t, uint32_t, 0, "Line")
-    UAT_PROTO_FIELD_CB_DEF(plot, yfield, plot_settings_t)
-    UAT_DBL_CB_DEF(plot, y_axis_factor, plot_settings_t)
-
-    static uat_field_t plot_packet_fields[] = {
-        UAT_FLD_BOOL(plot, enabled, "Enabled", "Graph visibility"),
-        UAT_FLD_DEC(plot, group, "Group #", "Which group the plot belongs to"),
-        UAT_FLD_CSTRING(plot, name, "Plot Name", "The name of the plot"),
-        UAT_FLD_DISPLAY_FILTER(plot, dfilter, "Display Filter", "Plot packets matching this display filter"),
-        UAT_FLD_COLOR(plot, color, "Color", "Plot color (#RRGGBB)"),
-        UAT_FLD_VS(plot, style, "Style", graph_style_vs, "Plot style"),
-        UAT_FLD_PROTO_FIELD(plot, yfield, "Y Field", "Field to plot"),
-        UAT_FLD_DBL(plot, y_axis_factor, "Y Axis Factor", "Y Axis Factor"),
-
-        UAT_END_FIELDS
-    };
-
-    static uat_field_t plot_event_fields[] = {
-        UAT_FLD_BOOL(plot, enabled, "Enabled", "Graph visibility"),
-        UAT_FLD_DEC(plot, group, "Group #", "Which group the plot belongs to"),
-        UAT_FLD_CSTRING(plot, name, "Plot Name", "The name of the plot"),
-        UAT_FLD_DISPLAY_FILTER(plot, dfilter, "Display Filter", "Plot events matching this display filter"),
-        UAT_FLD_COLOR(plot, color, "Color", "Plot color (#RRGGBB)"),
-        UAT_FLD_VS(plot, style, "Style", graph_style_vs, "Plot style"),
-        UAT_FLD_PROTO_FIELD(plot, yfield, "Y Field", "Field to plot"),
-        UAT_FLD_DBL(plot, y_axis_factor, "Y Axis Factor", "Y Axis Factor"),
-
-        UAT_END_FIELDS
-    };
 
     static void* plot_copy_cb(void* dst_ptr, const void* src_ptr, size_t) {
         plot_settings_t* dst = (plot_settings_t*)dst_ptr;
@@ -132,7 +100,7 @@ extern "C" {
     }
 } // extern "C"
 
-PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf, bool show_default) :
+PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
     WiresharkDialog(parent, cf),
     ui(new Ui::PlotDialog),
     uat_model_(nullptr),
@@ -203,6 +171,10 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf, bool show_default) :
     ctx_menu_.addAction(ui->actionMoveLeft1);
     ctx_menu_.addAction(ui->actionMoveUp1);
     ctx_menu_.addAction(ui->actionMoveDown1);
+    ctx_menu_.addAction(ui->actionMoveRight100);
+    ctx_menu_.addAction(ui->actionMoveLeft100);
+    ctx_menu_.addAction(ui->actionMoveUp100);
+    ctx_menu_.addAction(ui->actionMoveDown100);
     ctx_menu_.addSeparator();
     ctx_menu_.addAction(ui->actionGoToPacket);
     ctx_menu_.addSeparator();
@@ -272,11 +244,7 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf, bool show_default) :
     // We add the title for the entire plot as label to the top x axis, to use
     // the available space as best as we can (and to always have the number of
     // rows in the layout equal to the number of Axis Rects).
-    if (application_flavor_is_wireshark()) {
-        plot->xAxis2->setLabel(tr("Wireshark Plots: %1").arg(cap_file_.fileDisplayName()));
-    } else {
-        plot->xAxis2->setLabel(tr("Stratoshark Plots: %1").arg(cap_file_.fileDisplayName()));
-    }
+    plot->xAxis2->setLabel(tr("%1 Plots: %2").arg(application_flavor_name_proper()).arg(cap_file_.fileDisplayName()));
 
     // Step 2: Create the bottom "degenerate" plot, consisting only of the
     // bottom axis, and do the same as above.
@@ -305,8 +273,13 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf, bool show_default) :
     rubber_band_ = new QRubberBand(QRubberBand::Rectangle, plot);
     rubber_band_->setVisible(false);
     tracer_ = new QCPItemTracer(plot);
+}
 
-    loadProfileGraphs();
+void PlotDialog::initialize(QWidget& parent, uat_field_t* plot_fields, bool show_default)
+{
+    QCustomPlot* plot = ui->plot;
+
+    loadProfileGraphs(plot_fields);
     if (uat_model_->rowCount() > 0) {
         for (int i = 0; i < uat_model_->rowCount(); i++) {
             createPlot(i);
@@ -355,11 +328,9 @@ PlotDialog::~PlotDialog()
     ui = nullptr;
 }
 
-void PlotDialog::loadProfileGraphs()
+void PlotDialog::loadProfileGraphs(uat_field_t* plot_fields)
 {
     if (!plot_uat_) {
-        uat_field_t* plot_fields = application_flavor_is_wireshark() ? plot_packet_fields : plot_event_fields;
-
         plot_uat_ = uat_new("Plots",
             sizeof(plot_settings_t),
             "plots",
@@ -378,7 +349,7 @@ void PlotDialog::loadProfileGraphs()
         uat_set_default_values(plot_uat_, plot_uat_defaults_);
 
         char* err = NULL;
-        if (!uat_load(plot_uat_, NULL, &err)) {
+        if (!uat_load(plot_uat_, NULL, application_configuration_environment_prefix(), &err)) {
             // Some errors are non-fatal (records were added but failed
             // validation.) Since field names sometimes change between
             // versions, don't erase all the existing plots.
@@ -422,7 +393,7 @@ void PlotDialog::copyFromProfile(const QString& filename)
     // We should let the UatModel handle it, and have the UatModel
     // call beginInsertRows() and endInsertRows(), so that we can
     // just add the new rows instead of resetting the information.
-    if (uat_load(plot_uat_, filename.toUtf8().constData(), &err)) {
+    if (uat_load(plot_uat_, filename.toUtf8().constData(), application_configuration_environment_prefix(), &err)) {
         plot_uat_->changed = true;
         // uat_load calls the post update cb, which reloads the Uat.
         //uat_model_->reloadUat();
@@ -475,10 +446,8 @@ void PlotDialog::createPlot(int currentRow)
         axisRect->axis(QCPAxis::atBottom)->setRange(ui->plot->xAxis->range());
 
         // Synchronize their ranges
-        connect(axisRect->axis(QCPAxis::atBottom), QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
-            ui->plot->xAxis, QOverload<const QCPRange&>::of(&QCPAxis::setRange));
-        connect(ui->plot->xAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
-            axisRect->axis(QCPAxis::atBottom), QOverload<const QCPRange&>::of(&QCPAxis::setRange));
+        connect(axisRect->axis(QCPAxis::atBottom), SIGNAL(rangeChanged(QCPRange)), ui->plot->xAxis, SLOT(setRange(QCPRange)));
+        connect(ui->plot->xAxis, SIGNAL(rangeChanged(QCPRange)), axisRect->axis(QCPAxis::atBottom), SLOT(setRange(QCPRange)));
 
         syncPlotSettings(currentRow);
     }
@@ -554,7 +523,7 @@ void PlotDialog::syncPlotSettings(int row)
     Plot::setAxisColor(plot->graph()->valueAxis(),
         !ui->actionEnableMultiYAxes->isChecked() ? QPen(Qt::black) : QPen(color));
     QString data_str = uat_model_->data(uat_model_->index(row, plotColStyle)).toString();
-    plot->setPlotStyle((Graph::PlotStyles)str_to_val(qUtf8Printable(data_str), graph_style_vs, 0));
+    plot->setPlotStyle((Graph::PlotStyles)str_to_val(qUtf8Printable(data_str), plot_graph_style_vs, 0));
     plot->setYAxisFactor(uat_model_->data(uat_model_->index(row, plotColYAxisFactor)).toDouble());
     plot->setAbsoluteTime(abs_time_);
 
@@ -596,7 +565,7 @@ void PlotDialog::addPlot(bool checked, const QString& name, const QString& dfilt
     newRowData.append(name);
     newRowData.append(dfilter);
     newRowData.append(QColor(color_idx));
-    newRowData.append(val_to_str_const(style, graph_style_vs, "None"));
+    newRowData.append(val_to_str_const(style, plot_graph_style_vs, "None"));
     newRowData.append(yfield);
     newRowData.append(y_axis_factor);
 
@@ -611,6 +580,17 @@ void PlotDialog::addPlot(bool checked, const QString& name, const QString& dfilt
     // will eventually be called.
 }
 
+
+QString PlotDialog::getFilteredName() const
+{
+    return tr("Filtered packets");
+}
+
+QString PlotDialog::getYAxisName() const
+{
+    return tr("All packets");
+}
+
 void PlotDialog::addPlot(bool checked, const QString& dfilter, const QString& yfield)
 {
     if (!uat_model_) return;
@@ -618,10 +598,10 @@ void PlotDialog::addPlot(bool checked, const QString& dfilter, const QString& yf
     QString graph_name;
     if (yfield.isEmpty()) {
         if (!dfilter.isEmpty()) {
-            graph_name = application_flavor_is_wireshark() ? tr("Filtered packets") : tr("Filtered events");
+            graph_name = getFilteredName();
         }
         else {
-            graph_name = application_flavor_is_wireshark() ? tr("All packets") : tr("All events");
+            graph_name = getYAxisName();
         }
     }
     else {
@@ -633,12 +613,7 @@ void PlotDialog::addPlot(bool checked, const QString& dfilter, const QString& yf
 void PlotDialog::addDefaultPlot(bool enabled, bool filtered)
 {
     if (filtered) {
-        if (application_flavor_is_wireshark()) {
-            addPlot(enabled, tr("Seq. num."), "tcp.srcport == 80", ColorUtils::graphColor(0), Graph::psDotStepLine, "tcp.seq");
-        }
-        else {
-            addPlot(enabled, tr("Event latency"), "evt.type == \"read\"", ColorUtils::graphColor(0), Graph::psDotStepLine, "evt.latency");
-        }
+        addPlot(enabled, tr("Seq. num."), "tcp.srcport == 80", ColorUtils::graphColor(0), Graph::psDotStepLine, "tcp.seq");
     }
     else {
         addPlot(enabled, tr("Frame num."), QString(), ColorUtils::graphColor(4), Graph::psLine, "frame.number");
@@ -933,6 +908,14 @@ void PlotDialog::getGraphInfo()
     updateLegend();
 }
 
+QString PlotDialog::getHintText(unsigned num_items) const
+{
+    return QStringLiteral("%1 %2")
+        .arg(!file_closed_ ? tr("Click to select packet") : tr("Packet"))
+        .arg(num_items);
+
+}
+
 void PlotDialog::updateHint()
 {
     QString hint;
@@ -971,18 +954,8 @@ void PlotDialog::updateHint()
             hint += tr("Select a plot for details.");
         }
         else {
-            QString msg;
+            QString msg = getHintText(packet_num_);
             QString val = QStringLiteral(" = %1").arg(tracer_->position->value(), 0, 'g', QLocale::FloatingPointShortest);
-            if (application_flavor_is_wireshark()) {
-                msg = QStringLiteral("%1 %2")
-                    .arg(!file_closed_ ? tr("Click to select packet") : tr("Packet"))
-                    .arg(packet_num_);
-            }
-            else {
-                msg = QStringLiteral("%1 %2")
-                    .arg(!file_closed_ ? tr("Click to select event") : tr("Event"))
-                    .arg(packet_num_);
-            }
             hint += tr("%1 (%2s%3).").arg(msg).arg(QString::number(tracer_->position->key(), 'f', 9)).arg(val);
         }
         ui->plot->replot(QCustomPlot::rpQueuedReplot);
@@ -1297,18 +1270,37 @@ QRectF PlotDialog::getZoomRanges(QRect zoom_rect, QCPAxisRect** matchedAxisRect)
 void PlotDialog::resetAxes()
 {
     if (!ui->actionAutoScroll->isChecked()) {
-        ui->plot->rescaleAxes(true);
+        /*
+         * We cannot call rescale() to automatically rescale the x axes, since they are
+         * linked together. We need to calculate a range that includes all visible plots
+         * and scale the axes accordingly. As they are linked, we only call setRange once.
+         */
+        QCPRange x_range = QCPRange();
+        for (int i = 0; i < ui->plot->plottableCount(); i++) {
+            const QCPAbstractPlottable* plottable = ui->plot->plottable(i);
+            if (plottable->realVisibility()) {
+                /*
+                 * XXX - If we ever use a logarithmic x axis, we need to change the
+                 * signDomain we pass to getKeyRange. Similarly, if the x axis is not
+                 * the key axis, we need to use getValueRange instead (see QCPAxis::rescale).
+                 */
+                bool foundRange;
+                QCPRange newRange = plottable->getKeyRange(foundRange);
+                if (foundRange) x_range.expand(newRange);
+            }
+        }
+        ui->plot->xAxis2->setRange(x_range);
 
-        QCPRange x_range = ui->plot->xAxis2->scaleType() == QCPAxis::stLogarithmic ?
-            ui->plot->xAxis2->range().sanitizedForLogScale() : ui->plot->xAxis2->range();
+        //if (ui->plot->xAxis2->scaleType() == QCPAxis::stLogarithmic) {
+        //    x_range = x_range.sanitizedForLogScale();
+        //}
         double axis_pixels = ui->plot->xAxis2->axisRect()->width();
         ui->plot->xAxis2->scaleRange((axis_pixels + (pixel_pad * 2)) / axis_pixels, x_range.center());
     }
+
     for (const QCPAxisRect* axisRect : axisRects()) {
         for (QCPAxis* yAxis : axisRect->axes(QCPAxis::atLeft | QCPAxis::atRight)) {
-            if (ui->actionAutoScroll->isChecked()) {
-                yAxis->rescale(true);
-            }
+            yAxis->rescale(true);
             QCPRange y_range = yAxis->scaleType() == QCPAxis::stLogarithmic ?
                 yAxis->range().sanitizedForLogScale() : yAxis->range();
             double axis_pixels = yAxis->axisRect()->height();
@@ -1507,7 +1499,8 @@ void PlotDialog::setTracerColor()
 
 void PlotDialog::keyPressEvent(QKeyEvent* event)
 {
-    bool shift_pressed = event->modifiers() & Qt::ShiftModifier;
+    Qt::KeyboardModifiers modifiers = event->modifiers();
+    int pan_pixels = (modifiers & Qt::ShiftModifier) ? 1 : (modifiers & Qt::AltModifier) ? 100 : 10;
 
     switch (event->key()) {
     case Qt::Key_Minus:
@@ -1522,7 +1515,7 @@ void PlotDialog::keyPressEvent(QKeyEvent* event)
         zoomAxes(true);
         break;
     case Qt::Key_X:             // Zoom X axis only
-        if (event->modifiers() & Qt::ShiftModifier) {
+        if (modifiers & Qt::ShiftModifier) {
             zoomXAxis(false);   // upper case X -> Zoom out
         }
         else {
@@ -1530,7 +1523,7 @@ void PlotDialog::keyPressEvent(QKeyEvent* event)
         }
         break;
     case Qt::Key_Y:             // Zoom Y axis only
-        if (event->modifiers() & Qt::ShiftModifier) {
+        if (modifiers & Qt::ShiftModifier) {
             zoomYAxis(false);   // upper case Y -> Zoom out
         }
         else {
@@ -1539,19 +1532,19 @@ void PlotDialog::keyPressEvent(QKeyEvent* event)
         break;
     case Qt::Key_Right:
     case Qt::Key_L:
-        panAxes(shift_pressed ? 1 : 10, 0);
+        panAxes(pan_pixels, 0);
         break;
     case Qt::Key_Left:
     case Qt::Key_H:
-        panAxes(shift_pressed ? -1 : -10, 0);
+        panAxes(-pan_pixels, 0);
         break;
     case Qt::Key_Up:
     case Qt::Key_K:
-        panAxes(0, shift_pressed ? 1 : 10);
+        panAxes(0, pan_pixels);
         break;
     case Qt::Key_Down:
     case Qt::Key_J:
-        panAxes(0, shift_pressed ? -1 : -10);
+        panAxes(0, -pan_pixels);
         break;
     case Qt::Key_Space:
         ui->actionCrosshairs->trigger();
@@ -1882,8 +1875,8 @@ void PlotDialog::on_rightButtonBox_accepted()
     // Gaze upon my beautiful plot with lossy artifacts!
     QString jpeg_filter = tr("JPEG File Interchange Format (*.jpeg *.jpg)");
     //QString csv_filter = tr("Comma Separated Values (*.csv)");
-    //QString filter = QStringLiteral("%1;;%2;;%3;;%4;;%5")
-    QString filter = QStringLiteral("%1;;%2;;%3;;%4;;%5").arg(
+    //QString filter = QStringLiteral("%1;;%2;;%3;;%4;;%5").arg(
+    QString filter = QStringLiteral("%1;;%2;;%3;;%4").arg(
         pdf_filter,
         png_filter,
         bmp_filter,

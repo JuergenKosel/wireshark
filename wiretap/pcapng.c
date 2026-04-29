@@ -25,7 +25,6 @@
 #include <string.h>
 #include <errno.h>
 
-#include <wsutil/application_flavor.h>
 #include <wsutil/wslog.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/glib-compat.h>
@@ -461,7 +460,7 @@ pcapng_get_cb_section_info_data(section_info_t *section_info, uint32_t pen,
          * No entry found - create a new one, and add it to the
          * hash table.
          */
-        data = funcs->new();
+        data = funcs->provision();
         g_hash_table_insert(section_info->custom_block_data,
                             GUINT_TO_POINTER(pen), data);
     }
@@ -515,7 +514,7 @@ pcapng_get_lb_section_info_data(section_info_t *section_info,
          * No entry found - create a new one, and add it to the
          * hash table.
          */
-        data = funcs->new();
+        data = funcs->provision();
         g_hash_table_insert(section_info->local_block_data,
                             GUINT_TO_POINTER(block_type), data);
     }
@@ -761,12 +760,12 @@ void
 pcapng_process_string_option(wtapng_block_t *wblock, uint16_t option_code,
                              uint16_t option_length, const uint8_t *option_content)
 {
-    const char *opt = (const char *)option_content;
+    const uint8_t *opt = (const uint8_t*)option_content;
     size_t optlen = option_length;
     char *str;
 
     /* Validate UTF-8 encoding. */
-    str = ws_utf8_make_valid(NULL, opt, optlen);
+    str = (char*)ws_utf8_make_valid(NULL, opt, optlen);
 
     /*
      * If this option can appear only once in a block, this call
@@ -782,7 +781,7 @@ void
 pcapng_process_bytes_option(wtapng_block_t *wblock, uint16_t option_code,
                             uint16_t option_length, const uint8_t *option_content)
 {
-    wtap_block_add_bytes_option(wblock->block, option_code, (const char *)option_content, option_length);
+    wtap_block_add_bytes_option(wblock->block, option_code, option_content, option_length);
 }
 
 static bool
@@ -848,7 +847,7 @@ pcapng_process_custom_string_option(wtapng_block_t *wblock,
                                              &pen, err, err_info)) {
         return false;
     }
-    ret = wtap_block_add_custom_string_option(wblock->block, option_code, pen, option_content + 4, option_length - 4) == WTAP_OPTTYPE_SUCCESS;
+    ret = wtap_block_add_custom_string_option(wblock->block, option_code, pen, (const char*)(option_content + 4), option_length - 4) == WTAP_OPTTYPE_SUCCESS;
     ws_debug("returning %d", ret);
     return ret;
 }
@@ -3708,7 +3707,9 @@ pcapng_open(wtap *wth, int *err, char **err_info)
         }
 
         /* go back to where we were */
-        file_seek(wth->fh, saved_offset, SEEK_SET, err);
+        if (file_seek(wth->fh, saved_offset, SEEK_SET, err) == -1) {
+            return WTAP_OPEN_ERROR;
+        }
 
         /*
          * Get a pointer to the current section's section_info_t.
@@ -3965,9 +3966,11 @@ static uint32_t pcapng_compute_custom_string_option_size(wtap_optval_t *optval)
 {
     uint32_t size = 0;
 
-    size = (uint32_t)strlen(optval->custom_stringval.string) & 0xffff;
+    /* PEN */
+    size = sizeof(uint32_t) + (uint32_t)strlen(optval->custom_stringval.string);
 
-    return size;
+    /* pcapng_write_custom_string_option writes nothing if size > 65535 */
+    return size <= 65535 ? size : 0;
 }
 
 static uint32_t pcapng_compute_custom_binary_option_size(wtap_optval_t *optval)
@@ -6580,12 +6583,21 @@ static const struct file_type_subtype_info stratoshark_pcapng_info = {
     pcapng_dump_can_write_encap, pcapng_dump_open, NULL
 };
 
-void register_pcapng(void)
+void register_pcapng(const char* app_env_var_prefix)
 {
-    if (application_flavor_is_wireshark()) {
-        pcapng_file_type_subtype = wtap_register_file_type_subtype(&wireshark_pcapng_info);
-    } else {
-        pcapng_file_type_subtype = wtap_register_file_type_subtype(&stratoshark_pcapng_info);
+    if (app_env_var_prefix != NULL) {
+        /* XXX - It would be great if this could be refactored out of the wiretap library,
+          but dependencies currently look daunting */
+
+        if (strcmp(app_env_var_prefix, "WIRESHARK") == 0)
+            pcapng_file_type_subtype = wtap_register_file_type_subtype(&wireshark_pcapng_info);
+        else if (strcmp(app_env_var_prefix, "STRATOSHARK") == 0)
+            pcapng_file_type_subtype = wtap_register_file_type_subtype(&stratoshark_pcapng_info);
+        else
+        {
+            /* XXX - Allow support of applications that use wiretap, but not pcapNG */
+            return;
+        }
     }
 
     wtap_register_backwards_compatibility_lua_name("PCAPNG",

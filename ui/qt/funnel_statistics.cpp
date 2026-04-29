@@ -78,6 +78,7 @@ FunnelAction::FunnelAction(QString title, funnel_menu_callback callback, void *c
         callback_(callback),
         callback_data_(callback_data),
         retap_(retap),
+        packetCallback_(nullptr),
         packetData_(NULL)
 {
     // Use "&&" to get a real ampersand in the menu item.
@@ -91,6 +92,7 @@ FunnelAction::FunnelAction(QString title, funnel_menu_callback callback, void *c
 FunnelAction::FunnelAction(QString title, funnel_packet_menu_callback callback, void *callback_data, bool retap, const char *packet_required_fields, QObject *parent = nullptr) :
         QAction(parent),
         title_(title),
+        callback_(nullptr),
         callback_data_(callback_data),
         retap_(retap),
         packetCallback_(callback),
@@ -244,7 +246,6 @@ void FunnelConsoleAction::triggerCallback() {
 
 static QHash<int, QList<FunnelAction *> > funnel_actions_;
 const QString FunnelStatistics::action_name_ = "FunnelStatisticsAction";
-static bool menus_registered;
 
 struct _funnel_ops_id_t {
     FunnelStatistics *funnel_statistics;
@@ -289,8 +290,6 @@ FunnelStatistics::FunnelStatistics(QObject *parent, CaptureFile &cf) :
     funnel_ops_->new_progress_window = progress_window_new;
     funnel_ops_->update_progress = progress_window_update;
     funnel_ops_->destroy_progress_window = progress_window_destroy;
-
-    funnel_set_funnel_ops(funnel_ops_);
 }
 
 FunnelStatistics::~FunnelStatistics()
@@ -487,7 +486,7 @@ static void register_menu_cb(const char *name,
                              bool retap)
 {
     FunnelAction *funnel_action = new FunnelAction(name, callback, callback_data, retap, mainApp);
-    if (menus_registered) {
+    if (funnel_menu_registered()) {
         mainApp->appendDynamicMenuGroupItem(group, funnel_action);
     } else {
         mainApp->addDynamicMenuGroupItem(group, funnel_action);
@@ -544,14 +543,6 @@ static void deregister_menu_cb(funnel_menu_callback callback)
 }
 
 void
-register_tap_listener_qt_funnel(void)
-{
-    funnel_register_all_menus(register_menu_cb);
-    funnel_statistics_load_console_menus();
-    menus_registered = true;
-}
-
-void
 funnel_statistics_reload_menus(void)
 {
     funnel_reload_menus(deregister_menu_cb, register_menu_cb);
@@ -591,7 +582,7 @@ static void register_console_menu_cb(const char *name,
                                                                 close_cb,
                                                                 callback_data,
                                                                 mainApp);
-    if (menus_registered) {
+    if (funnel_menu_registered()) {
         mainApp->appendDynamicMenuGroupItem(REGISTER_TOOLS_GROUP_UNSORTED, funnel_action);
     } else {
         mainApp->addDynamicMenuGroupItem(REGISTER_TOOLS_GROUP_UNSORTED, funnel_action);
@@ -602,14 +593,9 @@ static void register_console_menu_cb(const char *name,
     funnel_actions_[REGISTER_TOOLS_GROUP_UNSORTED] << funnel_action;
 }
 
-/*
- * Loads all registered console menus into the
- * Wireshark GUI.
- */
-void
-funnel_statistics_load_console_menus(void)
-{
-    funnel_register_all_console_menus(register_console_menu_cb);
-}
-
 } // extern "C"
+
+void FunnelStatistics::loadInitFunnelMenus()
+{
+    funnel_ops_init(funnel_ops_, register_menu_cb, register_console_menu_cb);
+}

@@ -14,7 +14,7 @@
 
 #include <config.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include <epan/packet_info.h>
 #include <epan/tap.h>
 #include <QDialog>

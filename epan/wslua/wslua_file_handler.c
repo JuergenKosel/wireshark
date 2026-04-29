@@ -313,8 +313,43 @@ wslua_filehandler_seek_read_packet(wtap *wth, int64_t seek_off, wtap_rec *rec,
     File *fp = NULL;
     CaptureInfo *fc = NULL;
     FrameInfo *fi = NULL;
+    bool reentrant = in_routine;
+    int reentrant_ref = LUA_NOREF;
 
-    INIT_FILEHANDLER_ROUTINE(seek_read,false,err,err_info);
+    if (reentrant) {
+        /*
+         * Re-entrant call while another file-handler callback is already
+         * active on the C call stack (e.g. dissectIdle's QTimer fired
+         * inside the Lua debugger's nested QEventLoop while paused in
+         * a seek_read callback).  Create a temporary Lua thread whose
+         * stack is independent from the paused pcall on fh->L.
+         */
+        if (!fh->L || fh->seek_read_ref == LUA_NOREF) {
+            return true;
+        }
+        L = lua_newthread(fh->L);
+        /*
+         * lua_newthread() inherits the debug hook from the parent
+         * state (all Lua versions).  We MUST disable it on this
+         * thread to prevent the debugger from re-entering
+         * handlePause() / wslua_debug_hook() while we are already
+         * paused in an outer seek_read.  Without this, stepping or
+         * breakpoint hits on the re-entrant thread corrupt
+         * debugger.paused_L and crash when the outer pause resumes.
+         */
+        lua_sethook(L, NULL, 0, 0);
+        reentrant_ref = luaL_ref(fh->L, LUA_REGISTRYINDEX);
+        lua_settop(L, 0);
+        push_error_handler(L, "seek_read routine");
+        lua_rawgeti(L, LUA_REGISTRYINDEX, fh->seek_read_ref);
+        if (!lua_isfunction(L, -1)) {
+            lua_settop(L, 0);
+            luaL_unref(fh->L, LUA_REGISTRYINDEX, reentrant_ref);
+            return true;
+        }
+    } else {
+        INIT_FILEHANDLER_ROUTINE(seek_read,false,err,err_info);
+    }
 
     /* Reset errno */
     if (err) {
@@ -346,7 +381,11 @@ wslua_filehandler_seek_read_packet(wtap *wth, int64_t seek_off, wtap_rec *rec,
         CASE_ERROR("seek_read",err,err_info)
     }
 
-    END_FILEHANDLER_ROUTINE();
+    if (reentrant) {
+        luaL_unref(fh->L, LUA_REGISTRYINDEX, reentrant_ref);
+    } else {
+        END_FILEHANDLER_ROUTINE();
+    }
 
     (*fp)->expired = true;
     (*fc)->expired = true;
@@ -755,17 +794,28 @@ WSLUA_CONSTRUCTOR FileHandler_new(lua_State* L) {
 }
 
 WSLUA_METAMETHOD FileHandler__tostring(lua_State* L) {
-    /* Generates a string of debug info for the FileHandler */
+    /* Returns a short label of the form
+       `FileHandler: <name> caps=[<r><w>] description="<description>"`
+       where <r>/<w> are `r`/`w` when the handler can read/write and
+       `-` otherwise (e.g. `[rw]`, `[r-]`, `[-w]`). The previous
+       form dumped raw Lua registry refs and the internal
+       description; the registered `name`, capability, and
+       user-visible description are what actually identify the
+       handler. */
     FileHandler fh = toFileHandler(L,1);
 
     if (!fh) {
-        lua_pushstring(L,"FileHandler pointer is NULL!");
-    } else {
-        lua_pushfstring(L, "FileHandler(%s): description='%s', internal description='%s', read_open=%d, read=%d, write=%d",
-            fh->finfo.name, fh->finfo.description, fh->internal_description, fh->read_open_ref, fh->read_ref, fh->write_ref);
+        lua_pushstring(L, "FileHandler: (null)");
+        WSLUA_RETURN(1);
     }
 
-    WSLUA_RETURN(1); /* String of debug information. */
+    lua_pushfstring(L, "FileHandler: %s caps=[%c%c] description=\"%s\"",
+                    fh->finfo.name ? fh->finfo.name : "?",
+                    fh->is_reader ? 'r' : '-',
+                    fh->is_writer ? 'w' : '-',
+                    fh->finfo.description ? fh->finfo.description : "");
+
+    WSLUA_RETURN(1); /* A short label identifying the handler. */
 }
 
 static int FileHandler__gc(lua_State* L _U_) {
@@ -1332,6 +1382,19 @@ int FileHandler_register(lua_State* L) {
 }
 
 int wslua_deregister_filehandlers(lua_State* L _U_) {
+    /*
+     * Reset the in_routine guard.  This flag is set to true by
+     * INIT_FILEHANDLER_ROUTINE before lua_pcall and cleared by
+     * END_FILEHANDLER_ROUTINE after.  During a Lua plugin reload,
+     * wslua_reload_plugins() may run while in_routine is still true
+     * (e.g. when a deferred reload fires after a debugger-paused
+     * filehandler callback).  If we don't reset it here, the
+     * subsequent wslua_init() will fail to register new FileHandlers
+     * ("cannot be registered during reading/writing callback
+     * functions"), causing cf_reload() to fail and crash.
+     */
+    in_routine = false;
+
     for (GSList *it = registered_file_handlers; it; it = it->next) {
         FileHandler fh = (FileHandler)it->data;
         wslua_deregister_filehandler_work(fh);

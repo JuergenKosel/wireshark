@@ -9,8 +9,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <config.h>
-
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdlib.h>
@@ -37,7 +36,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
-#include <wsutil/application_flavor.h>
+#include <app/application_flavor.h>
 #include <cli_main.h>
 #include <wsutil/version_info.h>
 
@@ -66,6 +65,7 @@
 #include <wiretap/file_wrappers.h>
 
 #include <epan/funnel.h>
+#include "ui/cli/tshark-tap.h"
 
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
@@ -281,6 +281,9 @@ main(int argc, char *argv[])
     df_error_t          *df_err;
     e_prefs             *prefs_p;
     char                *output_only = NULL;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
+    epan_app_data_t app_data;
 
     /*
      * The leading + ensures that getopt_long() does not permute the argv[]
@@ -304,6 +307,9 @@ main(int argc, char *argv[])
 #define OPTSTRING "+2C:d:e:E:hK:lo:O:qQr:R:S:t:T:u:vVxX:Y:z:"
 
     static const char    optstring[] = OPTSTRING;
+
+    /* Future proof by zeroing out all data */
+    memset(&app_data, 0, sizeof(app_data));
 
     /* Set the program name. */
     g_set_prgname("tfshark");
@@ -356,7 +362,7 @@ main(int argc, char *argv[])
     initialize_funnel_ops();
 
     /* Initialize the version information. */
-    ws_init_version_info("TFShark", application_flavor_name_proper(), get_ws_vcs_version_info,
+    ws_init_version_info("TFShark", application_flavor_name_proper(), application_get_vcs_version_info,
                          epan_gather_compile_info,
                          epan_gather_runtime_info);
     /*
@@ -376,12 +382,12 @@ main(int argc, char *argv[])
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
             case 'C':        /* Configuration Profile */
-                if (profile_exists (ws_optarg, false)) {
+                if (profile_exists (application_configuration_environment_prefix(), ws_optarg, false)) {
                     set_profile_name (ws_optarg);
-                } else if (profile_exists (ws_optarg, true)) {
+                } else if (profile_exists (application_configuration_environment_prefix(), ws_optarg, true)) {
                     char  *pf_dir_path, *pf_dir_path2, *pf_filename;
                     /* Copy from global profile */
-                    if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
+                    if (create_persconffile_profile(application_configuration_environment_prefix(), ws_optarg, &pf_dir_path) == -1) {
                         cmdarg_err("Can't create directory\n\"%s\":\n%s.",
                             pf_dir_path, g_strerror(errno));
 
@@ -389,7 +395,7 @@ main(int argc, char *argv[])
                         exit_status = WS_EXIT_INVALID_FILE;
                         goto clean_exit;
                     }
-                    if (copy_persconffile_profile(ws_optarg, ws_optarg, true, &pf_filename,
+                    if (copy_persconffile_profile(application_configuration_environment_prefix(), ws_optarg, ws_optarg, true, &pf_filename,
                             &pf_dir_path, &pf_dir_path2) == -1) {
                         cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
                             pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
@@ -455,13 +461,20 @@ main(int argc, char *argv[])
      * capture files, but that mechanism should support plugins for
      * other files, too, if *their* formats are extensible.
      */
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
+
 
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, true)) {
+    app_data.env_var_prefix = application_configuration_environment_prefix();
+    app_data.col_fmt = application_columns();
+    app_data.num_cols = application_num_columns();
+    app_data.register_func = register_all_protocols;
+    app_data.handoff_func = register_all_protocol_handoffs;
+    if (!epan_init(NULL, NULL, true, &app_data)) {
         exit_status = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
@@ -472,11 +485,6 @@ main(int argc, char *argv[])
     /* we register the plugin taps before the other taps because
        stats_tree taps plugins will be registered as tap listeners
        by stats_tree_stat.c and need to registered before that */
-
-    /* XXX Disable tap registration for now until we can get tfshark set up with
-     * its own set of taps and the necessary registration function etc.
-     register_all_tap_listeners();
-     */
 
     /* If invoked with the "-G" flag, we dump out information based on
        the argument to the "-G" flag; if no argument is specified,
@@ -496,12 +504,12 @@ main(int argc, char *argv[])
                 column_dump_column_formats();
             else if (strcmp(argv[2], "currentprefs") == 0) {
                 epan_load_settings();
-                write_prefs(NULL);
+                write_prefs(application_configuration_environment_prefix(), NULL);
             }
             else if (strcmp(argv[2], "decodes") == 0)
                 dissector_dump_decodes();
             else if (strcmp(argv[2], "defaultprefs") == 0)
-                write_prefs(NULL);
+                write_prefs(application_configuration_environment_prefix(), NULL);
             else if (strcmp(argv[2], "dissector-tables") == 0)
                 dissector_dump_dissector_tables();
             else if (strcmp(argv[2], "fields") == 0)
@@ -1554,11 +1562,11 @@ write_preamble(capture_file *cf)
     switch (output_action) {
 
         case WRITE_TEXT:
-            return print_preamble(print_stream, cf->filename, get_ws_vcs_version_info());
+            return print_preamble(print_stream, cf->filename, application_get_vcs_version_info());
 
         case WRITE_XML:
             if (print_details)
-                write_pdml_preamble(stdout, cf->filename);
+                write_pdml_preamble(stdout, cf->filename, get_doc_dir(application_configuration_environment_prefix()));
             else
                 write_psml_preamble(&cf->cinfo, stdout);
             return !ferror(stdout);
@@ -1629,7 +1637,7 @@ static bool
 print_columns(capture_file *cf)
 {
     char   *line_bufp;
-    int     i;
+    unsigned i;
     size_t  buf_offset;
     size_t  column_len;
     size_t  col_len;

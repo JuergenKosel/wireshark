@@ -88,14 +88,6 @@ def update_cmakelists_txt(src_dir, set_version, repo_data):
                                 f"set(STRATOSHARK_MINOR_VERSION {repo_data['ss_version_minor']})",
                                 new_cmake_contents,
                                 flags=re.MULTILINE)
-    new_cmake_contents = re.sub(r"^set *\( *STRATOSHARK_PATCH_VERSION *\d+ *\)$",
-                                f"set(STRATOSHARK_PATCH_VERSION {repo_data['ss_version_patch']})",
-                                new_cmake_contents,
-                                flags=re.MULTILINE)
-    new_cmake_contents = re.sub(r"^set *\( *STRATOSHARK_VERSION_EXTENSION .*?$",
-                                f"set(STRATOSHARK_VERSION_EXTENSION \"{repo_data['ss_package_string']}\")",
-                                new_cmake_contents,
-                                flags=re.MULTILINE)
 
     with open(cmake_filepath, mode='w', encoding='utf-8') as fh:
         fh.write(new_cmake_contents)
@@ -206,7 +198,7 @@ def generate_version_h(repo_data):
     ws_num_commits_line = '#define WIRESHARK_VCS_NUM_COMMITS "0"'
     ws_commit_id_line = '/* #undef WIRESHARK_VCS_COMMIT_ID */'
 
-    ss_vcs_line = '#define STRATOHARK_VCS_VERSION "Git Rev Unknown from unknown"'
+    ss_vcs_line = '#define STRATOSHARK_VCS_VERSION "Git Rev Unknown from unknown"'
     ss_num_commits_line = '#define STRATOSHARK_VCS_NUM_COMMITS "0"'
     ss_commit_id_line = '/* #undef STRATOSHARK_VCS_COMMIT_ID */'
 
@@ -295,7 +287,7 @@ def get_version(cmakelists_file_data, flavor):
     fpfx = 'STRATOSHARK' if flavor == Flavor.Stratoshark else 'PROJECT'
     MAJOR_PATTERN = rf"^set *\( *{fpfx}_MAJOR_VERSION *(\d+) *\)$"
     MINOR_PATTERN = rf"^set *\( *{fpfx}_MINOR_VERSION *(\d+) *\)$"
-    PATCH_PATTERN = rf"^set *\( *{fpfx}_PATCH_VERSION *(\d+) *\)$"
+    PATCH_PATTERN = r"^set *\( *PROJECT_PATCH_VERSION *(\d+) *\)$"
 
     major_match = re.search(MAJOR_PATTERN, cmakelists_file_data, re.MULTILINE)
     minor_match = re.search(MINOR_PATTERN, cmakelists_file_data, re.MULTILINE)
@@ -357,7 +349,7 @@ def read_git_repo(src_dir, tagged_version_extra, untagged_version_extra):
     # Reads metadata from the git repo for generating the version string
     # Returns the data in a dict
 
-    IS_GIT_INSTALLED = shutil.which('git') != ''
+    IS_GIT_INSTALLED = shutil.which('git') is not None
     if not IS_GIT_INSTALLED:
         print("Git unavailable. Git revision will be missing from version string.", file=sys.stderr)
         return {}

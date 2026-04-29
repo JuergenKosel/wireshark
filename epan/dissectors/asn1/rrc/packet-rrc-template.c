@@ -42,13 +42,7 @@
 #ifdef _MSC_VER
 /* disable: "warning C4049: compiler limit : terminating line number emission" */
 #pragma warning(disable:4049)
-/* disable: "warning C4146: unary minus operator applied to unsigned type, result still unsigned" */
-#pragma warning(disable:4146)
 #endif
-
-#define PNAME  "Radio Resource Control (RRC) protocol"
-#define PSNAME "RRC"
-#define PFNAME "rrc"
 
 extern int proto_fp;       /*Handler to FP*/
 extern int proto_umts_mac; /*Handler to MAC*/
@@ -370,7 +364,8 @@ static const value_string rrc_ims_info_atgw_trans_det_cont_type[] = {
   {2, "ATGW-not-available"},
   {0, NULL}
 };
-static int flowd,type;
+static uint32_t flowd;
+static int type;
 
 /*Stores how many channels we have detected for a HS-DSCH MAC-flow*/
 #define    RRC_MAX_NUM_HSDHSCH_MACDFLOW 8
@@ -619,7 +614,7 @@ void proto_register_rrc(void) {
   module_t *rrc_module;
 
   /* Register protocol */
-  proto_rrc = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_rrc = proto_register_protocol("Radio Resource Control (RRC) protocol", "RRC", "rrc");
   /* Register fields and subtrees */
   proto_register_field_array(proto_rrc, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));

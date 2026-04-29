@@ -83,9 +83,31 @@ static void extcap_log(int priority, const char *function, const char *buffer, v
 	 * After the following commit libssh only uses LOG_LEVEL_WARN for
 	 * serious issues:
 	 * https://gitlab.com/libssh/libssh-mirror/-/commit/657d9143d121dfff74f5a63f734d0096c7f37194
+	 *
+	 * In 0.11.4 libssh added a common "ssh_strict_fopen" function that
+	 * is used to open various configuration files. Unfortunately, it
+	 * issues SSH_LOG_WARN (aka RARE) level logs for any errors, including
+	 * a file not existing. Some files, like known_hosts, are optional
+	 * and so it's harmless if they're missing. This was fixed in 0.12.1[1],
+	 * but before then we downgrade just the WARN level log messages from
+	 * ssh_strict_open. Since we only downgrade messages from one function,
+	 * and all the logs in that function are low level in 0.12.1 and later,
+	 * we can lower them even more than the WARN mesages pre 0.11.0, which
+	 * were changed to a wider variety of levels upstream. We don't lower
+	 * all the way to NOISY because the same change added a WARN in the
+	 * parent function for problems opening files recursively included by
+	 * a main config file. Also see #21051.
+	 *
+	 * 1 - https://gitlab.com/libssh/libssh-mirror/-/commit/a7fd80795e21b8c894b54409496ea6b569f7f4a3
 	 */
 #if LIBSSH_VERSION_INT < SSH_VERSION_INT(0,11,0)
 		level = LOG_LEVEL_INFO;
+#elif LIBSSH_VERSION_INT < SSH_VERSION_INT(0,12,1)
+		if (strncmp(function, "ssh_strict_fopen", strlen("ssh_strict_fopen")) == 0) {
+			level = LOG_LEVEL_DEBUG;
+		} else {
+			level = LOG_LEVEL_WARNING;
+		}
 #else
 		level = LOG_LEVEL_WARNING;
 #endif
@@ -121,6 +143,9 @@ ssh_session create_ssh_connection(const ssh_params_t* ssh_params, char** err_inf
 		goto failure;
 	}
 
+	ssh_options_set(sshs, SSH_OPTIONS_LOG_VERBOSITY, &ssh_params->debug);
+	ssh_set_log_callback(extcap_log);
+
 	if (ssh_options_set(sshs, SSH_OPTIONS_HOST, ssh_params->host)) {
 		*err_info = ws_strdup_printf("Can't set the host: %s", ssh_params->host);
 		goto failure;
@@ -129,20 +154,32 @@ ssh_session create_ssh_connection(const ssh_params_t* ssh_params, char** err_inf
 	/* Load the configurations already present in the system configuration file. */
 	/* They will be overwritten by the user-provided configurations. */
 #ifdef _WIN32
-	/* On Windows, do not try to read C:\etc\ssh\ssh_config.
-	 * libssh tries to read from /etc/ssh/ssh_config on all OSes by
-	 * default (i.e., if the second parameter is NULL.)
+	/* libssh < 0.11.4 tries to read C:\etc\ssh\ssh_config by default
+	 * on Windows (i.e., if the second parameter is NULL.), and later
+	 * versions try to read from %PROGRAMDATA%\ssh\ssh_config. Neither
+	 * of those is a good choice for us, since anyone can create them
+	 * if they don't exist. Just look for %HOME%\.ssh\config instead.
+	 *
+	 * libssh < 0.12.0 treats %d as "%HOME%\.ssh" (or "~/.ssh" on UN*X),
+	 * which doesn't match ssh_config(5) or openssh. Fixed in
+	 * https://gitlab.com/libssh/libssh-mirror/-/commit/ce0b616bc648e4d510bf8ea20af5572861b412a0
+	 * https://gitlab.com/libssh/libssh-mirror/-/work_items/349
+	 *
+	 * We have to check the runtime version here.
 	 */
-	if (ssh_options_parse_config(sshs, "%d/config") != 0) {
+	const char *user_config;
+	if (NULL == ssh_version(SSH_VERSION_INT(0,12,0))) {
+		user_config = "%d/config";
+	} else {
+		user_config = "%d/.ssh/config";
+	}
+	if (ssh_options_parse_config(sshs, user_config) != 0) {
 #else
 	if (ssh_options_parse_config(sshs, NULL) != 0) {
 #endif
 		*err_info = g_strdup("Unable to load the configuration file");
 		goto failure;
 	}
-
-	ssh_options_set(sshs, SSH_OPTIONS_LOG_VERBOSITY, &ssh_params->debug);
-	ssh_set_log_callback(extcap_log);
 
 	if (ssh_params->ssh_sha1) {
 		if (ssh_options_set(sshs, SSH_OPTIONS_HOSTKEYS, HOSTKEYS_SHA1)) {

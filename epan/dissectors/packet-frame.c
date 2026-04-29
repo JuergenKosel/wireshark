@@ -11,6 +11,8 @@
 
 #include "config.h"
 
+#include <string.h>
+
 #ifdef _MSC_VER
 #include <windows.h>
 #endif
@@ -27,7 +29,6 @@
 #include <epan/proto_data.h>
 #include <epan/expert.h>
 #include <epan/tfs.h>
-#include <wsutil/application_flavor.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/str_util.h>
 #include <wsutil/wslog.h>
@@ -41,7 +42,9 @@
 #include <epan/color_filters.h>
 
 void proto_register_frame(void);
+void event_register_frame(void);
 void proto_reg_handoff_frame(void);
+void event_reg_handoff_frame(void);
 
 static int proto_frame;
 static int proto_pkt_comment;
@@ -514,6 +517,25 @@ handle_packet_option(wtap_block_t block _U_, unsigned option_id,
 	return true;
 }
 
+static void
+add_color_filter_to_tree(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
+                         const color_filter_t *colorf)
+{
+	ensure_tree_item(tree, 1);
+	const char *display_name = colorf->filter_name;
+	if (color_filter_is_session_disabled(colorf->filter_name)) {
+		display_name = wmem_strdup_printf(pinfo->pool, "[PAUSED] %s", colorf->filter_name);
+	}
+	proto_item *item = proto_tree_add_string(tree, hf_frame_color_filter_name, tvb,
+	                                         0, 0, display_name);
+	proto_item_set_generated(item);
+
+	ensure_tree_item(tree, 1);
+	item = proto_tree_add_string(tree, hf_frame_color_filter_text, tvb,
+	                             0, 0, colorf->filter_text);
+	proto_item_set_generated(item);
+}
+
 static int
 dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data)
 {
@@ -956,32 +978,32 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 
 	if (pinfo->rec->rec_type == REC_TYPE_PACKET) {
 		if (do_frame_dissection) {
-			/* Check for existences of P2P pseudo header */
+			/* Check for existence of P2P pseudo header */
 			if (pinfo->p2p_dir != P2P_DIR_UNKNOWN) {
 				proto_tree_add_int(fh_tree, hf_frame_p2p_dir, tvb,
 						   0, 0, pinfo->p2p_dir);
 			}
 
-			/* Check for existences of MTP2 link number */
+			/* Check for existence of MTP2 link number */
 			if ((pinfo->pseudo_header != NULL) &&
 			    (pinfo->rec->rec_header.packet_header.pkt_encap == WTAP_ENCAP_MTP2_WITH_PHDR)) {
 				proto_tree_add_uint(fh_tree, hf_frame_link_number, tvb,
 						    0, 0, pinfo->link_number);
 			}
 		}
-
-		/*
-		 * Process custom options.
-		 */
-		struct custom_binary_opt_cb_data cb_data;
-
-		cb_data.pinfo = pinfo;
-		cb_data.tvb = tvb;
-		cb_data.tree = fh_tree;
-		cb_data.data.optval = NULL;
-		wtap_block_foreach_option(fr_data->pkt_block,
-		    handle_packet_option, &cb_data);
 	}
+
+	/*
+	 * Process custom options.
+	 */
+	struct custom_binary_opt_cb_data cb_data;
+
+	cb_data.pinfo = pinfo;
+	cb_data.tvb = tvb;
+	cb_data.tree = fh_tree;
+	cb_data.data.optval = NULL;
+	wtap_block_foreach_option(fr_data->pkt_block,
+	    handle_packet_option, &cb_data);
 
 	/* If there is Darwin data, call the dissector */
 	if (p_get_proto_data(wmem_file_scope(), pinfo, proto_darwin, 0) != NULL) {
@@ -1242,21 +1264,65 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 
 	/* Attempt to (re-)calculate color filters (if any). */
 	if (pinfo->fd->need_colorize) {
-		color_filter = color_filters_colorize_packet(fr_data->color_edt);
+		wmem_list_t *matches = NULL;
+
+		/* Get ALL matching color filters (not just first).
+		 * Store matches in proto_data so the display code below can show
+		 * multiple matching rules in the frame tree. This enables multi-color
+		 * support in TShark when --color flag is used. */
+		color_filter = color_filters_colorize_packet_all(fr_data->color_edt, wmem_file_scope(), &matches);
 		pinfo->fd->color_filter = color_filter;
 		pinfo->fd->need_colorize = 0;
+
+		/* Always clear any previously stored match list, then store the new
+		 * one (if any).  Clearing unconditionally ensures stale matches do
+		 * not linger when a rule change causes the packet to stop matching. */
+		wmem_list_t *old_matches = (wmem_list_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_frame, 0);
+		if (old_matches) {
+			wmem_destroy_list(old_matches);
+			p_remove_proto_data(wmem_file_scope(), pinfo, proto_frame, 0);
+		}
+		if (matches) {
+			p_add_proto_data(wmem_file_scope(), pinfo, proto_frame, 0, matches);
+		}
 	} else {
 		color_filter = pinfo->fd->color_filter;
 	}
-	if (color_filter) {
-		ensure_tree_item(fh_tree, 1);
-		item = proto_tree_add_string(fh_tree, hf_frame_color_filter_name, tvb,
-					     0, 0, color_filter->filter_name);
-		proto_item_set_generated(item);
-		ensure_tree_item(fh_tree, 1);
-		item = proto_tree_add_string(fh_tree, hf_frame_color_filter_text, tvb,
-					     0, 0, color_filter->filter_text);
-		proto_item_set_generated(item);
+
+	if (fh_tree) {
+		/* Retrieve all matching filters from proto_data (stored during colorization above).
+		 * This enables multi-color display for both GUI and TShark. */
+		wmem_list_t *matches = (wmem_list_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_frame, 0);
+		/* If proto_data was cleared (e.g., after rescan_packets() without color priming)
+		 * but we have a known primary color filter, re-run colorization now. The full
+		 * protocol tree has already been built by sub-dissectors above, so dfilter
+		 * evaluation works correctly without prior priming. */
+		if (!matches && color_filter != NULL && prefs.gui_packet_list_multi_color_details) {
+			color_filters_colorize_packet_all(fr_data->color_edt, wmem_file_scope(), &matches);
+			if (matches) {
+				p_add_proto_data(wmem_file_scope(), pinfo, proto_frame, 0, matches);
+			}
+		}
+
+		/* Show all matching color filters if packet details multi-color is enabled.
+		 * This is controlled independently from packet list and scrollbar display. */
+		if (matches && prefs.gui_packet_list_multi_color_details) {
+			/* Show all matching color filters from stored list */
+			for (wmem_list_frame_t *lf = wmem_list_head(matches); lf != NULL; lf = wmem_list_frame_next(lf)) {
+				const color_filter_t *colorf = (const color_filter_t *)wmem_list_frame_data(lf);
+				/* Skip conversation color filters (temporary filters) */
+				if (strncmp(colorf->filter_name, CONVERSATION_COLOR_PREFIX, strlen(CONVERSATION_COLOR_PREFIX)) == 0) {
+					continue;
+				}
+				add_color_filter_to_tree(fh_tree, tvb, pinfo, colorf);
+			}
+		} else if (color_filter != NULL) {
+			/* Fallback to single filter if no stored matches */
+			/* Skip conversation color filters (temporary filters) */
+			if (strncmp(color_filter->filter_name, CONVERSATION_COLOR_PREFIX, strlen(CONVERSATION_COLOR_PREFIX)) != 0) {
+				add_color_filter_to_tree(fh_tree, tvb, pinfo, color_filter);
+			}
+		}
 	}
 
 	tap_queue_packet(frame_tap, pinfo, NULL);
@@ -1299,8 +1365,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	return tvb_captured_length(tvb);
 }
 
-void
-proto_register_frame(void)
+static void common_register_frame(bool use_packets)
 {
 	static hf_register_info hf[] = {
 		{ &hf_frame_arrival_time_local,
@@ -1607,8 +1672,8 @@ proto_register_frame(void)
 		arr[encap_count].strptr = NULL;
 	}
 
-	proto_frame = proto_register_protocol("Frame", "Frame", "frame");
-	if (application_flavor_is_wireshark()) {
+	proto_frame = proto_register_protocol("Frame", "Frame", "frame"); /* name, short name, abbreviation */
+	if (use_packets) {
 		proto_pkt_comment = proto_register_protocol_in_name_only("Packet comments", "Pkt_Comment", "pkt_comment", proto_frame, FT_PROTOCOL);
 		proto_register_alias(proto_pkt_comment, "evt_comment");
 	} else {
@@ -1671,14 +1736,31 @@ proto_register_frame(void)
 }
 
 void
+proto_register_frame(void)
+{
+	common_register_frame(true);
+}
+
+void
+event_register_frame(void)
+{
+	common_register_frame(false);
+}
+
+void
 proto_reg_handoff_frame(void)
 {
 	docsis_handle = find_dissector_add_dependency("docsis", proto_frame);
-	sysdig_handle = find_dissector_add_dependency("sysdig", proto_frame);
-	systemd_journal_handle = find_dissector_add_dependency("systemd_journal", proto_frame);
 	darwin_handle = find_dissector_add_dependency("darwin", proto_frame);
 
 	proto_darwin = proto_registrar_get_id_byname("darwin");
+}
+
+void
+event_reg_handoff_frame(void)
+{
+	sysdig_handle = find_dissector_add_dependency("sysdig", proto_frame);
+	systemd_journal_handle = find_dissector_add_dependency("systemd_journal", proto_frame);
 }
 
 /*

@@ -22,7 +22,7 @@
 #include <epan/fifo_string_cache.h>
 #include <wsutil/processes.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #ifdef __cplusplus
 extern "C" {

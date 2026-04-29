@@ -86,10 +86,10 @@ static nstime_t get_entry_timestamp(const char *log_data, size_t entry_size) {
                 int key_len = (int) strlen(timestamp_keys[key]);
                 if (key_len == tokens[idx].end - tokens[idx].start && strncmp(log_data + tokens[idx].start, timestamp_keys[key], key_len) == 0) {
                     nstime_t ts;
-                    if (iso8601_to_nstime(&ts, log_data + tokens[idx+1].start, ISO8601_DATETIME_AUTO)) {
-                        return ts;
-                    }
-                    return (nstime_t) NSTIME_INIT_ZERO;
+                    char* ts_str = g_strndup(log_data + tokens[idx + 1].start, tokens[idx + 1].end-tokens[idx + 1].start);
+                    const char* success = iso8601_to_nstime(&ts, ts_str, ISO8601_DATETIME_AUTO);
+                    g_free(ts_str);
+                    return ((success != NULL) ? ts : (nstime_t) NSTIME_INIT_ZERO);
                 }
             }
         }
@@ -176,7 +176,7 @@ size_t json_object_size(const char *log_data, const char *log_end) {
 
 wtap_open_return_val json_log_open(wtap *wth, int *err, char **err_info _U_)
 {
-    char *log_buf = g_new(char, MAX_JSON_LOG_ENTRY_SIZE);
+    char *log_buf = g_new(char, MAX_JSON_LOG_ENTRY_SIZE+1);
     char *log_data = log_buf;
 
     if (!tokens) {
@@ -189,8 +189,9 @@ wtap_open_return_val json_log_open(wtap *wth, int *err, char **err_info _U_)
         g_free(log_buf);
         return WTAP_OPEN_NOT_MINE;
     }
-
-    const char *log_end = log_data + bytes_read - 1;
+    //Treat file data as a string and null-terminate it
+    log_buf[bytes_read] = '\0';
+    const char *log_end = log_data + bytes_read;
 
     ptrdiff_t cloudtrail_header_len = skip_cloudtrail_header(log_data, log_end);
 
@@ -199,14 +200,14 @@ wtap_open_return_val json_log_open(wtap *wth, int *err, char **err_info _U_)
     size_t entry_size = json_object_size(log_data, log_end);
 
     nstime_t ts = get_entry_timestamp(log_data, entry_size);
-
+    int64_t entry_offset = log_data - log_buf;
     g_free(log_buf);
 
     if (nstime_is_zero(&ts)) {
         return WTAP_OPEN_NOT_MINE;
     }
 
-    if (file_seek(wth->fh, log_data - log_buf, SEEK_SET, err) == -1) {
+    if (file_seek(wth->fh, entry_offset, SEEK_SET, err) == -1) {
         return WTAP_OPEN_ERROR;
     }
 
@@ -260,8 +261,8 @@ static bool json_log_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, int *err, 
     }
     const char *log_end = log_data + bytes_read - 1;
 
-
     size_t entry_size = json_object_size(log_data, log_end);
+    ws_buffer_increase_length(&rec->data, entry_size);
 
     nstime_t ts = get_entry_timestamp(log_data, entry_size);
     if (nstime_is_zero(&ts)) {

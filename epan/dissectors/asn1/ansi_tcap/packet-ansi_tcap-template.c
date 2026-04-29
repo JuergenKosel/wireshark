@@ -25,10 +25,6 @@
 #include "packet-tcap.h"
 #include "packet-ansi_tcap.h"
 
-#define PNAME  "ANSI Transaction Capabilities Application Part"
-#define PSNAME "ANSI_TCAP"
-#define PFNAME "ansi_tcap"
-
 void proto_register_ansi_tcap(void);
 void proto_reg_handoff_ansi_tcap(void);
 
@@ -165,6 +161,7 @@ static int ett_dtid;
 static int ett_ansi_tcap_stat;
 
 static expert_field ei_ansi_tcap_dissector_not_implemented;
+static expert_field ei_ansi_tcap_no_parameters;
 
 static struct tcapsrt_info_t * gp_tcapsrt_info;
 static bool tcap_subdissector_used=false;
@@ -381,7 +378,7 @@ static const value_string ansi_tcap_national_parameter_generic_name_type_of_name
  { 1, "Calling name" },
  { 2, "Original called name" },
  { 3, "Redirected name" },
- { 4, "Redirected name" },
+ { 4, "Connected name" },
  { 5, "Spare" },
  { 6, "Spare" },
  { 7, "Spare" },
@@ -1053,17 +1050,16 @@ find_tcap_subdissector(tvbuff_t *tvb, asn1_ctx_t *actx, proto_tree *tree){
         }
         if(ansi_tcap_private.d.OperationCode == 0){
                 /* national */
-                proto_item          *item2=NULL;
+                proto_item          *item2;
                 proto_tree          *tree2=NULL;
                 uint8_t family = (ansi_tcap_private.d.OperationCode_national & 0x7f00)>>8;
                 uint8_t specifier = (uint8_t)(ansi_tcap_private.d.OperationCode_national & 0xff);
                 if(!dissector_try_uint(ansi_tcap_national_opcode_table, ansi_tcap_private.d.OperationCode_national, tvb, actx->pinfo, actx->subtree.top_tree)){
-                        proto_tree_add_expert_format(tree, actx->pinfo, &ei_ansi_tcap_dissector_not_implemented, tvb, 0, -1,
+                        proto_tree_add_expert_format_remaining(tree, actx->pinfo, &ei_ansi_tcap_dissector_not_implemented, tvb, 0,
                                         "Dissector for ANSI TCAP NATIONAL code:0x%x(Family %u, Specifier %u) \n"
                                         "not implemented. Contact Wireshark developers if you want this supported(Spec required)",
                                         ansi_tcap_private.d.OperationCode_national, family, specifier);
-                        item2 = proto_tree_add_text_internal(tree, tvb, 0, 1, "Parameters");
-                        tree2 = proto_item_add_subtree(item2, ett_tcap);
+                        tree2 = proto_tree_add_subtree(tree, tvb, 0, 1, ett_tcap, &item2, "Parameters");
                         int offset_parameter = 0;
                         proto_tree_add_item(tree2, hf_ansi_tcap_parameter_set_start, tvb, 0, 1, ENC_BIG_ENDIAN);
 
@@ -1078,7 +1074,7 @@ find_tcap_subdissector(tvbuff_t *tvb, asn1_ctx_t *actx, proto_tree *tree){
                                 offset_parameter +=1;
                             }
                         }else{
-                            proto_tree_add_text_internal(tree2, tvb, 0, 1, "No parameters exists");
+                            expert_add_info(actx->pinfo, item2, &ei_ansi_tcap_no_parameters);
                         }
 
                         return false;
@@ -1104,7 +1100,7 @@ find_tcap_subdissector(tvbuff_t *tvb, asn1_ctx_t *actx, proto_tree *tree){
                     return true;
                 }
         }
-        proto_tree_add_expert_format(tree, actx->pinfo, &ei_ansi_tcap_dissector_not_implemented, tvb, 0, -1,
+        proto_tree_add_expert_format_remaining(tree, actx->pinfo, &ei_ansi_tcap_dissector_not_implemented, tvb, 0,
             "Dissector for ANSI TCAP PRIVATE code:%u not implemented.\n"
             "Contact Wireshark developers if you want this supported(Spec required)",
             ansi_tcap_private.d.OperationCode_private);
@@ -1556,7 +1552,7 @@ proto_register_ansi_tcap(void)
         { &hf_ansi_tcap_parameter_look_ahead_for_busy_location_field,
           { "Location",
             "ansi_tcap.look_ahead_for_busy_location",
-            FT_UINT8, BASE_HEX, VALS(ansi_tcap_national_parameter_look_ahead_for_busy_location_field), 0x03,
+            FT_UINT8, BASE_HEX, VALS(ansi_tcap_national_parameter_look_ahead_for_busy_location_field), 0x0f,
             NULL, HFILL }
         },
         { &hf_ansi_tcap_parameter_acg_control_cause_indicator,
@@ -1818,6 +1814,7 @@ proto_register_ansi_tcap(void)
 
     static ei_register_info ei[] = {
         { &ei_ansi_tcap_dissector_not_implemented, { "ansi_tcap.dissector_not_implemented", PI_UNDECODED, PI_WARN, "Dissector not implemented", EXPFILL }},
+        { &ei_ansi_tcap_no_parameters, { "ansi_tcap.no_parameters", PI_PROTOCOL, PI_NOTE, "No parameters exist", EXPFILL }},
     };
 
     expert_module_t* expert_ansi_tcap;
@@ -1830,7 +1827,7 @@ proto_register_ansi_tcap(void)
     };
 
 /* Register the protocol name and description */
-    proto_ansi_tcap = proto_register_protocol(PNAME, PSNAME, PFNAME);
+    proto_ansi_tcap = proto_register_protocol("ANSI Transaction Capabilities Application Part", "ANSI_TCAP", "ansi_tcap");
     register_dissector("ansi_tcap", dissect_ansi_tcap, proto_ansi_tcap);
 
    /* Note the high bit should be masked off when registering in this table (0x7fff)*/

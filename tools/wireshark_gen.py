@@ -39,12 +39,8 @@
 
 """Wireshark IDL compiler back-end."""
 
-from __future__ import print_function
-
 import collections
 import tempfile
-import string
-import random
 
 from omniidl import idlast, idltype, idlutil, output
 
@@ -619,10 +615,9 @@ class wireshark_gen_C:
         if self.isItemVarType(attr_type):
             self.st.out(self.template_proto_item)
 
-        if len(self.fn_hash[sname]) > 0:
-            self.st.out(self.template_helper_function_vars_start)
-            self.dumpCvars(sname)
-            self.st.out(self.template_helper_function_vars_end_item)
+        self.st.out(self.template_helper_function_vars_start)
+        self.dumpCvars(sname)
+        self.st.out(self.template_helper_function_vars_end_item)
 
         self.getCDR(attr_type, sname + "_" + decl.identifier())
 
@@ -675,13 +670,12 @@ class wireshark_gen_C:
         if need_item:
             self.st.out(self.template_proto_item)
 
-        if len(self.fn_hash[sname]) > 0:
-            self.st.out(self.template_helper_function_vars_start)
-            self.dumpCvars(sname)
-            if need_item:
-                self.st.out(self.template_helper_function_vars_end_item)
-            else:
-                self.st.out(self.template_helper_function_vars_end)
+        self.st.out(self.template_helper_function_vars_start)
+        self.dumpCvars(sname)
+        if need_item:
+            self.st.out(self.template_helper_function_vars_end_item)
+        else:
+            self.st.out(self.template_helper_function_vars_end)
 
         for m in ex.members():
             if self.DEBUG:
@@ -692,11 +686,10 @@ class wireshark_gen_C:
                     print("//XXX genExhelper, d = ", decl)
 
                 if decl.sizes():  # an array
-                    arr_nonce = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(12))
                     indices = self.get_indices_from_sizes(decl.sizes())
                     string_indices = '%i ' % indices  # convert int to string
                     self.st.out(self.template_get_CDR_array_comment, aname=decl.identifier(), asize=string_indices)
-                    self.st.out(self.template_get_CDR_array_start, nonce=arr_nonce, aname=decl.identifier(), aval=string_indices)
+                    self.st.out(self.template_get_CDR_array_start, aname=decl.identifier(), aval=string_indices)
                     self.st.inc_indent()
                     self.addvar(self.c_i + decl.identifier() + ";")
 
@@ -705,7 +698,7 @@ class wireshark_gen_C:
 
                     self.st.dec_indent()
                     self.st.dec_indent()
-                    self.st.out(self.template_get_CDR_array_end, nonce=arr_nonce)
+                    self.st.out(self.template_get_CDR_array_end)
 
                 else:
                     self.getCDR(m.memberType(), sname + "_" + decl.identifier())
@@ -754,10 +747,9 @@ class wireshark_gen_C:
         self.st.out(self.template_helper_function_start, sname=sname)
         self.st.inc_indent()
 
-        if len(self.fn_hash[sname]) > 0:
-            self.st.out(self.template_helper_function_vars_start)
-            self.dumpCvars(sname)
-            self.st.out(self.template_helper_function_vars_end_item)
+        self.st.out(self.template_helper_function_vars_start)
+        self.dumpCvars(sname)
+        self.st.out(self.template_helper_function_vars_end_item)
 
         self.st.out(self.template_helper_switch_msgtype_start)
 
@@ -1400,10 +1392,9 @@ class wireshark_gen_C:
             self.st.out(self.template_union_helper_function_start, sname=sname, unname=un.repoId())
         self.st.inc_indent()
 
-        if len(self.fn_hash[sname]) > 0:
-            self.st.out(self.template_helper_function_vars_start)
-            self.dumpCvars(sname)
-            self.st.out(self.template_helper_function_vars_end_item)
+        self.st.out(self.template_helper_function_vars_start)
+        self.dumpCvars(sname)
+        self.st.out(self.template_helper_function_vars_end_item)
 
         st = un.switchType().unalias()  # may be typedef switch type, so find real type
 
@@ -1539,8 +1530,7 @@ class wireshark_gen_C:
             string_indices = '%i ' % indices  # convert int to string
             self.st.out(self.template_get_CDR_array_comment, aname=pn, asize=string_indices)
 
-            arr_nonce = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(12))
-            self.st.out(self.template_get_CDR_array_start, nonce=arr_nonce, aname=pn, aval=string_indices)
+            self.st.out(self.template_get_CDR_array_start, aname=pn, aval=string_indices)
             self.st.inc_indent()
             self.addvar(self.c_i + pn + ";")
             self.st.inc_indent()
@@ -1548,7 +1538,7 @@ class wireshark_gen_C:
 
             self.st.dec_indent()
             self.st.dec_indent()
-            self.st.out(self.template_get_CDR_array_end, nonce=arr_nonce)
+            self.st.out(self.template_get_CDR_array_end)
 
         else:  # a simple typdef
             if self.DEBUG:
@@ -1595,19 +1585,17 @@ class wireshark_gen_C:
         self.st.out(self.template_struct_helper_function_start, sname=sname, stname=st.repoId())
         self.st.inc_indent()
 
-        if len(self.fn_hash[sname]) > 0:
-            self.st.out(self.template_helper_function_vars_start)
-            self.dumpCvars(sname)
-            self.st.out(self.template_helper_function_vars_end_item)
+        self.st.out(self.template_helper_function_vars_start)
+        self.dumpCvars(sname)
+        self.st.out(self.template_helper_function_vars_end_item)
 
         for m in st.members():
             for decl in m.declarators():
                 if decl.sizes():        # an array
-                    arr_nonce = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(12))
                     indices = self.get_indices_from_sizes(decl.sizes())
                     string_indices = '%i ' % indices  # convert int to string
                     self.st.out(self.template_get_CDR_array_comment, aname=decl.identifier(), asize=string_indices)
-                    self.st.out(self.template_get_CDR_array_start, nonce=arr_nonce, aname=decl.identifier(), aval=string_indices)
+                    self.st.out(self.template_get_CDR_array_start, aname=decl.identifier(), aval=string_indices)
                     self.st.inc_indent()
                     self.addvar(self.c_i + decl.identifier() + ";")
 
@@ -1615,7 +1603,7 @@ class wireshark_gen_C:
                     self.getCDR(m.memberType(), sname + "_" + decl.identifier())
                     self.st.dec_indent()
                     self.st.dec_indent()
-                    self.st.out(self.template_get_CDR_array_end, nonce=arr_nonce)
+                    self.st.out(self.template_get_CDR_array_end)
 
                 else:
                     self.getCDR(m.memberType(), sname + "_" + decl.identifier())
@@ -1628,8 +1616,7 @@ class wireshark_gen_C:
         if self.DEBUG:
             print("//XXX get_CDR_sequence")
         self.st.out(self.template_get_CDR_sequence_length, seqname=pn)
-        seq_nonce = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(12))
-        self.st.out(self.template_get_CDR_sequence_loop_start, nonce=seq_nonce, seqname=pn)
+        self.st.out(self.template_get_CDR_sequence_loop_start, seqname=pn)
         self.addvar(self.c_i_lim + pn + ";")
         self.addvar(self.c_i + pn + ";")
 
@@ -1639,7 +1626,7 @@ class wireshark_gen_C:
         self.st.dec_indent()
         self.st.dec_indent()
 
-        self.st.out(self.template_get_CDR_sequence_loop_end, nonce=seq_nonce)
+        self.st.out(self.template_get_CDR_sequence_loop_end)
 
     def get_CDR_sequence_octet(self, type, pn):
         """Generate code to access a sequence of octet"""
@@ -1873,7 +1860,9 @@ class wireshark_gen_C:
  * @repoid@
  */"""
     template_helper_function_vars_start = """\
-/* Operation specific Variable declarations Begin */"""
+/* Operation specific Variable declarations Begin */
+_U_ wmem_stack_t *tree_stack = wmem_stack_new(pinfo->pool);
+_U_ int old_offset;"""
 
     template_helper_function_vars_end = """\
 /* Operation specific Variable declarations End */
@@ -2102,40 +2091,51 @@ break;"""
     # Templates for get_CDR_xxx accessors
 
     template_get_CDR_ulong = """\
-proto_tree_add_uint(tree, hf_@hfname@, tvb, *offset-4, 4, get_CDR_ulong(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_uint(tree, hf_@hfname@, tvb, old_offset, 4, get_CDR_ulong(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_short = """\
-proto_tree_add_int(tree, hf_@hfname@, tvb, *offset-2, 2, get_CDR_short(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_int(tree, hf_@hfname@, tvb, old_offset, 2, get_CDR_short(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_void = """\
 /* Function returns void */
 """
     template_get_CDR_long = """\
-proto_tree_add_int(tree, hf_@hfname@, tvb, *offset-4, 4, get_CDR_long(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_int(tree, hf_@hfname@, tvb, old_offset, 4, get_CDR_long(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_ushort = """\
-proto_tree_add_uint(tree, hf_@hfname@, tvb, *offset-2, 2, get_CDR_ushort(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_uint(tree, hf_@hfname@, tvb, old_offset, 2, get_CDR_ushort(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_float = """\
-proto_tree_add_float(tree, hf_@hfname@, tvb, *offset-4, 4, get_CDR_float(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_float(tree, hf_@hfname@, tvb, old_offset, 4, get_CDR_float(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_double = """\
-proto_tree_add_double(tree, hf_@hfname@, tvb, *offset-8, 8, get_CDR_double(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_double(tree, hf_@hfname@, tvb, old_offset, 8, get_CDR_double(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_longlong = """\
-proto_tree_add_int64(tree, hf_@hfname@, tvb, *offset-8, 8, get_CDR_long_long(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_int64(tree, hf_@hfname@, tvb, old_offset, 8, get_CDR_long_long(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_ulonglong = """\
-proto_tree_add_uint64(tree, hf_@hfname@, tvb, *offset-8, 8, get_CDR_ulong_long(tvb,offset,stream_is_big_endian, boundary));
+old_offset = *offset;
+proto_tree_add_uint64(tree, hf_@hfname@, tvb, old_offset, 8, get_CDR_ulong_long(tvb,offset,stream_is_big_endian, boundary));
 """
     template_get_CDR_boolean = """\
-proto_tree_add_boolean(tree, hf_@hfname@, tvb, *offset-1, 1, get_CDR_boolean(tvb,offset));
+old_offset = *offset;
+proto_tree_add_boolean(tree, hf_@hfname@, tvb, old_offset, 1, get_CDR_boolean(tvb,offset));
 """
     template_get_CDR_char = """\
-proto_tree_add_uint(tree, hf_@hfname@, tvb, *offset-1, 1, get_CDR_char(tvb,offset));
+old_offset = *offset;
+proto_tree_add_uint(tree, hf_@hfname@, tvb, old_offset, 1, get_CDR_char(tvb,offset));
 """
     template_get_CDR_octet = """\
-proto_tree_add_uint(tree, hf_@hfname@, tvb, *offset-1, 1, get_CDR_octet(tvb,offset));
+old_offset = *offset;
+proto_tree_add_uint(tree, hf_@hfname@, tvb, old_offset, 1, get_CDR_octet(tvb,offset));
 """
     template_get_CDR_any = """\
 get_CDR_any(tvb, pinfo, tree, item, offset, stream_is_big_endian, boundary, header);
@@ -2186,13 +2186,13 @@ item = proto_tree_add_uint(tree, hf_@seqname@_loop, tvb,*offset-4, 4, u_octet4_l
 """
     template_get_CDR_sequence_loop_start = """\
 {
-    proto_tree *tree_bak_@nonce@ = tree;
+    wmem_stack_push(tree_stack, tree);
     tree = proto_tree_add_subtree(tree, tvb, *offset, -1, ett_giop_sequence, NULL, "sequence @seqname@");
     for (i_@seqname@=0; i_@seqname@ < u_octet4_loop_@seqname@; i_@seqname@++) {
 """
     template_get_CDR_sequence_loop_end = """\
     }
-    tree = tree_bak_@nonce@;
+    tree = (proto_tree*)wmem_stack_pop(tree_stack);
 }
 """
 
@@ -2208,13 +2208,13 @@ if (u_octet4_loop_@seqname@ > 0 && tree) {
 """
     template_get_CDR_array_start = """\
 {
-    proto_tree *tree_bak_@nonce@ = tree;
+    wmem_stack_push(tree_stack, tree);
     tree = proto_tree_add_subtree(tree, tvb, *offset, -1, ett_giop_array, NULL, "array @aname@");
     for (i_@aname@=0; i_@aname@ < @aval@; i_@aname@++) {
 """
     template_get_CDR_array_end = """\
     }
-    tree = tree_bak_@nonce@;
+    tree = (proto_tree*)wmem_stack_pop(tree_stack);
 }
 """
     template_get_CDR_array_comment = """\
@@ -2429,7 +2429,7 @@ dissect_@dissname@(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ptree, int *of
 {
     proto_item *item _U_;
     proto_tree *tree _U_;
-    bool stream_is_big_endian = is_big_endian(header); /* get endianess */
+    bool stream_is_big_endian = is_big_endian(header); /* get endianness */
 
     /* If we have a USER Exception, then decode it and return */
     if ((header->message_type == Reply) && (header->rep_status == USER_EXCEPTION)) {

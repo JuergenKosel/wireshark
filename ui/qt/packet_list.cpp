@@ -18,7 +18,6 @@
 
 #include <epan/column.h>
 #include <epan/expert.h>
-#include <epan/ipproto.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/proto.h>
@@ -34,7 +33,7 @@
 #include "ui/util.h"
 
 #include "wiretap/wtap_opttypes.h"
-#include "wsutil/application_flavor.h"
+#include "app/application_flavor.h"
 #include "wsutil/str_util.h"
 #include <wsutil/wslog.h>
 
@@ -211,7 +210,14 @@ PacketList::PacketList(QWidget *parent) :
     setRootIsDecorated(false);
     setSortingEnabled(prefs.gui_packet_list_sortable);
     setUniformRowHeights(true);
-    setAccessibleName("Packet list");
+    setFocusPolicy(Qt::StrongFocus);
+
+#ifdef Q_OS_MAC
+    setAttribute(Qt::WA_MacShowFocusRect, true);
+#endif
+
+    verticalScrollBar()->setFocusPolicy(Qt::NoFocus);
+    horizontalScrollBar()->setFocusPolicy(Qt::NoFocus);
 
     packet_list_header_ = new PacketListHeader(header()->orientation());
     connect(packet_list_header_, &PacketListHeader::resetColumnWidth, this, &PacketList::setRecentColumnWidth);
@@ -798,7 +804,7 @@ void PacketList::ctxDecodeAsDialog()
 void PacketList::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == overlay_timer_id_) {
-        if (!capture_in_progress_) {
+        if (!capture_in_progress_ && model() != nullptr) {
             if (create_near_overlay_) drawNearOverlay();
             if (create_far_overlay_) drawFarOverlay();
         }
@@ -1010,6 +1016,28 @@ void PacketList::keyPressEvent(QKeyEvent *event)
     }
 }
 
+void PacketList::focusInEvent(QFocusEvent *event)
+{
+    QTreeView::focusInEvent(event);
+
+    if (event->reason() == Qt::TabFocusReason || event->reason() == Qt::BacktabFocusReason) {
+        if (model() && model()->rowCount() > 0 && selectionModel()) {
+            if (!selectionModel()->hasSelection()) {
+                QModelIndex first = model()->index(0, 0);
+                if (first.isValid()) {
+                    selectionModel()->setCurrentIndex(first, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                    setCurrentIndex(first);
+                }
+            }
+            
+            // ALWAYS scroll to the current index if we have one
+            if (currentIndex().isValid()) {
+                scrollTo(currentIndex());
+            }
+        }
+    }
+}
+
 void PacketList::resizeEvent(QResizeEvent *event)
 {
     create_near_overlay_ = true;
@@ -1020,7 +1048,7 @@ void PacketList::resizeEvent(QResizeEvent *event)
 void PacketList::setColumnVisibility()
 {
     set_column_visibility_ = true;
-    for (int i = 0; i < prefs.num_cols; i++) {
+    for (unsigned i = 0; i < prefs.num_cols; i++) {
         setColumnHidden(i, get_column_visible(i) ? false : true);
     }
     setColumnDelegate();
@@ -1029,12 +1057,21 @@ void PacketList::setColumnVisibility()
 
 void PacketList::setColumnDelegate()
 {
-    for (int i = 0; i < prefs.num_cols; i++) {
+    for (unsigned i = 0; i < prefs.num_cols; i++) {
         setItemDelegateForColumn(i, nullptr);   // Reset all delegates
     }
 
-    if (prefs.gui_packet_list_show_related) {
-        for (int i = 0; i < prefs.num_cols; i++) {
+    // Multi-color delegate takes precedence over related packet delegate (row stripes only, not scrollbar-only mode)
+    if (prefs.gui_packet_list_multi_color_mode == PACKET_LIST_MULTI_COLOR_MODE_FULL ||
+        prefs.gui_packet_list_multi_color_mode == PACKET_LIST_MULTI_COLOR_MODE_SHIFT_RIGHT) {
+        for (unsigned i = 0; i < prefs.num_cols; i++) {
+            if (get_column_visible(i)) {
+                setItemDelegateForColumn(i, &multi_color_delegate_);
+            }
+        }
+    }
+    else if (prefs.gui_packet_list_show_related) {
+        for (unsigned i = 0; i < prefs.num_cols; i++) {
             if (get_column_visible(i)) {
                 setItemDelegateForColumn(i, &related_packet_delegate_);
                 break;  // Set the delegate only on the first visible column
@@ -1211,14 +1248,12 @@ void PacketList::applyRecentColumnWidths()
     // Either we've just started up or a profile has changed. Read
     // the recent settings, apply them, and save the header state.
 
-    for (int col = 0; col < prefs.num_cols; col++) {
+    for (unsigned col = 0; col < prefs.num_cols; col++) {
         // The column must be shown before setting column width.
         // Visibility will be updated in setColumnVisibility().
         setColumnHidden(col, false);
         setRecentColumnWidth(col);
     }
-
-    column_state_ = header()->saveState();
 }
 
 void PacketList::preferencesChanged()
@@ -1379,11 +1414,11 @@ void PacketList::clear() {
 }
 
 void PacketList::writeRecent(FILE *rf) {
-    int col, width, col_fmt;
+    int width, col_fmt;
     char xalign;
 
     fprintf (rf, "%s:\n", RECENT_KEY_COL_WIDTH);
-    for (col = 0; col < prefs.num_cols; col++) {
+    for (unsigned col = 0; col < prefs.num_cols; col++) {
         if (col > 0) {
             fprintf (rf, ",\n");
         }
@@ -1419,7 +1454,7 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
     int row = idx.row();
     int column = idx.column();
 
-    if (!cap_file_ || !packet_list_model_ || column < 0 || column >= cap_file_->cinfo.num_cols)
+    if (!cap_file_ || !packet_list_model_ || column < 0 || (unsigned)column >= cap_file_->cinfo.num_cols)
         return filter;
 
     fdata = packet_list_model_->getRowFdata(row);
@@ -1440,7 +1475,7 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
         epan_dissect_run(&edt, cap_file_->cd_t, &rec, fdata, &cap_file_->cinfo);
 
         if (cap_file_->cinfo.columns[column].col_fmt == COL_CUSTOM) {
-            filter.append(gchar_free_to_qstring(col_custom_get_filter(&edt, &cap_file_->cinfo, column)));
+            filter.append(gchar_free_to_qstring(col_custom_get_filter(&edt, &cap_file_->cinfo, (unsigned)column)));
         } else {
             /* We don't need to fill in the custom columns, as we get their
              * filters above.
@@ -1611,14 +1646,8 @@ void PacketList::setCaptureFile(capture_file *cf)
 {
     cap_file_ = cf;
     packet_list_model_->setCaptureFile(cf);
-    if (cf) {
-        if (columns_changed_) {
-            columnsChanged();
-        } else {
-            // Restore columns widths and visibility.
-            header()->restoreState(column_state_);
-            setColumnVisibility();
-        }
+    if (cap_file_ && columns_changed_) {
+        columnsChanged();
     }
     create_near_overlay_ = true;
     changing_profile_ = false;
@@ -2256,17 +2285,70 @@ void PacketList::drawNearOverlay()
             packet_list_model_->ensureRowColorized(row);
 
             frame_data *fdata = packet_list_model_->getRowFdata(row);
-            const color_t *bgcolor = NULL;
-            if (fdata->color_filter) {
-                const color_filter_t *color_filter = (const color_filter_t *) fdata->color_filter;
-                bgcolor = &color_filter->bg_color;
+            int next_line = (row - start + 1) * o_height / o_rows;
+            int row_height = next_line - cur_line;
+
+            // Multi-color support in minimap (enabled for all non-Off modes)
+            if (prefs.gui_packet_list_multi_color_mode != PACKET_LIST_MULTI_COLOR_MODE_OFF) {
+                QModelIndex idx = packet_list_model_->index(row, 0);
+                PacketListRecord *record = static_cast<PacketListRecord*>(idx.internalPointer());
+                // Conversation color filters take full precedence — skip multi-color stripe rendering
+                bool is_conversation_color = fdata->color_filter &&
+                    strncmp(((const color_filter_t *)fdata->color_filter)->filter_name,
+                            CONVERSATION_COLOR_PREFIX, strlen(CONVERSATION_COLOR_PREFIX)) == 0;
+                if (record && record->hasMultipleColors() && !is_conversation_color) {
+                    // Draw vertical stripes for multiple colors (skip paused filters)
+                    const GSList *filters = record->matchingColorFilters();
+
+                    // Count non-paused filters
+                    int num_active_colors = 0;
+                    for (const GSList *item = filters; item != NULL; item = g_slist_next(item)) {
+                        const color_filter_t *colorf = (const color_filter_t *)item->data;
+                        if (!color_filter_is_session_disabled(colorf->filter_name)) {
+                            num_active_colors++;
+                        }
+                    }
+
+                    if (num_active_colors > 0) {
+                        int stripe_width = o_width / num_active_colors;
+                        int x_pos = 0;
+                        int stripe_idx = 0;
+
+                        for (const GSList *item = filters; item != NULL; item = g_slist_next(item)) {
+                            const color_filter_t *colorf = (const color_filter_t *)item->data;
+                            // Skip paused filters
+                            if (!color_filter_is_session_disabled(colorf->filter_name)) {
+                                QColor color(ColorUtils::fromColorT(&colorf->bg_color));
+                                int width = (stripe_idx == num_active_colors - 1) ? (o_width - x_pos) : stripe_width;
+                                painter.fillRect(x_pos, cur_line, width, row_height, color);
+                                x_pos += stripe_width;
+                                stripe_idx++;
+                            }
+                        }
+                    } else {
+                        // All filters paused, draw no color
+                        painter.fillRect(0, cur_line, o_width, row_height, QColor(Qt::white));
+                    }
+                } else if (fdata->color_filter) {
+                    // Single color fallback
+                    const color_filter_t *color_filter = (const color_filter_t *) fdata->color_filter;
+                    QColor color(ColorUtils::fromColorT(&color_filter->bg_color));
+                    painter.fillRect(0, cur_line, o_width, row_height, color);
+                }
+            } else {
+                // Original single-color behavior
+                const color_t *bgcolor = NULL;
+                if (fdata->color_filter) {
+                    const color_filter_t *color_filter = (const color_filter_t *) fdata->color_filter;
+                    bgcolor = &color_filter->bg_color;
+                }
+
+                if (bgcolor) {
+                    QColor color(ColorUtils::fromColorT(bgcolor));
+                    painter.fillRect(0, cur_line, o_width, row_height, color);
+                }
             }
 
-            int next_line = (row - start + 1) * o_height / o_rows;
-            if (bgcolor) {
-                QColor color(ColorUtils::fromColorT(bgcolor));
-                painter.fillRect(0, cur_line, o_width, next_line - cur_line, color);
-            }
             cur_line = next_line;
         }
 
@@ -2405,7 +2487,7 @@ void PacketList::resizeAllColumns(bool onlyTimeFormatted)
     if (!cap_file_ || cap_file_->state == FILE_CLOSED || cap_file_->state == FILE_READ_PENDING)
         return;
 
-    for (int col = 0; col < cap_file_->cinfo.num_cols; col++) {
+    for (unsigned col = 0; col < cap_file_->cinfo.num_cols; col++) {
         if (! onlyTimeFormatted || col_has_time_fmt(&cap_file_->cinfo, col)) {
             resizeColumnToContents(col);
         }

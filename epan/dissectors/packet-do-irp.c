@@ -464,7 +464,7 @@ decode_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, i
     uint32_t len = tvb_get_int32(tvb, offset, ENC_BIG_ENDIAN);
     proto_item *ti;
 
-    const char *text = tvb_get_string_enc(pinfo->pool, tvb, offset+4, len, ENC_UTF_8);
+    const char *text = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset+4, len, ENC_UTF_8);
 
     if(len) {
         ti = proto_tree_add_string_format_value(tree, hf, tvb, offset, len + 4, text, "%s, Len: %u", text, len);
@@ -944,6 +944,7 @@ decode_header_body_credential(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     offset += 4;
 
     /* Message Body */
+    /* XXX - Should create a subset tvb with body_len */
     if(tvb_captured_length_remaining(tvb, offset) > 0 && body_len > 0) {
 
         proto_item *ti_body = proto_tree_add_item(tree, hf_do_irp_body, tvb, offset, body_len, ENC_NA);
@@ -978,7 +979,7 @@ decode_header_body_credential(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
                     expert_add_info(pinfo, do_irp_body_tree, &ei_do_irp_digest_unknown);
                     /* We are now unable to dissect further because the fields now have variable length */
                     call_data_dissector(
-                        tvb_new_subset_length(tvb, offset, -1), pinfo, do_irp_body_tree);
+                        tvb_new_subset_remaining(tvb, offset), pinfo, do_irp_body_tree);
                     return tvb_captured_length(tvb);
 
             }
@@ -1202,6 +1203,8 @@ decode_header_body_credential(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
                 tvb_new_subset_length(tvb, offset, unhandled_bytes),
                 pinfo, do_irp_body_tree
             );
+            /* call_data_dissector doesn't throw an exception */
+            tvb_ensure_bytes_exist(tvb, offset, unhandled_bytes);
             offset += unhandled_bytes;
         }
     }

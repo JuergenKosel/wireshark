@@ -21,10 +21,10 @@
 
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/json_dumper.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
-#include <wsutil/version_info.h>
 #include <wsutil/report_message.h>
 
 #include <wiretap/merge.h>
@@ -45,7 +45,7 @@
 #include <epan/color_filters.h>
 #include <epan/secrets.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include "file.h"
 #include "fileset.h"
 
@@ -253,7 +253,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile
     wtap  *wth;
     char *err_info;
 
-    wth = wtap_open_offline(fname, type, err, &err_info, true);
+    wth = wtap_open_offline(fname, type, err, &err_info, true, application_configuration_environment_prefix());
     if (wth == NULL)
         goto fail;
 
@@ -1479,9 +1479,9 @@ cf_merge_files_to_tempfile(void *pd_window, const char *temp_dir, char **out_fil
     /* merge the files */
     status = merge_files_to_tempfile(temp_dir, out_filenamep, "wireshark", file_type,
             in_filenames,
-            in_file_count, do_append,
+            in_file_count, true /* add_merging_comment */, do_append,
             IDB_MERGE_MODE_ALL_SAME, 0 /* snaplen */,
-            "Wireshark", &cb);
+            "Wireshark", "WIRESHARK", & cb);
 
     g_free(cb.data);
 
@@ -2639,8 +2639,8 @@ cf_print_packets(capture_file *cf, print_args_t *print_args,
     print_callback_args_t callback_args;
     int           data_width;
     char         *cp;
-    int           i, cp_off, column_len, line_len;
-    int           num_visible_col = 0, last_visible_col = 0, visible_col_count;
+    unsigned      i, cp_off, column_len, line_len, last_visible_col = 0;
+    int           num_visible_col = 0, visible_col_count;
     psp_return_t  ret;
     GList        *clp;
     fmt_data     *cfmt;
@@ -2658,7 +2658,7 @@ cf_print_packets(capture_file *cf, print_args_t *print_args,
     callback_args.num_visible_cols = 0;
     callback_args.visible_cols = NULL;
 
-    if (!print_preamble(print_args->stream, cf->filename, get_ws_vcs_version_info())) {
+    if (!print_preamble(print_args->stream, cf->filename, application_get_vcs_version_info())) {
         destroy_print_stream(print_args->stream);
         return CF_PRINT_WRITE_ERROR;
     }
@@ -2722,13 +2722,13 @@ cf_print_packets(capture_file *cf, print_args_t *print_args,
 
             /* Find the length of the string for this column. */
             column_len = (int) strlen(cf->cinfo.columns[i].col_title);
-            if (callback_args.col_widths[visible_col_count] > column_len)
+            if ((unsigned)callback_args.col_widths[visible_col_count] > column_len)
                 column_len = callback_args.col_widths[visible_col_count];
 
             /* Make sure there's room in the line buffer for the column; if not,
                double its length. */
             line_len += column_len + 1;   /* "+1" for space */
-            if (line_len > callback_args.header_line_buf_len) {
+            if (line_len > (unsigned)callback_args.header_line_buf_len) {
                 cp_off = (int) (cp - callback_args.header_line_buf);
                 callback_args.header_line_buf_len = 2 * line_len;
                 callback_args.header_line_buf = (char *)g_realloc(callback_args.header_line_buf,
@@ -2847,7 +2847,7 @@ cf_write_pdml_packets(capture_file *cf, print_args_t *print_args)
     if (fh == NULL)
         return CF_PRINT_OPEN_ERROR; /* attempt to open destination failed */
 
-    write_pdml_preamble(fh, cf->filename);
+    write_pdml_preamble(fh, cf->filename, get_doc_dir(application_configuration_environment_prefix()));
     if (ferror(fh)) {
         fclose(fh);
         return CF_PRINT_WRITE_ERROR;
@@ -3467,7 +3467,7 @@ match_summary_line(capture_file *cf, frame_data *fdata,
     const char     *info_column;
     size_t          info_column_len;
     match_result    result     = MR_NOTMATCHED;
-    int             colx;
+    unsigned        colx;
     uint32_t        i, i_restart;
     uint8_t         c_char;
     size_t          c_match    = 0;
@@ -3556,7 +3556,7 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
         search_direction dir, bool multiple)
 {
     cbs_t  info;
-    uint8_t needles[3];
+    char needles[3];
     ws_mempbrk_pattern pattern = {0};
     ws_match_function match_function;
 
@@ -3570,7 +3570,7 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
     } else if (cf->string) {
         /* String search - what type of string? */
         if (cf->case_type) {
-            needles[0] = string[0];
+            needles[0] = (char)string[0];
             needles[1] = g_ascii_tolower(needles[0]);
             needles[2] = '\0';
             ws_mempbrk_compile(&pattern, needles);
@@ -4900,6 +4900,15 @@ cf_select_packet(capture_file *cf, frame_data *fdata)
     /* We don't need the columns here. */
     cf->edt = epan_dissect_new(cf->epan, true, true);
 
+    /* Prime for color filter evaluation so dissect_frame stores all matching
+     * filters in proto_data, reflecting current session state (e.g., after
+     * pause/resume of coloring rules which triggers a full redissect that
+     * clears per-frame proto_data). */
+    if (color_filters_used()) {
+        color_filters_prime_edt(cf->edt);
+        cf->current_frame->need_colorize = 1;
+    }
+
     epan_dissect_run(cf->edt, cf->cd_t, &cf->rec, cf->current_frame, NULL);
 
     if (old_edt != NULL)
@@ -5217,6 +5226,15 @@ save_record(capture_file *cf, frame_data *fdata, wtap_rec *rec, void *argsp)
     new_rec.block  = pkt_block;
     new_rec.block_was_modified = fdata->has_modified_block ? true : false;
 
+    /* XXX - For some types of capture files (e.g., Netscaler before v2.3),
+     * time stamps are supplied in the wtap_rec when reading sequentially,
+     * and not available on a seek read. For that reason, the time stamp is
+     * also stored in frame_data. (See epan/packet.c dissect_record() )
+     * if (fdata->has_ts && !(new_rec.presence_flags & WTAP_HAS_TS)),
+     * we should copy the time stamp from the frame data to the wtap record
+     * and set the presence flag, so that time stamps aren't lost.
+     */
+
     if (!nstime_is_zero(&fdata->shift_offset)) {
         if (new_rec.presence_flags & WTAP_HAS_TS) {
             nstime_add(&new_rec.ts, &fdata->shift_offset);
@@ -5383,7 +5401,7 @@ rescan_file(capture_file *cf, const char *fname, bool is_tempfile)
        reader to use (only which format to save it in), so doing this makes
        sense for now. (XXX: Now it is also used when saving a changed file,
        e.g. comments or time-shifted frames.) */
-    cf->provider.wth = wtap_open_offline(fname, WTAP_TYPE_AUTO, &err, &err_info, true);
+    cf->provider.wth = wtap_open_offline(fname, WTAP_TYPE_AUTO, &err, &err_info, true, application_configuration_environment_prefix());
     if (cf->provider.wth == NULL) {
         report_cfile_open_failure(fname, err, err_info);
         return CF_READ_ERROR;
@@ -5672,6 +5690,7 @@ cf_save_records(capture_file *cf, const char *fname, unsigned save_format,
         params.idb_inf = NULL;
 
         if (pdh == NULL) {
+            wtap_dump_params_cleanup(&params);
             report_cfile_dump_open_failure(fname, err, err_info, save_format);
             goto fail;
         }

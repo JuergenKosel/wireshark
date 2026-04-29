@@ -17,6 +17,7 @@
 #include <ui/qt/models/pref_models.h>
 #include <ui/qt/utils/color_utils.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QDebug>
@@ -66,8 +67,8 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     QIcon language_icon = QIcon(li_path);
     ui->languageComboBox->setItemIcon(0, language_icon);
 
-    QString globalLanguagesPath(QStringLiteral("%1/languages/").arg(get_datafile_dir()));
-    QString userLanguagesPath(gchar_free_to_qstring(get_persconffile_path("languages/", false)));
+    QString globalLanguagesPath(QStringLiteral("%1/languages/").arg(get_datafile_dir(application_configuration_environment_prefix())));
+    QString userLanguagesPath(gchar_free_to_qstring(get_persconffile_path("languages/", false, application_configuration_environment_prefix())));
 
     QStringList filenames = QDir(":/i18n/").entryList(QStringList("wireshark_*.qm"));
     filenames += QDir(globalLanguagesPath).entryList(QStringList("wireshark_*.qm"));
@@ -88,7 +89,7 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     ui->languageComboBox->model()->sort(0);
 
     for (int i = 0; i < ui->languageComboBox->count(); i += 1) {
-        if (QString(language) == ui->languageComboBox->itemData(i).toString()) {
+        if (QString(get_language_used()) == ui->languageComboBox->itemData(i).toString()) {
             ui->languageComboBox->setCurrentIndex(i);
             break;
         }
@@ -140,7 +141,7 @@ void MainWindowPreferencesFrame::updateWidgets()
     ui->mainToolbarComboBox->setCurrentIndex(prefs_get_enum_value(pref_toolbar_main_style_, pref_stashed));
 
     for (int i = 0; i < ui->languageComboBox->count(); i += 1) {
-        if (QString(language) == ui->languageComboBox->itemData(i).toString()) {
+        if (QString(get_language_used()) == ui->languageComboBox->itemData(i).toString()) {
             ui->languageComboBox->setCurrentIndex(i);
             break;
         }
@@ -220,11 +221,9 @@ void MainWindowPreferencesFrame::on_mainToolbarComboBox_currentIndexChanged(int 
     prefs_set_enum_value(pref_toolbar_main_style_, index, pref_stashed);
 }
 
-void MainWindowPreferencesFrame::on_languageComboBox_currentIndexChanged(int index)
+void MainWindowPreferencesFrame::on_languageComboBox_currentIndexChanged(int index _U_)
 {
-    g_free(language);
-
-    language = qstring_strdup(ui->languageComboBox->itemData(index).toString());
+    set_language_used(ui->languageComboBox->itemData(index).toString().toUtf8().constData());
 }
 
 void MainWindowPreferencesFrame::on_windowTitle_textEdited(const QString &new_title)

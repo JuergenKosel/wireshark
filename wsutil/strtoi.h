@@ -35,15 +35,81 @@ extern "C" {
  * if the resulting number does not fit in the type.
  */
 WS_DLL_PUBLIC bool ws_strtoi64(const char* str, const char** endptr, int64_t* cint);
+
+/**
+ * @brief Convert a string to an integer of specified size.
+ *
+ * Converts a string to an integer of the specified size and stores the result in the provided variable.
+ *
+ * @param str The input string to convert.
+ * @param endptr A pointer to a character that will be set to point to the first character after the converted number.
+ * @param cint A pointer to the variable where the converted integer will be stored.
+ * @return true if the conversion was successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_strtoi32(const char* str, const char** endptr, int32_t* cint);
+
+/**
+ * @brief Convert a string to an integer of specified size.
+ *
+ * Converts the initial portion of the string pointed to by str to an int value.
+ *
+ * @param str The string to be converted.
+ * @param endptr A pointer to a char pointer that will receive the address of the first character not part of the conversion.
+ * @param cint Pointer to the location where the result should be stored.
+ * @return true if successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_strtoi16(const char* str, const char** endptr, int16_t* cint);
 WS_DLL_PUBLIC bool ws_strtoi8 (const char* str, const char** endptr, int8_t*  cint);
+
+/**
+ * @brief Convert a string to an integer.
+ *
+ * Converts the initial part of the string pointed to by 'str' to an int.
+ *
+ * @param str The string to be converted.
+ * @param endptr A pointer to a char pointer that will receive the address of the first character not converted.
+ * @param cint A pointer to an int where the result will be stored.
+ * @return true if successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_strtoi (const char* str, const char** endptr, int*  cint);
 
+/**
+ * @brief Convert a hexadecimal string to an unsigned int, with error checks.
+ * @param str The string to convert
+ * @return true if conversion is successful, false otherwise
+ */
 WS_DLL_PUBLIC bool ws_strtou64(const char* str, const char** endptr, uint64_t* cint);
 WS_DLL_PUBLIC bool ws_strtou32(const char* str, const char** endptr, uint32_t* cint);
+
+/**
+ * @brief Convert a hexadecimal string to an unsigned int, with error checks.
+ * @param str The string to convert
+ * @param endptr A pointer that will store a pointer to the first invalid
+ * character in str, allowing a number to be parsed even if there is trailing
+ * whitespace or other characters after the number.
+ * @return true if the conversion was successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_strtou16(const char* str, const char** endptr, uint16_t* cint);
+
+/**
+ * @brief Convert a hexadecimal string to an unsigned int, with error checks.
+ *
+ * @param str The string to convert
+ * @param endptr A pointer that will store a pointer to the first invalid character in str,
+ *               allowing a number to be parsed even if there is trailing whitespace. If NULL,
+ *               then the string is assumed to contain only valid characters.
+ * @return true on success, false otherwise
+ */
 WS_DLL_PUBLIC bool ws_strtou8 (const char* str, const char** endptr, uint8_t*  cint);
+
+/**
+ * @brief Convert a hexadecimal string to an unsigned int, with error checks.
+ * @param str The string to convert
+ * @param endptr A pointer that will store a pointer to the first invalid character in str,
+ * allowing a number to be parsed even if there is trailing whitespace. If NULL, then the string
+ * is assumed to contain only valid characters (or it will error out).
+ * @return true on success, false on failure.
+ */
 WS_DLL_PUBLIC bool ws_strtou (const char* str, const char** endptr, unsigned*  cint);
 
 /*
@@ -60,9 +126,37 @@ WS_DLL_PUBLIC bool ws_strtou (const char* str, const char** endptr, unsigned*  c
  */
 
 WS_DLL_PUBLIC bool ws_hexstrtou64(const char* str, const char** endptr, uint64_t* cint);
+
+/**
+ * @brief Convert a string in the specified base to an unsigned int, with error checks.
+ *
+ * @param str The string to convert
+ * @param endptr Pointer to store the position after conversion
+ * @param cint Pointer to store the converted value
+ * @return true If successful
+ * @return false If conversion fails or out of range
+ */
 WS_DLL_PUBLIC bool ws_hexstrtou32(const char* str, const char** endptr, uint32_t* cint);
+
+/**
+ * @brief Convert a string in the specified base to an unsigned int, with error checks.
+ *
+ * @param str The string to convert.
+ * @param endptr A pointer that will store a pointer to the first invalid character encountered during conversion.
+ * @return true If the conversion was successful.
+ * @return false If the conversion failed.
+ */
 WS_DLL_PUBLIC bool ws_hexstrtou16(const char* str, const char** endptr, uint16_t* cint);
 WS_DLL_PUBLIC bool ws_hexstrtou8 (const char* str, const char** endptr, uint8_t*  cint);
+
+/**
+ * @brief Convert a string in the specified base to an unsigned int, with error checks.
+ * @param str The string to convert.
+ * @param endptr A pointer that will store a pointer to the first invalid character in str,
+ * allowing a number to be parsed even if there is trailing whitespace. If NULL, then the
+ * string is assumed to contain only valid characters.
+ * @return true if the conversion was successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_hexstrtou (const char* str, const char** endptr, unsigned*  cint);
 
 /*
@@ -83,10 +177,150 @@ WS_DLL_PUBLIC bool ws_hexstrtou (const char* str, const char** endptr, unsigned*
  */
 
 WS_DLL_PUBLIC bool ws_basestrtou64(const char* str, const char** endptr, uint64_t* cint, int base);
+
+/**
+ * @brief Converts a string to an unsigned integer with specified base.
+ *
+ * This function converts a string to an unsigned integer using the specified base.
+ *
+ * @param str The input string to convert.
+ * @param endptr A pointer to store the address of the first character that was not converted.
+ * @param cint A pointer to store the resulting unsigned integer value.
+ * @param base The numerical base for conversion (e.g., 10, 16).
+ * @return true if successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_basestrtou32(const char* str, const char** endptr, uint32_t* cint, int base);
+
+/**
+ * @brief Convert a string to an unsigned integer of specified bits.
+ *
+ * Converts a string to an unsigned integer of 16, 8, or unspecified bits based on the function called.
+ *
+ * @param str The input string to convert.
+ * @param endptr A pointer to store the address of the first character that was not converted.
+ * @param cint A pointer to store the resulting unsigned integer value.
+ * @param base The numerical base for conversion (e.g., 10, 16).
+ * @return true if successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_basestrtou16(const char* str, const char** endptr, uint16_t* cint, int base);
+
+/**
+ * @brief Convert a string to an unsigned integer with specified base.
+ *
+ * Converts the initial part of the string pointed to by 'str' to an unsigned integer value according to the given base.
+ *
+ * @param str The string to be converted.
+ * @param endptr A pointer to a character that will be set to point to the first character in the string after the conversion.
+ * @param cint A pointer to store the resulting unsigned integer value.
+ * @param base The numerical base of the number in the string (e.g., 10 for decimal, 16 for hexadecimal).
+ * @return true if the conversion was successful, false otherwise.
+ */
 WS_DLL_PUBLIC bool ws_basestrtou8 (const char* str, const char** endptr, uint8_t*  cint, int base);
+
+/**
+ * @brief Converts a string to an unsigned integer with error handling.
+ *
+ * This function converts the initial part of the string pointed to by 'str' into
+ * an unsigned integer value according to the specified base and stores it in
+ * the location pointed to by 'cint'. If 'endptr' is not NULL, it points to the
+ * first character following the converted number.
+ *
+ * @param str The string to be converted.
+ * @param endptr A pointer to a char pointer that will receive the address of the
+ *               first character after the converted number.
+ * @param cint A pointer to an unsigned integer where the result will be stored.
+ * @param base The numerical base used for conversion (e.g., 10, 16).
+ * @return true if successful, false otherwise with errno set appropriately.
+ */
 WS_DLL_PUBLIC bool ws_basestrtou (const char* str, const char** endptr, unsigned*  cint, int base);
+
+/*
+ * @brief Convert a counted string (not necessarily null terminated, of the
+ * given length) in the specified base to an unsigned 64-bit integer, with
+ * error checks.
+ *
+ * @param buf The string buffer to convert
+ * @param len The length of the string
+ * @param endptr A pointer that will store a pointer to the first invalid
+ * character in str, allowing a number to be parsed even if there is trailing
+ * whitespace. If NULL, then the string is assumed to contain only valid
+ * characters (or it will error out).
+ * @param cint The converted integer
+ * @param base The base for the integer; 0 means "if it begins with 0x,
+ * it's hex, otherwise if it begins with 0, it's octal, otherwise it's
+ * decimal".
+ * @return true if the conversion succeeds, false otherwise.
+ * On error, errno is set to EINVAL for unrecognized input and ERANGE
+ * if the resulting number does not fit in the type.
+ *
+ * @note This is useful when a string representation of an integer is not
+ * null-terminated and also cannot be modified to insert a NULL (e.g.,
+ * a const uint8_t* from packet data), avoiding having to copy the string.
+ * This does not allow a sign, neither '+' nor '-', prefixing the string,
+ * unlike strtoull and g_ascii_strtoull. (The latter allow a negative sign
+ * and cast to unsigned in the normal way.)
+ */
+WS_DLL_PUBLIC bool ws_basebuftou64(const uint8_t* buf, size_t len, const uint8_t** endptr, uint64_t* cint, int base);
+
+/*
+ * @brief Convert a counted decimal string (not necessarily null terminated,
+ * of the given length) to an unsigned 64-bit integer, with error checks.
+ *
+ * @param buf The string buffer to convert
+ * @param len The length of the string
+ * @param endptr A pointer that will store a pointer to the first invalid
+ * character in str, allowing a number to be parsed even if there is trailing
+ * whitespace. If NULL, then the string is assumed to contain only valid
+ * characters (or it will error out).
+ * @param cint The converted integer
+ * @return true if the conversion succeeds, false otherwise.
+ * On error, errno is set to EINVAL for unrecognized input and ERANGE
+ * if the resulting number does not fit in the type.
+ *
+ * @note This does not allow a sign, neither '+' nor '-', prefixing the string,
+ * unlike strtoull and g_ascii_strtoull. (The latter allow a negative sign
+ * and cast to unsigned in the normal way.)
+ */
+WS_DLL_PUBLIC bool ws_buftou64(const uint8_t* buf, size_t len, const uint8_t** endptr, uint64_t* cint);
+
+/*
+ * @brief Convert a counted hexadecimal string (not necessarily null terminated,
+ * of the given length) to an unsigned 64-bit integer, with error checks.
+ *
+ * @param buf The string buffer to convert
+ * @param len The length of the string
+ * @param endptr A pointer that will store a pointer to the first invalid
+ * character in str, allowing a number to be parsed even if there is trailing
+ * whitespace. If NULL, then the string is assumed to contain only valid
+ * characters (or it will error out).
+ * @param cint The converted integer
+ * @return true if the conversion succeeds, false otherwise.
+ * On error, errno is set to EINVAL for unrecognized input and ERANGE
+ * if the resulting number does not fit in the type.
+ *
+ * @note This does not allow a sign, neither '+' nor '-', prefixing the string,
+ * unlike strtoull and g_ascii_strtoull. (The latter allow a negative sign
+ * and cast to unsigned in the normal way.)
+ */
+WS_DLL_PUBLIC bool ws_hexbuftou64(const uint8_t* buf, size_t len, const uint8_t** endptr, uint64_t* cint);
+
+WS_DLL_PUBLIC bool ws_basebuftou32(const uint8_t* buf, size_t len, const uint8_t** endptr, uint32_t* cint, int base);
+
+WS_DLL_PUBLIC bool ws_buftou32(const uint8_t* buf, size_t len, const uint8_t** endptr, uint32_t* cint);
+
+WS_DLL_PUBLIC bool ws_hexbuftou32(const uint8_t* buf, size_t len, const uint8_t** endptr, uint32_t* cint);
+
+WS_DLL_PUBLIC bool ws_basebuftou16(const uint8_t* buf, size_t len, const uint8_t** endptr, uint16_t* cint, int base);
+
+WS_DLL_PUBLIC bool ws_buftou16(const uint8_t* buf, size_t len, const uint8_t** endptr, uint16_t* cint);
+
+WS_DLL_PUBLIC bool ws_hexbuftou16(const uint8_t* buf, size_t len, const uint8_t** endptr, uint16_t* cint);
+
+WS_DLL_PUBLIC bool ws_basebuftou8(const uint8_t* buf, size_t len, const uint8_t** endptr, uint8_t* cint, int base);
+
+WS_DLL_PUBLIC bool ws_buftou8(const uint8_t* buf, size_t len, const uint8_t** endptr, uint8_t* cint);
+
+WS_DLL_PUBLIC bool ws_hexbuftou8(const uint8_t* buf, size_t len, const uint8_t** endptr, uint8_t* cint);
 
 #ifdef __cplusplus
 }

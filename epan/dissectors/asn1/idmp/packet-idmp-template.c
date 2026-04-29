@@ -17,8 +17,8 @@
 #include <epan/conversation.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
-#include <epan/ipproto.h>
 #include <epan/strutil.h>
+#include <epan/iana-info.h>
 
 #include <wsutil/str_util.h>
 #include <wsutil/array.h>
@@ -29,10 +29,6 @@
 #include "packet-ros.h"
 #include "packet-x509ce.h"
 
-
-#define PNAME  "X.519 Internet Directly Mapped Protocol"
-#define PSNAME "IDMP"
-#define PFNAME "idmp"
 
 void proto_register_idmp(void);
 void proto_reg_handoff_idm(void);
@@ -166,8 +162,8 @@ static int dissect_idmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tr
     proto_tree_add_item(tree, hf_idmp_version, tvb, offset, 1, ENC_BIG_ENDIAN); offset++;
     proto_tree_add_item(tree, hf_idmp_final, tvb, offset, 1, ENC_BIG_ENDIAN);
     idmp_final = tvb_get_uint8(tvb, offset); offset++;
-    proto_tree_add_item(tree, hf_idmp_length, tvb, offset, 4, ENC_BIG_ENDIAN);
-    idmp_length = tvb_get_ntohl(tvb, offset); offset += 4;
+    proto_tree_add_item_ret_uint(tree, hf_idmp_length, tvb, offset, 4, ENC_BIG_ENDIAN, &idmp_length);
+    offset += 4;
 
     asn1_ctx.private_data = &session;
 
@@ -255,7 +251,7 @@ void proto_register_idmp(void)
             "idmp.BOOLEAN", HFILL }},
         { &hf_idmp_length,
           { "length", "idmp.length",
-            FT_INT32, BASE_DEC, NULL, 0,
+            FT_UINT32, BASE_DEC, NULL, 0,
             "idmp.INTEGER", HFILL }},
         { &hf_idmp_PDU,
           { "IDM-PDU", "idmp.pdu",
@@ -311,7 +307,7 @@ void proto_register_idmp(void)
     module_t *idmp_module;
 
     /* Register protocol */
-    proto_idmp = proto_register_protocol(PNAME, PSNAME, PFNAME);
+    proto_idmp = proto_register_protocol("X.519 Internet Directly Mapped Protocol", "IDMP", "idmp");
 
     /* Register fields and subtrees */
     proto_register_field_array(proto_idmp, hf, array_length(hf));

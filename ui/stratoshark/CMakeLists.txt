@@ -19,9 +19,11 @@ set(WIRESHARK_WIDGET_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/additional_toolbar.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/apply_line_edit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/base_data_source_view.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_card_widget.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_filter_combo.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_filter_edit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/clickable_label.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/collapsible_section.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/compression_group_box.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/copy_from_profile_button.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/detachable_tabwidget.h
@@ -42,6 +44,8 @@ set(WIRESHARK_WIDGET_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/interface_toolbar_lineedit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/json_data_source_view.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/label_stack.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/info_banner_widget.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/learn_card_widget.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/overlay_scroll_bar.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/packet_list_header.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/path_selection_edit.h
@@ -62,6 +66,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tab.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tree.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_types_list.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/welcome_header_widget.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/wireshark_file_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/customplot.h
 )
@@ -90,11 +95,13 @@ set(WIRESHARK_UTILS_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/profile_switcher.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/proto_node.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/qt_ui_utils.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/stock_icon.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/tango_colors.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/variant_pointer.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_mime_data.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_zip_helper.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/workspace_state.h
 )
 
 set (STRATOSHARK_UTILS_HEADERS ${WIRESHARK_UTILS_HEADERS})
@@ -127,6 +134,8 @@ set(WIRESHARK_MODEL_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/models/pref_models.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/profile_model.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/proto_tree_model.h
+	${CMAKE_SOURCE_DIR}/ui/qt/models/recentcapturefiles_list_model.h
+	${CMAKE_SOURCE_DIR}/ui/qt/models/multi_color_packet_delegate.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/related_packet_delegate.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/resolved_addresses_models.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/sparkline_delegate.h
@@ -217,7 +226,6 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/proto_tree.h
 	${CMAKE_SOURCE_DIR}/ui/qt/protocol_hierarchy_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/protocol_preferences_menu.h
-	${CMAKE_SOURCE_DIR}/ui/qt/recent_file_status.h
 	${CMAKE_SOURCE_DIR}/ui/qt/resolved_addresses_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/response_time_delay_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/rsa_keys_frame.h
@@ -228,6 +236,7 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/show_packet_bytes_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/simple_statistics_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/stats_tree_dialog.h
+	${CMAKE_SOURCE_DIR}/ui/qt/keyboard_shortcuts_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/supported_protocols_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/tabnav_tree_widget.h
 	${CMAKE_SOURCE_DIR}/ui/qt/tap_parameter_dialog.h
@@ -237,6 +246,7 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_frame.h
 	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page.h
+	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page_preferences_frame.h
 	${CMAKE_SOURCE_DIR}/ui/qt/wireshark_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/marker_dialog.h
 )
@@ -259,11 +269,20 @@ if(ENABLE_PCAP)
 	endif()
 endif()
 
+if(LUA_FOUND)
+	include(${CMAKE_SOURCE_DIR}/ui/qt/lua_debugger/CMakeLists.txt)
+	list(APPEND WIRESHARK_QT_HEADERS ${WIRESHARK_LUA_DEBUGGER_HEADERS})
+endif()
+
 set (STRATOSHARK_QT_HEADERS
 	stratoshark_application.h
 	stratoshark_main_window.h
 	stratoshark_about_dialog.h
+	stratoshark_capture_file_properties_dialog.h
 	stratoshark_follow_stream_dialog.h
+	stratoshark_io_graph_dialog.h
+	stratoshark_main_status_bar.h
+	stratoshark_plot_dialog.h
 	stratoshark_profile_dialog.h
 	stratoshark_search_frame.h
 	${WIRESHARK_QT_HEADERS}
@@ -272,9 +291,11 @@ set (STRATOSHARK_QT_HEADERS
 set(WIRESHARK_WIDGET_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/additional_toolbar.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/apply_line_edit.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_card_widget.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_filter_combo.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_filter_edit.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/clickable_label.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/collapsible_section.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/compression_group_box.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/copy_from_profile_button.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/detachable_tabwidget.cpp
@@ -295,6 +316,8 @@ set(WIRESHARK_WIDGET_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/interface_toolbar_lineedit.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/json_data_source_view.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/label_stack.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/info_banner_widget.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/learn_card_widget.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/overlay_scroll_bar.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/packet_list_header.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/path_selection_edit.cpp
@@ -315,6 +338,7 @@ set(WIRESHARK_WIDGET_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tab.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tree.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_types_list.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/welcome_header_widget.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/wireshark_file_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/customplot.cpp
 )
@@ -342,9 +366,11 @@ set(WIRESHARK_UTILS_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/profile_switcher.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/proto_node.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/qt_ui_utils.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/stock_icon.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_mime_data.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_zip_helper.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/workspace_state.cpp
 )
 
 set (STRATOSHARK_UTILS_SRCS ${WIRESHARK_UTILS_SRCS})
@@ -377,6 +403,8 @@ set(WIRESHARK_MODEL_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/models/pref_models.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/profile_model.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/proto_tree_model.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/models/recentcapturefiles_list_model.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/models/multi_color_packet_delegate.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/related_packet_delegate.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/resolved_addresses_models.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/sparkline_delegate.cpp
@@ -459,7 +487,6 @@ set(WIRESHARK_QT_SRC
 	${CMAKE_SOURCE_DIR}/ui/qt/proto_tree.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/protocol_hierarchy_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/protocol_preferences_menu.cpp
-	${CMAKE_SOURCE_DIR}/ui/qt/recent_file_status.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/resolved_addresses_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/response_time_delay_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/rsa_keys_frame.cpp
@@ -467,6 +494,7 @@ set(WIRESHARK_QT_SRC
 	${CMAKE_SOURCE_DIR}/ui/qt/show_packet_bytes_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/simple_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/simple_statistics_dialog.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/keyboard_shortcuts_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/supported_protocols_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/tabnav_tree_widget.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/tap_parameter_dialog.cpp
@@ -476,6 +504,7 @@ set(WIRESHARK_QT_SRC
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_frame.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page_preferences_frame.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/wireshark_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/marker_dialog.cpp
 )
@@ -498,13 +527,21 @@ if(ENABLE_PCAP)
 	endif()
 endif()
 
+if(LUA_FOUND)
+	list(APPEND WIRESHARK_QT_SRC ${WIRESHARK_LUA_DEBUGGER_SRCS})
+endif()
+
 set (STRATOSHARK_QT_SRC
 	stratoshark_application.cpp
 	stratoshark_main.cpp
 	stratoshark_main_window.cpp
 	stratoshark_main_window_slots.cpp
 	stratoshark_about_dialog.cpp
+	stratoshark_capture_file_properties_dialog.cpp
 	stratoshark_follow_stream_dialog.cpp
+	stratoshark_io_graph_dialog.cpp
+	stratoshark_main_status_bar.cpp
+	stratoshark_plot_dialog.cpp
 	stratoshark_profile_dialog.cpp
 	stratoshark_search_frame.cpp
 	${WIRESHARK_QT_SRC})
@@ -559,6 +596,7 @@ set(WIRESHARK_QT_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/import_text_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_frame.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_toolbar.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/keyboard_shortcuts_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/io_console_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/io_graph_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/layout_preferences_frame.ui
@@ -591,7 +629,13 @@ set(WIRESHARK_QT_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_frame.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page.ui
-	${CMAKE_SOURCE_DIR}/ui/qt/widgets/splash_overlay.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/welcome_page_preferences_frame.ui
+)
+
+set(WIRESHARK_QT_WIDGETS_UI
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_card_widget.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/learn_card_widget.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/welcome_header_widget.ui
 )
 
 if(HAVE_PCAP_REMOTE)
@@ -601,9 +645,14 @@ if(HAVE_PCAP_REMOTE)
 	)
 endif()
 
+if(LUA_FOUND)
+	list(APPEND WIRESHARK_QT_UI ${WIRESHARK_LUA_DEBUGGER_UI})
+endif()
+
 set (STRATOSHARK_QT_UI
 	stratoshark_main_window.ui
 	${WIRESHARK_QT_UI}
+	${WIRESHARK_QT_WIDGETS_UI}
 )
 
 set(WIRESHARK_QT_TS
@@ -626,30 +675,81 @@ set(STRATOSHARK_QT_TS
 	${WIRESHARK_QT_TS}
 )
 
+cmake_path(SET TRANSLATION_INSTALL_DIR NORMALIZE "${CMAKE_INSTALL_BINDIR}/translations")
+
+# Translation files (i18n)
+qrc_register(NAME i18n TARGET stratoshark PREFIX "/i18n")
 foreach(_file ${STRATOSHARK_QT_TS})
-	get_filename_component(_qresource ${_file} NAME_WE)
-	set(_qresource_qm "${_qresource}.qm")
-	set(i18n_qresource "${i18n_qresource}\n    <file>${_qresource_qm}</file>")
+    get_filename_component(_qresource ${_file} NAME_WE)
+    set(_qresource_qm "${CMAKE_CURRENT_BINARY_DIR}/${_qresource}.qm")
+
+    qrc_add_file(NAME i18n TARGET stratoshark FILE "${_qresource_qm}" ALIAS "${_qresource}.qm" GENERATED ON)
+
+    install(FILES "${_qresource_qm}" DESTINATION "${TRANSLATION_INSTALL_DIR}")
 endforeach()
-configure_file(i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
+qrc_finalize(NAME i18n TARGET stratoshark OUTPUT_FILE_NAME "i18n.qrc" OUTPUT_VAR STRATOSHARK_I18N_QRC)
 
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/authors.qrc"
-"<RCC>\n"
-"    <qresource prefix=\"/about\">\n"
-"        <file compress-algo=\"zstd\">authors.csv</file>\n"
-"    </qresource>\n"
-"</RCC>\n"
-)
-
+# Authors file
 add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
-	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
-			< ${CMAKE_SOURCE_DIR}/AUTHORS
-			> ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
-	DEPENDS
-		${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
-		${CMAKE_SOURCE_DIR}/AUTHORS
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
+                    < ${CMAKE_SOURCE_DIR}/AUTHORS
+                    > ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
+        ${CMAKE_SOURCE_DIR}/AUTHORS
 )
+
+qrc_register(NAME authors TARGET stratoshark PREFIX "/about")
+qrc_add_file(NAME authors TARGET stratoshark FILE "${CMAKE_CURRENT_BINARY_DIR}/authors.csv" ALIAS "authors.csv"
+             COMPRESS "zstd" GENERATED ON)
+qrc_finalize(NAME authors TARGET stratoshark OUTPUT_VAR STRATOSHARK_AUTHORS_QRC)
+
+# Generate translatable strings from JSON data files for lupdate
+GENERATE_JSON_TR_STRINGS(
+	INPUT   ${CMAKE_SOURCE_DIR}/resources/json/slides.json
+	OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/slide_tr_strings.cpp
+	CONTEXT InfoBannerWidget
+	EXTRACT slides:tag,title,description,description_sub,body_text,button_label,url
+)
+
+GENERATE_JSON_TR_STRINGS(
+	INPUT   ${CMAKE_SOURCE_DIR}/resources/json/learn_card.json
+	OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/learn_card_tr_strings.cpp
+	CONTEXT LearnCardWidget
+	EXTRACT links:label,short_label,tooltip
+	        buttons:label,tooltip
+)
+
+# Stylesheet resources
+qrc_register(
+	NAME stylesheets
+	TARGET stratoshark
+	PREFIX "/stylesheets"
+)
+qrc_add_files(
+	NAME stylesheets
+	TARGET stratoshark
+	BASE_DIR "${CMAKE_SOURCE_DIR}/ui/stylesheets"
+	FILES
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card-light.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card-light.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/welcome-header-dark.qss
+		${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/welcome-header-light.qss
+)
+qrc_finalize(NAME stylesheets TARGET stratoshark OUTPUT_VAR STRATOSHARK_STYLESHEETS_QRC)
+
+# JSON data resources
+qrc_register(NAME json_resource TARGET stratoshark PREFIX "/json")
+qrc_add_file(NAME json_resource TARGET stratoshark FILE  "${CMAKE_SOURCE_DIR}/resources/json/slides.json" ALIAS "slides.json")
+qrc_add_file(NAME json_resource TARGET stratoshark FILE  "${CMAKE_SOURCE_DIR}/resources/json/learn_card.json" ALIAS "learn_card.json")
+if(CUSTOM_SLIDES_JSON AND EXISTS "${CUSTOM_SLIDES_JSON}")
+    qrc_add_file(NAME json_resource TARGET stratoshark FILE  "${CUSTOM_SLIDES_JSON}" ALIAS "slides_custom.json")
+endif()
+qrc_add_glob(NAME json_resource TARGET stratoshark GLOB "${CMAKE_SOURCE_DIR}/resources/json/banners/*" ALIAS_PREFIX "banners/")
+qrc_finalize(NAME json_resource TARGET stratoshark OUTPUT_VAR STRATOSHARK_JSON_QRC)
 
 # Drop the file modification time of source files from generated files
 # to help with reproducible builds. We do not use QFileInfo.lastModified
@@ -663,20 +763,20 @@ add_custom_command(
 set(CMAKE_AUTORCC_OPTIONS --format-version 1)
 list(APPEND CMAKE_AUTORCC_OPTIONS -compress-algo zlib)
 
-if (APPLE)
-	set(SS_ICON_QRC "ssicon_mac.qrc")
-else()
-	set(SS_ICON_QRC "ssicon.qrc")
+if (NOT APPLE)
+	set(SSICON_QRC ${CMAKE_SOURCE_DIR}/resources/ssicon.qrc)
 endif()
 
 qt_add_resources(STRATOSHARK_QT_QRC
 	${CMAKE_SOURCE_DIR}/resources/about.qrc
 	${CMAKE_SOURCE_DIR}/resources/languages/languages.qrc
 	${CMAKE_SOURCE_DIR}/resources/layout.qrc
-	${CMAKE_SOURCE_DIR}/resources/${SS_ICON_QRC}
+	${SSICON_QRC}
 	${CMAKE_SOURCE_DIR}/resources/stock_icons.qrc
-	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
-	${CMAKE_CURRENT_BINARY_DIR}/authors.qrc
+	${STRATOSHARK_I18N_QRC}
+	${STRATOSHARK_AUTHORS_QRC}
+	${STRATOSHARK_JSON_QRC}
+	${STRATOSHARK_STYLESHEETS_QRC}
 	OPTIONS ${CMAKE_AUTORCC_OPTIONS}
 )
 
@@ -739,6 +839,10 @@ add_library(ui_stratoshark OBJECT
 	${STRATOSHARK_UTILS_SRCS}
 	${STRATOSHARK_MODEL_SRCS}
 
+	# Generated translation markers for JSON data (lupdate only)
+	${CMAKE_CURRENT_BINARY_DIR}/slide_tr_strings.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/learn_card_tr_strings.cpp
+
 	# For AUTOUIC and AUTORCC.
 	${STRATOSHARK_QT_UI}
 	${STRATOSHARK_QT_QRC}
@@ -766,6 +870,7 @@ target_include_directories(ui_stratoshark
 		${CMAKE_CURRENT_BINARY_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}
 		${CMAKE_SOURCE_DIR}/ui/qt
+		${CMAKE_SOURCE_DIR}/ui/qt/lua_debugger
 )
 
 if(USE_qt6)
@@ -796,7 +901,7 @@ set_target_properties(ui_stratoshark PROPERTIES
 	# AUTORCC not needed with qt_add_resources
 	#AUTORCC ON
 	# Ensure .qm files are generated before autogenerating i18n.qrc
-	AUTOGEN_TARGET_DEPENDS "${STRATOSHARK_QT_QM}"
+	AUTOGEN_TARGET_DEPENDS "${STRATOSHARK_QT_QM};stratoshark_translations"
 )
 
 if(MSVC)

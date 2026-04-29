@@ -40,8 +40,6 @@
 //#include <zlib-ng.h>
 //#endif
 
-#include "vcs_version.h"
-
 #include <wsutil/cpu_info.h>
 #include <wsutil/os_version_info.h>
 #include <wsutil/crash_info.h>
@@ -300,9 +298,11 @@ get_compiled_version_info(gather_feature_func gather_compile)
 	separate_features(&l, &with_list, &without_list);
 	free_features(&l);
 
-	g_string_append(str, " With:\n");
-	features_to_columns(&with_list, str);
-	free_features(&with_list);
+	if (with_list != NULL) {
+		g_string_append(str, " With:\n");
+		features_to_columns(&with_list, str);
+		free_features(&with_list);
+	}
 	if (without_list != NULL) {
 		g_string_append(str, " Without:\n");
 		features_to_columns(&without_list, str);
@@ -331,7 +331,8 @@ get_mem_info(GString *str)
 #elif __linux__
 	struct sysinfo info;
 	if (sysinfo(&info) == 0)
-		memsize = info.totalram * info.mem_unit;
+		if (ckd_mul(&memsize, info.totalram, info.mem_unit))
+			memsize = 0;
 #endif
 
 	if (memsize > 0)
@@ -524,7 +525,7 @@ gather_pcre2_runtime_info(feature_list l)
 		without_feature(l, "PCRE2 (error querying)");
 		return;
 	}
-	buf_pcre2 = g_malloc(size + 1);
+	buf_pcre2 = g_malloc((size_t)size + 1);
 	pcre2_config(PCRE2_CONFIG_VERSION, buf_pcre2);
 	buf_pcre2[size] = '\0';
 	with_feature(l, "PCRE2 %s", buf_pcre2);
@@ -605,9 +606,11 @@ get_runtime_version_info(gather_feature_func gather_runtime)
 	separate_features(&l, &with_list, &without_list);
 	free_features(&l);
 
-	g_string_append(str, " With:\n");
-	features_to_columns(&with_list, str);
-	free_features(&with_list);
+	if (with_list != NULL) {
+		g_string_append(str, " With:\n");
+		features_to_columns(&with_list, str);
+		free_features(&with_list);
+	}
 	if (without_list != NULL) {
 		g_string_append(str, " Without:\n");
 		features_to_columns(&without_list, str);
@@ -616,41 +619,6 @@ get_runtime_version_info(gather_feature_func gather_runtime)
 
 	end_string(str);
 	return str;
-}
-
-/*
- * Return a version number string for Wireshark, including, for builds
- * from a tree checked out from Wireshark's version control system,
- * something identifying what version was checked out.
- */
-const char *
-get_ws_vcs_version_info(void)
-{
-#ifdef WIRESHARK_VCS_VERSION
-	return VERSION " (" WIRESHARK_VCS_VERSION ")";
-#else
-	return VERSION;
-#endif
-}
-
-const char *
-get_ss_vcs_version_info(void)
-{
-#ifdef STRATOSHARK_VCS_VERSION
-	return STRATOSHARK_VERSION " (" STRATOSHARK_VCS_VERSION ")";
-#else
-	return STRATOSHARK_VERSION;
-#endif
-}
-
-const char *
-get_ws_vcs_version_info_short(void)
-{
-#ifdef WIRESHARK_VCS_VERSION
-	return WIRESHARK_VCS_VERSION;
-#else
-	return VERSION;
-#endif
 }
 
 void
@@ -696,7 +664,7 @@ const char *
 get_copyright_info(void)
 {
 	return
-		"Copyright 1998-2025 Gerald Combs <gerald@wireshark.org> and contributors.";
+		"Copyright 1998-2026 Gerald Combs <gerald@wireshark.org> and contributors.";
 }
 
 const char *

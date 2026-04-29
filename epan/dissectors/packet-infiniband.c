@@ -123,7 +123,7 @@ typedef struct {
     uint64_t transactionID;
     uint16_t attributeID;
     uint32_t attributeModifier;
-    char data[MAD_DATA_SIZE];
+    uint8_t data[MAD_DATA_SIZE];
 } MAD_Data;
 
 typedef enum {
@@ -2616,8 +2616,7 @@ parse_AETH(proto_tree * parentTree, tvbuff_t *tvb, int *offset, packet_info *pin
     AETH_syndrome_item = proto_tree_add_item(AETH_header_tree, hf_infiniband_syndrome, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     AETH_syndrome_tree = proto_item_add_subtree(AETH_syndrome_item, ett_aeth_syndrome);
     proto_tree_add_item(AETH_syndrome_tree, hf_infiniband_syndrome_reserved, tvb, local_offset, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(AETH_syndrome_tree, hf_infiniband_syndrome_opcode, tvb, local_offset, 1, ENC_BIG_ENDIAN);
-    opcode = ((tvb_get_uint8(tvb, local_offset) & AETH_SYNDROME_OPCODE) >> 5);
+    proto_tree_add_item_ret_uint8(AETH_syndrome_tree, hf_infiniband_syndrome_opcode, tvb, local_offset, 1, ENC_BIG_ENDIAN, &opcode);
     proto_item_append_text(AETH_syndrome_item, ", %s", val_to_str_const(opcode, aeth_syndrome_opcode_vals, "Unknown"));
     switch (opcode)
     {
@@ -2748,7 +2747,8 @@ static void update_sport(packet_info *pinfo)
 }
 
 static bool parse_PAYLOAD_do_rc_send_reassembling(packet_info *pinfo,
-                                                  struct infinibandinfo *info)
+                                                  struct infinibandinfo *info,
+                                                  heur_dtbl_entry_t **_hdtbl_entry)
 {
     conversation_t *conversation = NULL;
     conversation_infiniband_data *proto_data = NULL;
@@ -2781,13 +2781,15 @@ static bool parse_PAYLOAD_do_rc_send_reassembling(packet_info *pinfo,
         return false;
     }
 
+    if (proto_data->do_rc_send_reassembling) {
+        *_hdtbl_entry = proto_data->rc_hdtbl_entry;
+    }
     return proto_data->do_rc_send_reassembling;
-
-    return true;
 }
 
 static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
                                               struct infinibandinfo *info,
+                                              heur_dtbl_entry_t *rc_hdtbl_entry,
                                               tvbuff_t *tvb,
                                               proto_tree *top_tree)
 {
@@ -2803,13 +2805,13 @@ static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
     case RC_SEND_MIDDLE:
         more_frags = true;
         break;
-    case RC_SEND_ONLY:
-    case RC_SEND_ONLY_IMM:
-    case RC_SEND_ONLY_INVAL:
     case RC_SEND_LAST:
     case RC_SEND_LAST_IMM:
     case RC_SEND_LAST_INVAL:
         break;
+    case RC_SEND_ONLY:
+    case RC_SEND_ONLY_IMM:
+    case RC_SEND_ONLY_INVAL:
     default:
         /* not a fragmented RC Send */
         return tvb;
@@ -2823,11 +2825,13 @@ static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
          * for this conversation
          */
         proto_data = wmem_new0(wmem_file_scope(), conversation_infiniband_data);
-        proto_data->do_rc_send_reassembling = true;
         conversation_add_proto_data(conversation,
                                     proto_infiniband,
                                     proto_data);
     }
+
+    proto_data->do_rc_send_reassembling = true;
+    proto_data->rc_hdtbl_entry = rc_hdtbl_entry;
 
     fd_head = (fragment_head *)p_get_proto_data(wmem_file_scope(),
                                                 pinfo,
@@ -2836,7 +2840,6 @@ static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
     if (fd_head == NULL) {
             fd_head_not_cached = true;
 
-            pinfo->fd->visited = 0;
             fd_head = fragment_add_seq_next(&infiniband_rc_send_reassembly_table,
                                             tvb, 0, pinfo,
                                             conversation->conv_index,
@@ -2844,7 +2847,7 @@ static tvbuff_t *parse_PAYLOAD_reassemble_tvb(packet_info *pinfo,
                                             more_frags);
     }
 
-    if (fd_head == NULL) {
+    if (more_frags && fd_head == NULL) {
             /*
              * We really want the fd_head and pass it to
              * process_reassembled_data()
@@ -2896,7 +2899,7 @@ static void parse_PAYLOAD(proto_tree *parentTree,
     uint8_t             management_class;
     tvbuff_t *volatile  next_tvb;
     int                 reported_length;
-    heur_dtbl_entry_t  *hdtbl_entry;
+    heur_dtbl_entry_t  *hdtbl_entry = NULL;
     bool                dissector_found = false;
 
     if (!tvb_bytes_exist(tvb, *offset, length)) /* previously consumed bytes + offset was all the data - none or corrupt payload */
@@ -2996,13 +2999,13 @@ static void parse_PAYLOAD(proto_tree *parentTree,
             reported_length -= crclen;
         next_tvb = tvb_new_subset_length(tvb, local_offset, reported_length);
 
-        info->do_rc_send_reassembling = parse_PAYLOAD_do_rc_send_reassembling(pinfo, info);
+        info->do_rc_send_reassembling = parse_PAYLOAD_do_rc_send_reassembling(pinfo, info, &hdtbl_entry);
 
 reassemble:
 
         if (info->do_rc_send_reassembling) {
             allow_reassembling = false;
-            next_tvb = parse_PAYLOAD_reassemble_tvb(pinfo, info, next_tvb, top_tree);
+            next_tvb = parse_PAYLOAD_reassemble_tvb(pinfo, info, hdtbl_entry, next_tvb, top_tree);
             if (next_tvb == NULL) {
                 /*
                  * we need more data...
@@ -3011,7 +3014,11 @@ reassemble:
             }
         }
 
-        if (try_heuristic_first)
+        if (hdtbl_entry) {
+            call_heur_dissector_direct(hdtbl_entry, next_tvb, pinfo, top_tree, info);
+            dissector_found = true;
+        }
+        else if (try_heuristic_first)
         {
             if (dissector_try_heuristic(heur_dissectors_payload, next_tvb, pinfo, top_tree, &hdtbl_entry, info))
                 dissector_found = true;
@@ -3040,7 +3047,7 @@ reassemble:
             call_data_dissector(next_tvb, pinfo, top_tree);
         }
 
-        if (allow_reassembling && info->do_rc_send_reassembling) {
+        if (dissector_found && allow_reassembling && info->do_rc_send_reassembling) {
                 goto reassemble;
         }
 
@@ -3669,9 +3676,7 @@ static void parse_IP_CM_Req_Msg(proto_tree *parent_tree, tvbuff_t *tvb, int loca
     proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_minv, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     local_offset += 1;
 
-    ipv = (tvb_get_uint8(tvb, local_offset) & 0xf0) >> 4;
-
-    proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_ipv, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(private_data_tree, hf_cm_req_ip_cm_ipv, tvb, local_offset, 1, ENC_BIG_ENDIAN, &ipv);
     proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_res, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     local_offset += 1;
     proto_tree_add_item(private_data_tree, hf_cm_req_ip_cm_sport, tvb, local_offset, 2, ENC_BIG_ENDIAN);
@@ -3754,11 +3759,9 @@ static void parse_CM_Req(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tvb
     proto_tree_add_item(CM_header_tree, hf_cm_req_srq, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(CM_header_tree, hf_cm_req_extended_transport, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     local_offset += 1;
-    proto_tree_add_item(CM_header_tree, hf_cm_req_primary_local_lid, tvb, local_offset, 2, ENC_BIG_ENDIAN);
-    local_lid = tvb_get_ntohs(tvb, local_offset);
+    proto_tree_add_item_ret_uint(CM_header_tree, hf_cm_req_primary_local_lid, tvb, local_offset, 2, ENC_BIG_ENDIAN, &local_lid);
     local_offset += 2;
-    proto_tree_add_item(CM_header_tree, hf_cm_req_primary_remote_lid, tvb, local_offset, 2, ENC_BIG_ENDIAN);
-    remote_lid = tvb_get_ntohs(tvb, local_offset);
+    proto_tree_add_item_ret_uint(CM_header_tree, hf_cm_req_primary_remote_lid, tvb, local_offset, 2, ENC_BIG_ENDIAN, &remote_lid);
     local_offset += 2;
 
     if (pinfo->dst.type == AT_IPv4) {
@@ -3839,7 +3842,7 @@ static void parse_CM_Req(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tvb
     }
 
     /* give a chance for subdissectors to analyze the private data */
-    dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree, &hdtbl_entry, info);
+    (void) dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree, &hdtbl_entry, info);
 
     local_offset += 92;
     *offset = local_offset;
@@ -3988,7 +3991,7 @@ static void parse_CM_Rsp(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tvb
 
     /* give a chance for subdissectors to get the private data */
     next_tvb = tvb_new_subset_length(tvb, local_offset, 196);
-    dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree, &hdtbl_entry, info);
+    (void) dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree, &hdtbl_entry, info);
 
     local_offset += 196;
     *offset = local_offset;
@@ -4006,7 +4009,7 @@ try_connection_dissectors(proto_tree *top_tree, packet_info *pinfo, tvbuff_t *tv
     connection = lookup_connection(MadData->transactionID, addr);
 
     next_tvb = tvb_new_subset_length(tvb, pdata_offset, pdata_length);
-    dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree,
+    (void) dissector_try_heuristic(heur_dissectors_cm_private, next_tvb, pinfo, top_tree,
                             &hdtbl_entry, info);
     return connection;
 }
@@ -6039,7 +6042,7 @@ static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *off
     proto_item *MultiPathRecord_header_item;
     proto_tree *MultiPathRecord_header_tree;
     proto_item *SDGID;
-    uint8_t     SDGIDCount;
+    uint8_t     SGIDCount;
     uint8_t     DGIDCount;
     uint32_t    i;
 
@@ -6081,16 +6084,14 @@ static int parse_MultiPathRecord(proto_tree* parentTree, tvbuff_t* tvb, int *off
     proto_tree_add_item(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_GIDScope, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     local_offset += 1;
 
-    SDGIDCount = tvb_get_uint8(tvb, local_offset);
-    proto_tree_add_item(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_SGIDCount, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_SGIDCount, tvb, local_offset, 1, ENC_BIG_ENDIAN, &SGIDCount);
     local_offset += 1;
-    DGIDCount = tvb_get_uint8(tvb, local_offset);
-    proto_tree_add_item(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_DGIDCount, tvb, local_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_DGIDCount, tvb, local_offset, 1, ENC_BIG_ENDIAN, &DGIDCount);
     local_offset += 1;
     proto_tree_add_item(MultiPathRecord_header_tree, hf_infiniband_reserved, tvb, local_offset, 7, ENC_NA);
     local_offset += 7;
 
-    for (i = 0; i < SDGIDCount; i++)
+    for (i = 0; i < SGIDCount; i++)
     {
         SDGID = proto_tree_add_item(MultiPathRecord_header_tree, hf_infiniband_MultiPathRecord_SDGID, tvb, local_offset, 16, ENC_NA);
     local_offset += 16;

@@ -88,7 +88,7 @@ typedef struct _funnel_ops_t {
 } funnel_ops_t;
 
 WS_DLL_PUBLIC const funnel_ops_t* funnel_get_funnel_ops(void);
-WS_DLL_PUBLIC void funnel_set_funnel_ops(const funnel_ops_t*);
+WS_DLL_PUBLIC bool funnel_menu_registered(void);
 
 WS_DLL_PUBLIC void funnel_register_menu(const char *name,
                                  register_stat_group_t group,
@@ -96,7 +96,8 @@ WS_DLL_PUBLIC void funnel_register_menu(const char *name,
                                  void *callback_data,
                                  funnel_menu_callback_data_free callback_data_free,
                                  bool retap);
-void funnel_deregister_menus(void (*callback)(void *));
+
+void funnel_deregister_menus(funnel_menu_callback callback);
 
 typedef void (*funnel_registration_cb_t)(const char *name,
                                          register_stat_group_t group,
@@ -105,7 +106,6 @@ typedef void (*funnel_registration_cb_t)(const char *name,
                                          bool retap);
 typedef void (*funnel_deregistration_cb_t)(funnel_menu_callback callback);
 
-WS_DLL_PUBLIC void funnel_register_all_menus(funnel_registration_cb_t r_cb);
 WS_DLL_PUBLIC void funnel_reload_menus(funnel_deregistration_cb_t d_cb,
                                        funnel_registration_cb_t r_cb);
 WS_DLL_PUBLIC void funnel_cleanup(void);
@@ -206,15 +206,12 @@ typedef void (*funnel_registration_console_cb_t)(const char *name,
                                 void *callback_data);
 
 /**
- * Entry point for Wireshark GUI to obtain all registered console menus
- *
- * @param r_cb function which will be called to register each console menu entry
- */
-WS_DLL_PUBLIC void funnel_register_all_console_menus(funnel_registration_console_cb_t r_cb);
-
-extern void initialize_funnel_ops(void);
-
-extern void funnel_dump_all_text_windows(void);
+* Initialize the funnel operations.  This is done outside of
+* epan_init() because the funnel operations depend on GUI code.
+*
+* @param r_cb function which will be called to register each console menu entry
+*/
+WS_DLL_PUBLIC void funnel_ops_init(const funnel_ops_t* ops, funnel_registration_cb_t r_cb, funnel_registration_console_cb_t rconsole_cb);
 
 #ifdef __cplusplus
 }

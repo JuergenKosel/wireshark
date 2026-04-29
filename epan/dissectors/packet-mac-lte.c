@@ -1102,7 +1102,7 @@ static const value_string buffer_size_vals[] =
 };
 static value_string_ext buffer_size_vals_ext = VALUE_STRING_EXT_INIT(buffer_size_vals);
 
-static uint32_t buffer_size_median[64] = {
+static const uint32_t buffer_size_median[64] = {
     0,  /* BS = 0 */
     5,  /* 0 < BS <= 10 */
     11, /* 10 < BS <= 12 */
@@ -1239,7 +1239,7 @@ static const value_string ext_buffer_size_vals[] =
 };
 static value_string_ext ext_buffer_size_vals_ext = VALUE_STRING_EXT_INIT(ext_buffer_size_vals);
 
-static uint32_t ext_buffer_size_median[64] = {
+static const uint32_t ext_buffer_size_median[64] = {
     0,  /* BS = 0 */
     5,  /* 0 < BS <= 10 */
     12, /* 10 < BS <= 13 */
@@ -1588,7 +1588,7 @@ static const value_string ul_retx_grant_vals[] =
 
 /* If this PDU has been NACK'd (by HARQ) more than a certain number of times,
    we trigger an expert warning. */
-static int global_mac_lte_retx_counter_trigger = 3;
+static unsigned global_mac_lte_retx_counter_trigger = 3;
 
 /* By default try to decode transparent data (BCH, PCH and CCCH) data using LTE RRC dissector */
 static bool global_mac_lte_attempt_rrc_decode = true;
@@ -1612,7 +1612,7 @@ enum lcid_drb_source {
 static int global_mac_lte_lcid_drb_source = (int)FromStaticTable;
 
 /* Threshold for warning in expert info about high BSR values */
-static int global_mac_lte_bsr_warn_threshold = 50; /* default is 19325 -> 22624 */
+static unsigned global_mac_lte_bsr_warn_threshold = 50; /* default is 19325 -> 22624 */
 
 /* Whether or not to track SRs and related frames */
 static bool global_mac_lte_track_sr = true;
@@ -1795,7 +1795,7 @@ typedef struct LastFrameData {
     uint32_t framenum;
     bool ndi;
     nstime_t received_time;
-    int      length;
+    unsigned length;
     uint8_t  data[MAX_EXPECTED_PDU_LENGTH];
 } LastFrameData;
 
@@ -3765,7 +3765,7 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
 
 /* For DL frames, look for previous Tx. Add link back if found */
-static void TrackReportedDLHARQResend(packet_info *pinfo, tvbuff_t *tvb, int length,
+static void TrackReportedDLHARQResend(packet_info *pinfo, tvbuff_t *tvb, unsigned length,
                                       proto_tree *tree, mac_lte_info *p_mac_lte_info)
 {
     DLHARQResult *result = NULL;
@@ -6214,7 +6214,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         uint32_t buffer_size;
                         int hfindex;
                         value_string_ext *p_vs_ext;
-                        uint32_t *p_buffer_size_median;
+                        const uint32_t *p_buffer_size_median;
 
                         if (!PINFO_FD_VISITED(pinfo)) {
                             get_mac_lte_ue_ext_bsr_sizes(p_mac_lte_info);
@@ -6257,7 +6257,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         }
                         offset++;
 
-                        if ((int)buffer_size >= global_mac_lte_bsr_warn_threshold) {
+                        if (buffer_size >= global_mac_lte_bsr_warn_threshold) {
                             expert_add_info_format(pinfo, buffer_size_ti, &ei_mac_lte_bsr_warn_threshold_exceeded,
                                                    "UE %u - BSR for LCG %u exceeds threshold: %u (%s)",
                                                    p_mac_lte_info->ueid,
@@ -6280,7 +6280,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         uint32_t    buffer_size[4];
                         int hfindex[4];
                         value_string_ext *p_vs_ext;
-                        uint32_t *p_buffer_size_median;
+                        const uint32_t *p_buffer_size_median;
 
                         if (!PINFO_FD_VISITED(pinfo)) {
                             get_mac_lte_ue_ext_bsr_sizes(p_mac_lte_info);
@@ -6319,7 +6319,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                             proto_item_set_generated(bsr_median_ti);
                         }
 
-                        if ((int)buffer_size[0] >= global_mac_lte_bsr_warn_threshold) {
+                        if (buffer_size[0] >= global_mac_lte_bsr_warn_threshold) {
                             expert_add_info_format(pinfo, buffer_size_ti, &ei_mac_lte_bsr_warn_threshold_exceeded,
                                                    "UE %u - BSR for LCG 0 exceeds threshold: %u (%s)",
                                                    p_mac_lte_info->ueid,
@@ -6339,7 +6339,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         }
 
                         offset++;
-                        if ((int)buffer_size[1] >= global_mac_lte_bsr_warn_threshold) {
+                        if (buffer_size[1] >= global_mac_lte_bsr_warn_threshold) {
                             expert_add_info_format(pinfo, buffer_size_ti, &ei_mac_lte_bsr_warn_threshold_exceeded,
                                                    "UE %u - BSR for LCG 1 exceeds threshold: %u (%s)",
                                                    p_mac_lte_info->ueid,
@@ -6359,7 +6359,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         }
 
                         offset++;
-                        if ((int)buffer_size[2] >= global_mac_lte_bsr_warn_threshold) {
+                        if (buffer_size[2] >= global_mac_lte_bsr_warn_threshold) {
                             expert_add_info_format(pinfo, buffer_size_ti, &ei_mac_lte_bsr_warn_threshold_exceeded,
                                                    "UE %u - BSR for LCG 2 exceeds threshold: %u (%s)",
                                                    p_mac_lte_info->ueid,
@@ -6379,7 +6379,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         }
 
                         offset++;
-                        if ((int)buffer_size[3] >= global_mac_lte_bsr_warn_threshold) {
+                        if (buffer_size[3] >= global_mac_lte_bsr_warn_threshold) {
                             expert_add_info_format(pinfo, buffer_size_ti, &ei_mac_lte_bsr_warn_threshold_exceeded,
                                                    "UE %u - BSR for LCG 3 exceeds threshold: %u (%s)",
                                                    p_mac_lte_info->ueid,
@@ -6422,7 +6422,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             }
             data_length = (pdu_lengths[n] == -1) ?
                             tvb_reported_length_remaining(tvb, offset) :
-                            pdu_lengths[n];
+                            (unsigned)pdu_lengths[n];
             if ((lcids[n] >= 3) && (lcids[n] <= 10)) {
                 tap_info->sdus_for_lcid[lcids[n]]++;
                 tap_info->bytes_for_lcid[lcids[n]] += data_length;
@@ -6460,7 +6460,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         /* Work out length */
         data_length = (pdu_lengths[n] == -1) ?
                             tvb_reported_length_remaining(tvb, offset) :
-                            pdu_lengths[n];
+                            (unsigned)pdu_lengths[n];
 
         if ((lcids[n] == 0) && /* CCCH */
             (p_mac_lte_info->direction == DIRECTION_UPLINK) &&
@@ -7125,7 +7125,7 @@ static void dissect_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, pro
         /* Work out length */
         data_length = (pdu_lengths[n] == -1) ?
                             tvb_reported_length_remaining(tvb, offset) :
-                            pdu_lengths[n];
+                            (unsigned)pdu_lengths[n];
 
         if ((lcids[n] == 0) && global_mac_lte_attempt_mcch_decode) {
             /* Call RLC dissector */
@@ -7493,7 +7493,7 @@ static void dissect_slsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         /* Work out length */
         data_length = (pdu_lengths[n] == -1) ?
                             tvb_reported_length_remaining(tvb, offset) :
-                            pdu_lengths[n];
+                            (unsigned)pdu_lengths[n];
 
         /* Dissect SDU as raw bytes */
         sdu_ti = proto_tree_add_bytes_format(tree, hf_mac_lte_slsch_sdu, tvb, offset, pdu_lengths[n],
@@ -10864,7 +10864,7 @@ void proto_register_mac_lte(void)
     static ei_register_info ei[] = {
         { &ei_mac_lte_reserved_not_zero, { "mac-lte.reserved-not-zero", PI_MALFORMED, PI_ERROR, "Reserved bit not zero", EXPFILL }},
         { &ei_mac_lte_rar_timing_advance_not_zero_note, { "mac-lte.rar.ta.not-zero", PI_SEQUENCE, PI_NOTE, "RAR Timing advance not zero", EXPFILL }},
-        { &ei_mac_lte_rar_timing_advance_not_zero_warn, { "mac-lte.rar.ta.not-zero", PI_SEQUENCE, PI_WARN, "RAR Timing advance not zero", EXPFILL }},
+        { &ei_mac_lte_rar_timing_advance_not_zero_warn, { "mac-lte.rar.ta.not-zero_warn", PI_SEQUENCE, PI_WARN, "RAR Timing advance not zero", EXPFILL }},
         { &ei_mac_lte_rar_bi_present, { "mac-lte.rar.bi.present", PI_MALFORMED, PI_ERROR, "MAC RAR PDU has > 1 Backoff Indicator subheader present", EXPFILL }},
         { &ei_mac_lte_rar_bi_not_first_subheader, { "mac-lte.rar.bi.not-first-subheader", PI_MALFORMED, PI_WARN, "Backoff Indicator must appear as first subheader", EXPFILL }},
         { &ei_mac_lte_bch_pdu, { "mac-lte.bch.pdu.uplink", PI_MALFORMED, PI_ERROR, "BCH data should not be received in Uplink!", EXPFILL }},
@@ -10890,7 +10890,7 @@ void proto_register_mac_lte(void)
         { &ei_mac_lte_mch_header_only_truncated, { "mac-lte.mch.header-only-truncated", PI_SEQUENCE, PI_NOTE, "MAC MCH PDU SDUs have been omitted", EXPFILL }},
         { &ei_mac_lte_slsch_header_only_truncated, { "mac-lte.slsch.header-only-truncated", PI_SEQUENCE, PI_NOTE, "MAC PDU SDUs have been omitted", EXPFILL }},
         { &ei_mac_lte_context_length, { "mac-lte.length.invalid", PI_MALFORMED, PI_ERROR, "MAC PDU is longer than reported length", EXPFILL }},
-        { &ei_mac_lte_rach_preamble_sent_warn, { "mac-lte.rach-preamble-sent", PI_SEQUENCE, PI_WARN, "RACH Preamble sent", EXPFILL }},
+        { &ei_mac_lte_rach_preamble_sent_warn, { "mac-lte.rach-preamble-sent-warn", PI_SEQUENCE, PI_WARN, "RACH Preamble sent_warn", EXPFILL }},
         { &ei_mac_lte_rach_preamble_sent_note, { "mac-lte.rach-preamble-sent", PI_SEQUENCE, PI_NOTE, "RACH Preamble sent", EXPFILL }},
         { &ei_mac_lte_oob_send_sr, { "mac-lte.sr-req", PI_SEQUENCE, PI_NOTE, "Scheduling Request sent", EXPFILL }},
         { &ei_mac_lte_oob_sr_failure, { "mac-lte.sr-failure", PI_SEQUENCE, PI_ERROR, "Scheduling Request failed", EXPFILL }},

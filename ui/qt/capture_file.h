@@ -14,7 +14,7 @@
 
 #include <config.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include "capture_event.h"
 
 class CaptureFile : public QObject

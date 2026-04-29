@@ -26,8 +26,8 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/etypes.h>
-#include <epan/afn.h>
 #include <epan/tfs.h>
+#include <epan/iana-info.h>
 #include "packet-mpls.h"
 
 
@@ -1217,7 +1217,7 @@ static int dissect_cfm_gnm_unknown(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 
 static int dissect_cfm_gnm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 {
-	uint8_t cfm_gnm_pdu_type = tvb_get_uint8(tvb, offset + 4);
+	uint8_t cfm_gnm_pdu_type = tvb_get_uint8(tvb, offset + 2);
 
 	switch (cfm_gnm_pdu_type) {
 	case BNM:
@@ -2109,10 +2109,10 @@ static int sender_id_tlv_chassis_id(proto_tree *cfm_tlv_tree, tvbuff_t *tvb, int
 		proto_tree_add_item(cfm_tlv_tree, hf_tlv_chassis_id_network_address_family, tvb, tlv_data_offset, 1, ENC_NA);
 
 		switch (tvb_get_uint8(tvb, tlv_data_offset)) {
-		case AFNUM_INET:
+		case AFNUM_IP:
 			proto_tree_add_item(cfm_tlv_tree, hf_tlv_chassis_id_network_address_ipv4, tvb, tlv_data_offset+1, tlv_chassis_id_length-1, ENC_BIG_ENDIAN);
 			break;
-		case AFNUM_INET6:
+		case AFNUM_IP6:
 			proto_tree_add_item(cfm_tlv_tree, hf_tlv_chassis_id_network_address_ipv6, tvb, tlv_data_offset+1, tlv_chassis_id_length-1, ENC_NA);
 			break;
 		default:
@@ -2204,10 +2204,10 @@ static int reply_ing_egr_tlv_port_id(proto_tree *cfm_tlv_tree, tvbuff_t *tvb, in
 		proto_tree_add_item(cfm_tlv_tree, hf_tlv_reply_ing_egr_portid_network_address_family, tvb, tlv_data_offset, 1, ENC_NA);
 
 		switch (tvb_get_uint8(tvb, tlv_data_offset)) {
-		case AFNUM_INET:
+		case AFNUM_IP:
 			proto_tree_add_item(cfm_tlv_tree, hf_tlv_reply_ing_egr_portid_network_address_ipv4, tvb, tlv_data_offset+1, tlv_reply_ingress_portid_length-1, ENC_BIG_ENDIAN);
 			break;
-		case AFNUM_INET6:
+		case AFNUM_IP6:
 			proto_tree_add_item(cfm_tlv_tree, hf_tlv_reply_ing_egr_portid_network_address_ipv6, tvb, tlv_data_offset+1, tlv_reply_ingress_portid_length-1, ENC_NA);
 			break;
 		default:

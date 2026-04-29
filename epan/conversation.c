@@ -100,7 +100,7 @@ enum {
 };
 
 /* Names for conversation_element_type values. */
-static const char *type_names[] = {
+static const char * const type_names[] = {
     "endpoint",
     "address",
     "port",
@@ -2143,7 +2143,7 @@ find_conversation(const uint32_t frame_num, const address *addr_a, const address
          */
         if (ctype != CONVERSATION_IBQP)
         {
-    
+
             /*
              * Well, that didn't find anything.
              * If search address and port B were specified, try looking for a
@@ -2872,7 +2872,7 @@ try_conversation_dissector(const address *addr_a, const address *addr_b, const c
  */
 bool
 try_conversation_dissector_strat(packet_info *pinfo, const conversation_type ctype,
-        tvbuff_t *tvb, proto_tree *tree, void* data, const unsigned options)
+        tvbuff_t *tvb, proto_tree *tree, void* data, const unsigned options, const bool direction)
 {
     conversation_t *conversation;
     bool dissector_success;
@@ -2883,14 +2883,14 @@ try_conversation_dissector_strat(packet_info *pinfo, const conversation_type cty
     DISSECTOR_ASSERT_HINT((options == 0) || (options & NO_MASK_B), "Use NO_ADDR_B and/or NO_PORT_B as option");
 
     /* Try each mode based on option flags */
-    conversation = find_conversation_strat(pinfo, ctype, 0, false);
+    conversation = find_conversation_strat(pinfo, ctype, 0, direction);
     if (conversation != NULL) {
         if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
             return dissector_success;
     }
 
     if (options & NO_ADDR_B) {
-        conversation = find_conversation_strat(pinfo, ctype, NO_ADDR_B, false);
+        conversation = find_conversation_strat(pinfo, ctype, NO_ADDR_B, direction);
         if (conversation != NULL) {
             if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data))
                 return dissector_success;
@@ -2898,7 +2898,7 @@ try_conversation_dissector_strat(packet_info *pinfo, const conversation_type cty
     }
 
     if (options & NO_PORT_B) {
-        conversation = find_conversation_strat(pinfo, ctype, NO_PORT_B, false);
+        conversation = find_conversation_strat(pinfo, ctype, NO_PORT_B, direction);
         if (conversation != NULL) {
             if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data)) {
                 return dissector_success;
@@ -2908,7 +2908,7 @@ try_conversation_dissector_strat(packet_info *pinfo, const conversation_type cty
     }
 
     if (options & (NO_ADDR_B|NO_PORT_B)) {
-        conversation = find_conversation_strat(pinfo, ctype, NO_ADDR_B|NO_PORT_B, false);
+        conversation = find_conversation_strat(pinfo, ctype, NO_ADDR_B|NO_PORT_B, direction);
         if (conversation != NULL) {
             if (try_conversation_call_dissector_helper(conversation, &dissector_success, tvb, pinfo, tree, data)) {
                 return dissector_success;
@@ -3067,7 +3067,17 @@ find_conversation_pinfo_deinterlaced(const packet_info *pinfo, const uint32_t an
 
     /* Have we seen this conversation before? */
     if (pinfo->use_conv_addr_port_endpoints) {
-        // XXX - not implemented yet. Necessary ?
+        // For example, it's reached with EAPOL/TLS over Ethernet, see Issue #21027
+        DISSECTOR_ASSERT(pinfo->conv_addr_port_endpoints);
+        if ((conv = find_conversation_deinterlaced(pinfo->num, &pinfo->conv_addr_port_endpoints->addr1, &pinfo->conv_addr_port_endpoints->addr2,
+                        pinfo->conv_addr_port_endpoints->ctype, pinfo->conv_addr_port_endpoints->port1,
+                        pinfo->conv_addr_port_endpoints->port2, anchor, 0)) != NULL) {
+            DPRINT(("found previous conversation for frame #%u (last_frame=%d)",
+                    pinfo->num, conv->last_frame));
+            if (pinfo->num > conv->last_frame) {
+                conv->last_frame = pinfo->num;
+            }
+        }
     } else if (pinfo->conv_elements) {
         // XXX - not implemented yet. Necessary ?
     } else {
@@ -3260,7 +3270,9 @@ find_or_create_conversation_deinterlaced(const packet_info *pinfo, const uint32_
                     pinfo->num));
         DINDENT();
         if (pinfo->use_conv_addr_port_endpoints) {
-            conv = conversation_new_strat(pinfo, pinfo->conv_addr_port_endpoints->ctype, 0);
+            conv = conversation_new_deinterlaced(pinfo->num, &pinfo->conv_addr_port_endpoints->addr1, &pinfo->conv_addr_port_endpoints->addr2,
+                        pinfo->conv_addr_port_endpoints->ctype, pinfo->conv_addr_port_endpoints->port1,
+                        pinfo->conv_addr_port_endpoints->port2, conv_index, 0);
         } else if (pinfo->conv_elements) {
             conv = conversation_new_full(pinfo->num, pinfo->conv_elements);
         } else {

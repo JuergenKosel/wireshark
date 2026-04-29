@@ -11,7 +11,7 @@
 #define __UI_PROTO_HIER_STATS_H__
 
 #include <epan/proto.h>
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #ifdef __cplusplus
 extern "C" {

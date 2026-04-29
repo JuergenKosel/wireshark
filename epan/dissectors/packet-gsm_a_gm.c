@@ -89,6 +89,12 @@
  *   Stage 3
  *   (3GPP TS 24.008 version 18.8.0 Release 18)
  *
+ *   Reference [19]
+ *   Mobile radio interface Layer 3 specification;
+ *   Core network protocols;
+ *   Stage 3
+ *   (3GPP TS 24.008 version 19.5.0 Release 19)
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -101,10 +107,10 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
-#include <epan/ipproto.h>
 #include <epan/etypes.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
+#include <epan/iana-info.h>
 #include <wsutil/array.h>
 #include "packet-ber.h"
 #include "packet-gsm_a_common.h"
@@ -637,6 +643,7 @@ static int hf_gsm_a_gm_sm_pco_eas_rediscovery_support_ind_with_impacted_eas_ipv6
 static int hf_gsm_a_gm_sm_pco_eas_rediscovery_support_ind_with_impacted_eas_ipv6_range_high;
 static int hf_gsm_a_gm_sm_pco_eas_rediscovery_support_ind_with_impacted_eas_fqdn;
 static int hf_gsm_a_gm_sm_pco_sdnaepc_dn_specific_id;
+static int hf_gsm_a_gm_sm_pco_s_nssai_sel_by_ms_s_nssai_len;
 static int hf_gsm_a_sm_pdp_type_number;
 static int hf_gsm_a_sm_pdp_address;
 static int hf_gsm_a_gm_ti_value;
@@ -4597,6 +4604,7 @@ static const range_string gsm_a_sm_pco_ms2net_prot_vals[] = {
 	{ 0x0052, 0x0052, "SDNAEPC DN-specific identity" },
 	{ 0x0056, 0x0056, "UE policy container with the length of two octets" },
 	{ 0x0057, 0x0057, "URSP provisioning in EPS support indicator" },
+	{ 0x0058, 0x0058, "S-NSSAI selected by MS" },
 	{ 0xff00, 0xffff, "Operator Specific Use" },
 	{ 0, 0, NULL }
 };
@@ -5195,6 +5203,14 @@ de_sm_pco(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, 
 					dissect_nas_5gs_updp(tvb_new_subset_length(tvb, curr_offset, e_len), pinfo, pco_tree);
 				}
 				break;
+			case 0x0058:
+				if (link_dir == P2P_DIR_UL && e_len >= 2) {
+					uint8_t field_len;
+
+					proto_tree_add_item_ret_uint8(tree, hf_gsm_a_gm_sm_pco_pvs_s_nssai_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &field_len);
+					de_nas_5gs_cmn_s_nssai(tvb, pco_tree, pinfo, curr_offset + 1, field_len, NULL, 0);
+				}
+				break;
 			default:
 			{
 				if (e_len > 0) {
@@ -5256,14 +5272,12 @@ de_sm_pdp_addr(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t off
 {
 	uint32_t     curr_offset;
 	const char *str;
-	unsigned char       pdp_type_org, pdp_type_num;
+	unsigned char pdp_type_org, pdp_type_num;
 
 	curr_offset = offset;
 
 	proto_tree_add_bits_item(tree, hf_gsm_a_spare_bits, tvb, (curr_offset << 3), 4, ENC_BIG_ENDIAN);
-	proto_tree_add_item(tree, hf_gsm_a_sm_pdp_type_org, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-
-	pdp_type_org = tvb_get_uint8(tvb, curr_offset) & 0x0f;
+	proto_tree_add_item_ret_uint8(tree, hf_gsm_a_sm_pdp_type_org, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &pdp_type_org);
 	curr_offset += 1;
 	pdp_type_num = tvb_get_uint8(tvb, curr_offset);
 
@@ -10084,6 +10098,11 @@ proto_register_gsm_a_gm(void)
 		{ &hf_gsm_a_gm_sm_pco_sdnaepc_dn_specific_id,
 		  { "SDNAEPC DN-specific identity", "gsm_a.gm.sm.pco.sdnaepc_dn_specific_id",
 		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    NULL, HFILL }
+		},
+		{ &hf_gsm_a_gm_sm_pco_s_nssai_sel_by_ms_s_nssai_len,
+		  { "S-NSSAI length", "gsm_a.gm.sm.pco.s_nssai_sel_by_ms.s_nssai_len",
+		    FT_UINT8, BASE_DEC, NULL, 0x0,
 		    NULL, HFILL }
 		},
 		/* Generated from convert_proto_tree_add_text.pl */

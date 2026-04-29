@@ -731,7 +731,7 @@ dissect_rtp_hdr_ext_ed137a_feature_sqi(tvbuff_t *tvb, packet_info *pinfo _U_, pr
         else {
             /* Handle as other method */
             it = proto_tree_add_item( tree, hf_rtp_hdr_ed137a_ft_sqi_qidx, tvb, 0, 1, ENC_BIG_ENDIAN);
-            expert_add_info_format(pinfo, it, &ei_rtp_hdr_ed137_ft_sqi_rssi_out_of_range, "RSSI index out of range");
+            expert_add_info(pinfo, it, &ei_rtp_hdr_ed137_ft_sqi_rssi_out_of_range);
         }
     }
     else {
@@ -790,7 +790,7 @@ dissect_rtp_hdr_ext_ed137b_feature_rrc_single(tvbuff_t *tvb, packet_info *pinfo 
     proto_tree *item;
 
     /* Generated item points really to previous byte */
-    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_rrc_single, tvb, -1, 1, ENC_NA);
+    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_rrc_single, tvb, 0, 0, ENC_NA);
     proto_item_set_generated(item);
 
     proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_rrc_single_ms_tx_f1, tvb, 0, 1, ENC_BIG_ENDIAN);
@@ -1023,7 +1023,7 @@ dissect_rtp_hdr_ext_ed137b_feature_climax_ddc_rmm(tvbuff_t *tvb, packet_info *pi
     uint32_t climax_ddc_rmm_t1;
 
     /* Generated item points really to previous byte */
-    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_climax_ddc_rmm, tvb, -1, 1, ENC_NA);
+    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_climax_ddc_rmm, tvb, 0, 0, ENC_NA);
     proto_item_set_generated(item);
 
     ext_value = tvb_get_ntoh24( tvb, 0 );
@@ -1048,7 +1048,7 @@ dissect_rtp_hdr_ext_ed137b_feature_climax_ddc_mam(tvbuff_t *tvb, packet_info *pi
     uint32_t climax_ddc_mam_t2;
 
     /* Generated item points really to previous byte */
-    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_climax_ddc_mam, tvb, -1, 1, ENC_NA);
+    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137b_ft_climax_ddc_mam, tvb, 0, 0, ENC_NA);
     proto_item_set_generated(item);
 
     ext_value = tvb_get_ntoh24( tvb, 0 + 0 );
@@ -1090,7 +1090,7 @@ dissect_rtp_hdr_ext_ed137c_feature_climax_ddc_mam(tvbuff_t *tvb, packet_info *pi
     uint32_t climax_ddc_mam_t2;
 
     /* Generated item points really to previous byte */
-    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137c_ft_climax_ddc_mam, tvb, -1, 1, ENC_NA);
+    item = proto_tree_add_item( tree, hf_rtp_hdr_ed137c_ft_climax_ddc_mam, tvb, 0, 0, ENC_NA);
     proto_item_set_generated(item);
 
     ext_value = tvb_get_ntoh24( tvb, 0 + 0 );
@@ -2154,7 +2154,7 @@ proto_register_rtp_ed137(void)
     static ei_register_info ei[] =
     {
         { &ei_rtp_hdr_ed137_ft_climax_ddc_rmm_resp_not_found, { "rtp.ext.ed137a.resp_not_found", PI_SEQUENCE, PI_WARN, "Response not found", EXPFILL }},
-        { &ei_rtp_hdr_ed137_ft_sqi_rssi_out_of_range, { "rtp.ext.ed137a.sqi.out_of_range", PI_MALFORMED, PI_ERROR, "Index out of range", EXPFILL }},
+        { &ei_rtp_hdr_ed137_ft_sqi_rssi_out_of_range, { "rtp.ext.ed137a.sqi.out_of_range", PI_MALFORMED, PI_ERROR, "RSSI index out of range", EXPFILL }},
     };
 
     expert_module_t* expert_rtp_ed137;

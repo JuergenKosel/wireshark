@@ -39,10 +39,10 @@
 #include <epan/expert.h>
 #include <epan/strutil.h>
 #include <epan/prefs.h>
-#include <epan/ipproto.h>
 #include <epan/asn1.h>
 #include <epan/proto_data.h>
 #include <wsutil/array.h>
+#include <epan/iana-info.h>
 
 #include "packet-t38.h"
 #include "packet-per.h"
@@ -214,14 +214,15 @@ void t38_add_address(packet_info *pinfo,
          * Check if the ip address and port combination is not
          * already registered as a conversation.
          */
-        p_conversation = find_conversation( setup_frame_number, addr, &null_addr, CONVERSATION_UDP, port, other_port,
+        p_conversation = find_conversation_strat_xtd(pinfo, setup_frame_number, addr, &null_addr, CONVERSATION_UDP, port, other_port,
                                 NO_ADDR_B | (!other_port ? NO_PORT_B : 0));
+
 
         /*
          * If not, create a new conversation.
          */
         if ( !p_conversation || p_conversation->setup_frame != setup_frame_number) {
-                p_conversation = conversation_new( setup_frame_number, addr, &null_addr, CONVERSATION_UDP,
+                p_conversation = conversation_new_strat_xtd(pinfo, setup_frame_number, addr, &null_addr, CONVERSATION_UDP,
                                            (uint32_t)port, (uint32_t)other_port,
                                                                    NO_ADDR2 | (!other_port ? NO_PORT2 : 0));
         }
@@ -413,13 +414,13 @@ init_t38_info_conv(packet_info *pinfo)
 
 
 	/* find the conversation used for Reassemble and Setup Info */
-	p_conv = find_conversation(pinfo->num, &pinfo->net_dst, &pinfo->net_src,
+	p_conv = find_conversation_strat_xtd(pinfo, pinfo->num, &pinfo->net_dst, &pinfo->net_src,
                                    conversation_pt_to_conversation_type(pinfo->ptype),
                                    pinfo->destport, pinfo->srcport, NO_ADDR_B | NO_PORT_B);
 
 	/* create a conv if it doesn't exist */
 	if (!p_conv) {
-		p_conv = conversation_new(pinfo->num, &pinfo->net_src, &pinfo->net_dst,
+		p_conv = conversation_new_strat_xtd(pinfo, pinfo->num, &pinfo->net_src, &pinfo->net_dst,
 			      conversation_pt_to_conversation_type(pinfo->ptype), pinfo->srcport, pinfo->destport, NO_ADDR2 | NO_PORT2);
 
 		/* Set dissector */
@@ -594,7 +595,7 @@ dissect_t38_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 	if(t38_tpkt_usage == T38_TPKT_ALWAYS){
 		dissect_tpkt_encap(tvb,pinfo,tree,t38_tpkt_reassembly,t38_tcp_pdu_handle);
 	}
-	else if((t38_tpkt_usage == T38_TPKT_NEVER) || (is_tpkt(tvb,1) == -1)){
+	else if((t38_tpkt_usage == T38_TPKT_NEVER) || (is_tpkt(tvb,1, NULL))){
 		dissect_t38_tcp_pdu(tvb, pinfo, tree, data);
 	}
 	else {
@@ -768,6 +769,6 @@ proto_reg_handoff_t38(void)
 	data_handle = find_dissector("data");
 	dissector_add_for_decode_as("tcp.port", t38_tcp_handle);
 	dissector_add_for_decode_as("udp.port", t38_udp_handle);
-	heur_dissector_add("udp", dissect_t38_acdr_heur, "T38 over AC DR", "t38_acdr", proto_t38, HEURISTIC_ENABLE);
+	heur_dissector_add("udp", dissect_t38_acdr_heur, "T38 over AC DR", "t38_acdr", proto_t38, HEURISTIC_DISABLE);
 	dissector_add_uint("acdr.media_type", ACDR_T38, t38_udp_handle);
 }

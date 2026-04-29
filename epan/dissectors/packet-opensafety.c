@@ -767,7 +767,7 @@ dissect_data_payload ( proto_tree *epl_tree, tvbuff_t *tvb, packet_info *pinfo, 
 
         if (len > 0)
         {
-                payload_tvb = tvb_new_subset_length_caplen(tvb, off, len, tvb_reported_length_remaining(tvb, offset) );
+                payload_tvb = tvb_new_subset_length(tvb, off, len);
                 if ( ! dissector_try_heuristic(heur_opensafety_spdo_subdissector_list, payload_tvb, pinfo, epl_tree, &hdtbl_entry, &msgType))
                         call_dissector(data_dissector, payload_tvb, pinfo, epl_tree);
 
@@ -928,8 +928,8 @@ dissect_opensafety_spdo_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
 static void dissect_opensafety_ssdo_payload ( packet_info *pinfo, tvbuff_t *new_tvb, proto_tree *ssdo_payload, uint8_t sacmd )
 {
     unsigned    dataLength   = 0, ctr = 0, n = 0, nCRCs = 0;
-    uint8_t     ssdoSubIndex = 0;
-    uint16_t    ssdoIndex    = 0, dispSSDOIndex = 0;
+    uint32_t    ssdoSubIndex = 0;
+    uint32_t    ssdoIndex    = 0, dispSSDOIndex = 0;
     uint32_t    sodLength    = 0, entry = 0;
     proto_item *item;
     proto_tree *sod_tree, *ext_tree;
@@ -1020,7 +1020,7 @@ static void dissect_opensafety_ssdo_payload ( packet_info *pinfo, tvbuff_t *new_
 
                 item = proto_tree_add_uint_format_value(ssdo_payload, hf_oss_ssdo_sod_index, new_tvb,
                                                         ctr, 2,  ssdoIndex, "0x%04X (%s)", ssdoIndex,
-                                                        val_to_str_ext_const( ((uint32_t) (dispSSDOIndex << 16) ),
+                                                        val_to_str_ext_const( dispSSDOIndex << 16,
                                                                               &opensafety_sod_idx_names_ext, "Unknown") );
                 if ( ssdoIndex != dispSSDOIndex )
                     proto_item_set_generated ( item );
@@ -1034,7 +1034,7 @@ static void dissect_opensafety_ssdo_payload ( packet_info *pinfo, tvbuff_t *new_
                 {
                     proto_tree_add_uint_format_value(sod_tree, hf_oss_ssdo_sod_subindex, new_tvb, ctr + 2, 1,
                                                      ssdoSubIndex, "0x%02X (%s)", ssdoSubIndex,
-                                                     val_to_str_ext_const(((uint32_t) (ssdoIndex << 16) + ssdoSubIndex),
+                                                     val_to_str_ext_const((ssdoIndex << 16) + ssdoSubIndex,
                                                                           &opensafety_sod_idx_names_ext, "Unknown") );
                 }
                 else
@@ -1214,8 +1214,8 @@ dissect_opensafety_ssdo_message(tvbuff_t *message_tvb, packet_info *pinfo, proto
         if ( packet->payload.ssdo->sacmd.initiate )
         {
             /* Use the lower 4 bits from the preload as size */
-            proto_tree_add_uint_format_value(ssdo_tree, hf_oss_ssdo_preload_queue, message_tvb, packet->frame.subframe2 + 4, 1,
-                    preload & 0x0F, "%d", preload & 0x0F );
+            proto_tree_add_uint(ssdo_tree, hf_oss_ssdo_preload_queue, message_tvb, packet->frame.subframe2 + 4, 1,
+                    preload & 0x0F);
         }
         else
         {
@@ -2047,7 +2047,6 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
     bool                handled, dissectorCalled, call_sub_dissector, markAsMalformed;
     uint8_t             type, found, tempByte, previous_msg_id;
     uint16_t            frameStart1, frameStart2, byte_offset;
-    int                 reported_len;
     dissector_handle_t  protocol_dissector = NULL;
     proto_item         *opensafety_item;
     proto_tree         *opensafety_tree;
@@ -2078,8 +2077,6 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
             protocol_dissector = data_dissector;
     }
 
-    reported_len = tvb_reported_length_remaining(given_tvb, 0);
-
     /* This will swap the bytes according to MBTCP encoding */
     if ( do_byte_swap == true && global_mbtcp_big_endian == true )
     {
@@ -2099,7 +2096,7 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
             tempByte = swbytes [ 2 * i ]; swbytes [ 2 * i ] = swbytes [ 2 * i + 1 ]; swbytes [ 2 * i + 1 ] = tempByte;
         }
 
-        message_tvb = tvb_new_real_data(swbytes, length, reported_len);
+        message_tvb = tvb_new_real_data(swbytes, length, length);
     } else {
         message_tvb = given_tvb;
     }
@@ -2133,7 +2130,7 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
              * check in findSafetyFrame for the msg id (this happens later in this routine)
              * frameLength is calculated/read directly from the dissected data. If frameLength and frameOffset together
              * are bigger than the reported length, the package is not really an openSAFETY package */
-            if ( packet->msg_id == 0 || ( frameOffset + frameLength ) > (unsigned)reported_len )
+            if ( packet->msg_id == 0 || ( frameOffset + frameLength ) > length )
                 break;
 
             found++;
@@ -2301,14 +2298,14 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
             if ( global_display_intergap_data == true && gapStart != frameOffset )
             {
                 /* Storing the gap data in subset, and calling the data dissector to display it */
-                gap_tvb = tvb_new_subset_length_caplen(message_tvb, gapStart, (frameOffset - gapStart), reported_len);
+                gap_tvb = tvb_new_subset_length(message_tvb, gapStart, frameOffset - gapStart);
                 call_dissector(data_dissector, gap_tvb, pinfo, tree);
             }
             /* Setting the gap to the next offset */
             gapStart = frameOffset + frameLength;
 
             /* Adding second data source */
-            next_tvb = tvb_new_subset_length_caplen ( message_tvb, frameOffset, frameLength, reported_len );
+            next_tvb = tvb_new_subset_length(message_tvb, frameOffset, frameLength);
 
             /* Adding a visual aid to the dissector tree */
             add_new_data_source(pinfo, next_tvb, "openSAFETY Frame");
@@ -2394,7 +2391,7 @@ opensafety_package_dissector(const char *protocolName, const char *sub_diss_hand
         if ( frameOffset < length && global_display_intergap_data == true && gapStart != frameOffset )
         {
             /* Storing the gap data in subset, and calling the data dissector to display it */
-            gap_tvb = tvb_new_subset_length_caplen(message_tvb, gapStart, (length - gapStart), reported_len);
+            gap_tvb = tvb_new_subset_length(message_tvb, gapStart, length - gapStart);
             call_dissector(data_dissector, gap_tvb, pinfo, tree);
         }
     }

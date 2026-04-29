@@ -1405,9 +1405,8 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
         if (ptype == ZBNCP_HIGH_LVL_PACKET_TYPE_RESPONSE)
         {
             unsigned i;
-            uint8_t ch_list_len = tvb_get_uint8(tvb, offset);
-
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA);
+            uint8_t ch_list_len;
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)
@@ -1690,8 +1689,7 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
         {
             uint16_t pkt_len;
 
-            pkt_len = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_pkt_len, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item_ret_uint16(zbncp_hl_body_tree, hf_zbncp_data_pkt_len, tvb, offset, 2, ENC_LITTLE_ENDIAN, &pkt_len);
             offset += 2;
 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_pkt, tvb, offset, pkt_len, ENC_NA);
@@ -2144,12 +2142,10 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_dev_version, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            in_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA, &in_cl_cnt);
             offset += 1;
 
-            out_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA, &out_cl_cnt);
             offset += 1;
 
             if (in_cl_cnt)
@@ -2475,12 +2471,10 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_dev_version, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            in_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA, &in_cl_cnt);
             offset += 1;
 
-            out_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA, &out_cl_cnt);
             offset += 1;
 
             if (in_cl_cnt)
@@ -2553,12 +2547,10 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_profile_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
 
-            in_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_in_cl_cnt, tvb, offset, 1, ENC_NA, &in_cl_cnt);
             offset += 1;
 
-            out_cl_cnt = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_out_cl_cnt, tvb, offset, 1, ENC_NA, &out_cl_cnt);
             offset += 1;
 
             if (in_cl_cnt)
@@ -2722,8 +2714,7 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ext_pan_id, tvb, offset, 8, ENC_LITTLE_ENDIAN);
             offset += 8;
 
-            ch_list_len = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)
@@ -2998,8 +2989,7 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_nwk_addr, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset += 2;
 
-            auth_type = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_zdo_auth_type, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_zdo_auth_type, tvb, offset, 1, ENC_NA, &auth_type);
             offset += 1;
 
             if (auth_type == ZB_ZDO_AUTH_LEGACY_TYPE)
@@ -3100,8 +3090,7 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             unsigned i;
             uint8_t ch_list_len;
 
-            ch_list_len = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_channel_page_count, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_channel_page_count, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)
@@ -3588,9 +3577,8 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
         if (ptype == ZBNCP_HIGH_LVL_PACKET_TYPE_REQUEST)
         {
             unsigned i;
-            uint8_t ch_list_len = tvb_get_uint8(tvb, offset);
-
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA);
+            uint8_t ch_list_len;
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)
@@ -3628,9 +3616,8 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
         if (ptype == ZBNCP_HIGH_LVL_PACKET_TYPE_REQUEST)
         {
             unsigned i;
-            uint8_t ch_list_len = tvb_get_uint8(tvb, offset);
-
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA);
+            uint8_t ch_list_len;
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)
@@ -3719,8 +3706,7 @@ dissect_zbncp_high_level_body(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
             proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_rejoin_nwk, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            ch_list_len = tvb_get_uint8(tvb, offset);
-            proto_tree_add_item(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item_ret_uint8(zbncp_hl_body_tree, hf_zbncp_data_ch_list_len, tvb, offset, 1, ENC_NA, &ch_list_len);
             offset += 1;
 
             if (ch_list_len)

@@ -127,8 +127,7 @@ dissect_comrej(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tr
 {
     uint16_t reason;
 
-    reason = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(tree, hf_btamp_rej_reason, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_btamp_rej_reason, tvb, offset, 2, ENC_LITTLE_ENDIAN, &reason);
     offset += 2;
 
     switch (reason) {
@@ -403,15 +402,13 @@ dissect_btamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
             "Command: ");
     btamp_cmd_tree = proto_item_add_subtree(ti_command, ett_btamp_cmd);
 
-    cmd_code = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(btamp_cmd_tree, hf_btamp_cmd_code,   tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint8(btamp_cmd_tree, hf_btamp_cmd_code,   tvb, offset, 1, ENC_LITTLE_ENDIAN, &cmd_code);
     offset += 1;
 
     proto_tree_add_item(btamp_cmd_tree, hf_btamp_cmd_ident,  tvb, offset, 1, ENC_LITTLE_ENDIAN);
     offset += 1;
 
-    cmd_length = tvb_get_letohs(tvb, offset);
-    proto_tree_add_item(btamp_cmd_tree, hf_btamp_cmd_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint16(btamp_cmd_tree, hf_btamp_cmd_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &cmd_length);
     proto_item_set_len(ti_command, cmd_length+4);
     offset += 2;
 

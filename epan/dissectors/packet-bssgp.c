@@ -698,8 +698,7 @@ de_bssgp_bvci(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, uint32_t 
     curr_offset = offset;
 
     /* octet 3-4 Unstructured value */
-    bvci = tvb_get_ntohs(tvb,curr_offset);
-    proto_tree_add_item(tree, hf_bssgp_bvci, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_bssgp_bvci, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &bvci);
     curr_offset+=2;
 
     if (add_string)
@@ -854,12 +853,11 @@ de_bssgp_cell_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t o
     /*Why doesn't this work? ( add_string will not contain RAI + CI )
      * curr_offset = curr_offset + de_cell_id(tvb, tree, curr_offset , 2, add_string, string_len);
      */
-    ci = tvb_get_ntohs(tvb, curr_offset);
-    proto_tree_add_item(tree, hf_bssgp_ci, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_bssgp_ci, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &ci);
     curr_offset+=2;
     if (add_string) {
         char *str = ws_strdup_printf("%s, CI %u", add_string, ci);
-        g_strlcpy(add_string, str, string_len);
+        (void) g_strlcpy(add_string, str, string_len);
         g_free(str);
     }
 
@@ -1209,8 +1207,7 @@ de_bssgp_qos_profile(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32
     proto_tree_add_item(tree, hf_bssgp_cr_bit, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_bssgp_t_bit, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_bssgp_a_bit, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    precedence = tvb_get_uint8(tvb, curr_offset) & 0x7;
-    pre_item = proto_tree_add_item(tree, hf_bssgp_precedence, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    pre_item = proto_tree_add_item_ret_uint8(tree, hf_bssgp_precedence, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &precedence);
     if(link_dir == P2P_DIR_DL){
         proto_item_append_text(pre_item, " %s", val_to_str_const((uint32_t)precedence, bssgp_precedence_dl, "Radio Priority Unknown(Radio priority 3)"));
     }else{
@@ -1571,8 +1568,7 @@ de_bssgp_nsei(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offs
 
     curr_offset = offset;
 
-    nsei = tvb_get_ntohs(tvb, curr_offset);
-    proto_tree_add_item(tree, hf_bssgp_nsei, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_bssgp_nsei, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &nsei);
     curr_offset+=2;
 
     col_append_sep_fstr(pinfo->cinfo, COL_INFO, BSSGP_SEP, "NSEI %u", nsei);
@@ -2309,12 +2305,11 @@ de_bssgp_rim_routing_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, ui
              */
             curr_offset = curr_offset + de_gmm_rai(tvb, tree, pinfo, curr_offset , 6, add_string, string_len);
             /* Octet 10 - 11 RNC-ID (or Extended RNC-ID) */
-            rnc_id = tvb_get_ntohs(tvb, curr_offset);
-            proto_tree_add_item(tree, hf_bssgp_rnc_id, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item_ret_uint16(tree, hf_bssgp_rnc_id, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &rnc_id);
 
             if (add_string) {
                 char *str = ws_strdup_printf(" %s, RNC-ID %u", add_string, rnc_id);
-                g_strlcpy(add_string, str, string_len);
+                (void) g_strlcpy(add_string, str, string_len);
                 g_free(str);
             }
             break;
@@ -2476,8 +2471,7 @@ de_bssgp_mbms_ra_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint3
     curr_offset = offset;
 
     /* octet 3 Number of Routing Area Identifications Spare Spare Spare Spare */
-    num_ra_ids = tvb_get_uint8(tvb,curr_offset) >> 4;
-    proto_tree_add_item(tree, hf_bssgp_mbms_num_ra_ids, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(tree, hf_bssgp_mbms_num_ra_ids, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &num_ra_ids);
 
     /* octet 4 - 11 Routing Area Identification 1 (etc)*/
     for (i = 0; i < num_ra_ids; i++) {
@@ -2765,13 +2759,12 @@ de_bssgp_rnc_identifier(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uin
      */
     curr_offset = curr_offset + de_gmm_rai(tvb, tree, pinfo, curr_offset, 6, add_string, string_len);
     /* Octet 9 - 10 RNC ID (or Extended RNC-ID or Corresponding RNC-ID) */
-    rnc_id = tvb_get_ntohs(tvb, curr_offset);
-    proto_tree_add_item(tree, hf_bssgp_rnc_id, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_bssgp_rnc_id, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &rnc_id);
     curr_offset+=2;
 
     if (add_string) {
         char *str = ws_strdup_printf(" %s, RNC-ID %u", add_string, rnc_id);
-        g_strlcpy(add_string, str, string_len);
+        (void) g_strlcpy(add_string, str, string_len);
         g_free(str);
     }
 

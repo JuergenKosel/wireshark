@@ -105,7 +105,7 @@ col_custom_fields_ids_free(GSList** custom_fields_id)
 void
 col_cleanup(column_info *cinfo)
 {
-  int i;
+  unsigned i;
   col_item_t* col_item;
 
   if (!cinfo)
@@ -143,7 +143,7 @@ col_cleanup(column_info *cinfo)
 void
 col_init(column_info *cinfo, const struct epan_session *epan)
 {
-  int i;
+  unsigned i;
   col_item_t* col_item;
 
   if (!cinfo)
@@ -433,7 +433,7 @@ col_custom_prime_edt(epan_dissect_t *edt, column_info *cinfo)
 }
 
 char*
-col_custom_get_filter(epan_dissect_t *edt, column_info *cinfo, const int col)
+col_custom_get_filter(epan_dissect_t *edt, column_info *cinfo, const unsigned col)
 {
   col_item_t* col_item;
 
@@ -487,7 +487,7 @@ col_append_lstr(column_info *cinfo, const int el, const char *str1, ...)
           str = "(null)";
         }
         WS_UTF_8_CHECK(str, -1);
-        pos = ws_label_strcpy(col_item->col_buf, max_len, pos, str, 0);
+        pos = ws_label_strcpy(col_item->col_buf, max_len, pos, (const uint8_t*)str, 0);
 
       } while (pos < max_len && (str = va_arg(ap, const char *)) != COL_ADD_LSTR_TERMINATOR);
       va_end(ap);
@@ -571,7 +571,7 @@ col_do_append_fstr(column_info *cinfo, const int el, const char *separator, cons
        * If we have a separator, append it if the column isn't empty.
        */
       if (sep_len != 0 && len != 0) {
-        (void) ws_label_strcat(col_item->col_buf, max_len, separator, 0);
+        (void) ws_label_strcat(col_item->col_buf, max_len, (const uint8_t*)separator, 0);
         len += sep_len;
       }
 
@@ -585,7 +585,7 @@ col_do_append_fstr(column_info *cinfo, const int el, const char *separator, cons
           ws_utf8_truncate(tmp, max_len - 1);
         }
         WS_UTF_8_CHECK(tmp, -1);
-        ws_label_strcpy(col_item->col_buf, max_len, len, tmp, 0);
+        ws_label_strcpy(col_item->col_buf, max_len, len, (const uint8_t*)tmp, 0);
       }
     }
   }
@@ -662,7 +662,7 @@ col_prepend_fstr(column_info *cinfo, const int el, const char *format, ...)
         ws_utf8_truncate(tmp, max_len - 1);
       }
       WS_UTF_8_CHECK(tmp, -1);
-      pos = ws_label_strcpy(col_item->col_buf, max_len, 0, tmp, 0);
+      pos = ws_label_strcpy(col_item->col_buf, max_len, 0, (const uint8_t*)tmp, 0);
 
       /*
        * Move the fence, unless it's at the beginning of the string.
@@ -678,7 +678,7 @@ col_prepend_fstr(column_info *cinfo, const int el, const char *format, ...)
       /*
        * Append the original data.
        */
-      ws_label_strcpy(col_item->col_buf, max_len, pos, orig, 0);
+      ws_label_strcpy(col_item->col_buf, max_len, pos, (const uint8_t*)orig, 0);
       col_item->col_data = col_item->col_buf;
     }
   }
@@ -719,7 +719,7 @@ col_prepend_fence_fstr(column_info *cinfo, const int el, const char *format, ...
         ws_utf8_truncate(tmp, max_len - 1);
       }
       WS_UTF_8_CHECK(tmp, -1);
-      pos = ws_label_strcpy(col_item->col_buf, max_len, 0, tmp, 0);
+      pos = ws_label_strcpy(col_item->col_buf, max_len, 0, (const uint8_t*)tmp, 0);
 
       /*
        * Move the fence if it exists, else create a new fence at the
@@ -733,7 +733,7 @@ col_prepend_fence_fstr(column_info *cinfo, const int el, const char *format, ...
       /*
        * Append the original data.
        */
-      ws_label_strcpy(col_item->col_buf, max_len, pos, orig, 0);
+      ws_label_strcpy(col_item->col_buf, max_len, pos, (const uint8_t*)orig, 0);
       col_item->col_data = col_item->col_buf;
     }
   }
@@ -772,7 +772,7 @@ col_add_str(column_info *cinfo, const int el, const char* str)
         col_item->col_data = col_item->col_buf;
       }
       WS_UTF_8_CHECK(str, -1);
-      (void) ws_label_strcpy(col_item->col_buf, max_len, col_item->col_fence, str, 0);
+      (void) ws_label_strcpy(col_item->col_buf, max_len, col_item->col_fence, (const uint8_t*)str, 0);
     }
   }
 }
@@ -860,7 +860,7 @@ col_add_lstr(column_info *cinfo, const int el, const char *str1, ...)
           str = "(null)";
         }
         WS_UTF_8_CHECK(str, -1);
-        pos = ws_label_strcpy(col_item->col_buf, max_len, pos, str, 0);
+        pos = ws_label_strcpy(col_item->col_buf, max_len, pos, (const uint8_t*)str, 0);
 
       } while (pos < max_len && (str = va_arg(ap, const char *)) != COL_ADD_LSTR_TERMINATOR);
       va_end(ap);
@@ -908,7 +908,7 @@ col_add_fstr(column_info *cinfo, const int el, const char *format, ...)
         ws_utf8_truncate(tmp, max_len - 1);
       }
       WS_UTF_8_CHECK(tmp, -1);
-      ws_label_strcpy(col_item->col_buf, max_len, col_item->col_fence, tmp, 0);
+      ws_label_strcpy(col_item->col_buf, max_len, col_item->col_fence, (const uint8_t*)tmp, 0);
     }
   }
 }
@@ -941,11 +941,11 @@ col_do_append_str(column_info *cinfo, const int el, const char* separator,
        */
       if (separator != NULL) {
         if (len != 0) {
-          (void) ws_label_strcat(col_item->col_buf, max_len, separator, 0);
+          (void) ws_label_strcat(col_item->col_buf, max_len, (const uint8_t*)separator, 0);
         }
       }
       WS_UTF_8_CHECK(str, -1);
-      (void) ws_label_strcat(col_item->col_buf, max_len, str, 0);
+      (void) ws_label_strcat(col_item->col_buf, max_len, (const uint8_t*)str, 0);
     }
   }
 }
@@ -974,7 +974,7 @@ col_append_sep_str(column_info *cinfo, const int el, const char* separator,
 
 /* --------------------------------- */
 bool
-col_has_time_fmt(column_info *cinfo, const int col)
+col_has_time_fmt(column_info *cinfo, const unsigned col)
 {
   col_item_t* col_item = &cinfo->columns[col];
   return ((col_item->fmt_matx[COL_CLS_TIME]) ||
@@ -1920,7 +1920,7 @@ col_set_port(packet_info *pinfo, const int col, const bool is_res, const bool is
 }
 
 bool
-col_based_on_frame_data(column_info *cinfo, const int col)
+col_based_on_frame_data(column_info *cinfo, const unsigned col)
 {
   ws_assert(cinfo);
   ws_assert(col < cinfo->num_cols);
@@ -2030,7 +2030,7 @@ col_fill_in_frame_data(const frame_data *fd, column_info *cinfo, const int col, 
 void
 col_fill_in(packet_info *pinfo, const bool fill_col_exprs, const bool fill_fd_colums)
 {
-  int i;
+  unsigned i;
   col_item_t* col_item;
 
   if (!pinfo->cinfo)
@@ -2115,6 +2115,15 @@ col_fill_in(packet_info *pinfo, const bool fill_col_exprs, const bool fill_fd_co
         col_set_port(pinfo, i, false, false, fill_col_exprs);
         break;
 
+      case COL_USER_NAME:
+        if (pinfo->user_name) {
+          (void) g_strlcpy(col_item->col_buf, pinfo->user_name, COL_MAX_LEN);
+        } else {
+          col_item->col_buf[0] = '\0';
+        }
+        col_item->col_data = col_item->col_buf;
+        break;
+
       case COL_CUSTOM:
         /* Formatting handled by col_custom_set_edt() / col_custom_get_filter() */
         break;
@@ -2148,7 +2157,7 @@ col_fill_in(packet_info *pinfo, const bool fill_col_exprs, const bool fill_fd_co
 void
 col_fill_in_error(column_info *cinfo, frame_data *fdata, const bool fill_col_exprs, const bool fill_fd_colums)
 {
-  int i;
+  unsigned i;
   col_item_t* col_item;
 
   if (!cinfo)
@@ -2219,7 +2228,7 @@ col_dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     ti = proto_tree_add_item(tree, proto_cols, tvb, 0, 0, ENC_NA);
     proto_item_set_hidden(ti);
     col_tree = proto_item_add_subtree(ti, ett_cols);
-    for (int i = 0; i < cinfo->num_cols; ++i) {
+    for (unsigned i = 0; i < cinfo->num_cols; ++i) {
       if (cinfo->columns[i].hf_id > 0) {
         if (cinfo->columns[i].col_fmt == COL_CUSTOM) {
           ti = proto_tree_add_string_format(col_tree, cinfo->columns[i].hf_id, tvb, 0, 0, get_column_text(cinfo, i), "%s: %s", get_column_title(i), get_column_text(cinfo, i));

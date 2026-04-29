@@ -79,7 +79,7 @@
 typedef uint16_t (*elem_fcn)(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string, int string_len);
 typedef void (*msg_fcn)(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len);
 
-/* globals needed as a result of spltting the packet-gsm_a.c into several files
+/* globals needed as a result of splitting the packet-gsm_a.c into several files
  * until further restructuring can take place to make them more modular
  */
 
@@ -363,8 +363,8 @@ extern const char* get_gsm_a_msg_string(wmem_allocator_t* pool, int pdu_type, in
         SEV_elem_funcs = nas_5gs_updp_elem_fcn; \
         break; \
     default: \
-        proto_tree_add_expert_format(tree, pinfo, ei_unknown, \
-            tvb, curr_offset, -1, \
+        proto_tree_add_expert_format_remaining(tree, pinfo, ei_unknown, \
+            tvb, curr_offset, \
             "Unknown PDU type (%u) gsm_a_common", SEV_pdu_type); \
         return(consumed); \
     }
@@ -511,6 +511,7 @@ WS_DLL_PUBLIC uint16_t elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info
 #define ELEM_OPT_TLV(EOT_iei, EOT_pdu_type, EOT_elem_idx, EOT_elem_name_addition) \
 {\
     if ((signed)curr_len <= 0) return; \
+    /* coverity[overrun-call:FALSE] */ \
     if ((consumed = elem_tlv(tvb, tree, pinfo, (uint8_t) EOT_iei, EOT_pdu_type, EOT_elem_idx, curr_offset, curr_len, EOT_elem_name_addition)) > 0) \
     { \
         curr_offset += consumed; \
@@ -521,6 +522,7 @@ WS_DLL_PUBLIC uint16_t elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info
 #define ELEM_OPT_TELV(EOT_iei, EOT_pdu_type, EOT_elem_idx, EOT_elem_name_addition) \
 {\
     if ((signed)curr_len <= 0) return; \
+    /* coverity[overrun-call:FALSE] */ \
     if ((consumed = elem_telv(tvb, tree, pinfo, (uint8_t) EOT_iei, EOT_pdu_type, EOT_elem_idx, curr_offset, curr_len, EOT_elem_name_addition)) > 0) \
     { \
         curr_offset += consumed; \
@@ -541,6 +543,7 @@ WS_DLL_PUBLIC uint16_t elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info
 #define ELEM_MAND_TV(EMT_iei, EMT_pdu_type, EMT_elem_idx, EMT_elem_name_addition, ei_mandatory) \
 {\
     if (((signed)curr_len > 0) && \
+        /* coverity[overrun-call:FALSE] */ \
         ((consumed = elem_tv(tvb, tree, pinfo, (uint8_t) EMT_iei, EMT_pdu_type, EMT_elem_idx, curr_offset, EMT_elem_name_addition)) > 0)) \
     { \
         curr_offset += consumed; \
@@ -562,6 +565,7 @@ WS_DLL_PUBLIC uint16_t elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info
 #define ELEM_OPT_TV(EOT_iei, EOT_pdu_type, EOT_elem_idx, EOT_elem_name_addition) \
 {\
     if ((signed)curr_len <= 0) return; \
+    /* coverity[overrun-call:FALSE] */ \
     if ((consumed = elem_tv(tvb, tree, pinfo, (uint8_t) EOT_iei, EOT_pdu_type, EOT_elem_idx, curr_offset, EOT_elem_name_addition)) > 0) \
     { \
         curr_offset += consumed; \
@@ -572,6 +576,7 @@ WS_DLL_PUBLIC uint16_t elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info
 #define ELEM_OPT_TV_SHORT(EOT_iei, EOT_pdu_type, EOT_elem_idx, EOT_elem_name_addition) \
 {\
     if ((signed)curr_len <= 0) return; \
+    /* coverity[overrun-call:FALSE] */ \
     if ((consumed = elem_tv_short(tvb, tree, pinfo, EOT_iei, EOT_pdu_type, EOT_elem_idx, curr_offset, EOT_elem_name_addition)) > 0) \
     { \
         curr_offset += consumed; \
@@ -731,6 +736,7 @@ uint16_t de_cn_common_gsm_map_nas_sys_info(tvbuff_t *tvb, proto_tree *tree, pack
 uint16_t de_cs_domain_spec_sys_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string, int string_len);
 uint16_t de_ps_domain_spec_sys_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string, int string_len);
 uint16_t de_plmn_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string, int string_len);
+uint16_t de_emerg_num_list(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo, uint32_t offset, unsigned len, char* add_string, int string_len);
 WS_DLL_PUBLIC
 uint16_t de_ms_cm_1(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint32_t offset, unsigned len, char *add_string, int string_len);
 WS_DLL_PUBLIC
@@ -1587,7 +1593,7 @@ typedef enum
     DE_EMM_AUTH_FAIL_PAR,       /* 9.9.3.1  Authentication failure parameter (dissected in packet-gsm_a_dtap.c)*/
     DE_EMM_AUTN,                /* 9.9.3.2  Authentication parameter AUTN */
     DE_EMM_AUTH_PAR_RAND,       /* 9.9.3.3  Authentication parameter RAND */
-    DE_EMM_RAT_UTIL_CNTRL,      /* 9.9.3.3A RAT utilization control */
+    DE_EMM_ACCESS_TECH_UTIL_CTRL, /* 9.9.3.3A Access technology utilization control */
     DE_EMM_AUTH_RESP_PAR,       /* 9.9.3.4  Authentication response parameter */
     DE_EMM_SMS_SERVICES_STATUS, /* 9.9.3.4B SMS services status */
     DE_EMM_CSFB_RESP,           /* 9.9.3.5  CSFB response */
@@ -1664,6 +1670,11 @@ typedef enum
     DE_EMM_UNAVAIL_CONFIG,      /* 9.9.3.70 Unavailability configuration */
     DE_EMM_UE_INFO_REQ,         /* 9.9.3.71 UE information request */
     DE_EMM_UE_COARSE_LOC_INFO,  /* 9.9.3.72 UE coarse location information */
+    DE_EMM_SF_SAT_OP_PARAMS,    /* 9.9.3.73 S&F satellite operation parameters */
+    DE_EMM_DATA_CONT,           /* 9.9.3.74 Data container */
+    DE_EMM_REG_WAIT_RANGE,      /* 9.9.3.75 Registration wait range */
+    DE_EMM_PLMNS_LIST_DISASTER_COND, /* 9.9.3.76 List of PLMNs to be used in disaster condition */
+    DE_EMM_PLMN_ID,             /* 9.9.3.77 PLMN identity */
     DE_EMM_NONE                 /* NONE */
 }
 nas_emm_elem_idx_t;
@@ -1878,6 +1889,8 @@ typedef enum
     DE_NAS_5GS_MM_AUN3_DEVICE_SEC_KEY,       /* 9.11.3.107   AUN3 device security key */
     DE_NAS_5GS_MM_ON_DEMAND_NSSAI,           /* 9.11.3.108   On-demand NSSAI */
     DE_NAS_5GS_MM_EXT_5GMM_CAUSE,            /* 9.11.3.109   Extended 5GMM cause */
+    DE_NAS_5GS_MM_LP_WUSPS_ASSIST_INFO,      /* 9.11.3.111   LP-WUSPS assistance information */
+    DE_NAS_5GS_MM_LP_WUS_STATUS,             /* 9.11.3.112   LP-WUS status */
     DE_NAS_5GS_MM_NONE        /* NONE */
 }
 nas_5gs_mm_elem_idx_t;

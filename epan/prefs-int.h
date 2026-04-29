@@ -30,6 +30,7 @@ struct pref_module {
     const char *description;    /**< Description of module (displayed in preferences notebook) */
     const char *help;           /**< Module help page (passed to user_guide_url() to generate a URL) */
     void (*apply_cb)(void);     /**< routine to call when preferences applied */
+    wmem_allocator_t* scope;    /**< memory scope allocator for this module */
     GList *prefs;               /**< list of its preferences */
     struct pref_module *parent; /**< parent module */
     wmem_tree_t *submodules;    /**< list of its submodules */
@@ -45,7 +46,7 @@ struct pref_module {
                                   * use simple GUI controls to change the options.  In general, the "general"
                                   * Wireshark preferences should have this set to false, while the protocol
                                   * modules will have this set to true */
-    unsigned int effect_flags;  /**< Flags of types effected by preference (PREF_TYPE_DISSECTION, PREF_EFFECT_CAPTURE, etc).
+    unsigned int effect_flags;  /**< Flags of types effected by preference (PREF_EFFECT_DISSECTION, PREF_EFFECT_CAPTURE, etc).
                                      These flags will be set in all module's preferences on creation. Flags must be non-zero
                                      to ensure saving to disk */
 };
@@ -93,7 +94,9 @@ typedef enum {
     PREF_OPEN_FILENAME,
     PREF_PASSWORD,              // (3)
     PREF_PROTO_TCP_SNDAMB_ENUM, // (4)
-    PREF_DISSECTOR              // (5)
+    PREF_DISSECTOR,             // (5)
+    PREF_INT,
+    PREF_FLOAT
 } pref_type_e;
 
 /*
@@ -172,6 +175,20 @@ void prefs_set_effect_flags_by_name(module_t * module, const char *pref, unsigne
 WS_DLL_PUBLIC
 unsigned int prefs_get_module_effect_flags(module_t * module);
 
+/** Iterate through all modules with preferences
+ *
+ * @param module_list The tree of modules to iterate through
+ * @param callback The callback function to call for each module
+ * @param user_data User data to pass to the callback function
+ * @param skip_obsolete If true, skip obsolete preferences
+ *
+ * @return The return value of the callback function if it returns non-zero,
+ *         otherwise 0
+ */
+WS_DLL_PUBLIC
+unsigned prefs_module_list_foreach(const wmem_tree_t* module_list, module_cb callback,
+    void* user_data, bool skip_obsolete);
+
 /** Set flags for module's preferences effect
  * The intention is to distinguish preferences that affect
  * dissection from those that don't. Since modules are a grouping
@@ -215,6 +232,11 @@ WS_DLL_PUBLIC unsigned int prefs_set_uint_value(pref_t *pref, unsigned value, pr
 WS_DLL_PUBLIC unsigned prefs_get_uint_base(pref_t *pref);
 WS_DLL_PUBLIC unsigned prefs_get_uint_value(pref_t *pref, pref_source_t source);
 
+WS_DLL_PUBLIC unsigned int prefs_set_int_value(pref_t* pref, int value, pref_source_t source);
+WS_DLL_PUBLIC int prefs_get_int_value(pref_t* pref, pref_source_t source);
+
+WS_DLL_PUBLIC unsigned int prefs_set_float_value(pref_t* pref, double value, pref_source_t source);
+WS_DLL_PUBLIC double prefs_get_float_value(pref_t* pref, pref_source_t source);
 
 WS_DLL_PUBLIC unsigned int prefs_set_enum_value(pref_t *pref, int value, pref_source_t source);
 WS_DLL_PUBLIC unsigned int prefs_set_enum_string_value(pref_t *pref, const char *value, pref_source_t source);
@@ -228,7 +250,7 @@ WS_DLL_PUBLIC color_t* prefs_get_color_value(pref_t *pref, pref_source_t source)
 WS_DLL_PUBLIC unsigned int prefs_set_custom_value(pref_t *pref, const char *value, pref_source_t source);
 
 WS_DLL_PUBLIC unsigned int prefs_set_string_value(pref_t *pref, const char* value, pref_source_t source);
-WS_DLL_PUBLIC char* prefs_get_string_value(pref_t *pref, pref_source_t source);
+WS_DLL_PUBLIC const char *prefs_get_string_value(pref_t *pref, pref_source_t source);
 
 WS_DLL_PUBLIC struct epan_uat* prefs_get_uat_value(pref_t *pref);
 
@@ -239,12 +261,16 @@ WS_DLL_PUBLIC bool prefs_add_decode_as_value(pref_t *pref, unsigned value, bool 
 WS_DLL_PUBLIC bool prefs_remove_decode_as_value(pref_t *pref, unsigned value, bool set_default);
 
 WS_DLL_PUBLIC unsigned int prefs_set_password_value(pref_t *pref, const char* value, pref_source_t source);
-WS_DLL_PUBLIC char* prefs_get_password_value(pref_t *pref, pref_source_t source);
+WS_DLL_PUBLIC const char *prefs_get_password_value(pref_t *pref, pref_source_t source);
 
 WS_DLL_PUBLIC bool prefs_add_list_value(pref_t *pref, void *value, pref_source_t source);
 WS_DLL_PUBLIC GList* prefs_get_list_value(pref_t *pref, pref_source_t source);
 
 WS_DLL_PUBLIC void reset_pref(pref_t *pref);
+
+/** Get the list of all modules with preferences (used for iterating through all preferences)
+ */
+WS_DLL_PUBLIC const wmem_tree_t* prefs_get_module_tree(void);
 
 /** read the preferences file (or similar) and call the callback
  * function to set each key/value pair found
@@ -261,7 +287,7 @@ read_prefs_file(const char *pf_path, FILE *pf, pref_set_pair_cb pref_set_pair_fc
  */
 WS_DLL_PUBLIC
 void
-prefs_read_module(const char *name);
+prefs_read_module(const char *name, const char* app_env_var_prefix);
 
 WS_DLL_PUBLIC
 bool
@@ -327,6 +353,17 @@ void reset_stashed_pref(pref_t *pref);
 WS_DLL_PUBLIC
 char *
 join_string_list(GList *sl);
+
+/** Sanitize a string so that it can be written to a preference file.
+ *
+ * The preference file format (along with some other Wireshark file formats)
+ * expects one entry per line. This takes a string, which may come from user
+ * input, and converts line terminators (along with adjacent whitespace) into
+ * a single space.
+ */
+WS_DLL_PUBLIC
+char *
+prefs_sanitize_string(const char* str);
 
 #ifdef __cplusplus
 }

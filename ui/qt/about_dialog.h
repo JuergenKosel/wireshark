@@ -55,16 +55,6 @@ private:
     QStringList typeNames_;
 };
 
-class ShortcutListModel : public AStringListListModel
-{
-    Q_OBJECT
-public:
-    explicit ShortcutListModel(QObject * parent = Q_NULLPTR);
-
-protected:
-    virtual QStringList headerColumns() const;
-};
-
 class FolderListModel : public AStringListListModel
 {
     Q_OBJECT
@@ -86,7 +76,7 @@ public:
 protected:
     virtual bool event(QEvent *event);
     virtual void showEvent(QShowEvent *);
-    virtual const char* getVCSVersion();
+    const char* getVCSVersion();
 
     // UI getters
     QLabel* labelLogo() const;

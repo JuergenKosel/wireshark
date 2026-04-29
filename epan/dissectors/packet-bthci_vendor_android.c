@@ -1,4 +1,4 @@
-/* packet-bthci_vendor.c
+/* packet-bthci_vendor_android.c
  * Routines for the Bluetooth HCI Vendors Commands/Events
  *
  * Copyright 2014, Michal Labedzki for Tieto Corporation
@@ -390,6 +390,599 @@ static const value_string android_a2dp_hardware_offload_start_legacy_codec_infor
 void proto_register_bthci_vendor_android(void);
 void proto_reg_handoff_bthci_vendor_android(void);
 
+static unsigned
+dissect_bthci_vendor_android_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *main_tree, void *data, uint16_t ocf)
+{
+    proto_item        *sub_item;
+    proto_item        *codec_information_item;
+    proto_tree        *codec_information_tree;
+    bluetooth_data_t  *bluetooth_data;
+    unsigned           offset = 0;
+    uint8_t            subcode;
+    uint8_t            condition;
+    uint32_t           interface_id;
+    uint32_t           adapter_id;
+
+    bluetooth_data = (bluetooth_data_t *) data;
+    if (bluetooth_data) {
+        interface_id  = bluetooth_data->interface_id;
+        adapter_id    = bluetooth_data->adapter_id;
+    } else {
+        interface_id  = HCI_INTERFACE_DEFAULT;
+        adapter_id    = HCI_ADAPTER_DEFAULT;
+    }
+
+    switch(ocf) {
+    case 0x0154: /* LE Multi Advertising */
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_le_multi_advertising_subcode, tvb, offset, 1, ENC_NA, &subcode);
+        offset += 1;
+
+        switch (subcode) {
+        case 0x01: /* Set Parameter */
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_min_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_max_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_type, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_address_type, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_address_type, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
+
+            proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_le_multi_advertising_channel_map, ett_android_channel_map,  hfx_android_le_multi_advertising_channel_map, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_filter_policy, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_tx_power, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x02: /* Write Advertising Data */
+        case 0x03: /* Write Scan Response Data */
+            call_dissector_with_data(btcommon_ad_android_handle, tvb_new_subset_length(tvb, offset, 31), pinfo, proto_tree_get_parent_tree(main_tree), bluetooth_data);
+            save_local_device_name_from_eir_ad(tvb, offset, pinfo, 31, bluetooth_data);
+            offset += 31;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x04: /* Set Random Address */
+            offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x05: /* MultiAdvertising Enable/Disable Customer Feature */
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_enable, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        }
+
+        break;
+    case 0x0156: /* LE Batch Scan */
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_le_batch_scan_subcode, tvb, offset, 1, ENC_NA, &subcode);
+        offset += 1;
+
+        switch (subcode) {
+        case 0x01: /* Enable/Disable Customer Feature */
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_enable, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x02: /* Set Storage Parameter */
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_full_max, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_truncate_max, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_notify_threshold, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x03: /* Set Parameter */
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_mode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_window, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_interval, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_address_type, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_discard_rule, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x04: /* Read Results */
+            proto_tree_add_item(main_tree, hf_android_le_batch_scan_mode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        }
+
+        break;
+    case 0x0157: /* LE Advertising Filter */
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_le_advertising_filter_subcode, tvb, offset, 1, ENC_NA, &subcode);
+        offset += 1;
+
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_le_scan_condition, tvb, offset, 1, ENC_NA, &condition);
+        offset += 1;
+
+        proto_tree_add_item(main_tree, hf_android_le_filter_index, tvb, offset, 1, ENC_NA);
+        offset += 1;
+
+        if (condition == 0x00) { /* Add */
+            switch (subcode) {
+            case 0x00: /* Enable */
+            case 0x01: /* Feature Select */
+            case 0x02: /* BDADDR */
+            case 0x03: /* UUID */
+            case 0x04: /* Solicitate UUID */
+            case 0x05: /* Local Name */
+            case 0x06: /* Manufacturer Data */
+            case 0x07: /* Service Data */
+            case 0x08: /* All */
+/* TODO */
+                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+                expert_add_info(pinfo, sub_item, &ei_android_undecoded);
+                offset = tvb_reported_length(tvb);
+
+                break;
+            default:
+                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+                expert_add_info(pinfo, sub_item, &ei_android_unexpected_data);
+                offset = tvb_reported_length(tvb);
+            }
+        }
+
+        break;
+    case 0x0153: /* LE Get Vendor Capabilities */
+        if (tvb_reported_length_remaining(tvb, offset) > 0) {
+            sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+            expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+            offset = tvb_reported_length(tvb);
+        }
+        break;
+    case 0x0159: /* LE Energy Info */
+        if (tvb_reported_length_remaining(tvb, offset) > 0) {
+            sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+            expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+            offset = tvb_reported_length(tvb);
+        }
+        break;
+    case 0x015D: /* A2DP Hardware Offload */
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_a2dp_hardware_offload_subcode, tvb, offset, 1, ENC_NA, &subcode);
+        offset += 1;
+
+        switch (subcode) {
+        case 0x01: {    /* Start A2DP offload (legacy) */
+            int codec_id = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_codec, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_max_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            /* Flag is the LSB out of the two, read it first */
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_flag, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            bool scms_t_enabled = tvb_get_uint8(tvb, offset) == 0x01;
+            if (scms_t_enabled) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_value, tvb, offset, 1, ENC_NA);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_value_reserved, tvb, offset, 1, ENC_NA);
+            }
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_sampling_frequency, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_bits_per_sample, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_channel_mode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            uint32_t encoded_audio_bitrate = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
+            if (encoded_audio_bitrate == 0x00000000) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate_unspecified, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            } else if (encoded_audio_bitrate >= 0x01000000) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate_reserved, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+            }
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_l2cap_mtu_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            codec_information_item = proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information, tvb, offset, 32, ENC_NA);
+            codec_information_tree = proto_item_add_subtree(codec_information_item, ett_android_a2dp_hardware_offload_start_legacy_codec_information);
+
+            switch (codec_id) {
+                case 0x00000001:  /* SBC */
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_block_length, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_subbands, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_allocation_method, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_min_bitpool, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_max_bitpool, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_sampling_frequency, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_channel_mode, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_reserved, tvb, offset, 28, ENC_NA);
+                    offset += 28;
+                break;
+                case 0x00000002:  /* AAC */
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_object_type, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_vbr, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_reserved, tvb, offset, 30, ENC_NA);
+                    offset += 30;
+                break;
+                case 0x00000010:  /* LDAC */
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_vendor_id, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+                    offset += 4;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_codec_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+                    offset += 2;
+
+                    uint8_t bitrate_index = tvb_get_uint8(tvb, offset);
+                    if (bitrate_index >= 0x03 && bitrate_index != 0x7F) {
+                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_bitrate_index_reserved, tvb, offset, 1, ENC_NA);
+                    } else {
+                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_bitrate_index, tvb, offset, 1, ENC_NA);
+                    }
+                    offset += 1;
+
+                    proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode_mask,
+                                           ett_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode_mask, hfx_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode, ENC_NA);
+                    offset += 1;
+
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_reserved, tvb, offset, 24, ENC_NA);
+                    offset += 24;
+                break;
+                default:    /* All other codecs */
+                    proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_reserved, tvb, offset, 32, ENC_NA);
+                    offset += 32;
+                break;
+            }
+
+            break;
+        }
+        case 0x02: {    /* Stop A2DP offload (legacy) */
+            if (tvb_reported_length_remaining(tvb, offset) > 0) {
+                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+                expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+                offset = tvb_reported_length(tvb);
+            }
+            break;
+        }
+        case 0x03: {    /* Start A2DP offload */
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_data_path_direction, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_peer_mtu, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            bool cp_enable_scmst = tvb_get_uint8(tvb, offset) == 0x01;
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_enable_scmst, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            if (cp_enable_scmst) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst, tvb, offset, 1, ENC_NA);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+            }
+            offset += 1;
+
+            uint8_t vendor_specific_parameters_length = tvb_get_uint8(tvb, offset);
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_vendor_specific_parameters_length, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            if (vendor_specific_parameters_length > 0 && vendor_specific_parameters_length <= 128) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_vendor_specific_parameters, tvb, offset, vendor_specific_parameters_length, ENC_NA);
+                offset += vendor_specific_parameters_length;
+            }
+            break;
+        }
+        case 0x04: {    /* Stop A2DP offload */
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_data_path_direction, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        }
+        default:
+            if (tvb_reported_length_remaining(tvb, offset) > 0) {
+                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+                expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+                offset = tvb_reported_length(tvb);
+            }
+            break;
+        }
+
+        break;
+    default:
+        if (tvb_reported_length_remaining(tvb, offset)) {
+            sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+            expert_add_info(pinfo, sub_item, &ei_android_undecoded);
+            offset = tvb_reported_length(tvb);
+        }
+    }
+
+    if (tvb_reported_length_remaining(tvb, offset)) {
+        sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+        expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+        offset = tvb_reported_length(tvb);
+    }
+    return offset;
+}
+
+static unsigned
+dissect_bthci_vendor_android_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *main_tree, void *data, uint8_t event_code)
+{
+    proto_item        *opcode_item;
+    proto_tree        *opcode_tree;
+    proto_item        *sub_item;
+    bluetooth_data_t  *bluetooth_data;
+    unsigned           offset = 0;
+    uint16_t           opcode;
+    uint16_t           ocf;
+    const char        *description;
+    uint8_t            status;
+    uint8_t            subcode;
+    uint32_t           interface_id;
+    uint32_t           adapter_id;
+
+    bluetooth_data = (bluetooth_data_t *) data;
+    if (bluetooth_data) {
+        interface_id  = bluetooth_data->interface_id;
+        adapter_id    = bluetooth_data->adapter_id;
+    } else {
+        interface_id  = HCI_INTERFACE_DEFAULT;
+        adapter_id    = HCI_ADAPTER_DEFAULT;
+    }
+
+    switch (event_code) {
+    case 0x0e: /* Command Complete */
+        proto_tree_add_item(main_tree, hf_android_number_of_allowed_command_packets, tvb, offset, 1, ENC_NA);
+        offset += 1;
+
+        opcode_item = proto_tree_add_item(main_tree, hf_android_opcode, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        opcode_tree = proto_item_add_subtree(opcode_item, ett_android_opcode);
+        opcode = tvb_get_letohs(tvb, offset);
+        proto_tree_add_item(opcode_tree, hf_android_opcode_ogf, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+
+        proto_tree_add_item(opcode_tree, hf_android_opcode_ocf, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        ocf = opcode & 0x03ff;
+        offset += 2;
+
+        description = val_to_str_const(ocf, android_opcode_ocf_vals, "unknown");
+        if (g_strcmp0(description, "unknown") != 0)
+            col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", description);
+        else
+            col_append_fstr(pinfo->cinfo, COL_INFO, " (Unknown Command 0x%04X [opcode 0x%04X])", ocf, opcode);
+
+        if (have_tap_listener(bluetooth_hci_summary_tap)) {
+            bluetooth_hci_summary_tap_t  *tap_hci_summary;
+
+            tap_hci_summary = wmem_new(pinfo->pool, bluetooth_hci_summary_tap_t);
+            tap_hci_summary->interface_id  = interface_id;
+            tap_hci_summary->adapter_id    = adapter_id;
+
+            tap_hci_summary->type = BLUETOOTH_HCI_SUMMARY_VENDOR_EVENT_OPCODE;
+            tap_hci_summary->ogf = opcode >> 10;
+            tap_hci_summary->ocf = ocf;
+            if (try_val_to_str(ocf, android_opcode_ocf_vals))
+                tap_hci_summary->name = description;
+            else
+                tap_hci_summary->name = NULL;
+            tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
+        }
+
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_status, tvb, offset, 1, ENC_NA, &status);
+        offset += 1;
+
+        switch (ocf) {
+        case 0x0153: /* LE Get Vendor Capabilities */
+            if (status != STATUS_SUCCESS)
+                break;
+
+            uint16_t google_feature_spec_version = tvb_get_uint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
+            if (google_feature_spec_version < 0x0098) {
+                proto_tree_add_item(main_tree, hf_android_max_advertising_instance, tvb, offset, 1, ENC_NA);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_max_advertising_instance_reserved, tvb, offset, 1, ENC_NA);
+            }
+            offset += 1;
+
+            if (google_feature_spec_version < 0x0098) {
+                proto_tree_add_item(main_tree, hf_android_resolvable_private_address_offloading, tvb, offset, 1, ENC_NA);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_resolvable_private_address_offloading_reserved, tvb, offset, 1, ENC_NA);
+            }
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_total_scan_results, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_max_irk_list, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_filter_support, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_max_filter, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_energy_support, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_version_support, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_total_num_of_advt_tracked, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset += 2;
+
+            proto_tree_add_item(main_tree, hf_android_extended_scan_support, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_item(main_tree, hf_android_debug_logging_support, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            if (google_feature_spec_version < 0x0098) {
+                proto_tree_add_item(main_tree, hf_android_le_address_generation_offloading_support, tvb, offset, 1, ENC_NA);
+            } else {
+                proto_tree_add_item(main_tree, hf_android_le_address_generation_offloading_support_reserved, tvb, offset, 1, ENC_NA);
+            }
+            offset += 1;
+
+            proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_a2dp_source_offload_capability_mask, ett_android_a2dp_source_offload_capability_mask, hfx_android_a2dp_source_offload_capability, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            proto_tree_add_item(main_tree, hf_android_bluetooth_quality_report_support, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_dynamic_audio_buffer_support_mask, ett_android_dynamic_audio_buffer_support_mask, hfx_android_dynamic_audio_buffer_support, ENC_LITTLE_ENDIAN);
+            offset += 4;
+
+            if (tvb_reported_length_remaining(tvb, offset) > 0) {
+                proto_tree_add_item(main_tree, hf_android_a2dp_offload_v2_support, tvb, offset, 1, ENC_NA);
+                offset += 1;
+            }
+
+            break;
+        case 0x0154: /* LE Multi Advertising */
+            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_subcode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        case 0x0156: /* LE Batch Scan */
+            proto_tree_add_item_ret_uint8(main_tree, hf_android_le_batch_scan_subcode, tvb, offset, 1, ENC_NA, &subcode);
+            offset += 1;
+
+            if (subcode == 0x04 && status == STATUS_SUCCESS) { /* Read Results*/
+                proto_tree_add_item(main_tree, hf_android_le_batch_scan_report_format, tvb, offset, 1, ENC_NA);
+                offset += 1;
+
+                proto_tree_add_item(main_tree, hf_android_le_batch_scan_number_of_records, tvb, offset, 1, ENC_NA);
+                offset += 1;
+            }
+
+
+            break;
+        case 0x0157: /* LE Advertising Filter */
+            proto_tree_add_item(main_tree, hf_android_le_advertising_filter_subcode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            if (status == STATUS_SUCCESS) {
+                proto_tree_add_item(main_tree, hf_android_le_scan_condition, tvb, offset, 1, ENC_NA);
+                offset += 1;
+
+                proto_tree_add_item(main_tree, hf_android_le_number_of_available_filters, tvb, offset, 1, ENC_NA);
+                offset += 1;
+            }
+
+            break;
+        case 0x0159: /* LE Energy Info */
+            if (status == STATUS_SUCCESS) {
+                proto_tree_add_item(main_tree, hf_android_le_energy_total_rx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
+
+                proto_tree_add_item(main_tree, hf_android_le_energy_total_tx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
+
+                proto_tree_add_item(main_tree, hf_android_le_energy_total_idle_time, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
+
+                proto_tree_add_item(main_tree, hf_android_le_energy_total_energy_used, tvb, offset, 1, ENC_BIG_ENDIAN);
+                offset += 1;
+            }
+
+            break;
+        case 0x015D: /* A2DP Hardware Offload */
+            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_subcode, tvb, offset, 1, ENC_NA);
+            offset += 1;
+
+            break;
+        default:
+            if (tvb_reported_length_remaining(tvb, offset) > 0) {
+                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+                expert_add_info(pinfo, sub_item, &ei_android_undecoded);
+                offset = tvb_reported_length(tvb);
+            }
+        }
+
+        break;
+    default:
+        if (tvb_reported_length_remaining(tvb, offset) > 0) {
+            sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+            expert_add_info(pinfo, sub_item, &ei_android_undecoded);
+            offset = tvb_reported_length(tvb);
+        }
+    }
+
+    if (tvb_reported_length_remaining(tvb, offset)) {
+        sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+        expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
+        offset = tvb_reported_length(tvb);
+    }
+    return offset;
+}
+
 static int
 dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
@@ -400,18 +993,14 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     proto_item        *sub_item;
     bluetooth_data_t  *bluetooth_data;
     int                offset = 0;
+    tvbuff_t          *parameter_tvb;
     uint16_t           opcode;
     uint16_t           ocf;
     const char        *description;
     uint8_t            length;
     uint8_t            event_code;
-    uint8_t            status;
-    uint8_t            subcode;
-    uint8_t            condition;
     uint32_t           interface_id;
     uint32_t           adapter_id;
-    proto_item        *codec_information_item;
-    proto_tree        *codec_information_tree;
 
     bluetooth_data = (bluetooth_data_t *) data;
     if (bluetooth_data) {
@@ -463,361 +1052,11 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
         }
 
-        proto_tree_add_item(main_tree, hf_android_parameter_length, tvb, offset, 1, ENC_NA);
-        length = tvb_get_uint8(tvb, offset);
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_parameter_length, tvb, offset, 1, ENC_NA, &length);
         offset += 1;
 
-        switch(ocf) {
-        case 0x0154: /* LE Multi Advertising */
-            proto_tree_add_item(main_tree, hf_android_le_multi_advertising_subcode, tvb, offset, 1, ENC_NA);
-            subcode = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            switch (subcode) {
-            case 0x01: /* Set Parameter */
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_min_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_max_interval, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_type, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_address_type, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_address_type, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
-
-                proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_le_multi_advertising_channel_map, ett_android_channel_map,  hfx_android_le_multi_advertising_channel_map, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_filter_policy, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_tx_power, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x02: /* Write Advertising Data */
-            case 0x03: /* Write Scan Response Data */
-                call_dissector_with_data(btcommon_ad_android_handle, tvb_new_subset_length(tvb, offset, 31), pinfo, tree, bluetooth_data);
-                save_local_device_name_from_eir_ad(tvb, offset, pinfo, 31, bluetooth_data);
-                offset += 31;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x04: /* Set Random Address */
-                offset = dissect_bd_addr(hf_android_bd_addr, pinfo, main_tree, tvb, offset, false, interface_id, adapter_id, NULL);
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x05: /* MultiAdvertising Enable/Disable Customer Feature */
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_enable, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_instance_id, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            }
-
-            break;
-        case 0x0156: /* LE Batch Scan */
-            proto_tree_add_item(main_tree, hf_android_le_batch_scan_subcode, tvb, offset, 1, ENC_NA);
-            subcode = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            switch (subcode) {
-            case 0x01: /* Enable/Disable Customer Feature */
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_enable, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x02: /* Set Storage Parameter */
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_full_max, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_truncate_max, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_notify_threshold, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x03: /* Set Parameter */
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_mode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_window, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_interval, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_address_type, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_discard_rule, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x04: /* Read Results */
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_mode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            }
-
-            break;
-        case 0x0157: /* LE Advertising Filter */
-            proto_tree_add_item(main_tree, hf_android_le_advertising_filter_subcode, tvb, offset, 1, ENC_NA);
-            subcode = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            proto_tree_add_item(main_tree, hf_android_le_scan_condition, tvb, offset, 1, ENC_NA);
-            condition = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            proto_tree_add_item(main_tree, hf_android_le_filter_index, tvb, offset, 1, ENC_NA);
-            offset += 1;
-
-            if (condition == 0x00) { /* Add */
-                switch (subcode) {
-                case 0x00: /* Enable */
-                case 0x01: /* Feature Select */
-                case 0x02: /* BDADDR */
-                case 0x03: /* UUID */
-                case 0x04: /* Solicitate UUID */
-                case 0x05: /* Local Name */
-                case 0x06: /* Manufacturer Data */
-                case 0x07: /* Service Data */
-                case 0x08: /* All */
-/* TODO */
-                    sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length - 3, ENC_NA);
-                    expert_add_info(pinfo, sub_item, &ei_android_undecoded);
-                    offset += length - 3;
-
-                    break;
-                default:
-                    sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length - 3, ENC_NA);
-                    expert_add_info(pinfo, sub_item, &ei_android_unexpected_data);
-                    offset += length - 3;
-                }
-            }
-
-            break;
-        case 0x0153: /* LE Get Vendor Capabilities */
-            if (tvb_captured_length_remaining(tvb, offset) > 0) {
-                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
-            }
-            break;
-        case 0x0159: /* LE Energy Info */
-            if (tvb_captured_length_remaining(tvb, offset) > 0) {
-                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
-            }
-            break;
-        case 0x015D: /* A2DP Hardware Offload */
-            proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_subcode, tvb, offset, 1, ENC_NA);
-            subcode = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            switch (subcode) {
-            case 0x01: {    /* Start A2DP offload (legacy) */
-                int codec_id = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_codec, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_max_latency, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                /* Flag is the LSB out of the two, read it first */
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_flag, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                bool scms_t_enabled = tvb_get_uint8(tvb, offset) == 0x01;
-                if (scms_t_enabled) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_value, tvb, offset, 1, ENC_NA);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_scms_t_enable_value_reserved, tvb, offset, 1, ENC_NA);
-                }
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_sampling_frequency, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_bits_per_sample, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_channel_mode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                uint32_t encoded_audio_bitrate = tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN);
-                if (encoded_audio_bitrate == 0x00000000) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate_unspecified, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                } else if (encoded_audio_bitrate >= 0x01000000) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate_reserved, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_encoded_audio_bitrate, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                }
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_l2cap_mtu_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                codec_information_item = proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information, tvb, offset, 32, ENC_NA);
-                codec_information_tree = proto_item_add_subtree(codec_information_item, ett_android_a2dp_hardware_offload_start_legacy_codec_information);
-
-                switch (codec_id) {
-                    case 0x00000001:  /* SBC */
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_block_length, tvb, offset, 1, ENC_NA);
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_subbands, tvb, offset, 1, ENC_NA);
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_allocation_method, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_min_bitpool, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_max_bitpool, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_sampling_frequency, tvb, offset, 1, ENC_NA);
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_channel_mode, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_sbc_reserved, tvb, offset, 28, ENC_NA);
-                        offset += 28;
-                    break;
-                    case 0x00000002:  /* AAC */
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_object_type, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_vbr, tvb, offset, 1, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_aac_reserved, tvb, offset, 30, ENC_NA);
-                        offset += 30;
-                    break;
-                    case 0x00000010:  /* LDAC */
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_vendor_id, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                        offset += 4;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_codec_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                        offset += 2;
-
-                        uint8_t bitrate_index = tvb_get_uint8(tvb, offset);
-                        if (bitrate_index >= 0x03 && bitrate_index != 0x7F) {
-                            proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_bitrate_index_reserved, tvb, offset, 1, ENC_NA);
-                        } else {
-                            proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_bitrate_index, tvb, offset, 1, ENC_NA);
-                        }
-                        offset += 1;
-
-                        proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode_mask,
-                                               ett_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode_mask, hfx_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_channel_mode, ENC_NA);
-                        offset += 1;
-
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_ldac_reserved, tvb, offset, 24, ENC_NA);
-                        offset += 24;
-                    break;
-                    default:    /* All other codecs */
-                        proto_tree_add_item(codec_information_tree, hf_android_a2dp_hardware_offload_start_legacy_codec_information_reserved, tvb, offset, 32, ENC_NA);
-                        offset += 32;
-                    break;
-                }
-
-                break;
-            }
-            case 0x02: {    /* Stop A2DP offload (legacy) */
-                if (tvb_captured_length_remaining(tvb, offset) > 0) {
-                    sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                    expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
-                }
-                break;
-            }
-            case 0x03: {    /* Start A2DP offload */
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_data_path_direction, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_peer_mtu, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                bool cp_enable_scmst = tvb_get_uint8(tvb, offset) == 0x01;
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_enable_scmst, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                if (cp_enable_scmst) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst, tvb, offset, 1, ENC_NA);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_cp_header_scmst_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
-                }
-                offset += 1;
-
-                uint8_t vendor_specific_parameters_length = tvb_get_uint8(tvb, offset);
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_vendor_specific_parameters_length, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                if (vendor_specific_parameters_length > 0 && vendor_specific_parameters_length <= 128) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_start_vendor_specific_parameters, tvb, offset, vendor_specific_parameters_length, ENC_NA);
-                    offset += vendor_specific_parameters_length;
-                }
-                break;
-            }
-            case 0x04: {    /* Stop A2DP offload */
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_connection_handle, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_l2cap_cid, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_stop_data_path_direction, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            }
-            default:
-                if (tvb_captured_length_remaining(tvb, offset) > 0) {
-                    sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                    expert_add_info(pinfo, sub_item, &ei_android_unexpected_parameter);
-                }
-                break;
-            }
-
-            break;
-        default:
-            if (length > 0) {
-                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                expert_add_info(pinfo, sub_item, &ei_android_undecoded);
-                offset += length;
-            }
-        }
+        parameter_tvb = tvb_new_subset_length(tvb, offset, length);
+        offset += dissect_bthci_vendor_android_cmd(parameter_tvb, pinfo, main_tree, data, ocf);
 
         break;
     case P2P_DIR_RECV:
@@ -846,192 +1085,11 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
         }
 
-        proto_tree_add_item(main_tree, hf_android_parameter_length, tvb, offset, 1, ENC_NA);
-        length = tvb_get_uint8(tvb, offset);
+        proto_tree_add_item_ret_uint8(main_tree, hf_android_parameter_length, tvb, offset, 1, ENC_NA, &length);
         offset += 1;
 
-        switch (event_code) {
-        case 0x0e: /* Command Complete */
-            proto_tree_add_item(main_tree, hf_android_number_of_allowed_command_packets, tvb, offset, 1, ENC_NA);
-            offset += 1;
-
-            opcode_item = proto_tree_add_item(main_tree, hf_android_opcode, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            opcode_tree = proto_item_add_subtree(opcode_item, ett_android_opcode);
-            opcode = tvb_get_letohs(tvb, offset);
-            proto_tree_add_item(opcode_tree, hf_android_opcode_ogf, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-
-            proto_tree_add_item(opcode_tree, hf_android_opcode_ocf, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-            ocf = opcode & 0x03ff;
-            offset += 2;
-
-            description = val_to_str_const(ocf, android_opcode_ocf_vals, "unknown");
-            if (g_strcmp0(description, "unknown") != 0)
-                col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", description);
-            else
-                col_append_fstr(pinfo->cinfo, COL_INFO, " (Unknown Command 0x%04X [opcode 0x%04X])", ocf, opcode);
-
-            if (have_tap_listener(bluetooth_hci_summary_tap)) {
-                bluetooth_hci_summary_tap_t  *tap_hci_summary;
-
-                tap_hci_summary = wmem_new(pinfo->pool, bluetooth_hci_summary_tap_t);
-                tap_hci_summary->interface_id  = interface_id;
-                tap_hci_summary->adapter_id    = adapter_id;
-
-                tap_hci_summary->type = BLUETOOTH_HCI_SUMMARY_VENDOR_EVENT_OPCODE;
-                tap_hci_summary->ogf = opcode >> 10;
-                tap_hci_summary->ocf = ocf;
-                if (try_val_to_str(ocf, android_opcode_ocf_vals))
-                    tap_hci_summary->name = description;
-                else
-                    tap_hci_summary->name = NULL;
-                tap_queue_packet(bluetooth_hci_summary_tap, pinfo, tap_hci_summary);
-            }
-
-            proto_tree_add_item(main_tree, hf_android_status, tvb, offset, 1, ENC_NA);
-            status = tvb_get_uint8(tvb, offset);
-            offset += 1;
-
-            switch (ocf) {
-            case 0x0153: /* LE Get Vendor Capabilities */
-                if (status != STATUS_SUCCESS)
-                    break;
-
-                uint16_t google_feature_spec_version = tvb_get_uint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
-                if (google_feature_spec_version < 0x0098) {
-                    proto_tree_add_item(main_tree, hf_android_max_advertising_instance, tvb, offset, 1, ENC_NA);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_max_advertising_instance_reserved, tvb, offset, 1, ENC_NA);
-                }
-                offset += 1;
-
-                if (google_feature_spec_version < 0x0098) {
-                    proto_tree_add_item(main_tree, hf_android_resolvable_private_address_offloading, tvb, offset, 1, ENC_NA);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_resolvable_private_address_offloading_reserved, tvb, offset, 1, ENC_NA);
-                }
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_total_scan_results, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_max_irk_list, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_filter_support, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_max_filter, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_energy_support, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_version_support, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_total_num_of_advt_tracked, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-                offset += 2;
-
-                proto_tree_add_item(main_tree, hf_android_extended_scan_support, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_item(main_tree, hf_android_debug_logging_support, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                if (google_feature_spec_version < 0x0098) {
-                    proto_tree_add_item(main_tree, hf_android_le_address_generation_offloading_support, tvb, offset, 1, ENC_NA);
-                } else {
-                    proto_tree_add_item(main_tree, hf_android_le_address_generation_offloading_support_reserved, tvb, offset, 1, ENC_NA);
-                }
-                offset += 1;
-
-                proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_a2dp_source_offload_capability_mask, ett_android_a2dp_source_offload_capability_mask, hfx_android_a2dp_source_offload_capability, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                proto_tree_add_item(main_tree, hf_android_bluetooth_quality_report_support, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                proto_tree_add_bitmask(main_tree, tvb, offset, hf_android_dynamic_audio_buffer_support_mask, ett_android_dynamic_audio_buffer_support_mask, hfx_android_dynamic_audio_buffer_support, ENC_LITTLE_ENDIAN);
-                offset += 4;
-
-                if (tvb_captured_length_remaining(tvb, offset) > 0) {
-                    proto_tree_add_item(main_tree, hf_android_a2dp_offload_v2_support, tvb, offset, 1, ENC_NA);
-                    offset += 1;
-                }
-
-                break;
-            case 0x0154: /* LE Multi Advertising */
-                proto_tree_add_item(main_tree, hf_android_le_multi_advertising_subcode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            case 0x0156: /* LE Batch Scan */
-                proto_tree_add_item(main_tree, hf_android_le_batch_scan_subcode, tvb, offset, 1, ENC_NA);
-                subcode = tvb_get_uint8(tvb, offset);
-                offset += 1;
-
-                if (subcode == 0x04 && status == STATUS_SUCCESS) { /* Read Results*/
-                    proto_tree_add_item(main_tree, hf_android_le_batch_scan_report_format, tvb, offset, 1, ENC_NA);
-                    offset += 1;
-
-                    proto_tree_add_item(main_tree, hf_android_le_batch_scan_number_of_records, tvb, offset, 1, ENC_NA);
-                    offset += 1;
-                }
-
-
-                break;
-            case 0x0157: /* LE Advertising Filter */
-                proto_tree_add_item(main_tree, hf_android_le_advertising_filter_subcode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                if (status == STATUS_SUCCESS) {
-                    proto_tree_add_item(main_tree, hf_android_le_scan_condition, tvb, offset, 1, ENC_NA);
-                    offset += 1;
-
-                    proto_tree_add_item(main_tree, hf_android_le_number_of_available_filters, tvb, offset, 1, ENC_NA);
-                    offset += 1;
-                }
-
-                break;
-            case 0x0159: /* LE Energy Info */
-                if (status == STATUS_SUCCESS) {
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_rx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
-                    offset += 1;
-
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_tx_time, tvb, offset, 1, ENC_BIG_ENDIAN);
-                    offset += 1;
-
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_idle_time, tvb, offset, 1, ENC_BIG_ENDIAN);
-                    offset += 1;
-
-                    proto_tree_add_item(main_tree, hf_android_le_energy_total_energy_used, tvb, offset, 1, ENC_BIG_ENDIAN);
-                    offset += 1;
-                }
-
-                break;
-            case 0x015D: /* A2DP Hardware Offload */
-                proto_tree_add_item(main_tree, hf_android_a2dp_hardware_offload_subcode, tvb, offset, 1, ENC_NA);
-                offset += 1;
-
-                break;
-            default:
-                if (length > 0) {
-                    sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                    expert_add_info(pinfo, sub_item, &ei_android_undecoded);
-                    offset += length;
-                }
-            }
-
-            break;
-        default:
-            if (length > 0) {
-                sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, length, ENC_NA);
-                expert_add_info(pinfo, sub_item, &ei_android_undecoded);
-                offset += length;
-            }
-        }
-
-
+        parameter_tvb = tvb_new_subset_length(tvb, offset, length);
+        offset += dissect_bthci_vendor_android_evt(parameter_tvb, pinfo, main_tree, data, event_code);
         break;
 
     case P2P_DIR_UNKNOWN:
@@ -1039,17 +1097,17 @@ dissect_bthci_vendor_android(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         col_set_str(pinfo->cinfo, COL_PROTOCOL, "HCI_ANDROID");
         col_set_str(pinfo->cinfo, COL_INFO, "UnknownDirection Android ");
 
-        if (tvb_captured_length_remaining(tvb, offset) > 0) {
-            proto_tree_add_item(main_tree, hf_android_data, tvb, offset, tvb_captured_length_remaining(tvb, offset), ENC_NA);
-            offset += tvb_captured_length_remaining(tvb, offset);
+        if (tvb_reported_length_remaining(tvb, offset) > 0) {
+            proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
+            offset = tvb_reported_length(tvb);
         }
         break;
     }
 
-    if (tvb_captured_length_remaining(tvb, offset) > 0) {
-        sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, tvb_captured_length_remaining(tvb, offset), ENC_NA);
+    if (tvb_reported_length_remaining(tvb, offset) > 0) {
+        sub_item = proto_tree_add_item(main_tree, hf_android_data, tvb, offset, -1, ENC_NA);
         expert_add_info(pinfo, sub_item, &ei_android_unexpected_data);
-        offset += tvb_captured_length_remaining(tvb, offset);
+        offset = tvb_reported_length(tvb);
     }
 
     return offset;

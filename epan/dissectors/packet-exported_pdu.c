@@ -278,12 +278,13 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     tvbuff_t * payload_tvb = NULL;
     int offset = 0;
     uint32_t tag;
-    int tag_len, p2p_dir, link_dir;
+    uint16_t tag_len;
+    int p2p_dir, link_dir;
     int next_proto_type = -1;
-    const uint8_t *proto_name = NULL;
-    const uint8_t *dissector_table = NULL;
-    const uint8_t *col_proto_str = NULL;
-    const uint8_t* col_info_str = NULL;
+    const char *proto_name = NULL;
+    const char *dissector_table = NULL;
+    const char *col_proto_str = NULL;
+    const char *col_info_str = NULL;
     dissector_handle_t proto_handle;
     mtp3_addr_pc_t *mtp3_addr;
     uint32_t pdu_port_type;
@@ -302,23 +303,22 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
         ti = proto_tree_add_item_ret_uint(exported_pdu_tree, hf_exported_pdu_tag, tvb, offset, 2, ENC_BIG_ENDIAN, &tag);
         offset+=2;
         tag_tree = proto_item_add_subtree(ti, ett_exported_pdu_tag);
-        proto_tree_add_item(tag_tree, hf_exported_pdu_tag_len, tvb, offset, 2, ENC_BIG_ENDIAN);
-        tag_len = tvb_get_ntohs(tvb, offset);
+        proto_tree_add_item_ret_uint16(tag_tree, hf_exported_pdu_tag_len, tvb, offset, 2, ENC_BIG_ENDIAN, &tag_len);
         proto_item_set_len(ti, 4 + tag_len);
         offset+=2;
 
         switch(tag) {
             case EXP_PDU_TAG_DISSECTOR_NAME:
                 next_proto_type = EXPORTED_PDU_NEXT_DISSECTOR_STR;
-                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_prot_name, tvb, offset, tag_len, ENC_UTF_8|ENC_NA, pinfo->pool, &proto_name);
+                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_prot_name, tvb, offset, tag_len, ENC_UTF_8|ENC_NA, pinfo->pool, (const uint8_t**)&proto_name);
                 break;
             case EXP_PDU_TAG_HEUR_DISSECTOR_NAME:
                 next_proto_type = EXPORTED_PDU_NEXT_HEUR_DISSECTOR_STR;
-                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_heur_prot_name, tvb, offset, tag_len, ENC_UTF_8|ENC_NA, pinfo->pool, &proto_name);
+                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_heur_prot_name, tvb, offset, tag_len, ENC_UTF_8|ENC_NA, pinfo->pool, (const uint8_t**)&proto_name);
                 break;
             case EXP_PDU_TAG_DISSECTOR_TABLE_NAME:
                 next_proto_type = EXPORTED_PDU_NEXT_DIS_TABLE_STR;
-                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_dis_table_name, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, &dissector_table);
+                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_dis_table_name, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, (const uint8_t**)&dissector_table);
                 break;
             case EXP_PDU_TAG_IPV4_SRC:
                 proto_tree_add_item(tag_tree, hf_exported_pdu_ipv4_src, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -399,7 +399,8 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                 proto_tree_add_item_ret_uint(tag_tree, hf_exported_pdu_dis_table_val, tvb, offset, 4, ENC_BIG_ENDIAN, &dissector_table_val);
                 break;
             case EXP_PDU_TAG_COL_PROT_TEXT:
-                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_col_proto_str, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, &col_proto_str);
+                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_col_proto_str, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, (const uint8_t**)&col_proto_str);
+                col_add_str(pinfo->cinfo, COL_PROTOCOL, col_proto_str);
                 break;
             case EXP_PDU_TAG_TCP_INFO_DATA:
                 {
@@ -435,7 +436,8 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                 pinfo->p2p_dir = p2p_dir;
                 break;
             case EXP_PDU_TAG_COL_INFO_TEXT:
-                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_col_info_str, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, &col_info_str);
+                proto_tree_add_item_ret_string(tag_tree, hf_exported_pdu_col_info_str, tvb, offset, tag_len, ENC_UTF_8 | ENC_NA, pinfo->pool, (const uint8_t**)&col_info_str);
+                col_add_str(pinfo->cinfo, COL_INFO, col_info_str);
                 break;
             case EXP_PDU_TAG_USER_DATA_PDU:
                 next_proto_type = EXPORTED_PDU_NEXT_DISSECTOR_STR;
@@ -470,15 +472,10 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
         case EXPORTED_PDU_NEXT_DISSECTOR_STR:
             proto_handle = find_dissector(proto_name);
             if (proto_handle) {
-                if (col_proto_str) {
-                    col_add_str(pinfo->cinfo, COL_PROTOCOL, col_proto_str);
-                } else {
+                if (!col_proto_str) {
                     col_clear(pinfo->cinfo, COL_PROTOCOL);
                 }
-                if (col_info_str) {
-                    col_add_str(pinfo->cinfo, COL_INFO, col_info_str);
-                }
-                else {
+                if (!col_info_str) {
                     col_clear(pinfo->cinfo, COL_INFO);
                 }
                 call_dissector_with_data(proto_handle, payload_tvb, pinfo, tree, dissector_data);
@@ -488,15 +485,10 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
         {
             heur_dtbl_entry_t *heur_diss = find_heur_dissector_by_unique_short_name(proto_name);
             if (heur_diss) {
-                if (col_proto_str) {
-                    col_add_str(pinfo->cinfo, COL_PROTOCOL, col_proto_str);
-                } else {
+                if (!col_proto_str) {
                     col_clear(pinfo->cinfo, COL_PROTOCOL);
                 }
-                if (col_info_str) {
-                    col_add_str(pinfo->cinfo, COL_INFO, col_info_str);
-                }
-                else {
+                if (!col_info_str) {
                     col_clear(pinfo->cinfo, COL_INFO);
                 }
                 call_heur_dissector_direct(heur_diss, payload_tvb, pinfo, tree, dissector_data);
@@ -507,15 +499,10 @@ dissect_exported_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
         {
             dis_tbl = find_dissector_table(dissector_table);
             if (dis_tbl) {
-                if (col_proto_str) {
-                    col_add_str(pinfo->cinfo, COL_PROTOCOL, col_proto_str);
-                } else {
+                if (!col_proto_str) {
                     col_clear(pinfo->cinfo, COL_PROTOCOL);
                 }
-                if (col_info_str) {
-                    col_add_str(pinfo->cinfo, COL_INFO, col_info_str);
-                }
-                else {
+                if (!col_info_str) {
                     col_clear(pinfo->cinfo, COL_INFO);
                 }
                 dissector_try_uint_with_data(dis_tbl, dissector_table_val, payload_tvb, pinfo, tree, true, dissector_data);

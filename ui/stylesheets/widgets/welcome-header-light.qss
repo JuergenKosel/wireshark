@@ -1,0 +1,242 @@
+/* ===================================================================
+ * Wireshark Welcome Page Header — Concept A (Gradient Header Bar)
+ * Theme: Light
+ *
+ * Widget hierarchy:
+ *   #welcomeHeader          — QWidget, the blue gradient header bar
+ *     #headerTitle           — QLabel, "Wireshark"
+ *     #headerVersion         — QLabel, full version string
+ *     #headerBuildLabel          — QLabel, "Development Build" pill badge
+ *
+ *   #updateHeader            — QWidget, the green update notification bar
+ *     #updateDot             — QLabel (6×6px), pulsing green circle
+ *     #updateText            — QLabel, "Update available: Wireshark X.Y.Z"
+ *     — stretch —
+ *     #updateReleaseNotes    — QPushButton (flat), "Release Notes"
+ *     #updateDownload        — QPushButton, "Download Update"
+ *     #updateDismiss         — QToolButton (autoRaise), "×" close
+ *
+ * Layout (left → right):
+ *   updateDot · updateText · <stretch> · updateReleaseNotes · updateDownload · updateDismiss
+ *
+ * Notes:
+ *   - QWidget backgrounds with gradients use the `background` shorthand.
+ *   - The pulsing dot shape is stylesheet-driven (border-radius makes it
+ *     round); the animation uses QPropertyAnimation on a
+ *     QGraphicsOpacityEffect attached to #updateDot.  Respect
+ *     QStyleHints::animationsEnabled() — skip starting the animation
+ *     when platform accessibility disables motion.
+ *   - Hide #updateHeader entirely via setVisible(false) when no update
+ *     is available. The layout collapses cleanly with no leftover space.
+ *   - On dismiss (#updateDismiss clicked), call updateHeader->setVisible(false)
+ *     and optionally persist the dismissed version in QSettings so it
+ *     does not reappear for the same release.
+ * =================================================================== */
+
+
+/* -----------------------------------------------------------------
+ * Welcome Header — gradient bar
+ * ----------------------------------------------------------------- */
+#welcomeHeader {
+    background: qlineargradient(
+        spread:pad, x1:0, y1:0, x2:1, y2:1,
+        stop:0 #1e3a5f,
+        stop:1 #2c6fb5
+    );
+    min-height: 64px;
+}
+
+
+/* -----------------------------------------------------------------
+ * Title label — "Wireshark"
+ * ----------------------------------------------------------------- */
+#headerTitle {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    /* No background — sits on the gradient */
+    background: transparent;
+    padding: 0;
+}
+
+
+/* -----------------------------------------------------------------
+ * Version label — "4.7.0 (v4.7.0rc0-2438-g68ddfc1bcba4)"
+ * ----------------------------------------------------------------- */
+#headerVersion {
+    color: rgba(255, 255, 255, 128);   /* ~50% white */
+    font-size: 11px;
+    font-weight: 400;
+    background: transparent;
+    padding: 0;
+    margin-top: 1px;
+}
+
+
+/* -----------------------------------------------------------------
+ * Flavor badge — "Development Build" (pill)
+ *
+ * Only visible for non-release builds. For release builds, hide via
+ * setVisible(false) or simply don't add it to the layout.
+ * ----------------------------------------------------------------- */
+#headerBuildLabel {
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    /* letter-spacing is not supported in QSS — set via QFont if needed */
+    background-color: #e8652d;
+    border-radius: 4px;
+    padding: 3px 9px;
+    margin: 0;
+}
+
+
+/* =================================================================
+ * Update Header — green notification bar
+ *
+ * Shown below #welcomeHeader when an update is available.
+ * ================================================================= */
+#updateHeader {
+    background: qlineargradient(
+        spread:pad, x1:0, y1:0.5, x2:1, y2:0.5,
+        stop:0 #1b4d3e,
+        stop:1 #1b5e45
+    );
+    border-bottom: 1px solid rgba(76, 175, 80, 51);   /* ~20% opacity */
+    min-height: 36px;
+}
+
+
+/* -----------------------------------------------------------------
+ * Pulsing dot — 6×6px green circle (left of update text)
+ *
+ * The border-radius makes it round.  Animation is handled in code:
+ *
+ *   auto *effect = new QGraphicsOpacityEffect(updateDot);
+ *   updateDot->setGraphicsEffect(effect);
+ *   auto *anim = new QPropertyAnimation(effect, "opacity", updateDot);
+ *   anim->setDuration(2000);
+ *   anim->setStartValue(1.0);
+ *   anim->setKeyValueAt(0.5, 0.3);
+ *   anim->setEndValue(1.0);
+ *   anim->setEasingCurve(QEasingCurve::InOutSine);
+ *   anim->setLoopCount(-1);
+ *   if (QApplication::styleHints()->animationsEnabled())
+ *       anim->start();
+ * ----------------------------------------------------------------- */
+#updateDot {
+    background-color: #4caf50;
+    border-radius: 3px;          /* half of 6px = circle */
+    min-width: 6px;
+    max-width: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    border: none;
+    padding: 0;
+    margin-right: 2px;
+}
+
+
+/* -----------------------------------------------------------------
+ * Update text label — "Update available: Wireshark 4.8.0 — ..."
+ *
+ * Rich text (QLabel with <b> tags) is expected for the version
+ * portion, styled via the html <b> tag which inherits color from
+ * the label but can be overridden with inline style or a separate
+ * label.  If using a plain QLabel, set the full string here.
+ * For the bold version name, use a second QLabel or rich text with:
+ *   <span style="color:#c8f0d0; font-weight:600;">Wireshark 4.8.0</span>
+ * ----------------------------------------------------------------- */
+#updateText {
+    color: #a8ddb5;
+    font-size: 12px;
+    font-weight: 400;
+    background: transparent;
+    padding: 0;
+}
+
+
+/* -----------------------------------------------------------------
+ * Release Notes — flat text button
+ * ----------------------------------------------------------------- */
+#updateReleaseNotes {
+    color: #7ab888;
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: underline;
+    background: transparent;
+    border: none;
+    padding: 4px 12px;
+}
+
+#updateReleaseNotes:hover {
+    color: #a8ddb5;
+}
+
+#updateReleaseNotes:pressed {
+    color: #5a9868;
+}
+
+
+/* -----------------------------------------------------------------
+ * Download button — solid green
+ * ----------------------------------------------------------------- */
+#updateDownload {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 500;
+    background-color: #4caf50;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 12px;
+}
+
+#updateDownload:hover {
+    background-color: #43a047;
+}
+
+#updateDownload:pressed {
+    background-color: #388e3c;
+}
+
+#updateDownload:disabled {
+    background-color: #2d6e30;
+    color: rgba(255, 255, 255, 128);
+}
+
+
+/* -----------------------------------------------------------------
+ * Dismiss button — "×" to close the update bar
+ *
+ * QToolButton with autoRaise(true).  Borderless by default, subtle
+ * highlight on hover.  Sits on the green gradient in both themes,
+ * so these colors are shared between light and dark.
+ *
+ * Connect clicked() → updateHeader->setVisible(false).
+ * Optionally persist dismissal per version via QSettings.
+ * ----------------------------------------------------------------- */
+#updateDismiss {
+    color: #7ab888;
+    font-size: 15px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    padding: 0;
+    min-width: 22px;
+    max-width: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    margin-left: 4px;
+}
+
+#updateDismiss:hover {
+    background-color: rgba(255, 255, 255, 25);   /* ~10% white */
+    color: #c8f0d0;
+}
+
+#updateDismiss:pressed {
+    background-color: rgba(255, 255, 255, 15);   /* ~6% white */
+    color: #a8ddb5;
+}

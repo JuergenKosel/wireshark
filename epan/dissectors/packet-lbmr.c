@@ -2027,7 +2027,7 @@ static tap_packet_status lbmr_match_packet(packet_info * pinfo, const lbmr_tag_e
     dest_addr_h = pntohu32(pinfo->dst.data);
     src_addr_h = pntohu32(pinfo->src.data);
 
-    if (IN_MULTICAST(dest_addr_h))
+    if (in4_addr_is_multicast(dest_addr_h))
     {
         /* Check multicast topic resolution values. */
         if ((dest_addr_h != entry->mc_incoming_address_val_h) && (dest_addr_h != entry->mc_outgoing_address_val_h))
@@ -3422,7 +3422,7 @@ static int dissect_lbmr_tnwg(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
 /*----------------------------------------------------------------------------*/
 static int dissect_lbmr_tmr(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
 {
-    int namelen = 0;
+    unsigned namelen = 0;
     int name_offset = 0;
     char * name = NULL;
     proto_item * ti = NULL;
@@ -3444,7 +3444,7 @@ static int dissect_lbmr_tmr(tvbuff_t * tvb, int offset, packet_info * pinfo, pro
     tmr_flags = tvb_get_uint8(tvb, offset + O_LBMR_TMR_T_FLAGS);
     name_offset = offset + L_LBMR_TMR_T;
 
-    name = tvb_get_stringz_enc(pinfo->pool, tvb, name_offset, &namelen, ENC_ASCII);
+    name = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, name_offset, &namelen, ENC_ASCII);
 
     switch (tmr_type)
     {
@@ -3709,7 +3709,7 @@ static int dissect_lbmr_tir_options(tvbuff_t * tvb, int offset, packet_info * pi
             {
                 proto_tree_add_item(opt_tree, hf_lbmr_topt_unknown_data, tvb, curr_offset + L_LBMR_TOPIC_OPT_T, ((int) opt_len) - L_LBMR_TOPIC_OPT_T, ENC_NA);
             }
-            expert_add_info_format(pinfo, ei_item, &ei_lbmr_analysis_zero_len_option, "Zero-length LBMR option");
+            expert_add_info(pinfo, ei_item, &ei_lbmr_analysis_zero_len_option);
             return (len);
         }
         switch (opt_type)
@@ -4093,7 +4093,7 @@ static int dissect_lbmr_tir_transport(tvbuff_t * tvb, int offset, lbm_uint8_t tr
 
 static int dissect_lbmr_tir_entry(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, lbmr_contents_t * contents)
 {
-    int namelen = 0;
+    unsigned namelen = 0;
     int reclen = 0;
     int dissect_len = 0;
     int tinfo_offset = 0;
@@ -4107,7 +4107,7 @@ static int dissect_lbmr_tir_entry(tvbuff_t * tvb, int offset, packet_info * pinf
     int curr_offset;
     proto_item * transport_len_item = NULL;
 
-    name = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &namelen, ENC_ASCII);
+    name = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &namelen, ENC_ASCII);
     reclen += namelen;
     curr_offset = offset + namelen;
     tinfo_offset = curr_offset;
@@ -4165,11 +4165,11 @@ static int dissect_lbmr_tirs(tvbuff_t * tvb, int offset, uint16_t tir_count, pac
 /*----------------------------------------------------------------------------*/
 static int dissect_lbmr_qqr(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, lbmr_contents_t * contents)
 {
-    int namelen = 0;
+    unsigned namelen = 0;
     unsigned reclen = 0;
     char * name = NULL;
 
-    name = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &namelen, ENC_ASCII);
+    name = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, offset, &namelen, ENC_ASCII);
     reclen += namelen;
     add_contents_qqr(pinfo->pool, contents, name);
     proto_tree_add_item(tree, hf_lbmr_qqr_name, tvb, offset, namelen, ENC_ASCII);
@@ -4237,10 +4237,10 @@ static int dissect_lbmr_qir_grp_blk(tvbuff_t * tvb, int offset, packet_info * pi
 
 static int dissect_lbmr_qir_entry(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree, lbmr_contents_t * contents)
 {
-    int qnamelen = 0;
+    unsigned qnamelen = 0;
     int qnameoffset = 0;
     char * qname = NULL;
-    int tnamelen = 0;
+    unsigned tnamelen = 0;
     int tnameoffset = 0;
     char * tname = NULL;
     int reclen = 0;
@@ -4271,11 +4271,11 @@ static int dissect_lbmr_qir_entry(tvbuff_t * tvb, int offset, packet_info * pinf
     */
     curr_offset = offset;
     qnameoffset = curr_offset;
-    qname = tvb_get_stringz_enc(pinfo->pool, tvb, qnameoffset, &qnamelen, ENC_ASCII);
+    qname = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, qnameoffset, &qnamelen, ENC_ASCII);
     curr_offset += qnamelen;
     reclen += qnamelen;
     tnameoffset = curr_offset;
-    tname = tvb_get_stringz_enc(pinfo->pool, tvb, tnameoffset, &tnamelen, ENC_ASCII);
+    tname = (char*)tvb_get_stringz_enc(pinfo->pool, tvb, tnameoffset, &tnamelen, ENC_ASCII);
     curr_offset += tnamelen;
     reclen += tnamelen;
     queue_id = tvb_get_ntohl(tvb, curr_offset + O_LBMR_QIR_T_QUEUE_ID);
@@ -4442,14 +4442,14 @@ static int dissect_lbmr_pser(tvbuff_t * tvb, int offset, packet_info * pinfo, pr
 /*----------------------------------------------------------------------------*/
 /* LBMR Queue Management dissection functions.                                */
 /*----------------------------------------------------------------------------*/
-int lbmr_dissect_umq_qmgmt(tvbuff_t * tvb, int offset, packet_info * pinfo, proto_tree * tree)
+unsigned lbmr_dissect_umq_qmgmt(tvbuff_t * tvb, unsigned offset, packet_info * pinfo, proto_tree * tree)
 {
     uint8_t pckt_type = 0;
-    int curr_offset = 0;
+    unsigned curr_offset = 0;
     uint16_t dep16;
     uint16_t idx;
     uint8_t flags_val = 0;
-    int len_dissected = 0;
+    unsigned len_dissected = 0;
     static int * const flags[] =
     {
         &hf_qmgmt_flags_i_flag,
@@ -4667,8 +4667,7 @@ static int dissect_lbmr_remote_domain_route(tvbuff_t * tvb, int offset, packet_i
     int ofs = 0;
     uint16_t idx;
 
-    num_domains = tvb_get_ntohs(tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_NUM_DOMAINS);
-    proto_tree_add_item(tree, hf_lbmr_remote_domain_route_hdr_num_domains, tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_NUM_DOMAINS, L_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_NUM_DOMAINS, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(tree, hf_lbmr_remote_domain_route_hdr_num_domains, tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_NUM_DOMAINS, L_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_NUM_DOMAINS, ENC_BIG_ENDIAN, &num_domains);
     proto_tree_add_item(tree, hf_lbmr_remote_domain_route_hdr_ip, tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_IP, L_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_IP, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_lbmr_remote_domain_route_hdr_port, tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_PORT, L_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_PORT, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_lbmr_remote_domain_route_hdr_route_index, tvb, offset + O_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_ROUTE_INDEX, L_LBMR_REMOTE_DOMAIN_ROUTE_HDR_T_ROUTE_INDEX, ENC_BIG_ENDIAN);
@@ -4973,8 +4972,7 @@ static int dissect_lbmr_opt_unknown(tvbuff_t * tvb, int offset, packet_info * pi
     subtree = proto_item_add_subtree(subtree_item, ett_lbmr_opt_unknown);
     opt_type = tvb_get_uint8(tvb, offset + O_LBMR_LBMR_OPT_HDR_T_TYPE);
     type_item = proto_tree_add_item(subtree, hf_lbmr_opt_unknown_type, tvb, offset + O_LBMR_LBMR_OPT_HDR_T_TYPE, L_LBMR_LBMR_OPT_HDR_T_TYPE, ENC_BIG_ENDIAN);
-    len = tvb_get_uint8(tvb, offset + O_LBMR_LBMR_OPT_HDR_T_LEN);
-    proto_tree_add_item(subtree, hf_lbmr_opt_unknown_len, tvb, offset + O_LBMR_LBMR_OPT_HDR_T_LEN, L_LBMR_LBMR_OPT_HDR_T_LEN, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(subtree, hf_lbmr_opt_unknown_len, tvb, offset + O_LBMR_LBMR_OPT_HDR_T_LEN, L_LBMR_LBMR_OPT_HDR_T_LEN, ENC_BIG_ENDIAN, &len);
     proto_tree_add_item(subtree, hf_lbmr_opt_unknown_flags, tvb, offset + O_LBMR_LBMR_OPT_HDR_T_FLAGS, L_LBMR_LBMR_OPT_HDR_T_FLAGS, ENC_NA);
     proto_tree_add_item(subtree, hf_lbmr_opt_unknown_data, tvb, offset + L_LBMR_LBMR_OPT_HDR_T, (int) len - L_LBMR_LBMR_OPT_HDR_T, ENC_NA);
     proto_item_set_len(subtree_item, (int) len);
@@ -5152,20 +5150,20 @@ static int dissect_lbmr(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
     total_len_dissected = 0;
     packet_tvb = tvb;
 
-    if ((ver_type & LBMR_HDR_TYPE_OPTS_MASK) != 0)
+    unsigned packet_len = tvb_reported_length(tvb);
+    /* The length option is at the end. Trim the options off if possible. */
+    if (((ver_type & LBMR_HDR_TYPE_OPTS_MASK) != 0) && packet_len > L_LBMR_LBMR_OPT_LEN_T && tvb_bytes_exist(tvb, 0, packet_len))
     {
         uint8_t opt_type;
         uint8_t opt_len;
 
-        opt_type = tvb_get_uint8(tvb, -L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_TYPE);
-        opt_len = tvb_get_uint8(tvb, -L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_LEN);
+        opt_type = tvb_get_uint8(tvb, packet_len - L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_TYPE);
+        opt_len = tvb_get_uint8(tvb, packet_len - L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_LEN);
         if ((opt_type == LBMR_LBMR_OPT_LEN_TYPE) && (((int)opt_len) == L_LBMR_LBMR_OPT_LEN_T))
         {
-            int opt_total_len = 0;
-            int packet_len;
+            unsigned opt_total_len = 0;
 
-            packet_len = tvb_reported_length_remaining(tvb, 0);
-            opt_total_len = tvb_get_ntohis(tvb, -L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_TOTAL_LEN);
+            opt_total_len = tvb_get_ntohs(tvb, packet_len - L_LBMR_LBMR_OPT_LEN_T + O_LBMR_LBMR_OPT_LEN_T_TOTAL_LEN);
             if (packet_len > opt_total_len)
             {
                 int tvb_len = packet_len - opt_total_len;

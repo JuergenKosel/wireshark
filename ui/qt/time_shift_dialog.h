@@ -12,7 +12,7 @@
 
 #include <config.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <ui/qt/widgets/syntax_line_edit.h>
 

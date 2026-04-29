@@ -249,7 +249,7 @@ static bool spdy_decompress_headers;
 #endif /* USE_ZLIB_OR_ZLIBNG */
 
 #ifdef USE_ZLIB_OR_ZLIBNG
-static const char spdy_dictionary[] = {
+static const uint8_t spdy_dictionary[] = {
   0x00, 0x00, 0x00, 0x07, 0x6f, 0x70, 0x74, 0x69,  /* - - - - o p t i */
   0x6f, 0x6e, 0x73, 0x00, 0x00, 0x00, 0x04, 0x68,  /* o n s - - - - h */
   0x65, 0x61, 0x64, 0x00, 0x00, 0x00, 0x04, 0x70,  /* e a d - - - - p */
@@ -1224,8 +1224,8 @@ static int dissect_spdy_header_payload(
     proto_item *header;
     int header_name_offset;
     int header_value_offset;
-    int header_name_length;
-    int header_value_length;
+    unsigned header_name_length;
+    unsigned header_value_length;
 
     /* Get header name details. */
     if (tvb_reported_length_remaining(header_tvb, hdr_offset) < 4) {

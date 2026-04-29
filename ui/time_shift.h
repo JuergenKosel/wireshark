@@ -12,7 +12,7 @@
 #ifndef __TIME_SHIFT_H__
 #define __TIME_SHIFT_H__
 
-#include "cfile.h"
+#include <epan/cfile.h>
 #include <wsutil/nstime.h>
 
 #ifdef __cplusplus

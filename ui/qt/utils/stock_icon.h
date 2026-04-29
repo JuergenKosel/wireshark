@@ -22,6 +22,11 @@
 // Supported custom names (see images/toolbar):
 // x-capture-file-close
 // x-capture-file-save
+// x-lua-debug-continue
+// x-lua-debug-step-in
+// x-lua-debug-step-out
+// x-lua-debug-step-over
+// x-lua-debug-run-to-line
 
 class StockIcon : public QIcon
 {

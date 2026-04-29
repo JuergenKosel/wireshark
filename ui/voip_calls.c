@@ -1174,7 +1174,7 @@ sip_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt ,
 
         if (tapinfo->fs_option == FLOW_ALL ||
                 (tapinfo->fs_option == FLOW_ONLY_INVITES &&
-                 strcmp(pi->request_method,"INVITE")==0)) {
+                 strcmp((const char*)pi->request_method,"INVITE")==0)) {
             callsinfo = g_new0(voip_calls_info_t, 1);
             callsinfo->call_active_state = VOIP_ACTIVE;
             callsinfo->call_state = VOIP_CALL_SETUP;
@@ -1195,7 +1195,7 @@ sip_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt ,
             callsinfo->call_num = tapinfo->ncalls++;
 
             /* show method in comment in conversation list dialog, user can discern different conversation types */
-            callsinfo->call_comment=g_strdup(pi->request_method);
+            callsinfo->call_comment=g_strdup((const char*)pi->request_method);
 
             g_queue_push_tail(tapinfo->callsinfos, callsinfo);
             /* insert the call information in the SIP_HASH */
@@ -1219,6 +1219,17 @@ sip_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt ,
             if ((tmp_sipinfo && pi->tap_cseq_number == tmp_sipinfo->invite_cseq)&&(addresses_equal(&tmp_dst,&(callsinfo->initial_speaker)))) {
                 if ((pi->response_code > 199) && (pi->response_code<300) && (tmp_sipinfo->sip_state == SIP_INVITE_SENT)) {
                     tmp_sipinfo->sip_state = SIP_200_REC;
+                    /* XXX - If tapinfo->fs_open is FLOW_ALL and the method,
+                     * i.e., the prefix of callsinfo->call_comment, is something
+                     * other than INVITE, then this is the transaction end. See
+                     * RFC 3261 17.1.2 "Non-INVITE transactions do not make use
+                     * of ACK." (This holds for methods registered with IANA
+                     * subsequent to publishing of RFC 3261.) Therefore, we
+                     * should probably either update callsinfo->call_state to
+                     * VOIP_COMPLETED, or else the VOIP Calls dialog and model,
+                     * when in "SIP Flows" / all_flows_ mode, should use the
+                     * SIP-specific information for the state.
+                     */
                 }
                 else if ((pi->response_code>299)&&(tmp_sipinfo->sip_state == SIP_INVITE_SENT)) {
                     callsinfo->call_state = VOIP_REJECTED;
@@ -1241,9 +1252,9 @@ TODO: is useful but not perfect, what is appended is truncated when displayed in
 
         }
         else {
-            frame_label = g_strdup(pi->request_method);
+            frame_label = g_strdup((const char*)pi->request_method);
 
-            if ((strcmp(pi->request_method,"INVITE")==0)&&(addresses_equal(&tmp_src,&(callsinfo->initial_speaker)))) {
+            if ((strcmp((const char*)pi->request_method,"INVITE")==0)&&(addresses_equal(&tmp_src,&(callsinfo->initial_speaker)))) {
                 tmp_sipinfo->invite_cseq = pi->tap_cseq_number;
                 callsinfo->call_state = VOIP_CALL_SETUP;
                 /* TODO: sometimes truncated when displayed in dialog window */
@@ -1251,22 +1262,41 @@ TODO: is useful but not perfect, what is appended is truncated when displayed in
                         callsinfo->from_identity, callsinfo->to_identity,
                         callsinfo->call_id, pi->tap_cseq_number);
             }
-            else if ((strcmp(pi->request_method,"ACK")==0)&&(pi->tap_cseq_number == tmp_sipinfo->invite_cseq)
+            else if ((strcmp((const char*)pi->request_method,"ACK")==0)&&(pi->tap_cseq_number == tmp_sipinfo->invite_cseq)
                     &&(addresses_equal(&tmp_src,&(callsinfo->initial_speaker)))&&(tmp_sipinfo->sip_state==SIP_200_REC)
                     &&(callsinfo->call_state == VOIP_CALL_SETUP)) {
                 callsinfo->call_state = VOIP_IN_CALL;
                 comment = ws_strdup_printf("SIP Request INVITE ACK 200 CSeq:%d", pi->tap_cseq_number);
             }
-            else if (strcmp(pi->request_method,"BYE")==0) {
+            else if (strcmp((const char*)pi->request_method,"BYE")==0) {
                 callsinfo->call_state = VOIP_COMPLETED;
                 tapinfo->completed_calls++;
                 comment = ws_strdup_printf("SIP Request BYE CSeq:%d", pi->tap_cseq_number);
             }
-            else if ((strcmp(pi->request_method,"CANCEL")==0)&&(pi->tap_cseq_number == tmp_sipinfo->invite_cseq)
+            else if ((strcmp((const char*)pi->request_method,"CANCEL")==0)&&(pi->tap_cseq_number == tmp_sipinfo->invite_cseq)
                     &&(addresses_equal(&tmp_src,&(callsinfo->initial_speaker)))&&(callsinfo->call_state==VOIP_CALL_SETUP)) {
                 callsinfo->call_state = VOIP_CANCELLED;
                 tmp_sipinfo->sip_state = SIP_CANCEL_SENT;
                 comment = ws_strdup_printf("SIP Request CANCEL CSeq:%d", pi->tap_cseq_number);
+            }
+            else if ((pi->tap_cseq_number == tmp_sipinfo->invite_cseq + 1)
+                    &&(addresses_equal(&tmp_src,&(callsinfo->initial_speaker)))&&(callsinfo->call_state==VOIP_REJECTED)
+                    &&(g_str_has_prefix(callsinfo->call_comment, pi->request_method))) {
+                /* RFC 3261 8.1.3.5 Processing 4xx Responses
+                 * This new request constitutes a new transaction and SHOULD
+                 * have the same value of the Call-ID, To, and From of the
+                 * previous request, but the CSeq should contain a new sequence
+                 * number that is one higher than the previous.
+                 *
+                 * (This same behavior has been adopted for 4xx Responses that
+                 * allow retry registered with IANA post RFC 3261.)
+                 */
+                tmp_sipinfo->invite_cseq = pi->tap_cseq_number;
+                callsinfo->call_state = VOIP_CALL_SETUP;
+                tapinfo->rejected_calls--;
+                /* Clear the old response code from the comment. */
+                g_free(callsinfo->call_comment);
+                callsinfo->call_comment=g_strdup((const char*)pi->request_method);
             } else {
                 /* comment = ws_strdup_printf("SIP %s", pi->request_method); */
                 comment = ws_strdup_printf("SIP %s From: %s To:%s CSeq:%d",
@@ -1805,19 +1835,31 @@ q931_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
 
         comment = NULL;
         callsinfo = NULL;
-        list = g_queue_peek_nth_link(tapinfo->callsinfos, 0);
+        /* Start with the most recent calls and search backwards. */
+        list = g_queue_peek_tail_link(tapinfo->callsinfos);
         while (list)
         {
             tmp_listinfo=(voip_calls_info_t *)list->data;
             if ( tmp_listinfo->protocol == VOIP_AC_ISDN ) {
                 tmp_actrace_isdn_info = (actrace_isdn_calls_info_t *)tmp_listinfo->prot_info;
-                /* TODO: Also check the IP of the Blade, and if the call is complete (no active) */
+                /* TODO: Also check the IP of the Blade */
                 if ( (tmp_actrace_isdn_info->crv == tapinfo->q931_crv) && (tmp_actrace_isdn_info->trunk == tapinfo->actrace_trunk) ) {
-                    callsinfo = (voip_calls_info_t*)(list->data);
+                    /* If the most recent call with this CRV is active,
+                     * or this is a call ending, use that call. Else,
+                     * this is a new call. */
+                    if ((tmp_listinfo->call_state != VOIP_COMPLETED &&
+                         tmp_listinfo->call_state != VOIP_CANCELLED &&
+                         tmp_listinfo->call_state != VOIP_REJECTED) ||
+                        (pi->message_type == Q931_DISCONNECT ||
+                         pi->message_type == Q931_RELEASE ||
+                         pi->message_type == Q931_RELEASE_COMPLETE)) {
+
+                        callsinfo = (voip_calls_info_t*)(list->data);
+                    }
                     break;
                 }
             }
-            list = g_list_next (list);
+            list = list->prev;
         }
 
         set_address(&pstn_add, AT_STRINGZ, 5, g_strdup("PSTN"));
@@ -2343,7 +2385,7 @@ h245dg_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *ed
         }
     } else {
         /* Tunnel is ON, so we save the label info to use it into h225 or q931 tap. OR may be
-           tunnel OFF but we did not matched the h245 add, in this case nobady will set this label
+           tunnel OFF but we did not matched the h245 add, in this case nobody will set this label
            since the frame_num will not match */
 
         h245_add_label(tapinfo, pinfo->num, pi->frame_label, pi->comment);
@@ -3504,26 +3546,26 @@ unistim_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *e
                 if(tmp_unistim_info->key_buffer != NULL) {
 
                     /* assign to temp variable */
-                    g_string_assign(g_tmp,tmp_unistim_info->key_buffer);
+                    g_string_assign(g_tmp,(const char*)tmp_unistim_info->key_buffer);
 
                     /* Manipulate the data */
                     if(pi->key_val == 10) {
-                        tmp_unistim_info->key_buffer = ws_strdup_printf("%s*",g_tmp->str);
+                        tmp_unistim_info->key_buffer = (uint8_t*)ws_strdup_printf("%s*",g_tmp->str);
                     } else if(pi->key_val == 11) {
-                        tmp_unistim_info->key_buffer = ws_strdup_printf("%s#",g_tmp->str);
+                        tmp_unistim_info->key_buffer = (uint8_t*)ws_strdup_printf("%s#",g_tmp->str);
                     } else {
-                        tmp_unistim_info->key_buffer = ws_strdup_printf("%s%d",g_tmp->str,pi->key_val);
+                        tmp_unistim_info->key_buffer = (uint8_t*)ws_strdup_printf("%s%d",g_tmp->str,pi->key_val);
                     }
 
                 } else {
 
                     /* Create new string */
                     if(pi->key_val == 10) {
-                        tmp_unistim_info->key_buffer = g_strdup("*");
+                        tmp_unistim_info->key_buffer = (uint8_t*)g_strdup("*");
                     } else if(pi->key_val == 11) {
-                        tmp_unistim_info->key_buffer = g_strdup("#");
+                        tmp_unistim_info->key_buffer = (uint8_t*)g_strdup("#");
                     } else {
-                        tmp_unistim_info->key_buffer = ws_strdup_printf("%d",pi->key_val);
+                        tmp_unistim_info->key_buffer = (uint8_t*)ws_strdup_printf("%d",pi->key_val);
                     }
 
                 }
@@ -3548,13 +3590,13 @@ unistim_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *e
             } else if(pi->key_val == 15) {
                 if(pi->key_buffer != NULL) {
                     /* Get data */
-                    g_string_assign(g_tmp,pi->key_buffer);
+                    g_string_assign(g_tmp,(const char*)pi->key_buffer);
 
                     /* Manipulate the data */
                     g_string_truncate(g_tmp,g_tmp->len-1);
 
                     /* Insert new data */
-                    tmp_unistim_info->key_buffer = g_strdup(g_tmp->str);
+                    tmp_unistim_info->key_buffer = (uint8_t*)g_strdup(g_tmp->str);
                 }
 
                 /* Set label and comment for graph */
@@ -3571,13 +3613,13 @@ unistim_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *e
                 if(pi->key_buffer != NULL) {
 
                     /* Get data */
-                    g_string_assign(g_tmp,pi->key_buffer);
+                    g_string_assign(g_tmp,(const char*)pi->key_buffer);
 
                     /* Manipulate the data */
                     g_string_truncate(g_tmp,g_tmp->len-1);
 
                     /* Insert new data */
-                    tmp_unistim_info->key_buffer = g_strdup(g_tmp->str);
+                    tmp_unistim_info->key_buffer = (uint8_t*)g_strdup(g_tmp->str);
                 }
 
                 /* add label and comment */
@@ -3589,7 +3631,7 @@ unistim_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *e
                 /* User pressed the soft key 3 */
                 /* Cancel on cs2k so clear buffer */
                 /* On mcs it's config which will clear the buffer too */
-                tmp_unistim_info->key_buffer = g_strdup("\n");
+                tmp_unistim_info->key_buffer = (uint8_t*)g_strdup("\n");
 
                 /* User pressed something, set labels*/
                 comment = ws_strdup_printf("Key Input Sent: S3 (%d)", pi->sequence);

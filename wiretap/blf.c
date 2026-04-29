@@ -16,7 +16,7 @@
   * The repo above includes multiple examples files as well.
   */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
 
 #include "blf.h"
@@ -37,6 +37,7 @@
 #include <wsutil/time_util.h>
 #include <wsutil/zlib_compat.h>
 #include <wsutil/pint.h>
+#include <wsutil/ws_assert.h>
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
@@ -172,6 +173,7 @@ blf_date_to_sec(const blf_date_t *date) {
 static uint64_t
 blf_data_to_ns(const blf_date_t *date) {
     if (date != NULL &&
+        (date->year < 2484) &&  /* max_uint64 / ns_per_year */
         (date->month >= 1 && date->month <= 12) &&
         (date->day >= 1 && date->day <= 31) &&
         (date->hour <= 23) && (date->mins <= 59) &&
@@ -847,14 +849,6 @@ blf_pull_logcontainer_into_memory(blf_params_t *params, blf_log_container_t *con
         /* Skip empty container */
         if (!wtap_read_bytes_or_eof(params->fh, NULL, (unsigned int)data_length, err, err_info)) {
             if (*err == WTAP_ERR_SHORT_READ) {
-                /*
-                 * XXX - our caller will turn this into an EOF.
-                 * How *should* it be treated?
-                 * For now, we turn it into Yet Another Internal Error,
-                 * pending having better documentation of the file
-                 * format.
-                 */
-                *err = WTAP_ERR_INTERNAL;
                 *err_info = ws_strdup("blf_pull_logcontainer_into_memory: short read on 0-length container");
             }
             return false;
@@ -863,6 +857,11 @@ blf_pull_logcontainer_into_memory(blf_params_t *params, blf_log_container_t *con
     }
 
     if (container->compression_method == BLF_COMPRESSION_NONE) {
+        if (data_length != container->real_length) {
+            *err = WTAP_ERR_BAD_FILE;
+            *err_info = ws_strdup("blf_pull_logcontainer_into_memory: uncompressed data has wrong length");
+            return false;
+        }
         unsigned char* buf = g_try_malloc((size_t)container->real_length);
         if (buf == NULL) {
             *err = WTAP_ERR_INTERNAL;
@@ -873,13 +872,9 @@ blf_pull_logcontainer_into_memory(blf_params_t *params, blf_log_container_t *con
             g_free(buf);
             if (*err == WTAP_ERR_SHORT_READ) {
                 /*
-                 * XXX - our caller will turn this into an EOF.
-                 * How *should* it be treated?
-                 * For now, we turn it into Yet Another Internal Error,
-                 * pending having better documentation of the file
-                 * format.
+                 * XXX - Possible improvement: read as much as we can, instead of
+                 * skipping the last log container entirely.
                  */
-                *err = WTAP_ERR_INTERNAL;
                 *err_info = ws_strdup("blf_pull_logcontainer_into_memory: short read on uncompressed data");
             }
             return false;
@@ -899,13 +894,10 @@ blf_pull_logcontainer_into_memory(blf_params_t *params, blf_log_container_t *con
             g_free(compressed_data);
             if (*err == WTAP_ERR_SHORT_READ) {
                 /*
-                 * XXX - our caller will turn this into an EOF.
-                 * How *should* it be treated?
-                 * For now, we turn it into Yet Another Internal Error,
-                 * pending having better documentation of the file
-                 * format.
+                 * XXX - Possible improvement: read as much as we can, instead of
+                 * skipping the last log container entirely.
+                 * In this case, we also need to handle potential errors when inflating.
                  */
-                *err = WTAP_ERR_INTERNAL;
                 *err_info = ws_strdup("blf_pull_logcontainer_into_memory: short read on compressed data");
             }
             return false;
@@ -1220,17 +1212,31 @@ blf_pull_next_logcontainer(blf_params_t* params, int* err, char** err_info) {
 
     container = &g_array_index(params->blf_data->log_containers, blf_log_container_t, params->blf_data->log_containers->len - 1);
     if (!blf_pull_logcontainer_into_memory(params, container, err, err_info)) {
-        if (*err == WTAP_ERR_DECOMPRESS) {
+        if (*err == WTAP_ERR_DECOMPRESS || *err == WTAP_ERR_SHORT_READ) {
             report_warning("Error while decompressing BLF log container number %u (file pos. 0x%" PRIx64 "): %s",
-                            params->blf_data->log_containers->len - 1, container->infile_start_pos, *err_info ? *err_info : "(none)");
+                params->blf_data->log_containers->len - 1, container->infile_start_pos, *err_info ? *err_info : "(none)");
             *err = 0;
             g_free(*err_info);
             *err_info = NULL;
 
-            /* Skip this log container and try to get the next one. */
+            /* Skip this log container. */
             g_array_remove_index(params->blf_data->log_containers, params->blf_data->log_containers->len - 1);
-            /* Calling blf_pull_logcontainer_into_memory advances the file pointer. Eventually we will reach the end of the file and stop recursing. */
+        }
+        switch (*err) {
+        case WTAP_ERR_DECOMPRESS:
+            /*
+             * Try to get the next log container. Calling blf_pull_logcontainer_into_memory advances
+             * the file pointer: eventually we will reach the end of the file and stop recursing.
+             */
             return blf_pull_next_logcontainer(params, err, err_info);
+        case WTAP_ERR_SHORT_READ:
+            /*
+             * This can happen if the log container (and consequently the file) was abruptly truncated for any reason.
+             * We can go on, since the file pointer has already been advanced, so we're already at EOF.
+             */
+            return true;
+        default:
+            break;
         }
 
         return false;
@@ -3068,19 +3074,19 @@ static int
 blf_get_xml_pkt_encap(const xmlChar* str) {
     if (str == NULL) return 0;
 
-    if (xmlStrcmp(str, "CAN") == 0) {
+    if (xmlStrcmp(str, (const xmlChar*)"CAN") == 0) {
         return WTAP_ENCAP_SOCKETCAN;
     }
-    if (xmlStrcmp(str, "FlexRay") == 0) {
+    if (xmlStrcmp(str, (const xmlChar*)"FlexRay") == 0) {
         return WTAP_ENCAP_FLEXRAY;
     }
-    if (xmlStrcmp(str, "LIN") == 0) {
+    if (xmlStrcmp(str, (const xmlChar*)"LIN") == 0) {
         return WTAP_ENCAP_LIN;
     }
-    if (xmlStrcmp(str, "Ethernet") == 0) {
+    if (xmlStrcmp(str, (const xmlChar*)"Ethernet") == 0) {
         return WTAP_ENCAP_ETHERNET;
     }
-    if (xmlStrcmp(str, "WLAN") == 0) {    /* Not confirmed with a real capture */
+    if (xmlStrcmp(str, (const xmlChar*)"WLAN") == 0) {    /* Not confirmed with a real capture */
         return WTAP_ENCAP_IEEE_802_11;
     }
 
@@ -3169,7 +3175,7 @@ blf_set_xml_channels(blf_params_t* params, const char* text, size_t len) {
                 if (xmlStrcmp(attr->name, (const xmlChar*)"number") == 0) {
                     xmlChar* str_channel = xmlNodeListGetString(current_channel_node->doc, attr->children, 1);
                     if (str_channel != NULL) {
-                        ws_strtou16(str_channel, NULL, &channel);
+                        ws_strtou16((const char*)str_channel, NULL, &channel);
                         xmlFree(str_channel);
                     }
                 } else if (xmlStrcmp(attr->name, (const xmlChar*)"type") == 0) {
@@ -3181,7 +3187,9 @@ blf_set_xml_channels(blf_params_t* params, const char* text, size_t len) {
                 } else if (xmlStrcmp(attr->name, (const xmlChar*)"network") == 0) {
                     xmlChar* str_network = xmlNodeListGetString(current_channel_node->doc, attr->children, 1);
                     if (str_network != NULL) {
-                        channel_name = ws_strdup((const char*)str_network);
+                        if (channel_name == NULL) {
+                            channel_name = ws_strdup((const char*)str_network);
+                        }
                         xmlFree(str_network);
                     }
                 }
@@ -3359,7 +3367,7 @@ blf_read_apptextmessage(blf_params_t *params, int *err, char **err_info, int64_t
             metadata_info->payload_start = params->rec->data.first_free;
         }
 
-        ws_buffer_append(&params->rec->data, text, apptextheader.textLength);
+        ws_buffer_append(&params->rec->data, (const uint8_t*)text, apptextheader.textLength);
         g_free(text);
 
         if ((apptextheader.reservedAppText1 & 0x00ffffff) > apptextheader.textLength) {
@@ -3368,7 +3376,7 @@ blf_read_apptextmessage(blf_params_t *params, int *err, char **err_info, int64_t
         }
 
         if (((apptextheader.reservedAppText1 >> 24) & 0xff) == BLF_APPTEXT_XML_CHANNELS) {
-            blf_set_xml_channels(params, params->rec->data.data + metadata_info->payload_start, params->rec->data.first_free - metadata_info->payload_start);
+            blf_set_xml_channels(params, (const char*)(params->rec->data.data + metadata_info->payload_start), params->rec->data.first_free - metadata_info->payload_start);
         }
 
         /* Override the timestamp with 0 for metadata objects. Thay can only occur at the beginning of the file, and they usually already have a timestamp of 0. */
@@ -3393,21 +3401,19 @@ blf_read_apptextmessage(blf_params_t *params, int *err, char **err_info, int64_t
             info_line = ws_strdup_printf("Trace line%s: %s", (apptextheader.reservedAppText1 & 0x00000010) ? "" : " (hidden)", text);
             break;
         default:
-            break;
+            ws_assert_not_reached();
         }
 
         wtap_buffer_append_epdu_string(&params->rec->data, EXP_PDU_TAG_COL_INFO_TEXT, info_line);
         wtap_buffer_append_epdu_end(&params->rec->data);
 
         size_t text_length = strlen(text);  /* The string can contain '\0' before textLength bytes */
-        ws_buffer_append(&params->rec->data, text, text_length);    /* The dissector doesn't need NULL-terminated strings */
+        ws_buffer_append(&params->rec->data, (const uint8_t*)text, text_length);    /* The dissector doesn't need NULL-terminated strings */
 
         /* We'll write this as a WS UPPER PDU packet with a text blob */
         blf_init_rec(params, flags, object_timestamp, WTAP_ENCAP_WIRESHARK_UPPER_PDU, 0, UINT16_MAX, (uint32_t)ws_buffer_length(&params->rec->data), (uint32_t)ws_buffer_length(&params->rec->data));
         g_free(text);
-        if (info_line) {
-            g_free(info_line);
-        }
+        g_free(info_line);
         return apptextheader.source;
     }
     default:
@@ -3970,7 +3976,21 @@ typedef struct _blf_writer_data {
     uint64_t logcontainer_start;
     blf_blockheader_t logcontainer_block_header;
     blf_logcontainerheader_t logcontainer_header;
+
+    /* Last object header, file position and content tracked
+     in case padding is needed at end of log container*/
+    uint64_t logobject_start;
+    blf_blockheader_t logobject_block_header;
 } blf_writer_data_t;
+
+static void
+blf_dump_free(wtap_dumper *wdh)
+{
+    blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
+
+    g_array_unref(writer_data->iface_to_channel_array);
+    g_free(writer_data->fileheader);
+}
 
 static void
 blf_dump_init_channel_to_iface_entry(blf_channel_to_iface_entry_t* tmp, unsigned int if_id) {
@@ -3981,17 +4001,14 @@ blf_dump_init_channel_to_iface_entry(blf_channel_to_iface_entry_t* tmp, unsigned
 }
 
 static void
-blf_dump_expand_interface_mapping(wtap_dumper *wdh, int new_size) {
+blf_dump_expand_interface_mapping(wtap_dumper *wdh, unsigned new_size) {
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
 
-    int old_size = writer_data->iface_to_channel_array->len;
+    unsigned old_size = writer_data->iface_to_channel_array->len;
 
     if (old_size < new_size) {
         /* we need to expand array */
-        unsigned int number_of_new_elements = new_size - old_size;
-
-        blf_channel_to_iface_entry_t *newdata = g_new0(blf_channel_to_iface_entry_t, number_of_new_elements);
-        g_array_append_vals(writer_data->iface_to_channel_array, newdata, number_of_new_elements);
+        g_array_set_size(writer_data->iface_to_channel_array, new_size);
 
         for (unsigned int i = old_size; i < writer_data->iface_to_channel_array->len; i++) {
             blf_channel_to_iface_entry_t *tmp = &g_array_index(writer_data->iface_to_channel_array, blf_channel_to_iface_entry_t, i);
@@ -4009,6 +4026,15 @@ blf_dump_set_interface_mapping(wtap_dumper *wdh, uint32_t interface_id, int pkt_
 
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
 
+    /*
+     * XXX - will this ever happen add new mappings?
+     *
+     * We expand the interface mapping to include all known interfaces
+     * at the time we open the dump file for writing and every time
+     * we get notified of a new IDB.
+     *
+     * Does that miss any cases?
+     */
     blf_dump_expand_interface_mapping(wdh, interface_id + 1);
 
     blf_channel_to_iface_entry_t *tmp = &g_array_index(writer_data->iface_to_channel_array, blf_channel_to_iface_entry_t, interface_id);
@@ -4046,7 +4072,8 @@ blf_init_file_header(wtap_dumper *wdh, int *err) {
 
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
 
-    writer_data->fileheader = g_new0(blf_fileheader_t, 1);
+    /* currently only support 144 byte length*/
+    writer_data->fileheader = (blf_fileheader_t*)g_malloc0(144);
 
     /* set magic */
     int i;
@@ -4112,6 +4139,9 @@ blf_finalize_file_header(wtap_dumper *wdh, int *err) {
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_fileheader_t *fileheader = writer_data->fileheader;
     int64_t bytes_written = wtap_dump_file_tell(wdh, err);
+    if (bytes_written == -1 || *err != 0) {
+        return false;
+    }
 
     /* update the header and convert all to LE */
     fileheader->api_version = (((WIRESHARK_VERSION_MAJOR * 100) + WIRESHARK_VERSION_MINOR) * 100 + WIRESHARK_VERSION_MICRO) * 100;
@@ -4165,20 +4195,70 @@ static bool blf_dump_write_logcontainer(wtap_dumper *wdh, int *err, char **err_i
     return true;
 }
 
+static bool blf_dump_pad_last_object(wtap_dumper *wdh, int *err, uint8_t padding_count) {
+    blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
+
+    int64_t current_position = wtap_dump_file_tell(wdh, err);
+    if (current_position == -1 || *err != 0) {
+        return false;
+    }
+
+    if(!blf_write_add_padding(wdh, err, padding_count)) {
+        return false;
+    }
+    current_position += padding_count;
+    writer_data->logobject_block_header.object_length += padding_count;
+
+    /* Copy out blockheader before fixing endianness */
+    blf_blockheader_t blockheader = writer_data->logobject_block_header;
+    fix_endianness_blf_blockheader(&blockheader);
+
+    int64_t tmp = wtap_dump_file_seek(wdh, writer_data->logobject_start, SEEK_SET, err);
+    if (*err != 0 || tmp != 0) {
+        return false;
+    }
+
+    if (!wtap_dump_file_write(wdh, &(blockheader), sizeof(blf_blockheader_t), err)) {
+        return false;
+    }
+
+    tmp = wtap_dump_file_seek(wdh, current_position, SEEK_SET, err);
+    if (*err != 0 || tmp != 0) {
+        return false;
+    }
+
+    return true;
+}
+
 static bool blf_dump_close_logcontainer(wtap_dumper *wdh, int *err, char **err_info) {
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
 
     int64_t current_position = wtap_dump_file_tell(wdh, err);
+    if (current_position == -1 || *err != 0) {
+        return false;
+    }
+    int64_t logcontainer_length = current_position - writer_data->logcontainer_start;
+    if (logcontainer_length < 32) {
+        *err = WTAP_ERR_INTERNAL;
+    }
+
+    /* Add padding to last object, to ensure logcontainer ends at 4 byte alignment.
+       Improves compatibility with other tools. */
+    uint8_t padding_needed = logcontainer_length % 4;
+    if (padding_needed != 0) {
+        padding_needed = 4 - padding_needed;
+        if (!blf_dump_pad_last_object(wdh, err, padding_needed)) {
+            return false;
+        }
+        logcontainer_length += padding_needed;
+        current_position += padding_needed;
+    }
 
     int64_t tmp = wtap_dump_file_seek(wdh, writer_data->logcontainer_start, SEEK_SET, err);
     if (*err != 0 || tmp != 0) {
         return false;
     }
 
-    int64_t logcontainer_length = current_position - writer_data->logcontainer_start;
-    if (logcontainer_length < 32) {
-        *err = WTAP_ERR_INTERNAL;
-    }
     writer_data->logcontainer_block_header.object_length = GUINT32_TO_LE((uint32_t)logcontainer_length);
     writer_data->logcontainer_header.uncompressed_size = GUINT32_TO_LE((uint32_t)(logcontainer_length - 32));
 
@@ -4223,6 +4303,9 @@ static bool blf_dump_start_logcontainer(wtap_dumper *wdh, int *err, char **err_i
     fix_endianness_blf_logcontainerheader(&(writer_data->logcontainer_header));
 
     writer_data->logcontainer_start = wtap_dump_file_tell(wdh, err);
+    if (*err != 0) {
+        return false;
+    }
 
     return blf_dump_write_logcontainer(wdh, err, err_info);
 }
@@ -4231,6 +4314,9 @@ static bool blf_dump_check_logcontainer_full(wtap_dumper *wdh, int *err, char **
     const blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
 
     uint64_t position = (uint64_t)wtap_dump_file_tell(wdh, err);
+    if (*err != 0) {
+        return false;
+    }
     if (position - writer_data->logcontainer_start + length <= LOG_CONTAINER_BUFFER_SIZE) {
         return true;
     }
@@ -4239,6 +4325,7 @@ static bool blf_dump_check_logcontainer_full(wtap_dumper *wdh, int *err, char **
 }
 
 static bool blf_dump_objheader(wtap_dumper *wdh, int *err, uint64_t obj_timestamp, uint32_t obj_type, uint32_t obj_length) {
+    blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_logobjectheader_t logheader;
     logheader.flags = BLF_TIMESTAMP_RESOLUTION_1NS;
     logheader.client_index = 0;
@@ -4256,6 +4343,11 @@ static bool blf_dump_objheader(wtap_dumper *wdh, int *err, uint64_t obj_timestam
     blockheader.header_type = 1;
     blockheader.object_length = sizeof(blf_blockheader_t) + sizeof(blf_logobjectheader_t) + obj_length;
     blockheader.object_type = obj_type;
+
+    /* Track blockheader of object, in case padding is needed at end of log container */
+    writer_data->logobject_start = wtap_dump_file_tell(wdh, err);
+    writer_data->logobject_block_header = blockheader;
+
     fix_endianness_blf_blockheader(&blockheader);
 
     if (!wtap_dump_file_write(wdh, &(blockheader), sizeof(blf_blockheader_t), err)) {
@@ -4290,6 +4382,9 @@ static bool blf_dump_ethernet(wtap_dumper *wdh, const wtap_rec *rec, int *err, c
 
     //blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     const blf_channel_to_iface_entry_t *iface_entry = blf_dump_get_interface_mapping(wdh, rec, err, err_info);
+    if (iface_entry == NULL) {
+        return false;
+    }
 
     const uint8_t *pd = ws_buffer_start_ptr(&rec->data);
     size_t length = ws_buffer_length(&rec->data);
@@ -4367,6 +4462,9 @@ static bool blf_dump_socketcanxl(wtap_dumper *wdh, const wtap_rec *rec, int *err
 
     //blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_channel_to_iface_entry_t *iface_entry = blf_dump_get_interface_mapping(wdh, rec, err, err_info);
+    if (iface_entry == NULL) {
+        return false;
+    }
 
     uint8_t  socketcan_vcid = pd[1];
     uint16_t socketcan_id = pntohu16(pd + 2) & CAN_SFF_MASK;
@@ -4458,6 +4556,9 @@ static bool blf_dump_socketcan(wtap_dumper *wdh, const wtap_rec *rec, int *err, 
 
     //blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_channel_to_iface_entry_t *iface_entry = blf_dump_get_interface_mapping(wdh, rec, err, err_info);
+    if (iface_entry == NULL) {
+        return false;
+    }
 
     uint8_t payload_length = pd[4];
 
@@ -4652,6 +4753,9 @@ static bool blf_dump_flexray(wtap_dumper *wdh, const wtap_rec *rec, int *err, ch
 
     //blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_channel_to_iface_entry_t *iface_entry = blf_dump_get_interface_mapping(wdh, rec, err, err_info);
+    if (iface_entry == NULL) {
+        return false;
+    }
 
     const uint8_t *pd = ws_buffer_start_ptr(&rec->data);
     size_t length = ws_buffer_length(&rec->data);
@@ -4809,6 +4913,9 @@ static bool blf_dump_lin(wtap_dumper *wdh, const wtap_rec *rec, int *err, char *
 
     //blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     blf_channel_to_iface_entry_t *iface_entry = blf_dump_get_interface_mapping(wdh, rec, err, err_info);
+    if (iface_entry == NULL) {
+        return false;
+    }
 
     const uint8_t *pd = ws_buffer_start_ptr(&rec->data);
     size_t length = ws_buffer_length(&rec->data);
@@ -4957,8 +5064,8 @@ static bool blf_dump_upper_pdu(wtap_dumper *wdh, const wtap_rec *rec, int *err, 
         col_info_len -= 1;
     }
 
-    if (tag_diss_len == strlen(BLF_APPTEXT_TAG_DISS_DEFAULT) && 0 == strncmp(BLF_APPTEXT_TAG_DISS_DEFAULT, &pd[tag_diss_pos], tag_diss_len)) {
-        if (col_proto_len == strlen(BLF_APPTEXT_COL_PROT_TEXT) && 0 == strncmp(BLF_APPTEXT_COL_PROT_TEXT, &pd[col_proto_pos], col_proto_len)) {
+    if (tag_diss_len == strlen(BLF_APPTEXT_TAG_DISS_DEFAULT) && 0 == strncmp(BLF_APPTEXT_TAG_DISS_DEFAULT, (const char*)&pd[tag_diss_pos], tag_diss_len)) {
+        if (col_proto_len == strlen(BLF_APPTEXT_COL_PROT_TEXT) && 0 == strncmp(BLF_APPTEXT_COL_PROT_TEXT, (const char*)&pd[col_proto_pos], col_proto_len)) {
             blf_apptext_t apptext_header;
             apptext_header.source = BLF_APPTEXT_METADATA;
             apptext_header.reservedAppText1 = 0;
@@ -4968,15 +5075,15 @@ static bool blf_dump_upper_pdu(wtap_dumper *wdh, const wtap_rec *rec, int *err, 
 
             /* Metadata */
             /* tags: BLF_APPTEXT_TAG_DISS_DEFAULT, BLF_APPTEXT_COL_PROT_TEXT, BLF_APPTEXT_COL_INFO_TEXT_... */
-            if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_GENERAL) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_GENERAL, &pd[col_info_pos], col_info_len)) {
+            if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_GENERAL) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_GENERAL, (const char*)&pd[col_info_pos], col_info_len)) {
                 /* BLF_APPTEXT_METADATA: BLF_APPTEXT_XML_GENERAL */
                 apptext_header.reservedAppText1 = (BLF_APPTEXT_XML_GENERAL << 24) | (0xffffff & payload_len);
-            } else if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_CHANNELS) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_CHANNELS, &pd[col_info_pos], col_info_len)) {
+            } else if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_CHANNELS) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_CHANNELS, (const char*)&pd[col_info_pos], col_info_len)) {
                 /* BLF_APPTEXT_METADATA: BLF_APPTEXT_XML_CHANNELS */
                     if (writer_data->iface_to_channel_names_recovered) {
                     apptext_header.reservedAppText1 = (BLF_APPTEXT_XML_CHANNELS << 24) | (0xffffff & payload_len);
                 }
-            } else if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_IDENTITY) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_IDENTITY, &pd[col_info_pos], col_info_len)) {
+            } else if (col_info_len == strlen(BLF_APPTEXT_COL_INFO_TEXT_IDENTITY) && 0 == strncmp(BLF_APPTEXT_COL_INFO_TEXT_IDENTITY, (const char*)&pd[col_info_pos], col_info_len)) {
                 /* BLF_APPTEXT_METADATA: BLF_APPTEXT_XML_IDENTITY */
                 apptext_header.reservedAppText1 = (BLF_APPTEXT_XML_IDENTITY << 24) | (0xffffff & payload_len);
 
@@ -5097,7 +5204,7 @@ static bool blf_dump_interface_setup_by_blf_based_idb_desc(wtap_dumper *wdh, int
         }
 
         char *iface_descr = NULL;
-        iface_descr_found = wtap_block_get_string_option_value(idb, OPT_IDB_DESCRIPTION, &iface_descr);
+        iface_descr_found = wtap_block_get_string_option_value(idb, OPT_IDB_DESCRIPTION, &iface_descr) == WTAP_OPTTYPE_SUCCESS;
 
         if (!iface_descr_found) {
             /* This cannot be reached but it removes a warning. */
@@ -5159,7 +5266,8 @@ static bool blf_dump_interface_setup(wtap_dumper *wdh, int *err) {
         const wtapng_if_descr_mandatory_t *mand_data = (wtapng_if_descr_mandatory_t *) idb->mandatory_data;
 
         if (mand_data->wtap_encap == WTAP_ENCAP_ETHERNET || mand_data->wtap_encap == WTAP_ENCAP_SLL ||
-            mand_data->wtap_encap == WTAP_ENCAP_LIN || mand_data->wtap_encap == WTAP_ENCAP_SOCKETCAN) {
+            mand_data->wtap_encap == WTAP_ENCAP_LIN || mand_data->wtap_encap == WTAP_ENCAP_SOCKETCAN ||
+            mand_data->wtap_encap == WTAP_ENCAP_FLEXRAY) {
 
             char *iface_name = NULL;
             bool iface_name_found = wtap_block_get_string_option_value(idb, OPT_IDB_NAME, &iface_name) == WTAP_OPTTYPE_SUCCESS;
@@ -5181,6 +5289,8 @@ static bool blf_dump_interface_setup(wtap_dumper *wdh, int *err) {
     return true;
 }
 
+#define NS_PER_S 1000000000
+
 static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err_info) {
     blf_writer_data_t *writer_data = (blf_writer_data_t *)wdh->priv;
     ws_debug("encap = %d (%s) rec type = %u", rec->rec_header.packet_header.pkt_encap,
@@ -5198,13 +5308,26 @@ static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err
     /* logcontainer full already? we just estimate the headers/overhead to be less than 100 */
     blf_dump_check_logcontainer_full(wdh, err, err_info, rec->rec_header.packet_header.len + 100);
 
+    uint64_t obj_timestamp = (rec->ts.secs * 1000 * 1000 * 1000 + rec->ts.nsecs);
+
+    /* Due to all object timestamps being relative the file header start time, we only want to do this once */
     if (!writer_data->start_time_set) {
-        /* TODO: consider to set trace start time to first packet time stamp - is this the lowest timestamp? how to know? */
-        writer_data->start_time = 0;
+        /* TODO: refine method. Right now assume no event will ever be more than 1 second prior to first packet time. */
+        /* Suggested improvement 1: For 2-pass or preloaded data use the time of the actual first event. */
+        /* Suggested improvement 2: For single step conversion, make safety margin configurable. */
+        if(obj_timestamp > NS_PER_S) {
+            writer_data->start_time = obj_timestamp - NS_PER_S;
+        } else {
+            writer_data->start_time = 0;
+        }
         writer_data->start_time_set = true;
     }
 
-    uint64_t obj_timestamp = (rec->ts.secs * 1000 * 1000 * 1000 + rec->ts.nsecs);
+    if (obj_timestamp < writer_data->start_time) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = ws_strdup("blf_dump: packet timestamp more than 1 second earlier than first packet encountered, making the file timetamp invalid. Reordering packets chronologically will solve this.");
+        return false;
+    }
 
     if (writer_data->end_time < obj_timestamp) {
         writer_data->end_time = obj_timestamp;
@@ -5273,9 +5396,13 @@ static int blf_dump_can_write_encap(int wtap_encap) {
     return WTAP_ERR_UNWRITABLE_ENCAP;
 }
 
-static bool blf_add_idb(wtap_dumper *wdh _U_, wtap_block_t idb _U_, int *err _U_, char **err_info _U_) {
+static bool blf_add_idb(wtap_dumper *wdh, wtap_block_t idb _U_, int *err _U_, char **err_info _U_) {
     ws_debug("entering function");
-    /* TODO: is there any reason to keep this? */
+    /*
+     * A new IDB was added to the list of itnerfaces for the file to
+     * which we're writing; update hte interface mapping.
+     */
+    blf_dump_interface_setup(wdh, err); // Expands and populates the interface mapping
 
     return true;
 }
@@ -5284,13 +5411,16 @@ static bool blf_add_idb(wtap_dumper *wdh _U_, wtap_block_t idb _U_, int *err _U_
    Returns true on success, false on failure. */
 static bool blf_dump_finish(wtap_dumper *wdh, int *err, char **err_info) {
     if (!blf_dump_close_logcontainer(wdh, err, err_info)) {
+        blf_dump_free(wdh);
         return false;
     }
 
     if (!blf_finalize_file_header(wdh, err)) {
+        blf_dump_free(wdh);
         return false;
     }
 
+    blf_dump_free(wdh);
     /* File is finished, do not touch anymore ! */
 
     ws_debug("leaving function");
@@ -5332,11 +5462,13 @@ blf_dump_open(wtap_dumper *wdh, int *err, char **err_info) {
 
     /* create the blf header structure and attach to wdh */
     if (!blf_init_file_header(wdh, err)) {
+        blf_dump_free(wdh);
         return false;
     }
 
     /* write space in output file for header */
     if (!blf_write_file_header_zeros(wdh, err)) {
+        blf_dump_free(wdh);
         return false;
     }
 
@@ -5344,10 +5476,12 @@ blf_dump_open(wtap_dumper *wdh, int *err, char **err_info) {
 
     /* Create first log_container */
     if (!blf_dump_start_logcontainer(wdh, err, err_info)) {
+        blf_dump_free(wdh);
         return false;
     }
 
     if (!blf_dump_interface_setup(wdh, err)) {
+        blf_dump_free(wdh);
         return false;
     }
 
@@ -5356,7 +5490,7 @@ blf_dump_open(wtap_dumper *wdh, int *err, char **err_info) {
 
 static const struct file_type_subtype_info blf_info = {
         "Vector Informatik Binary Logging Format (BLF) logfile", "blf", "blf", NULL,
-        false, BLOCKS_SUPPORTED(blf_blocks_supported),
+        true, BLOCKS_SUPPORTED(blf_blocks_supported),
         blf_dump_can_write_encap, blf_dump_open, NULL
 };
 

@@ -156,8 +156,7 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     proto_tree_add_item(bthci_iso_tree, hf_bthci_iso_reserved, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
 
-    length = tvb_get_letohs(tvb, offset);
-    sub_item = proto_tree_add_item(bthci_iso_tree, hf_bthci_iso_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    sub_item = proto_tree_add_item_ret_uint16(bthci_iso_tree, hf_bthci_iso_data_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &length);
     offset += 2;
 
     /* determine if packet is fragmented */
@@ -369,9 +368,13 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             length = tvb_captured_length_remaining(tvb, offset);
         }
 
-        next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), length);
+        next_tvb = tvb_new_subset_length(tvb, offset, length);
         call_dissector_with_data(bthci_iso_data_handle, next_tvb, pinfo, tree, &iso_data_info);
     } else if (fragmented && iso_reassembly) {
+        /* XXX - This reassembly is like fragment_add_next, if that existed in
+         * reassemble.h, along with fragment_set_tot_len. Could we implement
+         * that? Note that this method doesn't mark frames as depended upon
+         * because it doesn't track all the used frames in the reassembly. */
         multi_fragment_pdu_t *mfp = NULL;
         int                   len;
         if (pb_flag == 0x00) { /* first fragment */
@@ -410,14 +413,23 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 if (mfp != NULL && !mfp->last_frame) {
                     int avail = (int)mfp->tot_len - mfp->cur_off;
                     if (len > avail) {
+                        /* XXX - This error only happens on the first pass, so
+                         * the error indication should be added to the mfp for
+                         * later passes. */
                         expert_add_info(pinfo, sub_item, &ei_length_bad);
                         /* Try to reassemble as much as possible */
                         len = avail;
                     }
                     tvb_memcpy(tvb, (uint8_t *) mfp->reassembled + mfp->cur_off, offset, len);
                     mfp->cur_off += len;
-                    if (pb_flag == 0x03)
+                    if (pb_flag == 0x03) {
                         mfp->last_frame = pinfo->num;
+                        if (mfp->cur_off < mfp->tot_len) {
+                            /* XXX - As above. */
+                            expert_add_info(pinfo, sub_item, &ei_length_bad);
+                            mfp->reassembled = (char *) wmem_realloc(wmem_file_scope(), mfp->reassembled, mfp->cur_off);
+                        }
+                    }
                 }
             }
             if (mfp) {
@@ -433,7 +445,7 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 }
 
                 if (pb_flag == 0x03) { /* last fragment */
-                    next_tvb = tvb_new_child_real_data(tvb, (uint8_t *) mfp->reassembled, mfp->tot_len, mfp->tot_len);
+                    next_tvb = tvb_new_child_real_data(tvb, (uint8_t *) mfp->reassembled, mfp->cur_off, mfp->tot_len);
                     add_new_data_source(pinfo, next_tvb, "Reassembled BTHCI ISO");
 
                     call_dissector_with_data(bthci_iso_data_handle, next_tvb, pinfo, tree, &iso_data_info);

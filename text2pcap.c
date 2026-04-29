@@ -64,7 +64,7 @@
  * set to WTAP_MAX_PACKET_SIZE_STANDARD.
  */
 
-#include <config.h>
+#include "config.h"
 #define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdio.h>
@@ -88,6 +88,7 @@
 
 #include <ws_exit_codes.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/str_util.h>
 #include <wsutil/strnatcmp.h>
 #include <wsutil/wslog.h>
@@ -417,7 +418,7 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     info->payload = "data";
 
     /* Initialize the version information. */
-    ws_init_version_info("Text2pcap", NULL, get_ws_vcs_version_info, NULL, NULL);
+    ws_init_version_info("Text2pcap", NULL, application_get_vcs_version_info, NULL, NULL);
 
     /* Scan CLI parameters */
     while ((c = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
@@ -1044,6 +1045,8 @@ main(int argc, char *argv[])
     text_import_info_t info;
     wtap_dump_params params;
     uint64_t bytes_written;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
 
     /* Set the program name. */
     g_set_prgname("text2pcap");
@@ -1075,14 +1078,27 @@ main(int argc, char *argv[])
     }
 
     init_report_failure_message("text2pcap");
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     memset(&info, 0, sizeof(info));
     wtap_dump_params_init(&params, NULL);
     if ((ret = parse_options(argc, argv, &info, &params)) != EXIT_SUCCESS) {
-        /* Check for options that print information and then quit */
-        if (ret == WS_EXIT_NOW)
+        //
+        // Either we got an error parsing the command-line options
+        // or we got an option specifying that we should print
+        // information and then quit, and have, in fact, printed
+        // that information successfully.
+        //
+        if (ret == WS_EXIT_NOW) {
+            //
+            // One of the options indicated we should just print
+            // something and exit, e.g --help, and we have already
+            // successfully printed it, so we don't have anything
+            // more to do, and should just exit successfully.
+            //
             ret = EXIT_SUCCESS;
+        }
         goto clean_exit;
     }
 

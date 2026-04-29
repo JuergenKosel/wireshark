@@ -31,10 +31,6 @@
 #include "packet-ntp.h"
 #include "packet-sctp.h"
 
-#define PNAME  "E2 Application Protocol"
-#define PSNAME "E2AP"
-#define PFNAME "e2ap"
-
 /* Dissector will use SCTP PPID 70, 71 or 72 or SCTP port 37464. */
 #define SCTP_PORT_E2AP 37464
 
@@ -80,7 +76,7 @@ static expert_field ei_e2ap_ran_function_max_dissectors_registered;
 
 
 /* Forward declarations */
-static int dissect_e2ap_RANfunction_Name(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_e2ap_RANfunction_Name(tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 
 
 static int dissect_E2SM_KPM_EventTriggerDefinition_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
@@ -120,8 +116,8 @@ enum {
 
 static void set_stats_message_type(packet_info *pinfo, int type);
 
-static const uint8_t * const st_str_packets      = "Total Packets";
-static const uint8_t * const st_str_packet_types = "E2AP Packet Types";
+static const char * const st_str_packets      = "Total Packets";
+static const char * const st_str_packet_types = "E2AP Packet Types";
 
 static int st_node_packets = -1;
 static int st_node_packet_types = -1;
@@ -602,7 +598,7 @@ void e2ap_update_ran_function_mapping(packet_info *pinfo, proto_tree *tree, tvbu
     for (unsigned n=0; n < table->num_entries; n++) {
         if (e2ap_data->ran_function_id == table->entries[n].ran_function_id) {
             ran_function = table->entries[n].ran_function;
-            g_strlcpy(table->entries[n].oid, oid, MAX_OID_LEN);
+            (void) g_strlcpy(table->entries[n].oid, oid, MAX_OID_LEN);
         }
     }
 
@@ -1099,7 +1095,7 @@ void proto_register_e2ap(void) {
   expert_module_t* expert_e2ap;
 
   /* Register protocol */
-  proto_e2ap = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_e2ap = proto_register_protocol("E2 Application Protocol", "E2AP", "e2ap");
   /* Register fields and subtrees */
   proto_register_field_array(proto_e2ap, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));

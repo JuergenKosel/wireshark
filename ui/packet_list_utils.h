@@ -10,7 +10,7 @@
 #ifndef __PACKET_LIST_UTILS_H__
 #define __PACKET_LIST_UTILS_H__
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #ifdef __cplusplus
 extern "C" {

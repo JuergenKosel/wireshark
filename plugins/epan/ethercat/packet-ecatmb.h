@@ -28,6 +28,7 @@ typedef struct TETHERNET_ADDRESS
 #define ETHERCAT_MBOX_TYPE_COE 3 /* ETHERCAT_COE_HEADER follows*/
 #define ETHERCAT_MBOX_TYPE_FOE 4 /* ETHERCAT_FOE_HEADER follows*/
 #define ETHERCAT_MBOX_TYPE_SOE 5 /* ETHERCAT_SOE_HEADER follows*/
+#define ETHERCAT_MBOX_TYPE_VOE 15 /* ETHERCAT_VOE_HEADER follows*/
 
 typedef union tMbxHeaderControlUnion
 {
@@ -462,6 +463,13 @@ typedef struct TETHERCAT_SOE_HEADER
    } MailBoxDataUnion;*/
 } ETHERCAT_SOE_HEADER, *PETHERCAT_SOE_HEADER;
 #define ETHERCAT_SOE_HEADER_LEN ((int) sizeof(ETHERCAT_SOE_HEADER))
+
+typedef struct TETHERCAT_VOE_HEADER
+{
+   uint32_t VendorID;
+   uint16_t VendorType;
+} ETHERCAT_VOE_HEADER, *PETHERCAT_VOE_HEADER;
+#define ETHERCAT_VOE_HEADER_LEN 6 /*sizeof(ETHERCAT_VOE_HEADER)*/
 
 extern void init_mbx_header(PETHERCAT_MBOX_HEADER pMbox, tvbuff_t *tvb, int offset);
 

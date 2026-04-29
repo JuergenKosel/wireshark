@@ -382,8 +382,7 @@ dissect_bthci_acl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         DISSECTOR_ASSERT_HINT(0, "Impossible: no previously session saved");
     }
 
-    length = tvb_get_letohs(tvb, offset);
-    length_item = proto_tree_add_item(bthci_acl_tree, hf_bthci_acl_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    length_item = proto_tree_add_item_ret_uint16(bthci_acl_tree, hf_bthci_acl_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &length);
     offset += 2;
 
     /* determine if packet is fragmented */
@@ -419,7 +418,7 @@ dissect_bthci_acl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             length = tvb_captured_length_remaining(tvb, offset);
         }
 
-        next_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), length);
+        next_tvb = tvb_new_subset_length(tvb, offset, length);
         call_dissector_with_data(btl2cap_handle, next_tvb, pinfo, tree, acl_data);
     } else if (fragmented && acl_reassembly) {
         multi_fragment_pdu_t *mfp = NULL;

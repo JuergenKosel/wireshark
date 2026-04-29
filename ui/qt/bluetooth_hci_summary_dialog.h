@@ -13,7 +13,7 @@
 #include "config.h"
 
 #include "wireshark_dialog.h"
-#include "cfile.h"
+#include <epan/cfile.h>
 #include "packet_list.h"
 
 #include "epan/tap.h"

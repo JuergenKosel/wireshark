@@ -240,6 +240,8 @@ packet_init(void)
 	registered_dissectors = g_hash_table_new_full(g_str_hash, g_str_equal,
 			NULL, NULL);
 
+	postdissectors = g_array_sized_new(false, false, (unsigned)sizeof(postdissector), 1);
+
 	depend_dissector_lists = g_hash_table_new_full(g_str_hash, g_str_equal,
 			g_free, destroy_depend_dissector_list);
 
@@ -369,14 +371,14 @@ register_shutdown_routine(void (*func)(void))
 
 /* Initialize all data structures used for dissection. */
 void
-init_dissection(void)
+init_dissection(const char* app_env_var_prefix)
 {
 	/*
 	 * Reinitialize resolution information. Don't leak host entries from
 	 * one file to another (e.g. embarrassing-host-name.example.com from
 	 * file1.pcapng into a name resolution block in file2.pcapng).
 	 */
-	host_name_lookup_reset();
+	host_name_lookup_reset(app_env_var_prefix);
 
 	wmem_enter_file_scope();
 
@@ -479,6 +481,15 @@ get_data_source_description(const struct data_source *src)
 
 	return wmem_strdup_printf(NULL, "%s (%u byte%s)", src->name, length,
 				plurality(length, "", "s"));
+}
+
+const char *
+get_data_source_name(const struct data_source *src)
+{
+	if (src) {
+		return src->name;
+	}
+	return NULL;
 }
 
 tvbuff_t *
@@ -722,14 +733,9 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype, wtap_rec *rec,
 		 * Reported length values will not have been
 		 * filtered out, and should not be filtered out,
 		 * as those lengths are not necessarily invalid.
-		 *
-		 * For now, we clip the reported length at INT_MAX
-		 *
-		 * (XXX, is this still a problem?) There was an exception when we call
-		 * tvb_new_real_data() now there's not.
 		 */
 		edt->tvb = tvb_new_real_data(ws_buffer_start_ptr(&rec->data),
-                    fd->cap_len, fd->pkt_len > INT_MAX ? INT_MAX : fd->pkt_len);
+                    fd->cap_len, fd->pkt_len);
 		/* Add this tvbuffer into the data_src list */
 		add_new_data_source(&edt->pi, edt->tvb, rec->rec_type_name);
 
@@ -1348,25 +1354,28 @@ dissector_add_uint(const char *name, const uint32_t pattern, dissector_handle_t 
 void dissector_add_uint_range(const char *name, range_t *range,
 			      dissector_handle_t handle)
 {
+	if (!range) {
+		return;
+	}
+
 	dissector_table_t  sub_dissectors;
 	uint32_t i, j;
 
-	if (range) {
-		if (!dissector_get_table_checked(name, handle, &sub_dissectors))
-			return;
+	if (!dissector_get_table_checked(name, handle, &sub_dissectors))
+		return;
 
-		for (i = 0; i < range->nranges; i++) {
-			for (j = range->ranges[i].low; j < range->ranges[i].high; j++)
-				dissector_add_uint_real(name, j, handle, sub_dissectors);
-			dissector_add_uint_real(name, range->ranges[i].high, handle, sub_dissectors);
-		}
-		/*
-		 * Even an empty range would want a chance for
-		 * Decode As, if the dissector table supports
-		 * it.
-		 */
-		if (sub_dissectors->supports_decode_as)
-			dissector_add_for_decode_as(name, handle);
+	for (i = 0; i < range->nranges; i++) {
+		for (j = range->ranges[i].low; j < range->ranges[i].high; j++)
+			dissector_add_uint_real(name, j, handle, sub_dissectors);
+		dissector_add_uint_real(name, range->ranges[i].high, handle, sub_dissectors);
+	}
+	/*
+	 * Even an empty range would want a chance for
+	 * Decode As, if the dissector table supports
+	 * it.
+	 */
+	if (sub_dissectors->supports_decode_as) {
+		dissector_add_for_decode_as(name, handle);
 	}
 }
 
@@ -1379,6 +1388,11 @@ dissector_add_range_preference(const char *name, dissector_handle_t handle, cons
 	dissector_table_t  pref_dissector_table = find_dissector_table(name);
 	int proto_id = proto_get_id(handle->protocol);
 	uint32_t max_value = 0;
+
+	if (!pref_dissector_table) {
+		ws_warning("Unable to find dissector table for %s", name);
+		return NULL;
+	}
 
 	/* If a dissector is added for Decode As only, it's dissector
 		table value would default to 0.
@@ -3072,7 +3086,7 @@ dissector_try_heuristic(heur_dissector_list_t sub_dissectors, tvbuff_t *tvb,
 
 	/* can_desegment is set to 2 by anyone which offers this api/service.
 	   then every time a subdissector is called it is decremented by one.
-	   thus only the subdissector immediately ontop of whoever offers this
+	   thus only the subdissector immediately on top of whoever offers this
 	   service can use it.
 	   We save the current value of "can_desegment" for the
 	   benefit of TCP proxying dissectors such as SOCKS, so they
@@ -3725,7 +3739,7 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 
 	/* can_desegment is set to 2 by anyone which offers this api/service.
 	   then every time a subdissector is called it is decremented by one.
-	   thus only the subdissector immediately ontop of whoever offers this
+	   thus only the subdissector immediately on top of whoever offers this
 	   service can use it.
 	   We save the current value of "can_desegment" for the
 	   benefit of TCP proxying dissectors such as SOCKS, so they
@@ -4160,9 +4174,6 @@ register_postdissector(dissector_handle_t handle)
 {
 	postdissector p;
 
-	if (!postdissectors)
-		postdissectors = g_array_sized_new(false, false, (unsigned)sizeof(postdissector), 1);
-
 	p.handle = handle;
 	p.wanted_hfids = NULL;
 	postdissectors = g_array_append_val(postdissectors, p);
@@ -4270,15 +4281,26 @@ prime_epan_dissect_with_postdissector_wanted_hfids(epan_dissect_t *edt)
 }
 
 void
+increment_dissection_depth_by_n(packet_info *pinfo, unsigned n) {
+	DISSECTOR_ASSERT_HINT(!ckd_add(&pinfo->dissection_depth, pinfo->dissection_depth, n),
+		"pinfo->dissection_depth overflowed!");
+	DISSECTOR_ASSERT(pinfo->dissection_depth < prefs.gui_max_tree_depth);
+}
+
+void
 increment_dissection_depth(packet_info *pinfo) {
-	pinfo->dissection_depth++;
-	DISSECTOR_ASSERT(pinfo->dissection_depth < (int)prefs.gui_max_tree_depth);
+	increment_dissection_depth_by_n(pinfo, 1);
+}
+
+void
+decrement_dissection_depth_by_n(packet_info *pinfo, unsigned n) {
+	DISSECTOR_ASSERT_HINT(!ckd_sub(&pinfo->dissection_depth, pinfo->dissection_depth, n),
+		"pinfo->dissection_depth underflowed!");
 }
 
 void
 decrement_dissection_depth(packet_info *pinfo) {
-	pinfo->dissection_depth--;
-	DISSECTOR_ASSERT(pinfo->dissection_depth >= 0);
+	decrement_dissection_depth_by_n(pinfo, 1);
 }
 
 /*

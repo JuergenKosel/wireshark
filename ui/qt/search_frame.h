@@ -14,7 +14,7 @@
 
 #include "accordion_frame.h"
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <QComboBox>
 

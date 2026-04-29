@@ -130,7 +130,21 @@ after the cmake run. To only view the current cache, add option `-N`.
 
 Depending on your needs, it might be useful to save your CMake configuration options in a file outside your build directory.
 CMake supports this via its https://cmake.org/cmake/help/v3.23/manual/cmake-presets.7.html[presets] option.
-For example, adding the following to `CMakeUserPresets.json` would let you build using Ninja in the `build` directory, enable ccache, and set a custom Qt directory by running `cmake --preset mydev`:
+
+Wireshark ships a `CMakePresets.json` with a predefined `ninja_ccache` preset that uses Ninja as the generator and enables ccache.
+This preset sets the build directory to `${sourceDir}/build`.
+You can use it directly:
+
+[source,sh]
+----
+cmake --preset ninja_ccache
+cmake --build build
+----
+
+To customize the build directory or other settings without modifying the shared `CMakePresets.json`, create a `CMakeUserPresets.json` file in the source root (it is already listed in `.gitignore`).
+Use `inherits` to extend the shipped preset and override only what you need.
+
+For example, on macOS or Linux, to use an out-of-tree build directory, enable ccache and set a custom Qt path:
 
 [source,json]
 ----
@@ -140,8 +154,8 @@ For example, adding the following to `CMakeUserPresets.json` would let you build
     {
       "name": "mydev",
       "displayName": "Local development",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "inherits": "ninja_ccache",
+      "binaryDir": "${sourceDir}/../build",
       "cacheVariables": {
         "ENABLE_CCACHE": "ON"
       },
@@ -152,6 +166,44 @@ For example, adding the following to `CMakeUserPresets.json` would let you build
   ]
 }
 ----
+
+On Windows, you might want to use the Visual Studio generator and a different build directory instead.
+The `inherits` field still pulls in cache variables like `ENABLE_CCACHE` from the base preset, while letting you override the generator and build path:
+
+[source,json]
+----
+{
+  "version": 4,
+  "configurePresets": [
+    {
+      "name": "vs-dev",
+      "displayName": "Visual Studio development",
+      "inherits": "ninja_ccache",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "C:/build"
+    }
+  ]
+}
+----
+
+Then configure and build using your preset:
+
+[source,sh]
+----
+cmake --preset mydev
+cmake --build ../build
+----
+
+If you use VSCode with the CMake Tools extension, select your preset via the command palette (*CMake: Select Configure Preset*) or set it in `.vscode/settings.json`:
+
+[source,json]
+----
+{
+  "cmake.configurePreset": "mydev"
+}
+----
+
+NOTE: When a configure preset is active, CMake Tools uses the preset's `binaryDir` and ignores the `cmake.buildDirectory` setting.
 
 After running cmake, you can always run `make help` to see a list of all possible make targets.
 
@@ -169,6 +221,39 @@ About CMake in general and why KDE4 uses it: https://lwn.net/Articles/188693/
 Useful variables: https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/Useful-Variables
 
 Frequently Asked Questions: https://gitlab.kitware.com/cmake/community/wikis/FAQ
+
+[#ChToolsCMakeIdioms]
+
+==== CMake Idioms
+
+If you will be creating or editing CMake files,
+you will need to be aware of some idioms in use in the Wireshark source code.
+
+[NOTE]
+.When in doubt, check the source
+====
+As with most open-source software, this documentation can fall behind what's actually in use.
+Check the root _CMakeLists.txt_ file and the files in _cmake/modules/_
+to see the most current information.
+====
+
+.Library dependencies.
+Most dependencies are imported via the CMake _find_package()_ command.
+The mechanics of finding a particular package _foo_ are often specified in the relevant
+_cmake/modules/FindFoo.cmake_ file, but they will usually define a variable
+_FOO_INCLUDE_DIRS_ for helping future CMake commands find the _foo_ header files,
+along with a _FOO_LIBRARIES_ variable listing the compiled library files for linking.
+Both variables will be empty if the corresponding dependency is not found.
+
+Most dependencies are intuitively named, but there are some exceptions:
+
+* **_Lib_ prefix:** Most libraries do not have any added prefix to their names.
+_LIBXML2_ and _LIBSSH_ are two notable exceptions.
+
+* **Mathematics:** The name of this library is simply _M_ (_M_INCLUDE_DIRS_, _M_LIBRARIES_).
+
+* **Netlink:** The name of this library is _NL_.
+
 
 [#ChToolsGNUChain]
 
@@ -484,8 +569,9 @@ Edition, it will include an SDK.
 [#ChToolsDocumentationToolchain]
 === Documentation Toolchain
 
-Wireshark’s documentation is split across two directories.
-The `doc` directory contains man pages, User’s Guide, Developer’s Guide, and the release notes, which are written in Asciidoctor markup.
+Wireshark’s documentation is located in the `doc` directory.
+It contains man pages, User’s Guide, Developer’s Guide, and the release notes, which are written in Asciidoctor markup.
+A bunch of README files in text format can also be found there.
 
 Our various output formats are generated using the following tools.
 Intermediate formats are in _italics_.
@@ -497,7 +583,6 @@ Guide HTML:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL
 Guide PDF:: Asciidoctor
 
 Release notes HTML:: Asciidoctor
-Release notes text:: Asciidoctor → _HTML_ → html2text.py
 
 ==== Asciidoctor
 
@@ -506,7 +591,7 @@ The Ruby and Java flavors can be used to build Wireshark’s documentation, but 
 CMake will download a pre-built version of Ruby and the Asciidoctor gem on Windows.
 // We need docbook5, PDF & EPUB output and macros
 
-The guides and release notes were originally written in DocBook (hence the directory name).
+The guides and release notes were originally written in DocBook.
 They were later converted to AsciiDoc and then migrated to Asciidoctor.
 The man pages were originally in Perl’s POD (Plain Old Documentation) format and were later converted to Asciidoctor.
 We use Asciidoctor’s modern (>= 1.5.0) syntax.

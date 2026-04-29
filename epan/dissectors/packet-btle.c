@@ -34,6 +34,7 @@
 static int proto_btle;
 static int proto_btle_rf;
 static int proto_nordic_ble;
+static int proto_silabs_dch;
 
 static int hf_access_address;
 static int hf_coding_indicator;
@@ -2610,10 +2611,10 @@ static const btle_context_t * get_btle_context(packet_info *pinfo,
     ubertooth_data_t *ubertooth_data = NULL;
 
     wmem_list_frame_t * list_data = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
-    if (list_data) {
+    if (list_data && data) {
         int previous_proto = GPOINTER_TO_INT(wmem_list_frame_data(list_data));
 
-        if ((previous_proto == proto_btle_rf)||(previous_proto == proto_nordic_ble)) {
+        if ((previous_proto == proto_btle_rf)||(previous_proto == proto_nordic_ble)||(previous_proto == proto_silabs_dch)) {
             btle_context = (const btle_context_t *) data;
             bluetooth_data = btle_context->previous_protocol_data.bluetooth_data;
         } else if (previous_proto == proto_bluetooth) {
@@ -3782,8 +3783,7 @@ dissect_btle_acl(tvbuff_t *tvb,
         }
         break;
     case 0x03: /* Control PDU */
-        control_proc_item = proto_tree_add_item(btle_tree, hf_control_opcode, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        control_opcode = tvb_get_uint8(tvb, offset);
+        control_proc_item = proto_tree_add_item_ret_uint8(btle_tree, hf_control_opcode, tvb, offset, 1, ENC_LITTLE_ENDIAN, &control_opcode);
         offset += 1;
 
         col_add_fstr(pinfo->cinfo, COL_INFO, "Control Opcode: %s",
@@ -5417,8 +5417,7 @@ dissect_btle_broadcast_iso(tvbuff_t *tvb,
         break;
 
     case 0x03: /* BIG Control PDU */
-        proto_tree_add_item(btle_tree, hf_big_control_opcode, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        control_opcode = tvb_get_uint8(tvb, offset);
+		proto_tree_add_item_ret_uint8(btle_tree, hf_big_control_opcode, tvb, offset, 1, ENC_LITTLE_ENDIAN, &control_opcode);
         offset += 1;
 
         col_add_fstr(pinfo->cinfo, COL_INFO, "BIG Control Opcode: %s",
@@ -5484,8 +5483,7 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     btle_item = proto_tree_add_item(tree, proto_btle, tvb, offset, -1, ENC_NA);
     btle_tree = proto_item_add_subtree(btle_item, ett_btle);
 
-    sub_item = proto_tree_add_item(btle_tree, hf_access_address, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-    access_address = tvb_get_letohl(tvb, offset);
+    sub_item = proto_tree_add_item_ret_uint(btle_tree, hf_access_address, tvb, offset, 4, ENC_LITTLE_ENDIAN, &access_address);
     if (btle_context) {
         switch(btle_context->aa_category) {
         case E_AA_MATCHED:
@@ -5568,6 +5566,26 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
         } else {
             /* Length is unknown. */
             length = 0;
+        }
+    }
+
+    /* Look up connection_info for CRC validation */
+    if (access_address != ACCESS_ADDRESS_ADVERTISING) {
+        wmem_tree_key_t key[4];
+        wmem_tree_t *wmem_tree;
+
+        key[0].length = 1;
+        key[0].key = &interface_id;
+        key[1].length = 1;
+        key[1].key = &adapter_id;
+        key[2].length = 1;
+        key[2].key = &access_address;
+        key[3].length = 0;
+        key[3].key = NULL;
+
+        wmem_tree = (wmem_tree_t *) wmem_tree_lookup32_array(connection_info_tree, key);
+        if (wmem_tree) {
+            connection_info = (connection_info_t *) wmem_tree_lookup32_le(wmem_tree, pinfo->num);
         }
     }
 
@@ -7981,6 +7999,7 @@ proto_reg_handoff_btle(void)
 
     proto_btle_rf = proto_get_id_by_filter_name("btle_rf");
     proto_nordic_ble = proto_get_id_by_filter_name("nordic_ble");
+    proto_silabs_dch = proto_get_id_by_filter_name("silabs-dch");
 
     dissector_add_uint("bluetooth.encap", WTAP_ENCAP_BLUETOOTH_LE_LL, btle_handle);
 }

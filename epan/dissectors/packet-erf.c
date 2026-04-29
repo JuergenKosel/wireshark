@@ -13,9 +13,9 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/prefs.h>
-#include <epan/ipproto.h>
 #include <epan/tfs.h>
 #include <epan/unit_strings.h>
+#include <epan/iana-info.h>
 #include <wsutil/str_util.h>
 #include <wiretap/wtap.h>
 #include <wiretap/erf_record.h>

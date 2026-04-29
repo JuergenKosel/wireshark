@@ -152,11 +152,13 @@ EXPORT_ENUMS = {
     'nl80211_ap_settings_flags': (None, None, None),
     'nl80211_wiphy_radio_attrs': (None, None, None),
     'nl80211_wiphy_radio_freq_range': (None, None, None),
+    'nl80211_s1g_short_beacon_attrs': (None, None, None),
+    'nl80211_nan_capabilities': (None, None, None),
 }
 # File to be patched
-SOURCE_FILE = "epan/dissectors/packet-netlink-nl80211.c"
+SOURCE_FILE = "epan/dissectors/data-nl80211.c"
 # URL where the latest version can be found
-URL = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/include/uapi/linux/nl80211.h"
+URL = "https://raw.githubusercontent.com/torvalds/linux/refs/heads/master/include/uapi/linux/nl80211.h"
 
 def make_enum(name, values, expressions, indent):
     code = 'enum ws_%s {\n' % name
@@ -216,7 +218,7 @@ def make_hf(name, indent):
     code = indent + indent + '{ &hf_%s,\n' % name
     code += indent*3 + '{ "%s", "nl80211.%s",\n' % (field_name, field_abbrev)
     code += indent*3 + '  %s, BASE_DEC | BASE_EXT_STRING,\n' % (field_type)
-    code += indent*3 + '  VALS_EXT_PTR(&ws_%s_vals_ext), 0x00,\n' % (name)
+    code += indent*3 + '  &ws_%s_vals_ext, 0x00,\n' % (name)
     code += indent*3 + '  %s, HFILL },\n' % (field_blurb)
     code += indent + indent + '},'
     return code

@@ -255,7 +255,7 @@ proto_tree_print_node(proto_node *node, void *data)
 #define PDML2HTML_XSL "pdml2html.xsl"
 #define PDML2HTML_URL "https://gitlab.com/wireshark/wireshark/-/tree/master/resources/share/doc/wireshark/"
 void
-write_pdml_preamble(FILE *fh, const char *filename)
+write_pdml_preamble(FILE *fh, const char *filename, const char* doc_dir)
 {
     time_t t = time(NULL);
     struct tm * timeinfo;
@@ -273,7 +273,7 @@ write_pdml_preamble(FILE *fh, const char *filename)
 
     fprintf(fh, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
     fprintf(fh, "<?xml-stylesheet type=\"text/xsl\" href=\"" PDML2HTML_XSL "\"?>\n");
-    fprintf(fh, "<!-- You can find " PDML2HTML_XSL " in %s or at "PDML2HTML_URL PDML2HTML_XSL ". -->\n", get_doc_dir());
+    fprintf(fh, "<!-- You can find " PDML2HTML_XSL " in %s or at "PDML2HTML_URL PDML2HTML_XSL ". -->\n", doc_dir);
     fprintf(fh, "<pdml version=\"" PDML_VERSION "\" creator=\"%s/%s\" time=\"%s\" capture_file=\"", PACKAGE, VERSION, ts);
     if (filename) {
         /* \todo filename should be converted to UTF-8. */
@@ -1171,7 +1171,7 @@ ek_check_protocolfilter(wmem_map_t *protocolfilter, const char *str, pf_flags *f
 static void
 write_ek_summary(column_info *cinfo, write_json_data* pdata)
 {
-    int i;
+    unsigned i;
 
     for (i = 0; i < cinfo->num_cols; i++) {
         if (!get_column_visible(i))
@@ -1496,8 +1496,8 @@ print_pdml_geninfo(epan_dissect_t *edt, FILE *fh)
 
     /* Print geninfo.timestamp */
     fprintf(fh,
-            "    <field name=\"timestamp\" pos=\"0\" show=\"%s\" showname=\"Captured Time\" value=\"%d.%09d\" size=\"%d\"/>\n",
-            tmp, (int)edt->pi.abs_ts.secs, edt->pi.abs_ts.nsecs, frame_finfo->length);
+            "    <field name=\"timestamp\" pos=\"0\" show=\"%s\" showname=\"Captured Time\" value=\"%jd.%09d\" size=\"%d\"/>\n",
+            tmp, (intmax_t)edt->pi.abs_ts.secs, edt->pi.abs_ts.nsecs, frame_finfo->length);
 
     wmem_free(NULL, tmp);
 
@@ -1515,7 +1515,7 @@ write_pdml_finale(FILE *fh)
 void
 write_psml_preamble(column_info *cinfo, FILE *fh)
 {
-    int i;
+    unsigned i;
 
     fprintf(fh, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
     fprintf(fh, "<psml version=\"" PSML_VERSION "\" creator=\"%s/%s\">\n", PACKAGE, VERSION);
@@ -1535,7 +1535,7 @@ write_psml_preamble(column_info *cinfo, FILE *fh)
 void
 write_psml_columns(epan_dissect_t *edt, FILE *fh, bool use_color)
 {
-    int i;
+    unsigned i;
     const color_filter_t *cfp = edt->pi.fd->color_filter;
 
     if (use_color && (cfp != NULL)) {
@@ -1602,7 +1602,7 @@ static void csv_write_str(const char *str, char sep, FILE *fh, bool print_separa
 void
 write_csv_column_titles(column_info *cinfo, FILE *fh)
 {
-    int i;
+    unsigned i;
     bool print_separator = false;
     // Avoid printing separator for first column
 
@@ -1620,7 +1620,7 @@ write_csv_column_titles(column_info *cinfo, FILE *fh)
 void
 write_csv_columns(epan_dissect_t *edt, FILE *fh)
 {
-    int i;
+    unsigned i;
     bool print_separator = false;
     // Avoid printing separator for first column
 
@@ -1816,13 +1816,13 @@ print_escaped_csv(FILE *fh, const char *unescaped_string, char delimiter, char q
 static void
 pdml_write_field_hex_value(write_pdml_data *pdata, field_info *fi)
 {
-    int           i;
+    unsigned       i;
     const uint8_t *pd;
 
     if (!fi->ds_tvb)
         return;
 
-    if (fi->length > tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
+    if (fi->length > (unsigned)tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
         fprintf(pdata->fh, "field length invalid!");
         return;
     }
@@ -1899,7 +1899,7 @@ json_write_field_hex_value(write_json_data *pdata, field_info *fi)
         return;
     }
 
-    if (fi->length > tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
+    if (fi->length > (unsigned)tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
         json_dumper_value_string(pdata->dumper, "field length invalid!");
         return;
     }
@@ -1908,7 +1908,7 @@ json_write_field_hex_value(write_json_data *pdata, field_info *fi)
     pd = get_field_data(pdata->src_list, fi);
 
     if (pd) {
-        int i;
+        unsigned i;
         char* str = (char*)g_malloc(fi->length*2 + 1);    /* no need to zero */
         static const char hex[] = "0123456789abcdef";
         /* Print a simple hex dump */
@@ -2730,7 +2730,7 @@ get_field_hex_value(GSList *src_list, field_info *fi)
     if (!fi->ds_tvb)
         return NULL;
 
-    if (fi->length > tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
+    if (fi->length > (unsigned)tvb_captured_length_remaining(fi->ds_tvb, fi->start)) {
         return g_strdup("field length invalid!");
     }
 
@@ -2738,10 +2738,10 @@ get_field_hex_value(GSList *src_list, field_info *fi)
     pd = get_field_data(src_list, fi);
 
     if (pd) {
-        int        i;
+        unsigned   i;
         char      *buffer;
         char      *p;
-        int        len;
+        unsigned   len;
         const int  chars_per_byte = 2;
 
         len    = chars_per_byte * fi->length;

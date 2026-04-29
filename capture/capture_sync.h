@@ -140,7 +140,11 @@ sync_interface_stats_close(int *read_fd, ws_process_id *fork_child, char **msg);
 extern int
 sync_pipe_gets_nonblock(int pipe_fd, char *bytes, int max);
 
-/* set a callback to be called after fork with the pid of the forked child */
+/**
+ * @brief Set a callback function to to be called with the PID of the forked child.
+ *
+ * @param cb Callback function that will be called with the PID of the dumpcap process.
+ */
 extern void capture_sync_set_fetch_dumpcap_pid_cb(void(*cb)(ws_process_id pid));
 
 #ifdef __cplusplus

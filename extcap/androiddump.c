@@ -29,8 +29,7 @@
 #include <wsutil/inet_addr.h>
 #include <wsutil/exported_pdu_tlvs.h>
 #include <wsutil/report_message.h>
-
-#include "ui/failure_message.h"
+#include <app/application_flavor.h>
 
 #ifdef HAVE_NETINET_IN_H
 #    include <netinet/in.h>
@@ -81,6 +80,7 @@
 #else
     #include "wiretap/wtap.h"
     #include "wiretap/pcap-encap.h"
+    #include "ui/failure_message.h"
 #endif
 
 #include <cli_main.h>
@@ -411,7 +411,9 @@ static void useNonBlockingConnectTimeout(socket_handle_t  sock) {
         ws_debug("Can't set socket timeout, using default");
 #else
     int flags = fcntl(sock, F_GETFL);
-    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    if (-1 == fcntl(sock, F_SETFL, flags | O_NONBLOCK)) {
+        ws_info("Failure setting socket to non-blocking: %s", g_strerror(errno));
+    }
 #endif
 }
 
@@ -427,7 +429,9 @@ static void useNormalConnectTimeout(socket_handle_t  sock) {
     ioctlsocket(sock, FIONBIO, &non_blocking);
 #else
     int flags = fcntl(sock, F_GETFL);
-    fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+    if (-1 == fcntl(sock, F_SETFL, flags & ~O_NONBLOCK)) {
+        ws_info("Failure setting socket to blocking: %s", g_strerror(errno));
+    }
     const struct timeval socket_timeout = {
         .tv_sec = SOCKET_RW_TIMEOUT_MS / 1000,
         .tv_usec = (SOCKET_RW_TIMEOUT_MS % 1000) * 1000
@@ -464,8 +468,11 @@ static struct extcap_dumper extcap_dumper_open(char *fifo, int encap) {
     int file_type_subtype;
     int err = 0;
     char *err_info = NULL;
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
 
-    wtap_init(false);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(false, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     params.encap = encap;
     params.snaplen = PACKET_LENGTH;
@@ -497,7 +504,7 @@ static bool extcap_dumper_dump(struct extcap_dumper extcap_dumper,
     pcap_header.ts.tv_sec = seconds;
     pcap_header.ts.tv_usec = nanoseconds / 1000;
 
-    pcap_dump((u_char *) extcap_dumper.dumper.pcap, &pcap_header, buffer);
+    pcap_dump((u_char *) extcap_dumper.dumper.pcap, &pcap_header, (uint8_t*)buffer);
     if (pcap_dump_flush(extcap_dumper.dumper.pcap) == -1) {
         ws_warning("Write to %s failed: %s", fifo, g_strerror(errno));
     }
@@ -528,7 +535,7 @@ static bool extcap_dumper_dump(struct extcap_dumper extcap_dumper,
     rec.rec_header.packet_header.caplen = (uint32_t) captured_length;
     rec.rec_header.packet_header.len = (uint32_t) reported_length;
 
-    ws_buffer_append(&rec.data, buffer, captured_length);
+    ws_buffer_append(&rec.data, (const uint8_t*)buffer, captured_length);
 
     if (!wtap_dump(extcap_dumper.dumper.wtap, &rec, &err, &err_info)) {
         report_cfile_write_failure(NULL, fifo, err, err_info, 0,
@@ -1686,7 +1693,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
     uint64_t                      *timestamp;
     char                          *packet = buffer + BLUEDROID_TIMESTAMP_SIZE - sizeof(own_pcap_bluetooth_h4_header); /* skip timestamp (8 bytes) and reuse its space for header */
     own_pcap_bluetooth_h4_header  *h4_header;
-    uint8_t                       *payload = packet + sizeof(own_pcap_bluetooth_h4_header);
+    uint8_t                       *payload = (uint8_t*)(packet + sizeof(own_pcap_bluetooth_h4_header));
     const char                    *adb_tcp_bluedroid_external_parser_template = "tcp:%05u";
     socklen_t                      slen;
     ssize_t                        length;
@@ -2522,11 +2529,13 @@ int main(int argc, char *argv[]) {
         g_free(err_msg);
     }
 
+#ifndef ANDROIDDUMP_USE_LIBPCAP
     init_report_failure_message("androiddump");
+#endif
 
     extcap_conf = g_new0(extcap_parameters, 1);
 
-    help_url = data_file_url("androiddump.html");
+    help_url = data_file_url("androiddump.html", application_configuration_environment_prefix());
     extcap_base_set_util_info(extcap_conf, argv[0], ANDROIDDUMP_VERSION_MAJOR, ANDROIDDUMP_VERSION_MINOR,
         ANDROIDDUMP_VERSION_RELEASE, help_url);
     g_free(help_url);

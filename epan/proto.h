@@ -472,17 +472,15 @@ void proto_report_dissector_bug(const char *format, ...)
  * passed as the argument, because ENC_BIG_ENDIAN and ENC_ASCII are both
  * 0x00000000. So we use ENC_STR_NUM or ENC_STR_HEX bit-or'ed with
  * ENC_ASCII and its ilk.
- *
- * XXX - ENC_STR_NUM is not yet supported by any code in Wireshark,
- * and these are only used for byte arrays.  Presumably they could
- * also be used for integral values in the future.
  */
-/* this is for strings as numbers "12345" */
+/* this is for strings with auto-detected base as with strtoul */
 #define ENC_STR_NUM     0x01000000
 /* this is for strings as hex "1a2b3c" */
 #define ENC_STR_HEX     0x02000000
-/* a convenience macro for either of the above */
-#define ENC_STRING      0x03000000
+/* this is for strings as decimal "12345" */
+#define ENC_STR_DEC     0x04000000
+/* a convenience macro for any of the above */
+#define ENC_STRING      0x07000000
 /* Kept around for compatibility for Lua scripts; code should use ENC_CHARENCODING_MASK */
 #define ENC_STR_MASK    0x0000FFFE
 
@@ -815,8 +813,8 @@ typedef struct _item_label_t {
 /** Contains the field information for the proto_item. */
 typedef struct field_info {
     const header_field_info *hfinfo;      /**< pointer to registered field information */
-    int                  start;           /**< current start of data in field_info.ds_tvb */
-    int                  length;          /**< current data length of item in field_info.ds_tvb */
+    unsigned             start;           /**< current start of data in field_info.ds_tvb */
+    unsigned             length;          /**< current data length of item in field_info.ds_tvb */
     int                  appendix_start;  /**< start of appendix data */
     int                  appendix_length; /**< length of appendix data */
     int                  tree_type;       /**< one of ETT_ or -1 */
@@ -899,7 +897,7 @@ typedef struct {
     unsigned             count;
     struct _packet_info *pinfo;
     tvbuff_t            *idle_count_ds_tvb;
-    int                  max_start;
+    unsigned             max_start;
     unsigned             start_idle_count;
 } tree_data_t;
 
@@ -1106,7 +1104,9 @@ void proto_pre_init(void);
 
 /** Sets up memory used by proto routines. Called at program startup */
 void proto_init(GSList *register_all_plugin_protocols_list,
-    GSList *register_all_plugin_handoffs_list, register_cb cb, void *client_data);
+    GSList *register_all_plugin_handoffs_list,
+    register_entity_func register_func, register_entity_func handoff_func,
+    register_cb cb, void *client_data);
 
 /** Frees memory used by proto routines. Called at program shutdown */
 extern void proto_cleanup(void);
@@ -1207,7 +1207,7 @@ WS_DLL_PUBLIC void proto_item_set_len(proto_item *pi, const int length);
  @param end this end offset is relative to the beginning of tvb
  @todo make usage clearer, I don't understand it!
  */
-WS_DLL_PUBLIC void proto_item_set_end(proto_item *pi, tvbuff_t *tvb, int end);
+WS_DLL_PUBLIC void proto_item_set_end(proto_item *pi, tvbuff_t *tvb, unsigned end);
 
 /** Get length of a proto_item. Useful after using proto_tree_add_item()
  * to add a variable-length field (e.g., FT_UINT_STRING).
@@ -1238,7 +1238,7 @@ WS_DLL_PUBLIC char *proto_item_get_display_repr(wmem_allocator_t *scope, proto_i
 
 /** Creates a new proto_tree root.
  @return the new tree root */
-extern proto_tree* proto_tree_create_root(struct _packet_info *pinfo);
+WS_DLL_PUBLIC proto_tree* proto_tree_create_root(packet_info* pinfo);
 
 void proto_tree_reset(proto_tree *tree);
 
@@ -1409,6 +1409,18 @@ proto_tree_add_item_ret_int64(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_item_ret_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
     const int start, int length, const unsigned encoding, uint32_t *retval);
+
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_uint32(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const int start, int length, const unsigned encoding, uint32_t *retval);
+
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_uint8(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const int start, int length, const unsigned encoding, uint8_t *retval);
+
+WS_DLL_PUBLIC proto_item *
+proto_tree_add_item_ret_uint16(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+    const int start, int length, const unsigned encoding, uint16_t *retval);
 
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_item_ret_uint64(proto_tree *tree, int hfindex, tvbuff_t *tvb,
@@ -1634,7 +1646,7 @@ proto_tree_add_item_ret_time_string(proto_tree *tree, int hfindex,
 	const int start, int length, const unsigned encoding,
 	wmem_allocator_t *scope, char **retval);
 
-/** (INTERNAL USE ONLY) Add a text-only node to a proto_tree.
+/** (INTERNAL USE ONLY - DO NOT USE IN DISSECTORS!) Add a text-only node to a proto_tree.
  @param tree the tree to append this item to
  @param tvb the tv buffer of the current data
  @param start start of data in tvb
@@ -1686,11 +1698,11 @@ proto_tree_add_subtree_format(proto_tree *tree, tvbuff_t *tvb, int start, int le
     proto_item **tree_item, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add a text-only node to a proto_tree with tvb_format_text() string. */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_format_text(proto_tree *tree, tvbuff_t *tvb, int start, int length);
 
 /** Add a text-only node to a proto_tree with tvb_format_text_wsp() string. */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_format_wsp_text(proto_tree *tree, tvbuff_t *tvb, int start, int length);
 
 /** Add a FT_NONE field to a proto_tree.
@@ -1780,8 +1792,8 @@ proto_tree_add_bytes_with_length(proto_tree *tree, int hfindex, tvbuff_t *tvb, i
  */
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
-    const int start, int length, const unsigned encoding,
-    GByteArray *retval, int *endoff, int *err);
+    const unsigned start, unsigned length, const unsigned encoding,
+    GByteArray *retval, unsigned *endoff, int *err);
 
 /** Add a formatted FT_BYTES to a proto_tree, with the format generating
     the string for the value and with the field name being included
@@ -1791,7 +1803,8 @@ proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
  @param tvb the tv buffer of the current data
  @param start start of data in tvb
  @param length length of data in tvb
- @param start_ptr pointer to the data to display
+ @param start_ptr pointer to the data to display (can be NULL, in which
+        case length bytes are retrieved from the tvb starting at offset)
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
@@ -1807,7 +1820,8 @@ proto_tree_add_bytes_format_value(proto_tree *tree, int hfindex, tvbuff_t *tvb,
  @param tvb the tv buffer of the current data
  @param start start of data in tvb
  @param length length of data in tvb
- @param start_ptr pointer to the data to display
+ @param start_ptr pointer to the data to display (can be NULL, in which
+        case length bytes are retrieved from the tvb starting at offset)
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
@@ -1859,8 +1873,8 @@ proto_tree_add_time(proto_tree *tree, int hfindex, tvbuff_t *tvb, int start,
  */
 WS_DLL_PUBLIC proto_item *
 proto_tree_add_time_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
-    const int start, int length, const unsigned encoding,
-    nstime_t *retval, int *endoff, int *err);
+    const unsigned start, const unsigned length, const unsigned encoding,
+    nstime_t *retval, unsigned *endoff, int *err);
 
 
 /** Add a formatted FT_ABSOLUTE_TIME or FT_RELATIVE_TIME to a proto_tree, with
@@ -2783,8 +2797,18 @@ WS_DLL_PUBLIC bool proto_registrar_is_protocol(const int n);
 /** Get length of registered field according to field type.
  @param n item # n (0-indexed)
  @return 0 means undeterminable at registration time, -1 means unknown field */
-extern int proto_registrar_get_length(const int n);
+WS_DLL_PUBLIC int proto_registrar_get_length(const int n);
 
+struct proto_registrar_stats {
+    size_t protocol_count;
+    size_t deregistered_count;
+    size_t same_name_count;
+};
+
+/** Get protocol and field registration counts.
+ @param stats structure to fill in
+ @return Count of all registered fields. */
+WS_DLL_PUBLIC size_t proto_registrar_get_count(struct proto_registrar_stats *stats);
 
 /** Routines to use to iterate over the protocols and their fields;
  * they return the item number of the protocol in question or the
@@ -3362,7 +3386,7 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hf_index, tvb
  @param bit_offset of the first crumb in tvb expressed in bits
  @param crumb_spec pointer to crumb_spec array
  @param crumb_index into the crumb_spec array for this crumb */
-void
+WS_DLL_PUBLIC void
 proto_tree_add_split_bits_crumb(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
     const unsigned bit_offset, const crumb_spec_t *crumb_spec, uint16_t crumb_index);
 
@@ -3429,7 +3453,7 @@ proto_tree_add_uint64_bits_format_value(proto_tree *tree, const int hf_index, tv
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_boolean_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
     const unsigned bit_offset, const int no_of_bits, uint64_t value, const unsigned encoding,
     const char *format, ...)
@@ -3448,7 +3472,7 @@ proto_tree_add_boolean_bits_format_value(proto_tree *tree, const int hf_index, t
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_int_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
     const unsigned bit_offset, const int no_of_bits, int32_t value, const unsigned encoding,
     const char *format, ...)
@@ -3467,7 +3491,7 @@ proto_tree_add_int_bits_format_value(proto_tree *tree, const int hf_index, tvbuf
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_int64_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
     const unsigned bit_offset, const int no_of_bits, int64_t value, const unsigned encoding,
     const char *format, ...)
@@ -3486,7 +3510,7 @@ proto_tree_add_int64_bits_format_value(proto_tree *tree, const int hf_index, tvb
  @param format printf like format string
  @param ... printf like parameters
  @return the newly created item */
-proto_item *
+WS_DLL_PUBLIC proto_item *
 proto_tree_add_float_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
     const unsigned bit_offset, const int no_of_bits, float value, const unsigned encoding,
     const char *format, ...)
@@ -3523,13 +3547,10 @@ proto_tree_add_ascii_7bits_item(proto_tree *tree, const int hfindex, tvbuff_t *t
  @param tvb the tv buffer of the current data
  @param offset start of data in tvb
  @param hf_checksum checksum field index
- @param hf_checksum_status optional checksum status field index.  If none
- exists, just pass -1
- @param bad_checksum_expert optional expert info for a bad checksum.  If
- none exists, just pass NULL
- @param pinfo Packet info used for optional expert info.  If unused, NULL can
- be passed
- @param computed_checksum Checksum to verify against
+ @param hf_checksum_status optional checksum status field index.  If none exists, just pass 0
+ @param bad_checksum_expert optional expert info for a bad checksum.  If none exists, just pass NULL
+ @param pinfo packet info used for optional expert info.  If unused, NULL can be passed
+ @param computed_checksum optional checksum to verify against
  @param encoding data encoding of checksum from tvb
  @param flags bitmask field of PROTO_CHECKSUM_ options
  @return the newly created item */
@@ -3545,14 +3566,11 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const unsigned offset,
  @param tvb the tv buffer of the current data
  @param offset start of data in tvb
  @param hf_checksum checksum field index
- @param hf_checksum_status optional checksum status field index.  If none
- exists, just pass -1
- @param bad_checksum_expert optional expert info for a bad checksum.  If
- none exists, just pass NULL
- @param pinfo Packet info used for optional expert info.  If unused, NULL can
- be passed
- @param computed_checksum Checksum as bytes array to verify against
- @param checksum_len Checksum size in bytes
+ @param hf_checksum_status optional checksum status field index.  If none exists, just pass 0
+ @param bad_checksum_expert optional expert info for a bad checksum.  If none exists, just pass NULL
+ @param pinfo Packet info used for optional expert info.  If unused, NULL can be passed
+ @param computed_checksum optional checksum as bytes array to verify against
+ @param checksum_len checksum size in bytes
  @param flags bitmask field of PROTO_CHECKSUM_ options. PROTO_CHECKSUM_IN_CKSUM is ignored
  @return the newly created item */
 WS_DLL_PUBLIC proto_item*

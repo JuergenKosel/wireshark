@@ -13,11 +13,12 @@ IDs from the databases at IEEE.
 
 import csv
 import html
-import io
 import os
 import re
 import sys
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
+import urllib.error
+import urllib.parse
 
 have_icu = False
 try:
@@ -300,7 +301,7 @@ def main():
         exit_msg("Too few total entries ({})".format(total_added))
 
     try:
-        manuf_fd = io.open(manuf_path, 'w', encoding='UTF-8')
+        manuf_fd = open(manuf_path, 'w', encoding='UTF-8')
     except Exception:
         exit_msg("Couldn't open manuf file for reading ({}) ".format(manuf_path))
 

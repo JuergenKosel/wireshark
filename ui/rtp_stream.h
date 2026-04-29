@@ -20,7 +20,7 @@
 #include "tap-rtp-analysis.h"
 #include <stdio.h>
 
-#include "cfile.h"
+#include <epan/cfile.h>
 
 #include <epan/address.h>
 #include <epan/tap.h>

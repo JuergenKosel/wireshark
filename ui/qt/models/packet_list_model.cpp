@@ -109,9 +109,12 @@ void PacketListModel::setCaptureFile(capture_file *cf)
 }
 
 // Packet list records have no children (for now, at least).
-QModelIndex PacketListModel::index(int row, int column, const QModelIndex &) const
+QModelIndex PacketListModel::index(int row, int column, const QModelIndex &parent) const
 {
-    if (row >= visible_rows_.count() || row < 0 || !cap_file_ || column >= prefs.num_cols)
+    if (parent.isValid())
+        return QModelIndex();
+
+    if (row >= visible_rows_.count() || row < 0 || !cap_file_ || (unsigned)column >= prefs.num_cols)
         return QModelIndex();
 
     PacketListRecord *record = visible_rows_[row];
@@ -847,14 +850,26 @@ double PacketListModel::parseNumericColumn(const QString &val, bool *ok)
     return num;
 }
 
-int PacketListModel::rowCount(const QModelIndex &) const
+int PacketListModel::rowCount(const QModelIndex &parent) const
 {
+    if (parent.isValid())
+        return 0;
+
     return static_cast<int>(visible_rows_.count());
 }
 
 int PacketListModel::columnCount(const QModelIndex &) const
 {
     return prefs.num_cols;
+}
+
+Qt::ItemFlags PacketListModel::flags(const QModelIndex &index) const
+{
+    Qt::ItemFlags flags = QAbstractItemModel::flags(index);
+    if (index.isValid()) {
+        flags |= Qt::ItemNeverHasChildren;
+    }
+    return flags;
 }
 
 QVariant PacketListModel::data(const QModelIndex &d_index, int role) const
@@ -912,6 +927,36 @@ QVariant PacketListModel::data(const QModelIndex &d_index, int role) const
             return QVariant();
         }
         return ColorUtils::fromColorT(color);
+    case Qt::AccessibleTextRole:
+    {
+        return record->columnString(cap_file_, d_index.column(), true);
+    }
+    case Qt::AccessibleDescriptionRole:
+    {
+        if (d_index.column() > 0) {
+            return QVariant();
+        }
+
+        uint32_t severity = record->expertSeverity();
+        if (!fdata->marked && !fdata->ignored && !fdata->ref_time && !fdata->has_modified_block && severity == 0) {
+            return QVariant();
+        }
+
+        QStringList labels;
+        if (fdata->marked) labels << tr("Marked");
+        if (fdata->ignored) labels << tr("Ignored");
+        if (fdata->ref_time) labels << tr("Reference Time");
+        if (fdata->has_modified_block) labels << tr("Modified");
+
+        if (severity > 0) {
+            const char *severity_str = val_to_str_const(severity, expert_severity_vals, NULL);
+            if (severity_str) {
+                labels << severity_str;
+            }
+        }
+
+        return labels.join(", ");
+    }
     case Qt::DisplayRole:
     {
         return record->columnString(cap_file_, d_index.column(), true);
@@ -926,11 +971,13 @@ QVariant PacketListModel::headerData(int section, Qt::Orientation orientation,
 {
     if (!cap_file_) return QVariant();
 
-    if (orientation == Qt::Horizontal && section < prefs.num_cols) {
+    if ((orientation == Qt::Horizontal) && ((unsigned)section < prefs.num_cols)) {
         switch (role) {
         case Qt::DisplayRole:
+        case Qt::AccessibleTextRole:
             return QVariant::fromValue(QString(get_column_title(section)));
         case Qt::ToolTipRole:
+        case Qt::AccessibleDescriptionRole:
             return QVariant::fromValue(gchar_free_to_qstring(get_column_tooltip(section)));
         case PacketListModel::HEADER_CAN_DISPLAY_STRINGS:
             return (bool)display_column_strings(section, cap_file_);

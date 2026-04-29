@@ -1678,21 +1678,22 @@ dissect_wps_tlvs(proto_tree *eap_tree, tvbuff_t *tvb, int offset,
           /* make compiler happy */
           break;
         }
-      }
 
-      if ((hf_info != NULL) && hf_info->strings) {
-        /* item has value_string */
-        proto_item_append_text(tlv_item, fmt, val_to_str(pinfo->pool, value,
-                                                         (const value_string *)hf_info->strings,
-                                                         "Unknown: %d"), value);
-      } else if (valuep != NULL) {
-        /* the string-case */
-        proto_item_append_text(tlv_item, fmt, valuep);
-      } else if (fmt != NULL) {
-        /* field is FT_UINT(8|16|32) but has no value_string */
-        proto_item_append_text(tlv_item, fmt, value);
-      } else {
-        /* field is either FT_ETHER or FT_BYTES, don't do anything */
+        if (fmt != NULL) {
+          if (hf_info->strings) {
+            /* item has value_string */
+            proto_item_append_text(tlv_item, fmt, val_to_str(pinfo->pool, value,
+                                                             (const value_string *)hf_info->strings,
+                                                             "Unknown: %d"), value);
+          } else if (valuep != NULL) {
+            /* the string-case */
+            proto_item_append_text(tlv_item, fmt, valuep);
+          } else {
+            /* field is FT_UINT(8|16|32) but has no value_string */
+            proto_item_append_text(tlv_item, fmt, value);
+          }
+        } /* else field is either FT_ETHER or FT_BYTES (or something else?),
+             don't do anything */
       }
 
     }
@@ -1724,14 +1725,11 @@ dissect_wps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
   offset += 1; size -= 1;
 
   pi = proto_item_get_parent(pi);
-  if (pi != NULL)
-    proto_item_append_text(pi, " (Wifi Alliance, WifiProtectedSetup)");
-  if (pinfo != NULL)
-    col_append_str(pinfo->cinfo, COL_INFO, ", WPS");
+  proto_item_append_text(pi, " (Wifi Alliance, WifiProtectedSetup)");
+  col_append_str(pinfo->cinfo, COL_INFO, ", WPS");
 
   /* Flag field, if msg-len flag set, add appropriate field  */
-  flags = tvb_get_uint8(tvb,offset);
-  pi = proto_tree_add_item(tree, hf_eapwps_flags,      tvb, offset, 1, ENC_BIG_ENDIAN);
+  pi = proto_tree_add_item_ret_uint8(tree, hf_eapwps_flags,      tvb, offset, 1, ENC_BIG_ENDIAN, &flags);
   pt = proto_item_add_subtree(pi, ett_eap_wps_flags);
 
   proto_tree_add_item(pt, hf_eapwps_flag_mf,    tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1756,7 +1754,7 @@ proto_register_wps(void)
 {
   static hf_register_info hf[] = {
 
-    /* These data-elements are sent in EAP-Pakets using expanded types */
+    /* These data-elements are sent in EAP-Packets using expanded types */
     /* (see RFC3748 Section 5.7) */
     /* Paket dissections is done here and not in (packet-eap) as */
     /* both (tlvs and fields named eap.wps.*) are defined by */

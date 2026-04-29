@@ -82,9 +82,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	802_11-utils.h
 	adler32.h
 	app_mem_usage.h
-	application_flavor.h
 	array.h
-	base32.h
 	bits_count_ones.h
 	bits_ctz.h
 	bitswap.h
@@ -167,8 +165,6 @@ set(WSUTIL_COMMON_FILES
 	802_11-utils.c
 	adler32.c
 	app_mem_usage.c
-	application_flavor.c
-	base32.c
 	bitswap.c
 	buffer.c
 	clopts_common.c
@@ -410,7 +406,6 @@ endif()
 target_link_libraries(wsutil
 	PUBLIC
 		${GLIB2_LIBRARIES}
-		${XXHASH_LIBRARIES}
 	PRIVATE
 		${GMODULE2_LIBRARIES}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
@@ -421,6 +416,7 @@ target_link_libraries(wsutil
 		${ZLIB_LIBRARIES}
 		${ZLIBNG_LIBRARIES}
 		${LZ4_LIBRARIES}
+		${XXHASH_LIBRARIES}
 		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -428,12 +424,11 @@ target_link_libraries(wsutil
 )
 
 target_include_directories(wsutil SYSTEM
-	PUBLIC
+	PRIVATE
 		${GLIB2_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 		${XXHASH_INCLUDE_DIRS}
-	PRIVATE
 		${GMODULE2_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
 		${ZLIBNG_INCLUDE_DIRS}
@@ -491,11 +486,10 @@ target_link_libraries(wsutil_static
 )
 
 target_include_directories(wsutil_static SYSTEM
-	PUBLIC
+	PRIVATE
 		${GLIB2_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
-	PRIVATE
 		${GMODULE2_INCLUDE_DIRS}
 		${XXHASH_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
@@ -509,14 +503,14 @@ if(NOT VCSVERSION_OVERRIDE)
 	add_dependencies(wsutil_static vcs_version)
 endif()
 
-add_executable(wmem_test EXCLUDE_FROM_ALL wmem/wmem_test.c ${WMEM_FILES})
+add_executable(wmem_test EXCLUDE_FROM_ALL wmem/wmem_test.c)
 
-target_link_libraries(wmem_test wsutil)
+target_link_libraries(wmem_test wsutil_static)
 
 set_target_properties(wmem_test PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
-	COMPILE_DEFINITIONS "WS_BUILD_DLL"
+	COMPILE_DEFINITIONS "ENABLE_STATIC"
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
@@ -525,6 +519,7 @@ add_executable(test_wsutil EXCLUDE_FROM_ALL
 )
 
 target_link_libraries(test_wsutil ${M_LIBRARIES} ${GLIB2_LIBRARIES} wsutil)
+target_include_directories(test_wsutil SYSTEM PRIVATE ${XXHASH_INCLUDE_DIRS})
 
 set_target_properties(test_wsutil PROPERTIES
 	FOLDER "Tests"

@@ -45,9 +45,8 @@
 #include "packet-inap.h"
 #include "packet-tcap.h"
 
-#define PNAME  "Camel"
-#define PSNAME "CAMEL"
-#define PFNAME "camel"
+void proto_reg_handoff_camel(void);
+void proto_register_camel(void);
 
 /* Initialize the protocol and registered fields */
 static int proto_camel;
@@ -108,14 +107,14 @@ static int hf_camel_timeandtimezone_tz;
 static struct camelsrt_info_t * gp_camelsrt_info;
 
 /* Forward declarations */
-static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset,asn1_ctx_t *actx);
-static int dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, int offset,asn1_ctx_t *actx);
-static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset,asn1_ctx_t *actx);
-static int dissect_camel_CAMEL_AChBillingChargingCharacteristics(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
-static int dissect_camel_CAMEL_AChBillingChargingCharacteristicsV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
-static int dissect_camel_CAMEL_CallResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
-static int dissect_camel_EstablishTemporaryConnectionArgV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
-static int dissect_camel_SpecializedResourceReportArgV23(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, unsigned offset,asn1_ctx_t *actx);
+static unsigned dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, unsigned offset,asn1_ctx_t *actx);
+static unsigned dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, unsigned offset,asn1_ctx_t *actx);
+static unsigned dissect_camel_CAMEL_AChBillingChargingCharacteristics(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_camel_CAMEL_AChBillingChargingCharacteristicsV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_camel_CAMEL_CallResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_camel_EstablishTemporaryConnectionArgV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_camel_SpecializedResourceReportArgV23(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 
 
 /* Initialize the subtree pointers */
@@ -402,7 +401,7 @@ dissect_RP_cause_ie(tvbuff_t *tvb, uint32_t offset, _U_ unsigned len,
   return curr_offset - offset;
 }
 
-static int dissect_camel_InitialDPArgExtensionV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static unsigned dissect_camel_InitialDPArgExtensionV2(bool implicit_tag _U_, tvbuff_t *tvb _U_, unsigned offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 
 #include "packet-camel-fn.c"
 
@@ -1484,7 +1483,7 @@ void proto_register_camel(void) {
   static stat_tap_table_ui camel_stat_table = {
     REGISTER_TELEPHONY_GROUP_GSM,
     "CAMEL Messages and Response Status",
-    PSNAME,
+    "CAMEL",
     "camel,counter",
     camel_stat_init,
     camel_stat_packet,
@@ -1498,7 +1497,7 @@ void proto_register_camel(void) {
   };
 
   /* Register protocol */
-  proto_camel = proto_register_protocol(PNAME, PSNAME, PFNAME);
+  proto_camel = proto_register_protocol("Camel", "CAMEL", "camel");
 
   camel_handle = register_dissector("camel", dissect_camel, proto_camel);
   camel_v1_handle = register_dissector("camel-v1", dissect_camel_v1, proto_camel);
@@ -1550,9 +1549,9 @@ void proto_register_camel(void) {
   /* create new hash-table for SRT */
   srt_calls = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), camelsrt_call_hash, camelsrt_call_equal);
 
-  camel_tap=register_tap(PSNAME);
+  camel_tap=register_tap("CAMEL");
 
-  register_srt_table(proto_camel, PSNAME, 1, camelstat_packet, camelstat_init, NULL);
+  register_srt_table(proto_camel, "CAMEL", 1, camelstat_packet, camelstat_init, NULL);
   register_stat_tap_table_ui(&camel_stat_table);
 
   register_external_value_string("camelSRTtype_naming", camelSRTtype_naming);

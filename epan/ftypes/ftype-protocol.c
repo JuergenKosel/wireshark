@@ -71,7 +71,7 @@ val_from_string(fvalue_t *fv, const char *s, size_t len, char **err_msg _U_)
 	 * terminating NUL. */
 	private_data = (uint8_t *)g_memdup2(s, (unsigned)len);
 	new_tvb = tvb_new_real_data(private_data,
-			(unsigned)len, (int)len);
+			(unsigned)len, (unsigned)len);
 
 	/* Let the tvbuff know how to delete the data. */
 	tvb_set_free_cb(new_tvb, g_free);
@@ -301,7 +301,7 @@ cmp_contains(const fvalue_t *fv_a, const fvalue_t *fv_b, bool *contains)
 	TRY {
 		/* First see if tvb exists for both sides */
 		if ((fv_a->value.protocol.tvb != NULL) && (fv_b->value.protocol.tvb != NULL)) {
-			if (tvb_find_tvb(fv_a->value.protocol.tvb, fv_b->value.protocol.tvb, 0) > -1) {
+			if (tvb_find_tvb_remaining(fv_a->value.protocol.tvb, fv_b->value.protocol.tvb, 0, NULL)) {
 				yes = true;
 			}
 		} else {

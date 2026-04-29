@@ -16,6 +16,7 @@
 
 #include <wsutil/array.h>
 #include <wsutil/pint.h>
+#include <wsutil/ws_roundup.h>
 
 /*
  * Toshiba ISDN Router
@@ -107,8 +108,8 @@ static bool toshiba_read(wtap *wth, wtap_rec *rec, int *err,
 	char **err_info, int64_t *data_offset);
 static bool toshiba_seek_read(wtap *wth, int64_t seek_off, wtap_rec *rec,
 	int *err, char **err_info);
-static bool parse_single_hex_dump_line(char* rec, uint8_t *buf,
-	unsigned byte_offset);
+static bool parse_single_hex_dump_line(char* rec, Buffer *buf,
+	unsigned remaining_groups);
 static bool parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err,
 	char **err_info);
 
@@ -257,7 +258,6 @@ parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err, char **err_info)
 	int	pkt_len, pktnum, hr, min, sec, csec;
 	char	channel[10], direction[10];
 	int	i, hex_lines;
-	uint8_t	*pd;
 
 	/* Our file pointer should be on the line containing the
 	 * summary information for a packet. Read in that line and
@@ -358,8 +358,9 @@ parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err, char **err_info)
 	}
 
 	/* Make sure we have enough room for the packet */
-	ws_buffer_assure_space(&rec->data, pkt_len);
-	pd = ws_buffer_start_ptr(&rec->data);
+	/* Round up because the format writes in groups of 2 bytes (4 hex). */
+	unsigned rounded_len = WS_ROUNDUP_2(pkt_len);
+	ws_buffer_assure_space(&rec->data, rounded_len);
 
 	/* Calculate the number of hex dump lines, each
 	 * containing 16 bytes of data */
@@ -373,7 +374,7 @@ parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err, char **err_info)
 			}
 			return false;
 		}
-		if (!parse_single_hex_dump_line(line, pd, i * 16)) {
+		if (!parse_single_hex_dump_line(line, &rec->data, rounded_len/2 - i * 8)) {
 			*err = WTAP_ERR_BAD_FILE;
 			*err_info = g_strdup("toshiba: hex dump not valid");
 			return false;
@@ -387,11 +388,10 @@ parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err, char **err_info)
 0123456789012345678901234567890123456789012345
 0000 : FF03 003D C000 0008 2145 0000 3A12 6500 ...=....!E..:.e.
 0010 : 003F 11E6 58CF C11A 8897 A401 0804 0400 .?..X...........
-0020 : 0100 01                                 ...
+0020 : 0100 0100                               ....
 */
 
 #define START_POS	7
-#define HEX_LENGTH	((8 * 4) + 7) /* eight clumps of 4 bytes with 7 inner spaces */
 
 /* Take a string representing one line from a hex dump and converts the
  * text to binary data. We check the printed offset with the offset
@@ -403,19 +403,34 @@ parse_toshiba_packet(FILE_T fh, wtap_rec *rec, int *err, char **err_info)
  * Returns true if good hex dump, false if bad.
  */
 static bool
-parse_single_hex_dump_line(char* rec, uint8_t *buf, unsigned byte_offset) {
+parse_single_hex_dump_line(char* rec, Buffer *buf, unsigned remaining_groups) {
 
-	int		pos, i;
+	unsigned	pos, i;
 	char		*s;
 	unsigned long	value;
-	uint16_t		word_value;
+	uint16_t	word_value;
+	unsigned	hex_len;
+	uint8_t		*pd;
+
+	if (remaining_groups > 8) {
+		remaining_groups = 8;
+	}
+
+	/* Samples of the format show that it always writes groups of 4 hex
+	 * characters; when the number of bytes in the packet is odd, 00 is
+	 * placed at the end of the last group, so there should be 4 bytes
+	 * plus a space for each group except the last can end with '\0'. */
+	hex_len = remaining_groups*5 - 1;
+	if (strlen(rec) < START_POS + hex_len) {
+		return false;
+	}
 
 	/* Get the byte_offset directly from the record */
 	rec[4] = '\0';
 	s = rec;
 	value = strtoul(s, NULL, 16);
 
-	if (value != byte_offset) {
+	if (value != ws_buffer_length(buf)) {
 		return false;
 	}
 
@@ -426,20 +441,22 @@ parse_single_hex_dump_line(char* rec, uint8_t *buf, unsigned byte_offset) {
 	 * Then read the eight sets of hex bytes
 	 */
 
-	for (pos = START_POS; pos < START_POS + HEX_LENGTH; pos++) {
+	for (pos = START_POS; pos < START_POS + hex_len; pos++) {
 		if (rec[pos] == ' ') {
 			rec[pos] = '0';
 		}
 	}
 
+	pd = ws_buffer_end_ptr(buf);
 	pos = START_POS;
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < remaining_groups; i++) {
 		rec[pos+4] = '\0';
 
 		word_value = (uint16_t) strtoul(&rec[pos], NULL, 16);
-		phtonu16(&buf[byte_offset + i * 2], word_value);
+		phtonu16(&pd[i * 2], word_value);
 		pos += 5;
 	}
+	ws_buffer_increase_length(buf, remaining_groups * 2);
 
 	return true;
 }

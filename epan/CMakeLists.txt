@@ -8,7 +8,6 @@
 #
 
 add_definitions(
-		${LIBXML2_DEFINITIONS}
 		${KERBEROS_DEFINITIONS}
 )
 
@@ -31,16 +30,17 @@ add_custom_command(
 		${CMAKE_SOURCE_DIR}/tools/rdps.py
 		${CMAKE_CURRENT_SOURCE_DIR}/print.ps
 )
+add_custom_target(generate_ps_c DEPENDS ps.c)
 
 set(LIBWIRESHARK_PUBLIC_HEADERS
 	addr_resolv.h
 	address.h
 	address_types.h
-	afn.h
 	aftypes.h
 	arptypes.h
 	asn1.h
 	capture_dissectors.h
+	cfile.h
 	charsets.h
 	color_filters.h
 	column.h
@@ -80,9 +80,8 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	iana_charsets.h
 	in_cksum.h
 	introspection.h
-	iana-ip.h
+	iana-info.h
 	ip_opts.h
-	ipproto.h
 	maxmind_db.h
 	media_params.h
 	next_tvb.h
@@ -93,7 +92,6 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	packet.h
 	packet_info.h
 	params.h
-	plugin_if.h
 	print.h
 	print_stream.h
 	prefs.h
@@ -145,10 +143,10 @@ set(LIBWIRESHARK_HEADER_FILES
 set(LIBWIRESHARK_NONGENERATED_FILES
 	addr_resolv.c
 	address_types.c
-	afn.c
 	aftypes.c
 	asn1.c
 	capture_dissectors.c
+	cfile.c
 	charsets.c
 	color_filters.c
 	column.c
@@ -164,7 +162,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	disabled_protos.c
 	conversation_filter.c
 	dvb_chartbl.c
-	enterprises.c
 	epan.c
 	ex-opt.c
 	except.c
@@ -172,6 +169,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	export_object.c
 	exported_pdu.c
 	fifo_string_cache.c
+	file_packet_provider.c
 	filter_expressions.c
 	aggregation_fields.c
 	follow.c
@@ -182,10 +180,9 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	golay.c
 	guid-utils.c
 	iana_charsets.c
-	iana-ip.c
+	iana-info.c
 	in_cksum.c
 	introspection.c
-	ipproto.c
 	manuf.c
 	maxmind_db.c
 	media_params.c
@@ -194,7 +191,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	oids.c
 	osi-utils.c
 	packet.c
-	plugin_if.c
 	print.c
 	print_stream.c
 	prefs.c
@@ -209,7 +205,6 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	rtd_table.c
 	secrets.c
 	sequence_analysis.c
-	services.c
 	show_exception.c
 	srt_table.c
 	stat_tap_ui.c
@@ -301,13 +296,13 @@ target_link_libraries(epan
 		${GLIB2_LIBRARIES}
 	PRIVATE
 		wiretap
+		LibXml2::LibXml2
 		${BROTLI_LIBRARIES}
 		${CARES_LIBRARIES}
 		${GCRYPT_LIBRARIES}
 		${GIO2_LIBRARIES}
 		${GNUTLS_LIBRARIES}
 		${KERBEROS_LIBRARIES}
-		${LIBXML2_LIBRARIES}
 		${LUA_LIBRARIES}
 		${LZ4_LIBRARIES}
 		${M_LIBRARIES}
@@ -324,11 +319,6 @@ target_link_libraries(epan
 )
 
 target_include_directories(epan
-	SYSTEM PUBLIC
-		${GLIB2_INCLUDE_DIRS}
-)
-
-target_include_directories(epan
 	INTERFACE
 		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
 		$<INSTALL_INTERFACE:include/wireshark>
@@ -342,7 +332,6 @@ target_include_directories(epan
 		${KERBEROS_INCLUDE_DIRS}
 		${GLIB2_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
-		${LIBXML2_INCLUDE_DIRS}
 		${LUA_INCLUDE_DIRS}
 		${LZ4_INCLUDE_DIRS}
 		${NGHTTP2_INCLUDE_DIRS}
@@ -357,7 +346,7 @@ target_include_directories(epan
 		${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-add_dependencies(epan lemon)
+add_dependencies(epan lemon generate_ps_c)
 
 install(TARGETS epan
 	EXPORT WiresharkTargets
@@ -447,6 +436,7 @@ CHECKAPI(
 	SOURCES
 	  ${LIBWIRESHARK_NONGENERATED_FILES}
 )
+add_dependencies(checkAPI_epan generate_ps_c)
 
 #
 # Editor modelines  -  https://www.wireshark.org/tools/modelines.html

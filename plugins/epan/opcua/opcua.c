@@ -14,8 +14,8 @@
 ** Author: Gerhard Gappmeier <gerhard.gappmeier@ascolab.com>
 ******************************************************************************/
 
-#define WS_LOG_DOMAIN "opcua"
 #include "config.h"
+#define WS_LOG_DOMAIN "opcua"
 #include <wireshark.h>
 
 #include <epan/dissectors/packet-tcp.h>
@@ -450,9 +450,23 @@ static int decrypt_opcua(
     }
 
     gcry_cipher_hd_t handle;
-    gcry_cipher_open(&handle, cipher_mode, GCRY_CIPHER_MODE_CBC, GCRY_CIPHER_CBC_CTS);
-    gcry_cipher_setkey(handle, keydata, keylen);
-    gcry_cipher_setiv(handle, ivdata, ivlen);
+    res = gcry_cipher_open(&handle, cipher_mode, GCRY_CIPHER_MODE_CBC, GCRY_CIPHER_CBC_CTS);
+    if (res) {
+        ws_debug("opening cipher failed: %s %s.", gcry_strsource(res), gcry_strerror(res));
+        return -1;
+    }
+    res = gcry_cipher_setkey(handle, keydata, keylen);
+    if (res) {
+        ws_debug("setkey failed: %s %s.", gcry_strsource(res), gcry_strerror(res));
+        gcry_cipher_close(handle);
+        return -1;
+    }
+    res = gcry_cipher_setiv(handle, ivdata, ivlen);
+    if (res) {
+        ws_debug("setiv failed: %s %s.", gcry_strsource(res), gcry_strerror(res));
+        gcry_cipher_close(handle);
+        return -1;
+    }
 
     /* Decrypt the data in-place */
     res = gcry_cipher_decrypt(handle, plaintext, plaintext_len, cipher, cipher_len);
@@ -461,7 +475,7 @@ static int decrypt_opcua(
         ws_debug("decryption succeeded.");
     } else {
         /* col_append_fstr(pinfo->cinfo, COL_INFO, " (encrypted)"); */
-        ws_debug("decryption failed.");
+        ws_debug("decryption failed %s %s.", gcry_strsource(res), gcry_strerror(res));
         ret = -1;
     }
     gcry_cipher_close(handle);
@@ -648,7 +662,7 @@ static int dissect_opcua_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
                      * the padding (paddin_len+1), and the signature from the plaintext */
                     payload_len = plaintext_len - pad_len - sig_len - 9; /* pad_len 2 = 02 02 02 */
                     /* Now re-setup the tvb buffer to have the new data */
-                    decrypted_tvb = tvb_new_child_real_data(tvb, plaintext, (unsigned)plaintext_len, (int)plaintext_len);
+                    decrypted_tvb = tvb_new_child_real_data(tvb, plaintext, (unsigned)plaintext_len, (unsigned)plaintext_len);
                     add_new_data_source(pinfo, decrypted_tvb, "Decrypted Data");
                     /* process decrypted_tvb from here */
                     tvb = decrypted_tvb;

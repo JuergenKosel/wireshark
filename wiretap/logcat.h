@@ -43,8 +43,26 @@ struct logger_entry_v2 {
 /*    char    msg[0]; *//* the entry's payload */
 };
 
+/**
+ * @brief Opens a logcat capture file for reading.
+ *
+ * This function initializes the wtap structure to read from a JSON log file.
+ *
+ * @param wth Pointer to the wtap structure that will be initialized.
+ * @param err Pointer to an integer where error codes can be stored.
+ * @param err_info Pointer to a string where error information can be stored.
+ * @return A value indicating the success or failure of the operation.
+ */
 wtap_open_return_val  logcat_open(wtap *wth, int *err, char **err_info);
 
+/**
+ * @brief Calculate the length of a PDU (Protocol Data Unit) in a Logcat packet.
+ *
+ * This function calculates the total length of a PDU by iterating through the tags and their lengths.
+ *
+ * @param pd Pointer to the beginning of the PDU data.
+ * @return The calculated length of the PDU.
+ */
 int      logcat_exported_pdu_length(const uint8_t *pd);
 #endif
 

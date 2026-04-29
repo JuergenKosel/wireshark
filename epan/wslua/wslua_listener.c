@@ -319,10 +319,17 @@ WSLUA_METHOD Listener_remove(lua_State* L) {
 }
 
 WSLUA_METAMETHOD Listener__tostring(lua_State* L) {
-    /* Generates a string of debug info for the tap `Listener`. */
+    /* Returns a short label of the form
+       `Listener: <tap_name> filter=<filter> tapinfo=<yes|no>`.
+       Listeners without a display filter show `filter=none`, and
+       the `tapinfo` flag reflects whether a per-packet tapinfo
+       extractor is registered. */
     Listener tap = checkListener(L,1);
 
-    lua_pushfstring(L,"Listener(%s) filter: %s  tapinfo: %s",tap->name, tap->filter ? tap->filter : "NONE", tap->extractor ? "YES": "NO");
+    lua_pushfstring(L, "Listener: %s filter=%s tapinfo=%s",
+                    tap->name ? tap->name : "?",
+                    tap->filter ? tap->filter : "none",
+                    tap->extractor ? "yes" : "no");
 
     return 1;
 }

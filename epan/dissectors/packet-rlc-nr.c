@@ -44,12 +44,14 @@ void proto_reg_handoff_rlc_nr(void);
 /* By default do call PDCP/RRC dissectors for SDU data */
 static bool global_rlc_nr_call_pdcp_for_srb = true;
 
-enum pdcp_for_drb { PDCP_drb_off, PDCP_drb_SN_12, PDCP_drb_SN_18, PDCP_drb_SN_signalled};
+enum pdcp_for_drb { PDCP_drb_off, PDCP_drb_SN_12, PDCP_drb_SN_18, PDCP_drb_SN_signalled, PDCP_drb_SN_12_with_SDAP, PDCP_drb_SN_18_with_SDAP };
 static const enum_val_t pdcp_drb_col_vals[] = {
-    {"pdcp-drb-off",           "Off",                 PDCP_drb_off},
-    {"pdcp-drb-sn-12",         "12-bit SN",           PDCP_drb_SN_12},
-    {"pdcp-drb-sn-18",         "18-bit SN",           PDCP_drb_SN_18},
-    {"pdcp-drb-sn-signalling", "Use signalled value", PDCP_drb_SN_signalled},
+    {"pdcp-drb-off",             "Off",                 PDCP_drb_off},
+    {"pdcp-drb-sn-12",           "12-bit SN",           PDCP_drb_SN_12},
+    {"pdcp-drb-sn-18",           "18-bit SN",           PDCP_drb_SN_18},
+    {"pdcp-drb-sn-signalling",   "Use signalled value", PDCP_drb_SN_signalled},
+    {"pdcp-drb-sn-12-with-sdap", "12-bit SN with SDAP", PDCP_drb_SN_12_with_SDAP},
+    {"pdcp-drb-sn-18-with-sdap", "18-bit SN with SDAP", PDCP_drb_SN_18_with_SDAP},
     {NULL, NULL, -1}
 };
 /* Separate config for UL/DL */
@@ -395,7 +397,7 @@ static void show_PDU_in_info(packet_info *pinfo, proto_item *top_ti,
 
 
 /* Show an SDU. If configured, pass to PDCP/RRC dissector */
-static void show_PDU_in_tree(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, int length,
+static void show_PDU_in_tree(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, unsigned offset, unsigned length,
                              rlc_nr_info *rlc_info, uint32_t seg_info, bool is_reassembled)
 {
     wmem_tree_key_t key[2];
@@ -455,6 +457,15 @@ static void show_PDU_in_tree(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb
                         case PDCP_drb_SN_18:
                             p_pdcp_nr_info->seqnum_length = 18;
                             break;
+                        case PDCP_drb_SN_12_with_SDAP:
+                            p_pdcp_nr_info->seqnum_length = 12;
+                            p_pdcp_nr_info->sdap_header = PDCP_NR_UL_SDAP_HEADER_PRESENT;
+                            break;
+                        case PDCP_drb_SN_18_with_SDAP:
+                            p_pdcp_nr_info->seqnum_length = 18;
+                            p_pdcp_nr_info->sdap_header = PDCP_NR_UL_SDAP_HEADER_PRESENT;
+                            break;
+
                         case PDCP_drb_SN_signalled:
                             /* Use whatever was signalled (i.e. in RRC) */
                             id = (rlc_info->bearerId << 16) | rlc_info->ueid;
@@ -513,7 +524,7 @@ static void show_PDU_in_tree(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb
 /* Transparent mode PDU. Call RRC if configured to */
 static void dissect_rlc_nr_tm(tvbuff_t *tvb, packet_info *pinfo,
                               proto_tree *tree,
-                              int offset,
+                              unsigned offset,
                               rlc_nr_info *p_rlc_nr_info,
                               proto_item *top_ti)
 {
@@ -667,7 +678,7 @@ static void reassembly_frame_complete(packet_info *pinfo,
 /***************************************************/
 /* Unacknowledged mode PDU                         */
 static void dissect_rlc_nr_um(tvbuff_t *tvb, packet_info *pinfo,
-                              proto_tree *tree, int offset,
+                              proto_tree *tree, unsigned offset,
                               rlc_nr_info *p_rlc_nr_info, proto_item *top_ti,
                               rlc_3gpp_tap_info *tap_info)
 {
@@ -678,7 +689,7 @@ static void dissect_rlc_nr_um(tvbuff_t *tvb, packet_info *pinfo,
     proto_item *um_header_ti;
     proto_item *truncated_ti;
     proto_item *reserved_ti;
-    int start_offset = offset;
+    unsigned start_offset = offset;
     uint32_t so = 0;
 
     /* Hidden UM root */
@@ -814,7 +825,7 @@ static void dissect_rlc_nr_am_status_pdu(tvbuff_t *tvb,
                                          packet_info *pinfo,
                                          proto_tree *tree,
                                          proto_item *status_ti,
-                                         int offset,
+                                         unsigned offset,
                                          proto_item *top_ti,
                                          rlc_nr_info *p_rlc_nr_info,
                                          rlc_3gpp_tap_info *tap_info)
@@ -824,7 +835,7 @@ static void dissect_rlc_nr_am_status_pdu(tvbuff_t *tvb,
     uint64_t   ack_sn, nack_sn;
     uint64_t   e1, e2, e3, reserved;
     uint32_t   so_start, so_end, nack_range;
-    int        bit_offset = offset << 3;
+    unsigned   bit_offset = offset << 3;
     proto_item *ti;
 
     /****************************************************************/
@@ -1025,7 +1036,7 @@ static void dissect_rlc_nr_am_status_pdu(tvbuff_t *tvb,
 /***************************************************/
 /* Acknowledged mode PDU                           */
 static void dissect_rlc_nr_am(tvbuff_t *tvb, packet_info *pinfo,
-                              proto_tree *tree, int offset,
+                              proto_tree *tree, unsigned offset,
                               rlc_nr_info *p_rlc_nr_info, proto_item *top_ti,
                               rlc_3gpp_tap_info *tap_info _U_)
 {
@@ -1035,7 +1046,7 @@ static void dissect_rlc_nr_am(tvbuff_t *tvb, packet_info *pinfo,
     proto_item *am_ti;
     proto_tree *am_header_tree;
     proto_item *am_header_ti;
-    int    start_offset = offset;
+    unsigned start_offset = offset;
     proto_item *truncated_ti;
     proto_item *reserved_ti;
     uint32_t so = 0;
@@ -1190,7 +1201,7 @@ static void dissect_rlc_nr_am(tvbuff_t *tvb, packet_info *pinfo,
 static bool dissect_rlc_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
                                     proto_tree *tree, void *data _U_)
 {
-    int         offset = 0;
+    unsigned offset = 0;
     rlc_nr_info *p_rlc_nr_info;
     tvbuff_t    *rlc_tvb;
     uint8_t     tag;
@@ -1299,7 +1310,7 @@ static void dissect_rlc_nr_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     proto_item             *context_ti;
     proto_item             *ti;
     proto_item             *mode_ti;
-    int                    offset = 0;
+    unsigned                offset = 0;
     struct rlc_nr_info     *p_rlc_nr_info;
 
     /* Allocate and Zero tap struct */
@@ -1319,7 +1330,7 @@ static void dissect_rlc_nr_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
     /* Can't dissect anything without it... */
     if (p_rlc_nr_info == NULL) {
-        proto_tree_add_expert(rlc_nr_tree, pinfo, &ei_rlc_nr_no_per_frame_info, tvb, offset, -1);
+        proto_tree_add_expert_remaining(rlc_nr_tree, pinfo, &ei_rlc_nr_no_per_frame_info, tvb, offset);
         return;
     }
 

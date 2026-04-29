@@ -160,6 +160,7 @@ QVariant ExpertInfoProxyModel::data(const QModelIndex &proxy_index, int role) co
         return Qt::AlignLeft;
 
     case Qt::DisplayRole:
+    case Qt::AccessibleDescriptionRole:
         source_index = mapToSource(proxy_index);
 
         switch (proxy_index.column())
@@ -190,6 +191,9 @@ QVariant ExpertInfoProxyModel::data(const QModelIndex &proxy_index, int role) co
                         count++;
                 }
 
+                if (role == Qt::AccessibleDescriptionRole) {
+                    return tr("Count: %1").arg(count);
+                }
                 return count;
             }
         }
@@ -227,6 +231,32 @@ QVariant ExpertInfoProxyModel::headerData(int section, Qt::Orientation orientati
 int ExpertInfoProxyModel::columnCount(const QModelIndex&) const
 {
     return colProxyLast;
+}
+
+bool ExpertInfoProxyModel::hasChildren(const QModelIndex &parent) const
+{
+    QModelIndex source_parent = mapToSource(parent);
+    if (parent.isValid() && !source_parent.isValid())
+        return false;
+    if (!sourceModel()->hasChildren(source_parent))
+        return false;
+
+    if (sourceModel()->canFetchMore(source_parent))
+        return true; //we assume we might have children that can be fetched
+
+    // The base QSortFilterProxyModel::hasChildren creates a full mapping here,
+    // which can be reused by other functions, but does an expensive sort that
+    // isn't necessary just to see if there's children. When new expert infos
+    // get added to the model during tappping it invalidates that mapping, and
+    // don't want to keep calculating it.
+    // XXX - It might be ok to use the base function if we're not currently
+    // tapping.
+    for (int source_row = 0; source_row < sourceModel()->rowCount(source_parent); ++source_row) {
+        if (filterAcceptsRow(source_row, source_parent)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool ExpertInfoProxyModel::filterAcceptItem(ExpertPacketItem& item) const

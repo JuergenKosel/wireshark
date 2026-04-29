@@ -12,16 +12,22 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+/*
+ * The "AC DR" protocol is AudioCodes Debug Recording, a proprietary protocol used to send diagnostic data
+ * from AudioCodes devices to a server or application like Wireshark for troubleshooting purposes.
+ * It captures information such as SIP signaling, syslog messages, and optionally media (RTP/RTCP) and PCM data.
+ * The default port for ACDR is 925
+ */
 #include "config.h"
 
 #include <epan/packet.h>
 #include <epan/exceptions.h>
-#include <epan/ipproto.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
 #include <epan/to_str.h>
 #include "packet-acdr.h"
+#include <epan/iana-info.h>
 
 #define ACDR_VERSION_MAJOR 0
 #define ACDR_VERSION_MINOR 9
@@ -150,8 +156,8 @@ static const value_string acdr_media_type_vals[] = {
     {ACDR_PCM,              "PCM"                },
     {ACDR_NP_CONTROL,       "C5 Control packet"  },
     {ACDR_NP_DATA,          "C5 Data packet"     },
-    {ACDR_DSP_AC45X,        "DSP 64x Packet"     },
     {ACDR_DSP_AC48X,        "DSP 48x Packet"     },
+    {ACDR_DSP_AC45X,        "DSP 64x Packet"     },
     {ACDR_HA,               "HA trace"           },
     {ACDR_CAS,              "CAS"                },
     {ACDR_NET_BRICKS,       "Net Bricks trace"   },
@@ -211,8 +217,8 @@ static const value_string acdr_media_type_dummy_vals[] = {
     {ACDR_PCM,           ""             },
     {ACDR_NP_CONTROL,    ""             },
     {ACDR_NP_DATA,       ""             },
-    {ACDR_DSP_AC45X,     ""             },
     {ACDR_DSP_AC48X,     ""             },
+    {ACDR_DSP_AC45X,     ""             },
     {ACDR_HA,            ""             },
     {ACDR_CAS,           ""             },
     {ACDR_NET_BRICKS,    ""             },
@@ -878,7 +884,7 @@ dissect_rtp_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, uint8_t 
             // add the length & offset fields to the RTP payload
             rtp_data_tree = tree->last_child->last_child; // the rtp subtree->the payload field
 
-            if (rtp_data_tree) {
+            if (rtp_data_tree && PITEM_FINFO(rtp_data_tree)) {
                 proto_item_set_text(rtp_data_tree, "RTP Data (%d bytes, offset %d)",
                                     rtp_data_tree->finfo->length, rtp_data_tree->finfo->start);
             }
@@ -937,7 +943,6 @@ dissect_signaling_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ui
 {
     tvbuff_t *next_tvb = NULL;
     int32_t offset = 0;
-    int remaining;
     const bool is_incoming = trace_point == Host2Pstn || trace_point == DspIncoming;
 
     proto_tree_add_item(tree, hf_acdr_signaling_opcode, tvb, HEADER_FIELD_SIG_OPCODE_BYTE_NO,
@@ -956,10 +961,9 @@ dissect_signaling_packet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ui
         offset += HEADER_FIELD_SIG_TIME_BYTE_COUNT;
     }
 
-    remaining = tvb_reported_length_remaining(tvb, offset);
-    if (remaining == 0)
+    if (tvb_reported_length_remaining(tvb, offset) == 0)
         return tvb_reported_length(tvb);
-    next_tvb = tvb_new_subset_length_caplen(tvb, offset, remaining, -1);
+    next_tvb = tvb_new_subset_remaining(tvb, offset);
 
     return call_data_dissector(next_tvb, pinfo, tree);
 }
@@ -975,7 +979,7 @@ add_cid(proto_tree *tree, tvbuff_t *tvb, int offset, int cid_byte_length, int hf
     }
     if (cid_byte_length == 2 && cid == 0xFFFF)
         cid = -1;
-    proto_tree_add_int_format_value(tree, hf, tvb, offset, cid_byte_length, cid, "%d", cid);
+    proto_tree_add_int(tree, hf, tvb, offset, cid_byte_length, cid);
     return cid;
 }
 

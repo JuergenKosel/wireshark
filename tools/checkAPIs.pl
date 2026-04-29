@@ -69,6 +69,7 @@ my %APIs = (
                 'ntohs',
                 'htonl',
                 'htons',
+                # These two are coming in C23, but use GLib version for now:
                 'strdup',
                 'strndup',
                 # Windows doesn't have this; use g_ascii_strtoull() instead
@@ -116,6 +117,7 @@ my %APIs = (
                 'isupper',
                 'isxdigit',
                 'tolower',
+                'toupper',
                 'atof',
                 'strtod',
                 'strcasecmp',
@@ -150,21 +152,14 @@ my %APIs = (
                 'gnutls_init',
                 # Misc
                 'tmpnam',       # use mkstemp
-                '_snwprintf'    # use StringCchPrintf
+                '_snwprintf',   # use StringCchPrintf
+                'system'
                 ] },
 
         ### Soft-Deprecated functions that should not be used in new code but
         # have not been entirely removed from old code. These will become errors
         # once they've been removed from all existing code.
         'soft-deprecated' => { 'count_errors' => 0, 'functions' => [
-                'tvb_length_remaining', # replaced with tvb_captured_length_remaining
-
-                # Locale-unsafe APIs
-                # These may have unexpected behaviors in some locales (e.g.,
-                # "I" isn't always the upper-case form of "i", and "i" isn't
-                # always the lower-case form of "I").  Use the g_ascii_* version
-                # instead.
-                'toupper'
             ] },
 
         # APIs that SHOULD NOT be used in Wireshark (any more)
@@ -1197,15 +1192,6 @@ while ($_ = pop @filelist)
         {
                 # use PRI[dux...]N instead of ll
                 print STDERR RED, "Error: Found %ll in " .$filename."\n", RESET;
-                $errorCount++;
-        }
-
-        if ($fileContents =~ m{ %hh }xo)
-        {
-                # %hh is C99 and Windows doesn't like it:
-                # http://connect.microsoft.com/VisualStudio/feedback/details/416843/sscanf-cannot-not-handle-hhd-format
-                # Need to use temporary variables instead.
-                print STDERR RED, "Error: Found %hh in " .$filename."\n", RESET;
                 $errorCount++;
         }
 

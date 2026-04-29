@@ -92,7 +92,7 @@ struct ws80211_iface_info {
 /*
  * List of error types.
  * WS80211_ERROR is a generic error that might have a platform-specific
- * error mssage that depends on the last failed operation.
+ * error message that depends on the last failed operation.
  */
 #define WS80211_OK                  0
 #define WS80211_ERROR_NOT_SUPPORTED 1
@@ -119,17 +119,31 @@ int ws80211_init(void);
  * It'd save a bit of mallocing and freeing. */
 GArray* ws80211_find_interfaces(void);
 
+/**
+ * @brief Get information about a wireless interface.
+ *
+ * @param name The name of the interface to query.
+ * @param iface_info A pointer to a structure where the interface information will be stored.
+ * @return 0 on success, non-zero on failure.
+ */
 int ws80211_get_iface_info(const char *name, struct ws80211_iface_info *iface_info);
 
-/** Free an interface list.
+/**
+ * @brief Free an interface list.
  *
  * @param interfaces A list of interfaces created with ws80211_find_interfaces().
  */
 void ws80211_free_interfaces(GArray *interfaces);
 
+/**
+ * @brief Clear the frequencies array in a ws80211_band structure.
+ *
+ * @param band The pointer to the ws80211_band structure whose frequencies array is to be cleared.
+ */
 void ws80211_clear_band(struct ws80211_band *band);
 
-/** Set the frequency and channel width for an interface.
+/**
+ * @brief Set the frequency and channel width for an interface.
  *
  * @param name The interface name.
  * @param freq The frequency in MHz.
@@ -140,18 +154,33 @@ void ws80211_clear_band(struct ws80211_band *band);
  */
 int ws80211_set_freq(const char *name, uint32_t freq, int chan_type, uint32_t _U_ center_freq, uint32_t _U_ center_freq2);
 
+/**
+ * @brief Convert a string representation of a channel type to its corresponding enum value.
+ *
+ * @param s The string representation of the channel type.
+ * @return int The corresponding enum value, or -1 if the string is invalid.
+ */
 int ws80211_str_to_chan_type(const char *s);
+
+/**
+ * @brief Convert a Wi-Fi channel type to its string representation.
+ *
+ * @param type The Wi-Fi channel type to convert.
+ * @return const char* The string representation of the channel type, or NULL if unknown.
+ */
 const char *ws80211_chan_type_to_str(enum ws80211_channel_type type);
 
 const char *ws80211_band_type_to_str(enum ws80211_band_type type);
 
-/** Check to see if we have FCS filtering.
+/**
+ * @brief Check to see if we have FCS filtering.
  *
  * @return true if FCS filtering is supported on this platform.
  */
 bool ws80211_has_fcs_filter(void);
 
-/** Set the FCS validation behavior for an interface.
+/**
+ * @brief Set the FCS validation behavior for an interface.
  *
  * @param name The interface name.
  * @param fcs_validation The desired validation behavior.
@@ -160,7 +189,9 @@ bool ws80211_has_fcs_filter(void);
 int ws80211_set_fcs_validation(const char *name, enum ws80211_fcs_validation fcs_validation);
 
 
-/** Get the path to a helper application.
+/**
+ * @brief Get the path to a helper application.
+ *
  * Return the path to a separate 802.11 helper application, e.g.
  * the GNOME Network Manager.
  *
@@ -169,7 +200,8 @@ int ws80211_set_fcs_validation(const char *name, enum ws80211_fcs_validation fcs
 const char *ws80211_get_helper_path(void);
 
 
-/** Return center frequency of an 80M/160M/320M channel.
+/**
+ * @brief Return center frequency of an 80M/160M/320M channel.
  *
  * @param control_frequency Control channel frequency in MHz.
  * @param channel_type The channel type.

@@ -44,8 +44,8 @@
 #ifdef HAVE_LIBPCAP
 #include "ui/capture_opts.h"
 #endif
+#include "ui/plugins/include/plugin_if.h"
 
-#include <epan/plugin_if.h>
 #include <epan/timestamp.h>
 
 #include <capture/capture_session.h>
@@ -72,7 +72,6 @@ class PrintDialog;
 class FileSetDialog;
 class FilterDialog;
 class FunnelStatistics;
-class WelcomePage;
 class PacketCommentDialog;
 class PacketList;
 class ProtoTree;
@@ -102,10 +101,11 @@ public:
     info_data_t *captureInfoData() { return &info_data_; }
 #endif
 
-    virtual QMenu *createPopupMenu();
+    QMenu *createPopupMenu() override;
 
     CaptureFile *captureFile() { return &capture_file_; }
 
+    void setFunnelMenus(void);
     void removeAdditionalToolbar(QString toolbarName);
 
     void addInterfaceToolbar(const iface_toolbar *toolbar_entry);
@@ -115,13 +115,17 @@ public:
     void setMwFileName(QString fileName);
 
 protected:
-    virtual bool eventFilter(QObject *obj, QEvent *event);
-    virtual bool event(QEvent *event);
-    virtual void keyPressEvent(QKeyEvent *event);
-    virtual void closeEvent(QCloseEvent *event);
-    virtual void dragEnterEvent(QDragEnterEvent *event);
-    virtual void dropEvent(QDropEvent *event);
-    virtual void changeEvent(QEvent* event);
+    bool eventFilter(QObject *obj, QEvent *event) override;
+    bool event(QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+    void changeEvent(QEvent* event) override;
+    void openRecentCaptureFile(const QString &filename) override;
+
+
+    bool tryClosingCaptureFile(QString before_what, FileCloseContext context = Default) override;
 
 private:
     // XXX Move to FilterUtils
@@ -132,14 +136,6 @@ private:
         MatchSelectedNot,
         MatchSelectedAndNot,
         MatchSelectedOrNot
-    };
-
-    enum FileCloseContext {
-        Default,
-        Quit,
-        Restart,
-        Reload,
-        Update
     };
 
     Ui::StratosharkMainWindow *main_ui_;
@@ -168,14 +164,6 @@ private:
     info_data_t info_data_;
 #endif
 
-#if defined(Q_OS_MAC)
-    QMenu *dock_menu_;
-#endif
-
-#ifdef HAVE_SOFTWARE_UPDATE
-    QAction *update_action_;
-#endif
-
     QPoint dragStartPosition;
 
     void freeze();
@@ -191,7 +179,6 @@ private:
 #ifdef Q_OS_WIN
     void fileAddExtension(QString &file_name, int file_type, ws_compression_type compression_type);
 #endif // Q_OS_WIN
-    bool testCaptureFileClose(QString before_what, FileCloseContext context = Default);
     void captureStop();
 
     void initMainToolbarIcons();
@@ -200,12 +187,11 @@ private:
     void initTimePrecisionFormatMenu();
     void initFreezeActions();
 
-    void setMenusForCaptureFile(bool force_disable = false);
+    void setMenusForCaptureFile(bool force_disable = false) override;
     void setMenusForCaptureInProgress(bool capture_in_progress = false);
     void setMenusForCaptureStopping();
     void setForCapturedPackets(bool have_captured_packets);
     void setMenusForFileSet(bool enable_list_files);
-    void setWindowIcon(const QIcon &icon);
     void updateStyleSheet();
 
     void externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, int depth);
@@ -252,7 +238,7 @@ public slots:
     // XXX We might want to return a cf_read_status_t or a CaptureFile.
     bool openCaptureFile(QString cf_path, QString display_filter, unsigned int type, bool is_tempfile = false);
     bool openCaptureFile(QString cf_path = QString(), QString display_filter = QString()) { return openCaptureFile(cf_path, display_filter, WTAP_TYPE_AUTO); }
-    void filterPackets(QString new_filter = QString(), bool force = false);
+    void filterPackets(QString new_filter = QString(), bool force = false) override;
     void updateForUnsavedChanges();
     void layoutToolbars();
     void updatePreferenceActions();
@@ -274,6 +260,10 @@ public slots:
     void captureFileReadFinished();
     void captureFileClosing();
     void captureFileClosed();
+
+#ifdef HAVE_LUA
+    void openLuaDebuggerDialog();
+#endif
 
 private slots:
 
@@ -300,7 +290,6 @@ private slots:
     void saveWindowGeometry();
     void mainStackChanged(int);
     void updateRecentCaptures();
-    void recentActionTriggered();
     void addPacketComment();
     void editPacketComment();
     void deletePacketComment();
@@ -353,10 +342,6 @@ private slots:
     void openTapParameterDialog(const QString cfg_str, const QString arg, void *userdata);
     void openTapParameterDialog();
 
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-    void softwareUpdateRequested();
-#endif
-
     void connectFileMenuActions();
     void printFile();
 
@@ -370,7 +355,7 @@ private slots:
     void editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result, unsigned nComment);
     void deleteAllPacketComments();
     void deleteAllPacketCommentsFinished(int result);
-    void showPreferencesDialog(QString module_name);
+    void showPreferencesDialog(QString module_name) override;
 
     void connectViewMenuActions();
     void showHideMainWidgets(QAction *action);
@@ -413,10 +398,6 @@ private slots:
 
     void connectHelpMenuActions();
 
-#ifdef HAVE_SOFTWARE_UPDATE
-    void checkForUpdates();
-#endif
-
     void goToCancelClicked();
     void goToGoClicked();
     void goToLineEditReturnPressed();
@@ -429,9 +410,9 @@ private slots:
 
     void openStatisticsTreeDialog(const char *abbr);
     void statCommandIOGraph(const char *, void *);
-    void showIOGraphDialog(io_graph_item_unit_t, QString);
+    void showIOGraphDialog(io_graph_item_unit_t, QString) override;
 
-    void showPlotDialog(const QString& y_field = QString(), bool filtered = false);
+    void showPlotDialog(const QString& y_field = QString(), bool filtered = false) override;
 
     void externalMenuItemTriggered();
 
@@ -439,7 +420,7 @@ private slots:
     void on_actionContextFilterFieldReference_triggered();
 
     void extcap_options_finished(int result);
-    void showExtcapOptionsDialog(QString & device_name, bool startCaptureOnClose);
+    void showExtcapOptionsDialog(QString device_name, bool startCaptureOnClose);
 
     friend class MainApplication;
 };

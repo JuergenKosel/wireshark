@@ -144,9 +144,9 @@ static int ett_ancp_oam_timeout;
 static int proto_ancp;
 
 /* ANCP stats - Tap interface */
-static const uint8_t *st_str_packets        = "Total Packets";
-static const uint8_t *st_str_packet_types   = "ANCP Packet Types";
-static const uint8_t *st_str_adj_pack_types = "ANCP Adjacency Packet Types";
+static const char *st_str_packets        = "Total Packets";
+static const char *st_str_packet_types   = "ANCP Packet Types";
+static const char *st_str_adj_pack_types = "ANCP Adjacency Packet Types";
 
 static int st_node_packets = -1;
 static int st_node_packet_types = -1;
@@ -360,12 +360,10 @@ dissect_ancp_tlv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tlv_tree, int of
         int16_t     num_stlvs;
         proto_item *tti;
 
-            proto_tree_add_item(tlv_tree, hf_ancp_ext_tlv_type, tvb, offset, 2, ENC_BIG_ENDIAN);
-            ttype = tvb_get_ntohs(tvb, offset);
+            proto_tree_add_item_ret_uint16(tlv_tree, hf_ancp_ext_tlv_type, tvb, offset, 2, ENC_BIG_ENDIAN, &ttype);
             offset += 2;
 
-            tti = proto_tree_add_item(tlv_tree, hf_ancp_ext_tlv_len, tvb, offset, 2, ENC_BIG_ENDIAN);
-            tlen = tvb_get_ntohs(tvb, offset);
+            tti = proto_tree_add_item_ret_uint16(tlv_tree, hf_ancp_ext_tlv_len, tvb, offset, 2, ENC_BIG_ENDIAN, &tlen);
             offset += 2;
 
             /*
@@ -489,8 +487,7 @@ dissect_ancp_port_up_dn_mgmt(tvbuff_t *tvb, packet_info* pinfo, proto_tree *ancp
         offset += 2;
         tech_type = 0;
     } else {
-        proto_tree_add_item(ancp_tree, hf_ancp_tech_type,     tvb, offset, 1, ENC_BIG_ENDIAN);
-        tech_type = tvb_get_uint8(tvb, offset);
+        proto_tree_add_item_ret_uint8(ancp_tree, hf_ancp_tech_type,  tvb, offset, 1, ENC_BIG_ENDIAN, &tech_type);
         offset += 1;
 
         proto_tree_add_item(ancp_tree, hf_ancp_reserved,      tvb, offset, 1, ENC_NA);
@@ -655,17 +652,15 @@ dissect_ancp_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
     offset = 2; /* skip ether type */
 
-    proto_tree_add_item(ancp_tree, hf_ancp_len, tvb, offset, 2, ENC_BIG_ENDIAN);
-    len = tvb_get_ntohs(tvb, offset);
+    proto_tree_add_item_ret_uint16(ancp_tree, hf_ancp_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
     offset += 2;
 
-    sti  = proto_tree_add_item(ancp_tree, hf_ancp_ver, tvb, offset, 1, ENC_BIG_ENDIAN);
-    byte = tvb_get_uint8(tvb, offset);
+    sti  = proto_tree_add_item_ret_uint8(ancp_tree, hf_ancp_ver, tvb, offset, 1, ENC_BIG_ENDIAN, &byte);
     offset += 1;
     proto_item_append_text(sti, " (%d.%d)", byte >> 4, byte & 0x0F);
 
-    sti = proto_tree_add_item(ancp_tree, hf_ancp_mtype, tvb, offset, 1, ENC_BIG_ENDIAN);
-    mtype = tvb_get_uint8(tvb, offset); /* ANCP message type */
+    /* ANCP message type */
+    sti = proto_tree_add_item_ret_uint8(ancp_tree, hf_ancp_mtype, tvb, offset, 1, ENC_BIG_ENDIAN, &mtype);
     ancp_info->ancp_mtype = mtype; /* stats */
     offset += 1;
 
@@ -1027,11 +1022,7 @@ proto_register_ancp(void)
         &ett_ancp_oam_timeout,
     };
 
-    proto_ancp = proto_register_protocol (
-            "Access Node Control Protocol",
-            "ANCP",
-            "ancp"
-            );
+    proto_ancp = proto_register_protocol ("Access Node Control Protocol", "ANCP", "ancp");
 
     proto_register_field_array(proto_ancp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));

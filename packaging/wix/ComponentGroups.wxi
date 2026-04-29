@@ -27,6 +27,9 @@
         <Component Id="cmpLibwsutil_dll" Guid="*">
           <File Id="filLibwsutil_dll" KeyPath="yes" Source="$(var.Staging.Dir)\libwsutil.dll" />
         </Component>
+        <Component Id="cmpLibuiqt_plugin_dll" Guid="*">
+          <File Id="filLibuiqt_plugin_dll" KeyPath="yes" Source="$(var.Staging.Dir)\libuiqt_plugin.dll" />
+        </Component>
         <Component Id="cmpCOPYING_txt" Guid="*">
           <File Id="filCOPYING_txt" KeyPath="yes" Source="$(var.Staging.Dir)\COPYING.txt" />
         </Component>
@@ -70,6 +73,7 @@
         <ComponentRef Id="cmpWiretap_dll" />
         <ComponentRef Id="cmpLibwireshark_dll" />
         <ComponentRef Id="cmpLibwsutil_dll" />
+        <ComponentRef Id="cmpLibuiqt_plugin_dll" />
         <ComponentRef Id="cmpCOPYING_txt" />
         <ComponentRef Id="cmpREADME_txt" />
         <ComponentRef Id="cmpWka" />
@@ -183,6 +187,20 @@
         </ComponentGroup>
     </Fragment>
 
+  <!-- TRDP XML file -->
+    <Fragment>
+        <DirectoryRef Id="dirTrdp">
+            <Component Id="cmpTrdp_base_xml" Guid="*">
+                <File Id="filTrdp_base_xml" KeyPath="yes" Source="$(var.Trdp.Dir)\iec_61375-2-3.xml" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <ComponentGroup Id="CG.Trdp">
+            <ComponentRef Id="cmpTrdp_base_xml" />
+        </ComponentGroup>
+    </Fragment>
+
   <!-- wimaxasncp TLV definitions -->
     <Fragment>
       <DirectoryRef Id="dirWimaxasncp">
@@ -207,11 +225,59 @@
         <Component Id="cmpProtobuf_sparkplug_b_proto" Guid="*">
           <File Id="filProtobuf_sparkplug_b_proto" KeyPath="yes" Source="$(var.Protobuf.Dir)\sparkplug_b.proto" />
         </Component>
+        <Component Id="cmpProtobuf_mysqlx_main" Guid="*">
+          <File Id="filProtobuf_mysqlx" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_connection" Guid="*">
+          <File Id="filProtobuf_mysqlx_connection" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_connection.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_crud" Guid="*">
+          <File Id="filProtobuf_mysqlx_crud" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_crud.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_cursor" Guid="*">
+          <File Id="filProtobuf_mysqlx_cursor" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_cursor.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_datatypes" Guid="*">
+          <File Id="filProtobuf_mysqlx_datatypes" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_datatypes.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_expect" Guid="*">
+          <File Id="filProtobuf_mysqlx_expect" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_expect.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_expr" Guid="*">
+          <File Id="filProtobuf_mysqlx_expr" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_expr.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_notice" Guid="*">
+          <File Id="filProtobuf_mysqlx_notice" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_notice.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_prepare" Guid="*">
+          <File Id="filProtobuf_mysqlx_prepare" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_prepare.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_resultset" Guid="*">
+          <File Id="filProtobuf_mysqlx_resultset" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_resultset.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_session" Guid="*">
+          <File Id="filProtobuf_mysqlx_session" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_session.proto" />
+        </Component>
+        <Component Id="cmpProtobuf_mysqlx_sql" Guid="*">
+          <File Id="filProtobuf_mysqlx_sql" KeyPath="yes" Source="$(var.Protobuf.Dir)\mysqlx_sql.proto" />
+        </Component>
       </DirectoryRef>
     </Fragment>
     <Fragment>
       <ComponentGroup Id="CG.Protobuf">
         <ComponentRef Id="cmpProtobuf_sparkplug_b_proto" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_main" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_connection" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_crud" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_cursor" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_datatypes" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_expect" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_expr" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_notice" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_prepare" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_resultset" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_session" />
+        <ComponentRef Id="cmpProtobuf_mysqlx_sql" />
       </ComponentGroup>
     </Fragment>
 
@@ -884,6 +950,13 @@
         <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="wpz" Type="integer" Value="1" KeyPath="yes"/>
         <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
       </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- libgcrypt dummy configuration directory -->
+  <Fragment>
+    <ComponentGroup Id="CG.gcrypt">
+      <ComponentRef Id="gpg4win_etc_gcrypt" />
     </ComponentGroup>
   </Fragment>
 

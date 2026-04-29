@@ -14,12 +14,14 @@ and processes the YAML into human-readable strings to go into packet-bluetooth-d
 '''
 
 import sys
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
+import urllib.error
+import urllib.parse
 import yaml
 
 base_url = "https://bitbucket.org/bluetooth-SIG/public/raw/HEAD/assigned_numbers/"
 
-OUTPUT_FILE = "epan/dissectors/packet-bluetooth-data.c"
+OUTPUT_FILE = "epan/dissectors/data-bluetooth.c"
 
 MIN_UUIDS = 1400       # 1424 as of 31-12-2023
 MIN_COMPANY_IDS = 3400 # 3405 as of 31-12-2023

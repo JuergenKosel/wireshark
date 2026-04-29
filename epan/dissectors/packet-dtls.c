@@ -82,13 +82,21 @@ static proto_tree *top_tree;
 
 /* https://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml */
 
-#define SRTP_PROFILE_RESERVED       0x0000
-#define SRTP_AES128_CM_HMAC_SHA1_80 0x0001
-#define SRTP_AES128_CM_HMAC_SHA1_32 0x0002
-#define SRTP_NULL_HMAC_SHA1_80      0x0005
-#define SRTP_NULL_HMAC_SHA1_32      0x0006
-#define SRTP_AEAD_AES_128_GCM       0x0007
-#define SRTP_AEAD_AES_256_GCM       0x0008
+#define SRTP_PROFILE_RESERVED                    0x0000
+#define SRTP_AES128_CM_HMAC_SHA1_80              0x0001
+#define SRTP_AES128_CM_HMAC_SHA1_32              0x0002
+#define SRTP_NULL_HMAC_SHA1_80                   0x0005
+#define SRTP_NULL_HMAC_SHA1_32                   0x0006
+#define SRTP_AEAD_AES_128_GCM                    0x0007
+#define SRTP_AEAD_AES_256_GCM                    0x0008
+#define DOUBLE_AEAD_AES_128_GCM_AEAD_AES_128_GCM 0x0009
+#define DOUBLE_AEAD_AES_256_GCM_AEAD_AES_256_GCM 0x000A
+#define SRTP_ARIA_128_CTR_HMAC_SHA1_80           0x000B
+#define SRTP_ARIA_128_CTR_HMAC_SHA1_32           0x000C
+#define SRTP_ARIA_256_CTR_HMAC_SHA1_80           0x000D
+#define SRTP_ARIA_256_CTR_HMAC_SHA1_32           0x000E
+#define SRTP_AEAD_ARIA_128_GCM                   0x000F
+#define SRTP_AEAD_ARIA_256_GCM                   0x0010
 
 #define DTLS13_FIXED_MASK 0xE0
 #define DTLS13_C_BIT_MASK 0x10
@@ -103,6 +111,14 @@ static const value_string srtp_protection_profile_vals[] = {
   { SRTP_NULL_HMAC_SHA1_32, "SRTP_NULL_HMAC_SHA1_32" },
   { SRTP_AEAD_AES_128_GCM, "SRTP_AEAD_AES_128_GCM" }, /* RFC 7714 */
   { SRTP_AEAD_AES_256_GCM, "SRTP_AEAD_AES_256_GCM" },
+  { DOUBLE_AEAD_AES_128_GCM_AEAD_AES_128_GCM, "DOUBLE_AEAD_AES_128_GCM_AEAD_AES_128_GCM" }, /* RFC 8723 */
+  { DOUBLE_AEAD_AES_256_GCM_AEAD_AES_256_GCM, "DOUBLE_AEAD_AES_256_GCM_AEAD_AES_256_GCM" },
+  { SRTP_ARIA_128_CTR_HMAC_SHA1_80, "SRTP_ARIA_128_CTR_HMAC_SHA1_80" }, /* RFC 8269 */
+  { SRTP_ARIA_128_CTR_HMAC_SHA1_32, "SRTP_ARIA_128_CTR_HMAC_SHA1_32" },
+  { SRTP_ARIA_256_CTR_HMAC_SHA1_80, "SRTP_ARIA_256_CTR_HMAC_SHA1_80" },
+  { SRTP_ARIA_256_CTR_HMAC_SHA1_32, "SRTP_ARIA_256_CTR_HMAC_SHA1_32" },
+  { SRTP_AEAD_ARIA_128_GCM, "SRTP_AEAD_ARIA_128_GCM" },
+  { SRTP_AEAD_ARIA_256_GCM, "SRTP_AEAD_ARIA_256_GCM" },
   { 0x00, NULL },
 };
 
@@ -212,7 +228,7 @@ static dissector_table_t   dtls_associations;
 static dissector_handle_t  dtls_handle;
 static StringInfo          dtls_compressed_data;
 static StringInfo          dtls_decrypted_data;
-static int                 dtls_decrypted_data_avail;
+static unsigned            dtls_decrypted_data_avail;
 
 static ssl_common_options_t dtls_options;
 static const char *dtls_debug_file_name;
@@ -3063,7 +3079,7 @@ proto_register_dtls(void)
   static build_valid_func dtls_da_both_values[2] = {dtls_src_value, dtls_dst_value};
   static decode_as_value_t dtls_da_values[3] = {{dtls_src_prompt, 1, dtls_da_src_values}, {dtls_dst_prompt, 1, dtls_da_dst_values}, {dtls_both_prompt, 2, dtls_da_both_values}};
   static decode_as_t dtls_da = {"dtls", "dtls.port", 3, 2, dtls_da_values, "UDP", "port(s) as",
-                               decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                               decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
   expert_module_t* expert_dtls;
 

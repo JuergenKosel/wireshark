@@ -14,8 +14,6 @@
 
 #include "wsutil/feature_list.h"
 
-#include "epan/register.h"
-
 #include "ui/help_url.h"
 
 #include <QApplication>
@@ -33,19 +31,6 @@ class QAction;
 class QSocketNotifier;
 
 class MainWindow;
-
-// Recent items:
-// - Read from prefs
-// - Add from open file
-// - Check current list
-// - Signal updated item
-// -
-typedef struct _recent_item_status {
-    QString filename;
-    qint64 size;
-    bool accessible;
-    bool in_thread;
-} recent_item_status;
 
 class MainApplication : public QApplication
 {
@@ -66,7 +51,6 @@ public:
         PacketDissectionChanged,
         PreferencesChanged,
         ProfileChanging,
-        RecentCapturesChanged,
         RecentPreferencesRead,
         FreezePacketList,
         AggregationVisiblity,
@@ -87,7 +71,6 @@ public:
         TemporaryStatus
     };
 
-    void registerUpdate(register_action_e action, const char *message);
     void emitAppSignal(AppSignal signal);
     // Emitting app signals (PacketDissectionChanged in particular) from
     // dialogs on macOS can be problematic. Dialogs should call queueAppSignal
@@ -114,7 +97,7 @@ public:
     void clearAddedMenuGroupItems();
     void clearRemovedMenuGroupItems();
 
-    void allSystemsGo(const char* name_proper, const char* version);
+    void allSystemsGo();
     void emitLocalInterfaceEvent(const char *ifname, int added, int up);
 
     virtual void refreshLocalInterfaces();
@@ -127,9 +110,6 @@ public:
 #endif
 
     struct _e_prefs * readConfigurationFiles(bool reset);
-    QList<recent_item_status *> recentItems() const;
-    void addRecentItem(const QString filename, qint64 size, bool accessible);
-    void removeRecentItem(const QString &filename);
     QDir openDialogInitialDir();
     void setLastOpenDirFromFilename(QString file_name);
     void helpTopicAction(topic_action_e action);
@@ -147,11 +127,7 @@ public:
     const QString windowTitleString(QStringList title_parts);
     const QString windowTitleString(QString title_part) { return windowTitleString(QStringList() << title_part); }
     void applyCustomColorsFromRecent();
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-    void rejectSoftwareUpdate() { software_update_ok_ = false; }
-    bool softwareUpdateCanShutdown();
-    void softwareUpdateShutdownRequest();
-#endif
+
     MainWindow *mainWindow();
 
     QTranslator translator;
@@ -174,7 +150,6 @@ private:
     bool is_reloading_lua_;
     QFont mono_font_;
     QFont zoomed_font_;
-    QTimer recent_timer_;
     QTimer packet_data_timer_;
     QTimer tap_update_timer_;
     QList<QString> pending_open_files_;
@@ -183,10 +158,6 @@ private:
     QList<AppSignal> app_signals_;
     int active_captures_;
     bool refresh_interfaces_pending_;
-
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-    bool software_update_ok_;
-#endif
 
     void storeCustomColorsInRecent();
     void clearDynamicMenuGroupItems();
@@ -209,8 +180,6 @@ signals:
     void openCaptureFile(QString cf_path, QString display_filter, unsigned int type);
     void openCaptureOptions();
     void recentPreferencesRead();
-    void updateRecentCaptureStatus(const QString &filename, qint64 size, bool accessible);
-    void splashUpdate(register_action_e action, const char *message);
     void profileChanging();
     void profileNameChanged(const char *profile_name);
 
@@ -229,11 +198,6 @@ signals:
     void reloadLuaPlugins();
     void aggregationVisiblity();
     void aggregationChanged();
-#if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
-    // Each of these are called from a separate thread.
-    void softwareUpdateRequested();
-    void softwareUpdateQuit();
-#endif
 
     void openStatCommandDialog(const QString &menu_path, const char *arg, void *userdata);
     void openTapParameterDialog(const QString cfg_str, const QString arg, void *userdata);
@@ -245,9 +209,6 @@ signals:
     void zoomMonospaceFont(const QFont & font);
 
 public slots:
-    void clearRecentCaptures();
-    void refreshRecentCaptures();
-
     void captureEventHandler(CaptureEvent);
 
     // Flush queued app signals. Should be called from the main window after
@@ -255,8 +216,6 @@ public slots:
     void flushAppSignals();
 
     void reloadDisplayFilterMacros();
-
-    void itemStatusFinished(const QString filename = "", qint64 size = 0, bool accessible = false);
 
 private slots:
     void updateTaps();

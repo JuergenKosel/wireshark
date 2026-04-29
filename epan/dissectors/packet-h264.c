@@ -1195,8 +1195,7 @@ dissect_h264_profile(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
      *    shall be set equal to 0.
      */
 
-    level_idc = tvb_get_uint8(tvb, offset);
-    level_item = proto_tree_add_item(h264_profile_tree, hf_h264_level_idc, tvb, offset, 1, ENC_BIG_ENDIAN);
+    level_item = proto_tree_add_item_ret_uint(h264_profile_tree, hf_h264_level_idc, tvb, offset, 1, ENC_BIG_ENDIAN, &level_idc);
     if ((level_idc == 11) && (constraint_set3_flag == 1)) {
         proto_item_append_text(level_item," [Level 1b (128kb/s)]");
     } else {
@@ -1227,15 +1226,15 @@ dissect_h264_profile(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
  */
 
 static tvbuff_t *
-dissect_h265_unescap_nal_unit(tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h265_unescap_nal_unit(tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     tvbuff_t *tvb_rbsp;
     int       length         = tvb_reported_length_remaining(tvb, offset);
     int       NumBytesInRBSP = 0;
     int       i;
-    char     *buff;
+    uint8_t  *buff;
 
-    buff = (char *)wmem_alloc(pinfo->pool, length);
+    buff = (uint8_t *)wmem_alloc(pinfo->pool, length);
     for (i = 0; i < length; i++) {
         if ((i + 2 < length) && (tvb_get_ntoh24(tvb, offset) == 0x000003)) {
             buff[NumBytesInRBSP++] = tvb_get_uint8(tvb, offset);
@@ -1260,7 +1259,7 @@ dissect_h265_unescap_nal_unit(tvbuff_t *tvb, packet_info *pinfo, int offset)
  */
 
 static void
-dissect_h264_slice_layer_without_partitioning_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_slice_layer_without_partitioning_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int bit_offset;
 
@@ -1268,7 +1267,7 @@ dissect_h264_slice_layer_without_partitioning_rbsp(proto_tree *tree, tvbuff_t *t
 
     /* slice_header( ) 2 */
     bit_offset = dissect_h264_slice_header(tree, tvb, pinfo, bit_offset);
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
     return;
     /* slice_data( ) * all categories of slice_data( ) syntax * 2 | 3 | 4 */
     /* rbsp_slice_trailing_bits( ) */
@@ -1279,7 +1278,7 @@ dissect_h264_slice_layer_without_partitioning_rbsp(proto_tree *tree, tvbuff_t *t
  * slice_data_partition_a_layer_rbsp( )
  */
 static void
-dissect_h264_slice_data_partition_a_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_slice_data_partition_a_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int bit_offset;
 
@@ -1290,7 +1289,7 @@ dissect_h264_slice_data_partition_a_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, 
 
     /* slice_id All ue(v) */
     dissect_h264_exp_golomb_code(tree, pinfo, hf_h264_slice_id, tvb, &bit_offset, H264_UE_V);
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
     return;
     /* slice_data( ) * only category 2 parts of slice_data( ) syntax * 2*/
     /* rbsp_slice_trailing_bits( )*/
@@ -1301,7 +1300,7 @@ dissect_h264_slice_data_partition_a_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, 
  * slice_data_partition_b_layer_rbsp(
  */
 static void
-dissect_h264_slice_data_partition_b_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_slice_data_partition_b_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int bit_offset;
 
@@ -1313,7 +1312,7 @@ dissect_h264_slice_data_partition_b_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, 
     /* redundant_pic_cnt All ue(v) */
     /* slice_data( ) * only category 3 parts of slice_data( ) syntax * 3 */
     /* rbsp_slice_trailing_bits( ) 3 */
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
 
 }
 
@@ -1322,7 +1321,7 @@ dissect_h264_slice_data_partition_b_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, 
  * slice_data_partition_c_layer_rbsp( )
  */
 static void
-dissect_h264_slice_data_partition_c_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_slice_data_partition_c_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int bit_offset;
 
@@ -1334,7 +1333,7 @@ dissect_h264_slice_data_partition_c_layer_rbsp(proto_tree *tree, tvbuff_t *tvb, 
     /* redundant_pic_cnt All ue(v) */
     /* slice_data( ) * only category 4 parts of slice_data( ) syntax * 4 */
     /* rbsp_slice_trailing_bits( ) 4 */
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
 }
 
 /* D.1.6 User data unregistered SEI message syntax */
@@ -1347,7 +1346,7 @@ h264_user_data_unregistered(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo 
     uint8_t p_flag;
     uint8_t desc =0;
     uint8_t num_crops;
-    int offset = bit_offset >> 3;
+    unsigned offset = bit_offset >> 3;
     proto_item *item;
     proto_item *uuid_item;
     proto_tree *h264_ms_layer_desc_tree;
@@ -1626,7 +1625,7 @@ dissect_h264_sei_message(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, in
  * sei_rbsp( )
  */
 static int
-dissect_h264_sei_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_sei_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     int bit_offset;
 
@@ -1650,7 +1649,7 @@ dissect_h264_sei_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, i
 
 /* Ref 7.3.2.1 Sequence parameter set RBSP syntax */
 static int
-dissect_h264_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     proto_item *level_item;
     int         bit_offset;
@@ -1664,8 +1663,7 @@ dissect_h264_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
     int         ScalingList4x4[6][16], ScalingList8x8[2][64];
 
     /* profile_idc 0 u(8) */
-    profile_idc = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_h264_profile_idc, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(tree, hf_h264_profile_idc, tvb, offset, 1, ENC_BIG_ENDIAN, &profile_idc);
     offset++;
 
     constraint_set3_flag = (tvb_get_uint8(tvb, offset)&0x10)>>4;
@@ -1692,8 +1690,7 @@ dissect_h264_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
     offset++;
 
     /* level_idc 0 u(8) */
-    level_idc = tvb_get_uint8(tvb, offset);
-    level_item = proto_tree_add_item(tree, hf_h264_level_idc, tvb, offset, 1, ENC_BIG_ENDIAN);
+    level_item = proto_tree_add_item_ret_uint(tree, hf_h264_level_idc, tvb, offset, 1, ENC_BIG_ENDIAN, &level_idc);
     if ((level_idc == 11) && (constraint_set3_flag == 1)) {
         proto_item_append_text(level_item,"[Level 1b]");
     } else {
@@ -1843,7 +1840,7 @@ dissect_h264_seq_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
 /* 7.3.2.2 Picture parameter set RBSP syntax */
 
 static void
-dissect_h264_pic_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_pic_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int     bit_offset;
     uint32_t num_slice_groups_minus1, pic_scaling_matrix_present_flag;
@@ -1889,7 +1886,7 @@ dissect_h264_pic_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
     /* slice_group_id[ i ] 1 u(v)*/
     /* }*/
     /* }*/
-        proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+        proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
         return;
     }
     /* num_ref_idx_l0_active_minus1 1 ue(v)*/
@@ -1938,7 +1935,7 @@ dissect_h264_pic_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
         bit_offset++;
 
         if (pic_scaling_matrix_present_flag) {
-            proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3, -1);
+            proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, bit_offset>>3);
             return;
             /* for (i = 0; i < 6 + 2* transform_8x8_mode_flag; i++) {*/
                 /* pic_scaling_list_present_flag[ i ] 1 u(1)*/
@@ -1961,7 +1958,7 @@ dissect_h264_pic_parameter_set_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info
  * access_unit_delimiter_rbsp( )
  */
 static void
-dissect_h264_access_unit_delimiter_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_access_unit_delimiter_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     int bit_offset = offset << 3;
     /* primary_pic_type 6 u(3) */
@@ -1977,9 +1974,9 @@ dissect_h264_access_unit_delimiter_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_
  * end_of_seq_rbsp( ) {}
  */
 static void
-dissect_h264_end_of_seq_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_end_of_seq_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, offset, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, offset);
 }
 
 /*
@@ -1987,9 +1984,9 @@ dissect_h264_end_of_seq_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
  * end_of_stream_rbsp( ) {}
  */
 static void
-dissect_h264_end_of_stream_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_end_of_stream_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, offset, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, offset);
 }
 
 /*
@@ -1997,12 +1994,12 @@ dissect_h264_end_of_stream_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pi
  * filler_data_rbsp( )
  */
 static void
-dissect_h264_filler_data_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_filler_data_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     /* while (next_bits( 8 ) == 0xFF) */
     /* ff_byte * equal to 0xFF * 9 f(8) */
     /* rbsp_trailing_bits( ) 9 */
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, offset, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, offset);
 }
 
 /*
@@ -2010,7 +2007,7 @@ dissect_h264_filler_data_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinf
  * seq_parameter_set_extension_rbsp( )
  */
 static void
-dissect_h264_seq_parameter_set_extension_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_seq_parameter_set_extension_rbsp(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     /* seq_parameter_set_id 10 ue(v) */
     /* aux_format_idc 10 ue(v) */
@@ -2022,12 +2019,12 @@ dissect_h264_seq_parameter_set_extension_rbsp(proto_tree *tree, tvbuff_t *tvb, p
     /* } */
     /* additional_extension_flag 10 u(1) */
     /* rbsp_trailing_bits() 10 */
-    proto_tree_add_expert(tree, pinfo, &ei_h264_undecoded, tvb, offset, -1);
+    proto_tree_add_expert_remaining(tree, pinfo, &ei_h264_undecoded, tvb, offset);
 }
 
 /* RFC 6190 Section: 1.1.3 - NAL Unit Header Extension - H.264 Annex G*/
 static int
-dissect_h264_svc_nal_header_extension(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_svc_nal_header_extension(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     proto_tree_add_item(tree, hf_h264_nal_hdr_ext_svc,  tvb, offset,     1, ENC_BIG_ENDIAN);
     proto_tree_add_item(tree, hf_h264_nal_hdr_ext_i,    tvb, offset,     1, ENC_BIG_ENDIAN);
@@ -2047,7 +2044,7 @@ dissect_h264_svc_nal_header_extension(proto_tree *tree, tvbuff_t *tvb, packet_in
 }
 /* H.264 Annex G Prefix NAL Unit */
 
-static int dissect_h264_prefix(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+static int dissect_h264_prefix(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     uint8_t svc_extension_flag;
 
@@ -2069,7 +2066,7 @@ static int dissect_h264_prefix(proto_tree *tree, tvbuff_t *tvb, packet_info *pin
 /* RFC 6190 Section: 4.9 - Payload Content Scalability Information (PACSI) */
 static void
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_h264_pacsi(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
+dissect_h264_pacsi(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, unsigned offset)
 {
     int8_t      pacsi_flags;
     uint16_t    nal_unit_size;
@@ -2123,7 +2120,7 @@ dissect_h264_pacsi(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offs
         else
         {
             /* Make a new subset of the existing buffer for the NAL unit */
-            nalu_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb,offset), nal_unit_size);
+            nalu_tvb = tvb_new_subset_length(tvb, offset, nal_unit_size);
             /* Decode the NAL unit */
             dissect_h264(nalu_tvb, pinfo, tree, NULL);
             offset += nal_unit_size;
@@ -2140,7 +2137,7 @@ dissect_h264_pacsi(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offs
  */
 static void
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_h264_stap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset, int8_t nal_type)
+dissect_h264_stap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset, int8_t nal_type)
 {
     uint16_t    nal_unit_size;
     tvbuff_t    *nalu_tvb;
@@ -2173,7 +2170,7 @@ dissect_h264_stap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int o
         else
         {
             /* Make a new subset of the existing buffer for the NAL unit */
-            nalu_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), nal_unit_size);
+            nalu_tvb = tvb_new_subset_length(tvb, offset, nal_unit_size);
             /* Decode the NAL unit */
             dissect_h264(nalu_tvb, pinfo, tree, NULL);
             offset += nal_unit_size;
@@ -2186,7 +2183,7 @@ dissect_h264_stap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int o
  */
 static void
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_h264_mtap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset, int8_t nal_type)
+dissect_h264_mtap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset, int8_t nal_type)
 {
     int         size_offset;
     uint16_t    nal_unit_size;
@@ -2231,7 +2228,7 @@ dissect_h264_mtap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int o
         else
         {
             /* Make a new subset of the existing buffer for the NAL unit */
-            nalu_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), nal_unit_size);
+            nalu_tvb = tvb_new_subset_length(tvb, offset, nal_unit_size);
             /* Decode the NAL unit */
             dissect_h264(nalu_tvb, pinfo, tree, NULL);
             offset += nal_unit_size;
@@ -2244,7 +2241,7 @@ dissect_h264_mtap(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int o
  */
 static void
 // NOLINTNEXTLINE(misc-no-recursion)
-dissect_h264_nalu_extension (proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+dissect_h264_nalu_extension (proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, unsigned offset)
 {
     int         size_offset;
     uint16_t    nal_unit_size;
@@ -2298,7 +2295,7 @@ dissect_h264_nalu_extension (proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo
             else
             {
                 /* Make a new subset of the existing buffer for the NAL unit */
-                nalu_tvb = tvb_new_subset_length_caplen(tvb, offset, tvb_captured_length_remaining(tvb, offset), nal_unit_size);
+                nalu_tvb = tvb_new_subset_length(tvb, offset, nal_unit_size);
                 /* Decode the NAL unit */
                 dissect_h264(nalu_tvb, pinfo, nimtap_tree, NULL);
                 offset += nal_unit_size;
@@ -2425,7 +2422,8 @@ dissect_h264_bytestream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     proto_item *item;
 
     tvbuff_t *next_tvb, *rbsp_tvb;
-    int offset = 0, end_offset;
+    unsigned offset = 0;
+    unsigned end_offset;
     uint32_t dword;
 
     /* Look for the first start word. Assume byte aligned. */
@@ -2454,23 +2452,23 @@ dissect_h264_bytestream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
         }
         /* start_code_prefix_one_3bytes */
         offset += 3;
-        int nal_length = tvb_reported_length_remaining(tvb, offset);
+        unsigned nal_length = tvb_reported_length_remaining(tvb, offset);
         /* Search for either \0\0\1 or \0\0\0\1:
          * Find \0\0 and then check if \0\1 is in the next offset or
          * the one after that. (Note none of this throws exceptions.)
          */
-        end_offset = tvb_find_uint16(tvb, offset, -1, 0);
-        while (end_offset != -1) {
-            if (tvb_find_uint16(tvb, end_offset + 1, 3, 1) != -1) {
+        end_offset = offset;
+        while (tvb_find_uint16_remaining(tvb, end_offset, 0, &end_offset)) {
+            if (tvb_find_uint16_length(tvb, end_offset + 1, 3, 1, NULL)) {
                 nal_length = end_offset - offset;
                 break;
             }
-            end_offset = tvb_find_uint16(tvb, end_offset + 1, -1, 0);
+            end_offset++;
         }
 
-        /* If end_offset is -1, we got to the end; assume this is the end
-         * of the NAL. To handle a bytestream that fragments NALs across
-         * lower level packets (does any implementation do this?), we would
+        /* If we got to the end, assume this is the end of the NAL.
+         * To handle a bytestream that fragments NALs across lower
+         * level packets (does any implementation do this?), we would
          * need to use epan/stream.h
          */
 
@@ -2625,7 +2623,7 @@ static int * const profile_fields[] = {
 static int
 dissect_h264_par_profile(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-    int offset = 0;
+    unsigned offset = 0;
 
     proto_tree_add_bitmask(tree, tvb, offset,
                            hf_h264_par_profile, ett_h264_par_profile,
@@ -2642,7 +2640,7 @@ static int * const AdditionalModesSupported_fields[] = {
 static int
 dissect_h264_par_AdditionalModesSupported(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-    int offset = 0;
+    unsigned offset = 0;
 
     proto_tree_add_bitmask(tree, tvb, offset,
                            hf_h264_par_AdditionalModesSupported, ett_h264_par_AdditionalModesSupported,
@@ -2663,7 +2661,7 @@ static int * const ProfileIOP_fields[] = {
 static int
 dissect_h264_ProfileIOP(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
-    int offset = 0;
+    unsigned offset = 0;
 
     proto_tree_add_bitmask(tree, tvb, offset,
                            hf_h264_par_ProfileIOP, ett_h264_par_ProfileIOP,

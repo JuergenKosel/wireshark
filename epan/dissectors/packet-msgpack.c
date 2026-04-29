@@ -382,7 +382,7 @@ static void dissect_msgpack_bin(tvbuff_t* tvb, packet_info* pinfo, proto_tree* t
 	lvalue = (char*)tvb_bytes_to_str(pinfo->pool, tvb, *offset + 1 + lensize, len);
 	label = (data ? (char*)data : "MsgPack Bytes");
 
-	ti = proto_tree_add_bytes_format(tree, hf_msgpack_bin, tvb, *offset, 1 + lensize + len, lvalue, "%s: %s", label, lvalue);
+	ti = proto_tree_add_bytes_format(tree, hf_msgpack_bin, tvb, *offset, 1 + lensize + len, NULL, "%s: %s", label, lvalue);
 	subtree = proto_item_add_subtree(ti, ett_msgpack_bin);
 	proto_tree_add_item(subtree, hf_msgpack_type, tvb, *offset, 1, ENC_NA);
 
@@ -490,6 +490,8 @@ static void dissect_msgpack_object(tvbuff_t* tvb, packet_info* pinfo, proto_tree
 
 	type = tvb_get_uint8(tvb, *offset);
 
+	col_append_fstr(pinfo->cinfo, COL_INFO, "%s ", rval_to_str_const(type, msgpack_types, " Unknown Msg Type"));
+
 	// Nil
 	if (type == 0xc0) {
 		proto_tree_add_string_format(tree, hf_msgpack_string, tvb, *offset, 1, "nil", "nil");
@@ -560,6 +562,10 @@ static void dissect_msgpack_object(tvbuff_t* tvb, packet_info* pinfo, proto_tree
 static int dissect_msgpack(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data)
 {
 	int offset = 0;
+
+	col_set_str(pinfo->cinfo, COL_PROTOCOL, "MsgPack");
+	col_clear(pinfo->cinfo, COL_INFO);
+
 	dissect_msgpack_object(tvb, pinfo, tree, data, &offset, NULL);
 	return offset;
 }

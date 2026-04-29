@@ -10,7 +10,7 @@
 #ifndef UI_QT_WIDGETS_PACKET_LIST_HEADER_H_
 #define UI_QT_WIDGETS_PACKET_LIST_HEADER_H_
 
-#include <cfile.h>
+#include <epan/cfile.h>
 
 #include <QHeaderView>
 #include <QDrag>

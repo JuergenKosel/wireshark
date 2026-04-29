@@ -219,13 +219,13 @@ char*
 wmem_ascii_strdown(wmem_allocator_t *allocator, const char *str, ssize_t len)
 {
     char *result, *s;
+    size_t abs_len;
 
     g_return_val_if_fail (str != NULL, NULL);
 
-    if (len < 0)
-        len = strlen (str);
+    abs_len = (len < 0) ? strlen(str) : (size_t)len;
 
-    result = wmem_strndup(allocator, str, len);
+    result = wmem_strndup(allocator, str, abs_len);
     for (s = result; *s; s++)
         *s = g_ascii_tolower (*s);
 
@@ -327,7 +327,7 @@ isprint_utf8_string(const char *str, const unsigned length)
 
 /* Check if an entire string is digits. */
 bool
-isdigit_string(const unsigned char *str)
+isdigit_string(const char *str)
 {
     unsigned pos;
 
@@ -416,7 +416,7 @@ static const char* decimal_point = NULL;
 static void truncate_numeric_strbuf(wmem_strbuf_t *strbuf, int n) {
 
     const char *s = wmem_strbuf_get_str(strbuf);
-    char *p;
+    const char *p;
     int count;
 
     if (decimal_point == NULL) {
@@ -441,7 +441,7 @@ static void truncate_numeric_strbuf(wmem_strbuf_t *strbuf, int n) {
         if (*p != decimal_point[0]) {
             p++;
         }
-        wmem_strbuf_truncate(strbuf, p - s);
+        wmem_strbuf_truncate(strbuf, (size_t)(p - s));
     }
 }
 
@@ -633,17 +633,20 @@ format_size_wmem(wmem_allocator_t *allocator, int64_t size,
             wmem_strbuf_append(human_str, is_small ? "bytes/s" : "Bps");
             break;
         case FORMAT_SIZE_UNIT_PACKETS:
-            wmem_strbuf_append(human_str, is_small ? "packets" : "packets");
+            wmem_strbuf_append(human_str, is_small ? "packets" : "pkts");
             break;
         case FORMAT_SIZE_UNIT_PACKETS_S:
-            wmem_strbuf_append(human_str, is_small ? "packets/s" : "packets/s");
+            wmem_strbuf_append(human_str, is_small ? "packets/s" : "pkts/s");
+            break;
+        case FORMAT_SIZE_UNIT_EVENTS:
+            wmem_strbuf_append(human_str, is_small ? "events" : "evts");
+            break;
+        case FORMAT_SIZE_UNIT_EVENTS_S:
+            wmem_strbuf_append(human_str, is_small ? "events/s" : "evts/s");
             break;
         case FORMAT_SIZE_UNIT_FIELDS:
-            wmem_strbuf_append(human_str, is_small ? "fields" : "fields");
+            wmem_strbuf_append(human_str, is_small ? "fields" : "flds");
             break;
-        /* These aren't that practical to use with integers, but
-         * perhaps better than asserting.
-         */
         case FORMAT_SIZE_UNIT_SECONDS:
             wmem_strbuf_append(human_str, is_small ? "seconds" : "s");
             break;
@@ -716,13 +719,11 @@ escape_string_len(wmem_allocator_t *alloc, const char *string, ssize_t len,
 {
     char c, r;
     wmem_strbuf_t *buf;
-    size_t alloc_size;
-    ssize_t i;
+    size_t abs_len, alloc_size, i;
 
-    if (len < 0)
-        len = strlen(string);
+    abs_len = (len < 0) ? strlen(string) : (size_t)len;
 
-    alloc_size = len;
+    alloc_size = abs_len;
     if (add_quotes)
         alloc_size += 2;
 
@@ -731,7 +732,7 @@ escape_string_len(wmem_allocator_t *alloc, const char *string, ssize_t len,
     if (add_quotes && quote_char != '\0')
         wmem_strbuf_append_c(buf, quote_char);
 
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < abs_len; i++) {
         c = string[i];
         if ((escape_func(c, &r))) {
             wmem_strbuf_append_c(buf, '\\');
@@ -853,7 +854,11 @@ ws_strdup_underline(wmem_allocator_t *allocator, long offset, size_t len)
          * adds at least another 128 bytes, which is more than enough \
          * for one more character plus a terminating '\0'. \
          */ \
-        fmtbuf_len *= 2; \
+        if (ckd_mul(&fmtbuf_len, fmtbuf_len, 2)) { \
+            ws_debug("overflow!"); \
+            FMTBUF_ENDSTR; \
+            return fmtbuf; \
+        } \
         fmtbuf = (char *)wmem_realloc(allocator, fmtbuf, fmtbuf_len); \
     }
 
@@ -1219,7 +1224,7 @@ char *
 format_text(wmem_allocator_t *allocator,
                         const char *string, size_t len)
 {
-    return format_text_internal(allocator, string, len, false);
+    return format_text_internal(allocator, (const uint8_t*)string, len, false);
 }
 
 /** Given a wmem scope and a null-terminated string, expected to be in
@@ -1243,7 +1248,7 @@ format_text(wmem_allocator_t *allocator,
 char *
 format_text_string(wmem_allocator_t* allocator, const char *string)
 {
-    return format_text_internal(allocator, string, strlen(string), false);
+    return format_text_internal(allocator, (const uint8_t*)string, strlen(string), false);
 }
 
 /*
@@ -1255,7 +1260,7 @@ format_text_string(wmem_allocator_t* allocator, const char *string)
 char *
 format_text_wsp(wmem_allocator_t* allocator, const char *string, size_t len)
 {
-    return format_text_internal(allocator, string, len, true);
+    return format_text_internal(allocator, (const uint8_t*)string, len, true);
 }
 
 /*

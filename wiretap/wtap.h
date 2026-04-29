@@ -382,7 +382,7 @@ extern "C" {
  * used by the code to read a particular capture file type; to
  * keep that sort of state information, define a private structure
  * to hold that information in your code, and allocate one of those
- * structures and set the "priv" member of the wth strucure to
+ * structures and set the "priv" member of the wth structure to
  * point to the allocated structure in the "open" routine for that
  * capture file type if the open succeeds.  See various other capture
  * file type handlers for examples of that.
@@ -1259,8 +1259,13 @@ struct netmon_phdr {
 
 /* Record "pseudo-header" information for header data from MS ProcMon files. */
 
+struct procmon_process_t;
 struct procmon_phdr {
-	bool system_bitness;     /* System bitness: 1 if the system is 64 bit, 0 otherwise. */
+    uint32_t *process_index_map;                /* Map of process index to process array index */
+    size_t process_index_map_size;
+    struct procmon_process_t *process_array;    /* Array of processes */
+    size_t process_array_size;
+    bool system_bitness;                        /* System bitness: 1 if the system is 64 bit, 0 otherwise. */
 };
 
 /* File "pseudo-header" for BER data files. */
@@ -1595,6 +1600,7 @@ typedef struct hashipv6 {
     uint8_t           flags;          /* B0 dummy_entry, B1 resolve, B2 If the address is used in the trace */
     char              ip6[WS_INET6_ADDRSTRLEN];
     char              name[MAXDNSNAMELEN];
+    char              cidr_addr[WS_INET6_CIDRADDRSTRLEN];
 } hashipv6_t;
 
 /** A struct with lists of resolved addresses.
@@ -1989,9 +1995,12 @@ struct file_type_subtype_info {
  * @brief Initialize the Wiretap library.
  *
  * @param load_wiretap_plugins Load Wiretap plugins when initializing library.
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
+ * @param file_extensions Array of file extensions supported by the application
+ * @param num_extensions Number of file extensions supported by the application
 */
 WS_DLL_PUBLIC
-void wtap_init(bool load_wiretap_plugins);
+void wtap_init(bool load_wiretap_plugins, const char* app_env_var_prefix, const struct file_extension_info* file_extensions, unsigned num_extensions);
 
 /**
  * @brief Open a capture file for offline analysis.
@@ -2007,11 +2016,12 @@ void wtap_init(bool load_wiretap_plugins);
  * @param[out] err_info for some errors, a string giving more details of
  * the error
  * @param do_random true if random access to the file will be done,
+ * @param app_env_var_prefix The prefix for the application environment variable used to get the personal config directory.
  * false if not
  */
 WS_DLL_PUBLIC
 struct wtap* wtap_open_offline(const char *filename, unsigned int type, int *err,
-    char **err_info, bool do_random);
+    char **err_info, bool do_random, const char* app_env_var_prefix);
 
 /**
  * @brief Clear EOF status for a wiretap file.

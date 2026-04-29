@@ -256,9 +256,29 @@ int Column_register(lua_State *L) {
 WSLUA_CLASS_DEFINE(Columns,NOP); /* The <<lua_class_Column,``Column``>>s of the packet list. */
 
 WSLUA_METAMETHOD Columns__tostring(lua_State *L) {
-    lua_pushstring(L,"Columns");
-    WSLUA_RETURN(1);
-    /* The string "Columns". This has no real use aside from debugging. */
+    /* Returns a short preview of the form
+       `Columns: number="1" protocol="TCP" info="..."`. Only the
+       three columns most useful for a quick "what packet is this"
+       glance are included; per-Column iteration via `pairs(cols)`
+       exposes the full set. As with `Column.__tostring`, an empty
+       value can mean the column is unconfigured, hasn't been
+       written yet, or that cinfo is NULL (e.g. while dissecting
+       for the details pane). Returns `Columns: (no cinfo)` when
+       there is no column_info to inspect at all. */
+    Columns cols = checkColumns(L,1);
+    if (!cols || !cols->cinfo) {
+        lua_pushstring(L, "Columns: (no cinfo)");
+        WSLUA_RETURN(1);
+    }
+    const char *num   = col_get_text(cols->cinfo, COL_NUMBER);
+    const char *proto = col_get_text(cols->cinfo, COL_PROTOCOL);
+    const char *info  = col_get_text(cols->cinfo, COL_INFO);
+    lua_pushfstring(L,
+        "Columns: number=\"%s\" protocol=\"%s\" info=\"%s\"",
+        num   ? num   : "",
+        proto ? proto : "",
+        info  ? info  : "");
+    WSLUA_RETURN(1); /* The preview string. */
 }
 
 /*
@@ -398,6 +418,68 @@ int get_Columns_index(lua_State *L)
     return Columns__index(L);
 }
 
+/* Stateless iterator for Columns' standard-Lua __pairs protocol.
+ * Receives (cols, prev_name_or_nil) and returns the next
+ * (name, Column) pair, or nil when the colnames list is exhausted.
+ * The walk mirrors the order of the static colnames table.
+ *
+ * The returned Column carries whatever cinfo the parent Columns has,
+ * including NULL — see Column__tostring for the note on why that is
+ * expected in the details-pane dissection pass and why columns can
+ * render as "" there even when the packet list shows real text. */
+static int Columns_pairs_iter(lua_State *L) {
+    Columns cols = checkColumns(L, 1);
+    const char *prev = lua_isnoneornil(L, 2) ? NULL : luaL_checkstring(L, 2);
+
+    if (!cols) {
+        lua_pushnil(L);
+        return 1;
+    }
+    if (cols->expired) {
+        luaL_error(L, "expired column");
+        return 0;
+    }
+
+    const struct col_names_t *cn = colnames;
+    if (prev != NULL) {
+        while (cn->name && !g_str_equal(cn->name, prev)) {
+            cn++;
+        }
+        if (cn->name) {
+            cn++;
+        }
+    }
+
+    if (!cn->name) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushstring(L, cn->name);
+    Column c = (Column)g_malloc(sizeof(struct _wslua_col_info));
+    c->cinfo = cols->cinfo;
+    c->col = cn->id;
+    c->expired = false;
+    PUSH_COLUMN(L, c);
+    return 2;
+}
+
+WSLUA_METAMETHOD Columns__pairs(lua_State *L) {
+    /*
+    Iterate over all known columns of the packet list.
+
+    ===== Example
+
+    [source,lua]
+    ----
+    for name, col in pairs(pinfo.cols) do
+        debug(name .. " = " .. tostring(col))
+    end
+    ----
+    */
+    WSLUA_STATELESS_PAIRS_BODY(Columns);
+}
+
 
 /* Gets registered as metamethod automatically by WSLUA_REGISTER_META */
 static int Columns__gc(lua_State* L) {
@@ -419,6 +501,7 @@ WSLUA_META Columns_meta[] = {
     WSLUA_CLASS_MTREG(Columns,tostring),
     WSLUA_CLASS_MTREG(Columns,newindex),
     WSLUA_CLASS_MTREG(Columns,index),
+    WSLUA_CLASS_MTREG(Columns,pairs),
     { NULL, NULL }
 };
 

@@ -239,9 +239,9 @@ static const value_string route_policy_tlv_policy_class_typevals[] = {
 
 static const value_string bmpv4_tlv_typevals[] = {
     { BMPv4_TLV_TYPE_STATELESS_PARSING,      "Stateless Parsing" },
+    { BMPv4_TLV_TYPE_GROUP,                  "Group" },
     { BMPv4_TLV_TYPE_VRF_TABLE_NAME,         "VRF/Table Name" },
     { BMPv4_TLV_TYPE_BGP_MSG,                "BGP Message" },
-    { BMPv4_TLV_TYPE_GROUP,                  "Group" },
     { BMPv4_TLV_TYPE_BGP_PATH_STATUS,        "BGP Path Status" },
     { 0, NULL }
 };
@@ -646,6 +646,7 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
             case BMPv4_TLV_TYPE_VRF_TABLE_NAME: {
                 proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_string, tvb, offset, tlv.length,
                                                    ENC_ASCII);
+                offset += tlv.length;
 
                 if (tlv.length == 0 || tlv.length > BMPv4_TLV_LENGTH_VRF_TABLE_NAME_MAX_LENGTH) {
                     expert_add_info(pinfo, ti, &ei_bmpv4_tlv_string_bad_length);
@@ -670,7 +671,9 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_bytes, tvb, offset, tlv.length, ENC_NA);
                 proto_tree *subtree = proto_item_add_subtree(ti, ett_bmpv4_tlv_value);
 
-                call_dissector(dissector_bgp, tvb_new_subset_length(tvb, offset, tlv.length), pinfo, subtree);
+                const int consumed = call_dissector(dissector_bgp, tvb_new_subset_length(tvb, offset, tlv.length), pinfo, subtree);
+                offset += consumed;
+
                 break;
             }
             default:
@@ -705,8 +708,7 @@ dissect_bmp_peer_down_notification(tvbuff_t *tvb, proto_tree *tree, packet_info 
 {
     uint8_t down_reason;
 
-    down_reason = tvb_get_uint8(tvb, offset);
-    proto_tree_add_item(tree, hf_peer_down_reason, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint8(tree, hf_peer_down_reason, tvb, offset, 1, ENC_BIG_ENDIAN, &down_reason);
     offset += 1;
 
     /* bmp version 3 */
@@ -1028,8 +1030,7 @@ dissect_bmp_termination(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     proto_tree_add_item(subtree, hf_term_type, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;
 
-    term_len = tvb_get_ntohs(tvb, offset);
-    proto_tree_add_item(subtree, hf_term_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint16(subtree, hf_term_len, tvb, offset, 2, ENC_BIG_ENDIAN, &term_len);
     offset += 2;
 
     if (term_type == BMP_TERM_TYPE_STRING) {
@@ -2121,7 +2122,7 @@ proto_register_bmp(void)
         },
         { &ei_bmpv4_tlv_not_fully_parsed,
           { "bmp.tlv.not_fully_parsed", PI_MALFORMED, PI_ERROR,
-            "Bad string length (should be in range [1; 255])", EXPFILL }
+            "TLV not fully parsed", EXPFILL }
         },
     };
 

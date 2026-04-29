@@ -55,14 +55,12 @@ ADD: Additional generic (non-checked) ICV length of 128, 192 and 256.
 
 */
 
-#define WS_LOG_DOMAIN "packet-ipsec"
-
 #include "config.h"
+#define WS_LOG_DOMAIN "packet-ipsec"
 #include <wireshark.h>
 
 #include <epan/packet.h>
 #include <epan/addr_resolv.h>
-#include <epan/ipproto.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/tap.h>
@@ -74,6 +72,7 @@ ADD: Additional generic (non-checked) ICV length of 128, 192 and 256.
 #include <wiretap/secrets-types.h>
 #include <stdio.h>    /* for sscanf() */
 #include <epan/uat-int.h>
+#include <epan/iana-info.h>
 #include <wsutil/str_util.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/pint.h>
@@ -893,8 +892,8 @@ get_full_ipv6_addr(wmem_allocator_t* scope, char* ipv6_addr_expanded, char *ipv6
 static bool
 get_full_ipv4_addr(char* ipv4_address_expanded, char *ipv4_address)
 {
-  char addr_byte_string_tmp[4];
-  char addr_byte_string[4];
+  char addr_byte_string_tmp[12];
+  char addr_byte_string[12];
 
   unsigned addr_byte = 0;
   unsigned i = 0;
@@ -948,9 +947,9 @@ get_full_ipv4_addr(char* ipv4_address_expanded, char *ipv4_address)
             return false;
 
           if(addr_byte < 16)
-            snprintf(addr_byte_string,4,"0%X",addr_byte);
+            snprintf(addr_byte_string,11,"0%X",addr_byte);
           else
-            snprintf(addr_byte_string,4,"%X",addr_byte);
+            snprintf(addr_byte_string,11,"%X",addr_byte);
           for(i = 0; i < strlen(addr_byte_string); i++)
           {
             ipv4_address_expanded[cpt] = addr_byte_string[i];
@@ -977,9 +976,9 @@ get_full_ipv4_addr(char* ipv4_address_expanded, char *ipv4_address)
             return false;
 
           if(addr_byte < 16)
-            snprintf(addr_byte_string,4,"0%X",addr_byte);
+            snprintf(addr_byte_string,11,"0%X",addr_byte);
           else
-            snprintf(addr_byte_string,4,"%X",addr_byte);
+            snprintf(addr_byte_string,11,"%X",addr_byte);
           for(i = 0; i < strlen(addr_byte_string); i++)
           {
             ipv4_address_expanded[cpt] = addr_byte_string[i];
@@ -1330,9 +1329,12 @@ esp_null_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *esp_tree)
     /* Make sure the packet is not truncated before the fields
      * we need to read to determine the encapsulated protocol.
      */
-    if (tvb_bytes_exist(tvb, -(esp_icv_len + 2), 2))
+    if (esp_packet_len >= (esp_icv_len + 2))
     {
       offset = esp_packet_len - (esp_icv_len + 2);
+      if (!tvb_bytes_exist(tvb, offset, 2)) {
+        continue;
+      }
       esp_pad_len = tvb_get_uint8(tvb, offset);
       encapsulated_protocol = tvb_get_uint8(tvb, offset + 1);
       dissector_handle = dissector_get_uint_handle(ip_dissector_table, encapsulated_protocol);
@@ -1533,7 +1535,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   int esp_pad_len = 0;
 
 
-  /* Variables for decryption and authentication checking used for libgrypt */
+  /* Variables for decryption and authentication checking used for libgcrypt */
   gcry_md_hd_t md_hd;
   int md_len = 0;
   gcry_error_t err = 0;
@@ -2168,10 +2170,11 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
           esp_block_len = 1;
 
           /* Allocate buffer for decrypted data  */
+          if (esp_encr_data_len < esp_icv_len) {
+            return esp_packet_len;
+          }
           esp_decr_data_len = esp_encr_data_len - esp_icv_len;
-          esp_decr_data = (uint8_t *)wmem_alloc(pinfo->pool, esp_decr_data_len);
-
-          tvb_memcpy(tvb, esp_decr_data, ESP_HEADER_LEN, esp_decr_data_len);
+          esp_decr_data = tvb_memdup(pinfo->pool, tvb, ESP_HEADER_LEN, esp_decr_data_len);
 
           decrypt_ok = true;
 
@@ -2252,10 +2255,8 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
           /*
            * Allocate buffer for decrypted data.
            */
-          esp_decr_data = (unsigned char*)wmem_alloc(pinfo->pool, esp_encr_data_len);
           esp_decr_data_len = esp_encr_data_len;
-
-          tvb_memcpy(tvb, esp_decr_data, ESP_HEADER_LEN,  esp_encr_data_len);
+          esp_decr_data = tvb_memdup(pinfo->pool, tvb, ESP_HEADER_LEN, esp_decr_data_len);
 
           /* (Lazily) create the cipher_hd */
           if (!(*cipher_hd_created)) {
@@ -2505,9 +2506,11 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   */
   if(!g_esp_enable_encryption_decode && g_esp_enable_authentication_check && sad_is_present)
   {
-    next_tvb = tvb_new_subset_length_caplen(tvb, ESP_HEADER_LEN, esp_packet_len - ESP_HEADER_LEN - esp_icv_len, -1);
-    export_ipsec_pdu(data_handle, pinfo, next_tvb);
-    call_dissector(data_handle, next_tvb, pinfo, esp_tree);
+    if ((esp_packet_len - ESP_HEADER_LEN) > esp_icv_len) {
+      next_tvb = tvb_new_subset_length(tvb, ESP_HEADER_LEN, esp_packet_len - ESP_HEADER_LEN - esp_icv_len);
+      export_ipsec_pdu(data_handle, pinfo, next_tvb);
+      call_dissector(data_handle, next_tvb, pinfo, esp_tree);
+    }
   }
   /* The packet does not belong to a security association and the field g_esp_enable_null_encryption_decode_heuristic is set */
   else if(null_encryption_decode_heuristic)
@@ -2676,7 +2679,7 @@ esp_export_secret_count(void)
 }
 
 static bool
-esp_export_dsb(capture_file *cf)
+esp_export_dsb(wtap* wth)
 {
   wtap_block_t block;
   wtapng_dsb_mandatory_t *dsb;
@@ -2692,11 +2695,10 @@ esp_export_dsb(capture_file *cf)
   dsb = (wtapng_dsb_mandatory_t *)wtap_block_get_mandatory_data(block);
 
   dsb->secrets_type = SECRETS_TYPE_ESP;
-  dsb->secrets_data = wmem_strbuf_finalize(secrets);
-  dsb->secrets_len = (uint32_t)strlen(dsb->secrets_data);
+  dsb->secrets_data = (uint8_t*)wmem_strbuf_finalize(secrets);
+  dsb->secrets_len = (uint32_t)strlen((char*)dsb->secrets_data);
 
-  wtap_file_add_decryption_secrets(cf->provider.wth, block);
-  cf->unsaved_changes = TRUE;
+  wtap_file_add_decryption_secrets(wth, block);
   return true;
 }
 
@@ -2824,7 +2826,7 @@ proto_register_ipsec(void)
   static build_valid_func ah_da_build_value[1] = {ah_value};
   static decode_as_value_t ah_da_values = {ah_prompt, 1, ah_da_build_value};
   static decode_as_t ah_da = {"ah", "ip.proto", 1, 0, &ah_da_values, NULL, NULL,
-                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL };
+                                  decode_as_default_populate_list, decode_as_default_reset, decode_as_default_change, NULL, NULL, NULL };
 
   module_t *ah_module;
   module_t *esp_module;

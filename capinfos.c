@@ -60,6 +60,7 @@
 
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
+#include <app/application_flavor.h>
 #include <wsutil/file_compressed.h>
 #include <wsutil/privileges.h>
 #include <cli_main.h>
@@ -361,7 +362,7 @@ relative_time_string(nstime_t *timer, int tsprecision, capture_info *cf_info, bo
      * unsigned, 2^64-1 is 18446744073709551615, so the buffer has
      * to be big enough for "18446744073709551615.999999999 seconds".
      * That's 20+1+9+1+7+1, including the terminating '\0', or 39.
-     * If it'ssigned, 2^63 is 9223372036854775808, so the buffer has to
+     * If it's signed, 2^63 is 9223372036854775808, so the buffer has to
      * be big enough for "-9223372036854775808.999999999 seconds",
      * which is again 20+1+9+1+7+1, or 39.
      */
@@ -1105,7 +1106,7 @@ process_cap_file(const char *filename, bool need_separator)
 
     pkt_cmt *pc = NULL, *prev = NULL;
 
-    cf_info.wth = wtap_open_offline(filename, WTAP_TYPE_AUTO, &err, &err_info, false);
+    cf_info.wth = wtap_open_offline(filename, WTAP_TYPE_AUTO, &err, &err_info, false, application_configuration_environment_prefix());
     if (!cf_info.wth) {
         report_cfile_open_failure(filename, err, err_info);
         return 2;
@@ -1469,6 +1470,8 @@ main(int argc, char *argv[])
         LONGOPT_WSLOG
         {0, 0, 0, 0 }
     };
+    const struct file_extension_info* file_extensions;
+    unsigned num_extensions;
 
 #define OPTSTRING "abcdehiklmnopqrstuvxyzABCDEFHIKLMNPQRST"
     static const char optstring[] = OPTSTRING;
@@ -1523,11 +1526,12 @@ main(int argc, char *argv[])
     }
 
     /* Initialize the version information. */
-    ws_init_version_info("Capinfos", NULL, get_ws_vcs_version_info, NULL, NULL);
+    ws_init_version_info("Capinfos", NULL, application_get_vcs_version_info, NULL, NULL);
 
     init_report_failure_message("capinfos");
 
-    wtap_init(true);
+    application_file_extensions(&file_extensions, &num_extensions);
+    wtap_init(true, application_configuration_environment_prefix(), file_extensions, num_extensions);
 
     /* Process the options */
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) !=-1) {
