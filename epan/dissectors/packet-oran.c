@@ -519,6 +519,8 @@ static int hf_oran_cplane;
 static int hf_oran_uplane;
 static int hf_oran_bf;      /* to match frames that configure beamforming in any way */
 static int hf_oran_zero_prb;
+static int hf_oran_nonzero_prb;
+
 
 static int hf_oran_ul_cplane_ud_comp_hdr_frame;
 
@@ -7340,8 +7342,13 @@ dissect_oran_u(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                     tap_info->num_prbs_zero++;
                     /* Add a filter to make zero-valued PRBs more findable */
                     proto_tree_add_item(rb_tree, hf_oran_zero_prb, tvb,
-                                                            samples_offset/8, nBytesForSamples, ENC_NA);
+                                        samples_offset/8, nBytesForSamples, ENC_NA);
                     proto_item_append_text(prbHeading, " (all zeros)");
+                }
+                else {
+                    proto_item *nonzero_ti = proto_tree_add_item(rb_tree, hf_oran_nonzero_prb, tvb, samples_offset/8, nBytesForSamples, ENC_NA);
+                    proto_item_set_hidden(nonzero_ti);
+
                 }
             }
 
@@ -9452,6 +9459,13 @@ proto_register_oran(void)
             NULL, 0x0,
             "All of the REs in this PRB are zero", HFILL}
         },
+        { &hf_oran_nonzero_prb,
+          { "Non-Zero PRB", "oran_fh_cus.nonzero-prb",
+            FT_NONE, BASE_NONE,
+            NULL, 0x0,
+            "Not all of the REs in this PRB are zero", HFILL}
+        },
+
 
         /* 5.1.3.2.7 */
         { &hf_oran_ecpri_pcid,

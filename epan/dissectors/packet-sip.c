@@ -3061,7 +3061,7 @@ dissect_sip_p_access_network_info_header(tvbuff_t *tvb, packet_info *pinfo, prot
         length = semi_colon_offset - current_offset;
 
         /* Parse parameter and value */
-        if (!tvb_find_uint8_length(tvb, current_offset + 1, length, '=', &equals_offset)){
+        if (tvb_find_uint8_length(tvb, current_offset + 1, length, '=', &equals_offset)){
             /* Has value part */
             par_name_end_offset = equals_offset;
             /* Extract the parameter name */
@@ -4099,7 +4099,7 @@ dissect_sip_common(tvbuff_t *tvb, unsigned offset, unsigned remaining_length, pa
                         /* RSeq number */
                         tvb_get_string_uint(tvb, value_offset, value_len, ENC_STR_DEC, &rseq_number, &sub_value_offset);
                         proto_tree_add_uint(rack_tree, hf_sip_rack_rseq_no,
-                                            tvb, value_offset, sub_value_offset,
+                                            tvb, value_offset, sub_value_offset - value_offset,
                                             rseq_number);
 
                         /* Get to start of CSeq number */
@@ -4107,7 +4107,7 @@ dissect_sip_common(tvbuff_t *tvb, unsigned offset, unsigned remaining_length, pa
                         cseq_no_offset = sub_value_offset;
 
                         /* CSeq number */
-                        tvb_get_string_uint(tvb, value_offset, value_len, ENC_STR_DEC, &cseq_number, &sub_value_offset);
+                        tvb_get_string_uint(tvb, cseq_no_offset, line_end_offset - cseq_no_offset, ENC_STR_DEC, &cseq_number, &sub_value_offset);
                         proto_tree_add_uint(rack_tree, hf_sip_rack_cseq_no,
                                             tvb, cseq_no_offset,
                                             sub_value_offset-cseq_no_offset,

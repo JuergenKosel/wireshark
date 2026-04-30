@@ -16,7 +16,6 @@
 
 #include <epan/packet.h>
 
-#include <wsutil/strtoi.h>
 #include <wsutil/array.h>
 
 #include "packet-e212.h"
@@ -4374,42 +4373,54 @@ dissect_e212_mcc_mnc_high_nibble(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
 int
 dissect_e212_mcc_mnc_in_utf8_address(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset)
 {
+    proto_item *item;
     uint16_t mcc = 0, mnc = 0;
     char   *mcc_str, *mnc_str;
-    bool        long_mnc = false;
+    bool    bad_mcc = false;
+    bool    bad_mnc = false;
+    bool    long_mnc = false;
 
-    ws_strtou16((char*)tvb_get_string_enc(pinfo->pool, tvb, offset, 3, ENC_UTF_8),
-        NULL, &mcc);
-    ws_strtou16((char*)tvb_get_string_enc(pinfo->pool, tvb, offset + 3, 2, ENC_UTF_8),
-        NULL, &mnc);
+    if (!tvb_get_string_uint16(tvb, offset, 3, ENC_STR_DEC, &mcc, NULL)) {
+        bad_mcc = true;
+    }
+    if (!tvb_get_string_uint16(tvb, offset + 3, 2, ENC_STR_DEC, &mnc, NULL)) {
+        bad_mnc = true;
+    }
 
     /* Try to match the MCC and 2 digits MNC with an entry in our list of operators */
     if (!try_val_to_str_ext(mcc * 100 + mnc, &mcc_mnc_2digits_codes_ext)) {
         if (tvb_reported_length_remaining(tvb, offset + 3) > 2) {
-            ws_strtou16((char*)tvb_get_string_enc(pinfo->pool, tvb, offset + 3, 3, ENC_UTF_8),
-                NULL, &mnc);
+            if (!tvb_get_string_uint16(tvb, offset + 3, 3, ENC_STR_DEC, &mnc, NULL)) {
+                bad_mnc = true;
+            }
             long_mnc = true;
         }
     }
 
     mcc_str = wmem_strdup_printf(pinfo->pool, "%03u", mcc);
-    proto_tree_add_string_format_value(tree, hf_E212_mcc, tvb,
+    item = proto_tree_add_string_format_value(tree, hf_E212_mcc, tvb,
                                        offset, 3, mcc_str, "%s (%s)",
                                        val_to_str_ext_const(mcc, &E212_codes_ext, "Unknown"),
                                        mcc_str);
+    if (bad_mcc) {
+        expert_add_info(pinfo, item, &ei_E212_mcc_non_decimal);
+    }
 
     if (long_mnc){
         mnc_str = wmem_strdup_printf(pinfo->pool, "%03u", mnc);
-        proto_tree_add_string_format_value(tree, hf_E212_mnc, tvb, offset + 3, 3, mnc_str,
+        item = proto_tree_add_string_format_value(tree, hf_E212_mnc, tvb, offset + 3, 3, mnc_str,
                    "%s (%s)",
                    val_to_str_ext_const(mcc * 1000 + mnc, &mcc_mnc_3digits_codes_ext, "Unknown1"),
                    mnc_str);
     }else{
         mnc_str = wmem_strdup_printf(pinfo->pool, "%02u", mnc);
-        proto_tree_add_string_format_value(tree, hf_E212_mnc, tvb, offset + 3, 2, mnc_str,
+        item = proto_tree_add_string_format_value(tree, hf_E212_mnc, tvb, offset + 3, 2, mnc_str,
                    "%s (%s)",
                    val_to_str_ext_const(mcc * 100 + mnc, &mcc_mnc_2digits_codes_ext, "Unknown2"),
                    mnc_str);
+    }
+    if (bad_mnc) {
+        expert_add_info(pinfo, item, &ei_E212_mnc_non_decimal);
     }
 
     if (long_mnc)

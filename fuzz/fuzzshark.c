@@ -154,6 +154,9 @@ fuzz_init(int argc, char **argv)
 	unsigned num_extensions;
 	epan_app_data_t app_data;
 
+	/* Future proof by zeroing out all data */
+	memset(&app_data, 0, sizeof(app_data));
+
 	const char *fuzz_target =
 #if defined(FUZZ_DISSECTOR_TARGET)
 		FUZZ_DISSECTOR_TARGET;
@@ -172,11 +175,8 @@ fuzz_init(int argc, char **argv)
 #if !defined(FUZZ_DISSECTOR_TABLE) && !defined(FUZZ_DISSECTOR_TARGET)
 	const char *fuzz_table = getenv("FUZZSHARK_TABLE");
 
-	/* Future proof by zeroing out all data */
-	memset(&app_data, 0, sizeof(app_data));
-
 	/*
-	 * Set the pogram name.
+	 * Set the program name.
 	 *
 	 * XXX - yes, this isn't main(), but it still needs to be
 	 * set, as many Wireshark library routines depend on it

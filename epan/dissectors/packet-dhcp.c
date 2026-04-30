@@ -5729,10 +5729,9 @@ dissect_vendor_tr111_suboption(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 				   proto_tree_add_item(o125_v_tree, hf_dhcp_option125_value, tvb, offset, subopt_len, ENC_NA);
 			}
 			else if (o125_tr111_opt[subopt].ftype == oui) {
-				/* Get hex string.  Expecting 6 characters. */
-				const char    *oui_string =  (char *)tvb_get_string_enc(pinfo->pool, tvb, offset, subopt_len, ENC_ASCII);
-				/* Convert to OUI number.  Only 3 bytes so no data lost in downcast. */
-				uint32_t oui_number = (uint32_t)strtol(oui_string, NULL, 16);
+				/* Get hex OUI number.  Expecting 6 characters. */
+				uint32_t oui_number;
+				tvb_get_string_uint(tvb, offset, subopt_len, ENC_STR_HEX, &oui_number, NULL);
 				/* Add item using oui_vals */
 				proto_tree_add_uint(o125_v_tree, *o125_tr111_opt[subopt].phf, tvb, offset, subopt_len, oui_number);
 			} else if (o125_tr111_opt[subopt].phf == NULL)
@@ -6023,7 +6022,6 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 	unsigned	off	  = PKT_MDC_TLV_OFF + voff;
 	unsigned	subopt_off, max_len;
 	unsigned	tlv_len, i, mib_val;
-	uint8_t	       flow_val_str[5];
 	const char    *asc_val;
 	proto_item    *ti, *mib_ti;
 	proto_tree    *subtree, *subtree2;
@@ -6118,10 +6116,8 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 					break;
 
 				case PKT_MDC_PROV_FLOWS:
-					tvb_memcpy(tvb, flow_val_str, off + 4, 4);
-					flow_val_str[4] = '\0';
 					/* We are only reading 4 digits which should fit in 32 bits */
-					flow_val = (uint32_t)strtoul((char*)flow_val_str, NULL, 16);
+					tvb_get_string_uint(tvb, off + 4, 4, ENC_STR_HEX, &flow_val, NULL);
 					proto_item_append_text(ti,
 							       "0x%04x", flow_val);
 					break;
@@ -6518,29 +6514,22 @@ static void get_opt125_tlv(wmem_allocator_t *scope, tvbuff_t *tvb, unsigned off,
 static void get_opt60_tlv(wmem_allocator_t *scope, tvbuff_t *tvb, unsigned off, uint8_t *tlvtype, uint8_t *tlvlen, uint8_t **value)
 {
 	unsigned	i;
-	uint8_t *val_asc;
 
-	val_asc = (uint8_t *)wmem_alloc0(scope, 4);
 	/* Type */
-	tvb_memcpy(tvb, val_asc, off, 2);
-	*tlvtype = (uint8_t)strtoul((char*)val_asc, NULL, 16);
+	tvb_get_string_uint8(tvb, off, 2, ENC_STR_HEX, tlvtype, NULL);
 	/* Length */
-	tvb_memcpy(tvb, val_asc, off + 2, 2);
-	*tlvlen = (uint8_t)strtoul((char*)val_asc, NULL, 16);
+	tvb_get_string_uint8(tvb, off + 2, 2, ENC_STR_HEX, tlvlen, NULL);
 	/* Value */
 	*value = (uint8_t *)wmem_alloc0(scope, *tlvlen);
 	for (i=0; i<*tlvlen; i++)
 	{
-		memset(val_asc, 0, 4);
-		tvb_memcpy(tvb, val_asc, off + ((i*2) + 4), 2);
-		(*value)[i] = (uint8_t)strtoul((char*)val_asc, NULL, 16);
+		tvb_get_string_uint8(tvb, off + ((i*2) + 4), 2, ENC_STR_HEX, &((*value)[i]), NULL);
 	}
 }
 
 static void
 dissect_docsis_cm_cap(packet_info *pinfo, proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, bool opt125)
 {
-	uint8_t	   *asc_val;
 	proto_item *ti;
 	proto_tree *subtree;
 	uint8_t	    tlv_type;
@@ -6549,8 +6538,6 @@ dissect_docsis_cm_cap(packet_info *pinfo, proto_tree *v_tree, tvbuff_t *tvb, int
 	uint16_t	    val_uint16 = 0;
 	uint8_t	   *val_other  = NULL;
 	unsigned	    off	       = voff;
-
-	asc_val = (uint8_t*)wmem_alloc0(pinfo->pool, 4);
 
 	if (opt125)
 	{
@@ -6568,8 +6555,7 @@ dissect_docsis_cm_cap(packet_info *pinfo, proto_tree *v_tree, tvbuff_t *tvb, int
 		   I am converting the Option 60 values from ASCII to
 		   uint8s to allow the same parser to work for both */
 		off += DOCSIS_CM_CAP_TLV_OFF;
-		tvb_memcpy (tvb, asc_val, off, 2);
-		tlv_len = (uint8_t)strtoul((char*)asc_val, NULL, 16);
+		tvb_get_string_uint8(tvb, off, 2, ENC_STR_HEX, &tlv_len, NULL);
 		proto_tree_add_uint(v_tree, hf_dhcp_docsis_cm_cap_len, tvb, off+2, 2, tlv_len);
 	}
 
